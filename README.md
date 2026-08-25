@@ -1,36 +1,117 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚗 Acelera Auto CRM
 
-## Getting Started
+> Sistema SaaS *mobile-first* de CRM e Gestão de Pátio para revendas e concessionárias de veículos.
 
-First, run the development server:
+![CI Status](https://img.shields.io/github/actions/workflow/status/cristianlohn/acelera-auto-crm/ci.yml?branch=main&label=CI%20Pipeline&logo=github)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0%20Strict-blue?logo=typescript)
+![Next.js](https://img.shields.io/badge/Next.js-16.3%20App%20Router-black?logo=next.js)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38bdf8?logo=tailwind-css)
+![Vitest](https://img.shields.io/badge/Vitest-4.1-6e9f18?logo=vitest)
+![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL%20RLS-3ecf8e?logo=supabase)
+
+---
+
+## 🌟 Principais Funcionalidades
+
+- 📊 **Funil Kanban de Vendas (`/leads`)**:
+  - 5 colunas de negociação: *Novo Lead*, *Em Atendimento*, *Visita/Test-Drive*, *Proposta/Financiamento* e *Venda Concluída*.
+  - Indicador de urgência do contato (🟢 < 6h, 🟠 6-24h, 🔴 > 24h sem contato).
+  - Disparo de mensagem no WhatsApp com 1 clique (`wa.me`) contendo mensagem personalizada com o carro de interesse do cliente.
+  - Cadastro ágil de leads com modal responsivo.
+
+- 🚗 **Gestão de Estoque de Veículos (`/vehicles`)**:
+  - Métricas de topo em tempo real: Total em Estoque, Valor do Pátio (R$), Veículos Reservados e Ticket Médio.
+  - Busca instantânea por marca, modelo e placa.
+  - Filtros rápidos por status (*Todos*, *Disponíveis*, *Reservados*, *Vendidos*).
+  - Ação rápida de **"Copiar Ficha Técnica"** pronta para WhatsApp com formatação e emojis.
+  - Alteração de status com dropdown interativo diretamente no card.
+  - Modal de cadastro de novos veículos com preview de foto e sugestões rápidas.
+
+- 📱 **Experiência Mobile-First**:
+  - Menu retrátil gaveta (*Sheet*) para smartphones.
+  - Sidebar fixa para visualização em desktops e tablets.
+  - Layouts fluidos e touch-friendly.
+
+---
+
+## 🛠️ Stack Tecnológica
+
+| Camada | Tecnologia |
+|---|---|
+| **Framework Web** | [Next.js 16 (App Router)](https://nextjs.org/) |
+| **Linguagem** | [TypeScript 5 (Strict Mode)](https://www.typescriptlang.org/) |
+| **Estilização** | [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
+| **Componentes Acessíveis** | [Radix UI](https://www.radix-ui.com/) |
+| **Ícones** | [Lucide React](https://lucide.dev/) |
+| **Banco de Dados & Auth** | [Supabase (PostgreSQL 15+ com RLS)](https://supabase.com/) |
+| **Testes Automatizados** | [Vitest](https://vitest.dev/) + [Testing Library](https://testing-library.com/) |
+| **CI/CD** | [GitHub Actions](https://github.com/features/actions) |
+
+---
+
+## 🚀 Como Executar o Projeto
+
+### Pré-requisitos
+- Node.js 20 LTS ou superior
+- npm 10+
+
+### Instalação e Execução Local
 
 ```bash
+# 1. Clone o repositório
+git clone https://github.com/cristianlohn/acelera-auto-crm.git
+cd acelera-auto-crm
+
+# 2. Instale as dependências
+npm install --legacy-peer-deps
+
+# 3. Configure as variáveis de ambiente
+cp .env.example .env.local  # (se aplicável)
+
+# 4. Inicie o servidor de desenvolvimento
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra [http://localhost:3000](http://localhost:3000) no navegador para acessar o CRM.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧪 Testes e Qualidade de Código
 
-## Learn More
+O projeto conta com uma suíte de testes unitários e de integração com cobertura de código:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Executar todos os testes uma vez
+npm test
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Executar testes em modo interativo (watch)
+npm run test:watch
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Executar testes com relatório de cobertura (v8)
+npm run test:coverage
 
-## Deploy on Vercel
+# Verificar tipagem TypeScript estrita
+npm run type-check
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Executar o linter (ESLint)
+npm run lint
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+# Gerar build de produção
+npm run build
+```
+
+---
+
+## 📚 Documentação Técnica Completa
+
+Consulte a documentação detalhada na pasta `docs/`:
+
+- 🏗️ [**Arquitetura Técnica & Schema Supabase**](docs/technical-architecture.md) — Design do sistema, modelo relacional, isolamento multi-tenant e segurança RLS.
+- 📖 [**Manual do Usuário**](docs/user-manual.md) — Guia operacional para vendedores e gerentes de pátio.
+- 🎯 [**Plano de Testes & Matriz de Risco**](docs/qa/test-plan.md) — Pirâmide de testes, matriz de rastreabilidade e critérios de release.
+
+---
+
+## 📄 Licença
+
+Este projeto é desenvolvido para uso comercial e proprietário sob as diretrizes do **Acelera Auto CRM**.

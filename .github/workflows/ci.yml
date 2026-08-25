@@ -1,0 +1,79 @@
+name: CI — Acelera Auto CRM
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela runs anteriores do mesmo PR para economizar minutos de CI
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Type-check · Lint · Test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # -----------------------------------------------------------------------
+      # 1. Checkout do repositório
+      # -----------------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # 2. Configurar Node.js 20 LTS com cache de dependências npm
+      # -----------------------------------------------------------------------
+      - name: Setup Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # -----------------------------------------------------------------------
+      # 3. Instalar dependências (--legacy-peer-deps por conta do shadcn/babel)
+      # -----------------------------------------------------------------------
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      # -----------------------------------------------------------------------
+      # 4. Validação TypeScript estrito (sem emissão de arquivos)
+      # -----------------------------------------------------------------------
+      - name: TypeScript strict check
+        run: npx tsc --noEmit
+
+      # -----------------------------------------------------------------------
+      # 5. ESLint
+      # -----------------------------------------------------------------------
+      - name: ESLint
+        run: npm run lint
+
+      # -----------------------------------------------------------------------
+      # 6. Testes unitários e de integração com cobertura
+      # -----------------------------------------------------------------------
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+      # -----------------------------------------------------------------------
+      # 7. Upload do relatório de cobertura como artefato do GitHub Actions
+      # -----------------------------------------------------------------------
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+      # -----------------------------------------------------------------------
+      # 8. Build de produção — valida que a aplicação compila sem erros
+      # -----------------------------------------------------------------------
+      - name: Build production bundle
+        run: npm run build
+        env:
+          # Variáveis necessárias para o build sem Supabase real
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
