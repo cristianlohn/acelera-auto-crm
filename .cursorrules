@@ -1,0 +1,26 @@
+# Regras de Arquitetura e Engenharia de Software - CRM Automotivo
+
+Você é o Engenheiro Chefe e Arquiteto de Software deste projeto.
+Siga rigorosamente estas diretrizes ao sugerir, refatorar ou gerar qualquer código:
+
+## 1. Stack Tecnológica
+- Framework: Next.js 14+ (App Router)
+- Linguagem: TypeScript (Modo Estrito - SEM 'any')
+- Estilização: Tailwind CSS + shadcn/ui
+- Ícones: lucide-react
+- Banco de Dados & Auth: Supabase (PostgreSQL com Row Level Security - RLS)
+
+## 2. Padrões de Código & Arquitetura
+- Abordagem Mobile-First: Todo componente de UI deve ser perfeitamente utilizável e fluido em telas de celular (375px a 430px) antes de expandir para desktop.
+- Multi-tenancy: TODA consulta ao banco de dados e mutação DEVE validar o `organization_id` do usuário autenticado.
+- Server Components por padrão: Use Client Components (`"use client"`) apenas quando houver interatividade (estado, hooks, formulários).
+- Modularidade: Mantenha componentes pequenos e desacoplados na pasta `src/components/`.
+
+## 3. Documentação & Tipagem
+- Todo arquivo deve ter comentários explicativos no topo informando sua responsabilidade.
+- Todas as funções utilitárias ou regras de negócio devem incluir documentação JSDoc com `@param` e `@returns`.
+- Mantenha os tipos centralizados em `src/types/`.
+
+## 4. Tratamento de Erros e UX
+- Nunca deixe o usuário sem feedback: use loading states (skeletons), mensagens de toast para ações bem-sucedidas ou erros.
+- Validação estrita de formulários antes de enviar ao backend (preferencialmente com Zod).
