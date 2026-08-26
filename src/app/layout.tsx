@@ -13,9 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "https://aceleraautocrm.com.br"
-  ),
+  metadataBase: new URL("https://aceleraautocrm.com.br"),
+  alternates: {
+    canonical: "https://aceleraautocrm.com.br",
+  },
   title: {
     default: "Acelera Auto CRM | CRM Automotivo de Alta Velocidade",
     template: "%s | Acelera Auto CRM",
@@ -30,8 +31,9 @@ export const metadata: Metadata = {
     "estoque de veículos",
     "Acelera Auto",
   ],
-  authors: [{ name: "Acelera Auto" }],
-  creator: "Acelera Auto",
+  authors: [{ name: "Catuto Soluções Digitais" }],
+  creator: "Catuto Soluções Digitais",
+  publisher: "Catuto Soluções Digitais",
   openGraph: {
     title: "Acelera Auto CRM | CRM Automotivo de Alta Velocidade",
     description:
@@ -59,9 +61,15 @@ export const metadata: Metadata = {
     images: ["https://aceleraautocrm.com.br/og-image.png"],
   },
   icons: {
-    icon: "/icon.png",
-    shortcut: "/icon.png",
-    apple: "/icon.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "512x512" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+    ],
   },
   robots: {
     index: true,
@@ -76,6 +84,51 @@ export const metadata: Metadata = {
   },
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://aceleraautocrm.com.br/#organization",
+      name: "Catuto Soluções Digitais",
+      legalName: "Catuto Soluções Digitais",
+      url: "https://aceleraautocrm.com.br",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://aceleraautocrm.com.br/logo.png",
+        width: 512,
+        height: 512,
+      },
+      contactPoint: {
+        "@type": "ContactPoint",
+        email: "contato@aceleraautocrm.com.br",
+        contactType: "customer service",
+        availableLanguage: ["Portuguese"],
+      },
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://aceleraautocrm.com.br/#software",
+      name: "Acelera Auto CRM",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web Browser",
+      url: "https://aceleraautocrm.com.br",
+      description:
+        "CRM e Funil de Vendas projetado para lojas de veículos e concessionárias. Acelere o atendimento de leads do WhatsApp e controle seu estoque.",
+      publisher: {
+        "@id": "https://aceleraautocrm.com.br/#organization",
+      },
+      offers: {
+        "@type": "AggregateOffer",
+        priceCurrency: "BRL",
+        lowPrice: "297.00",
+        highPrice: "997.00",
+        offerCount: "3",
+      },
+    },
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -86,6 +139,13 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          id="schema-jsonld"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

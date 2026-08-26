@@ -18,7 +18,8 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { metadata } from "@/app/layout";
+import { render } from "@testing-library/react";
+import RootLayout, { metadata } from "@/app/layout";
 import sitemap from "@/app/sitemap";
 import robots from "@/app/robots";
 import manifest from "@/app/manifest";
@@ -34,8 +35,12 @@ vi.mock("next/og", () => ({
 import OpenGraphImage, { size, contentType, alt } from "@/app/opengraph-image";
 
 describe("[IT-17] SEO Técnico, OpenGraph e Metadados de Indexação", () => {
-  it("[IT-17.1] Deve conter metadados globais completos, OpenGraph pt_BR e tags de indexação", () => {
-    // Assert (Title & Template)
+  it("[IT-17.1] Deve conter metadados globais completos, OpenGraph pt_BR, icons, canonical e tags de indexação", () => {
+    // Assert (metadataBase & Alternates)
+    expect(metadata.metadataBase?.toString()).toContain("aceleraautocrm.com.br");
+    expect(metadata.alternates?.canonical).toBe("https://aceleraautocrm.com.br");
+
+    // Title & Template
     expect(metadata.title).toEqual({
       default: "Acelera Auto CRM | CRM Automotivo de Alta Velocidade",
       template: "%s | Acelera Auto CRM",
@@ -46,6 +51,16 @@ describe("[IT-17] SEO Técnico, OpenGraph e Metadados de Indexação", () => {
     expect(metadata.keywords).toContain("CRM automotivo");
     expect(metadata.keywords).toContain("funil de vendas WhatsApp revenda");
 
+    // Authors & Publisher
+    expect(metadata.creator).toBe("Catuto Soluções Digitais");
+    expect(metadata.publisher).toBe("Catuto Soluções Digitais");
+
+    // Icons
+    expect(metadata.icons).toBeDefined();
+    expect(metadata.icons).toMatchObject({
+      shortcut: "/favicon.ico",
+    });
+
     // OpenGraph
     expect(metadata.openGraph).toBeDefined();
     expect((metadata.openGraph as { type?: string })?.type).toBe("website");
@@ -55,6 +70,10 @@ describe("[IT-17] SEO Técnico, OpenGraph e Metadados de Indexação", () => {
       "Acelera Auto CRM | CRM Automotivo de Alta Velocidade"
     );
     expect((metadata.openGraph as { images?: Array<{ url: string }> })?.images?.[0]?.url).toContain("/og-image.png");
+
+    // Twitter
+    expect(metadata.twitter).toBeDefined();
+    expect((metadata.twitter as { card?: string })?.card).toBe("summary_large_image");
 
     // Robots
     expect(metadata.robots).toBeDefined();
@@ -123,11 +142,11 @@ describe("[IT-17] SEO Técnico, OpenGraph e Metadados de Indexação", () => {
 
     // Assert
     expect(manifestConfig.name).toBe("Acelera Auto CRM");
-    expect(manifestConfig.short_name).toBe("Acelera Auto");
+    expect(manifestConfig.short_name).toBe("AceleraAuto");
     expect(manifestConfig.start_url).toBe("/");
     expect(manifestConfig.display).toBe("standalone");
     expect(manifestConfig.background_color).toBe("#09090b");
-    expect(manifestConfig.theme_color).toBe("#f97316");
+    expect(manifestConfig.theme_color).toBe("#09090b");
 
     expect(manifestConfig.icons).toBeDefined();
     expect(manifestConfig.icons?.length).toBeGreaterThanOrEqual(2);
@@ -148,5 +167,36 @@ describe("[IT-17] SEO Técnico, OpenGraph e Metadados de Indexação", () => {
     // Assert Response
     expect(imageResponse).toBeDefined();
     expect(imageResponse.status).toBe(200);
+  });
+
+  it("[IT-17.6] Deve injetar o script JSON-LD com Schema.org para Organization e SoftwareApplication", () => {
+    // Arrange & Act
+    render(
+      <RootLayout>
+        <div>Conteúdo de Teste</div>
+      </RootLayout>
+    );
+
+    // Assert
+    const script = document.getElementById("schema-jsonld");
+    expect(script).toBeInTheDocument();
+    expect(script?.getAttribute("type")).toBe("application/ld+json");
+
+    const json = JSON.parse(script?.textContent || "{}");
+    expect(json["@context"]).toBe("https://schema.org");
+    expect(json["@graph"]).toBeDefined();
+
+    const org = json["@graph"].find(
+      (item: { "@type": string }) => item["@type"] === "Organization"
+    );
+    expect(org.name).toBe("Catuto Soluções Digitais");
+    expect(org.contactPoint?.email).toBe("contato@aceleraautocrm.com.br");
+
+    const app = json["@graph"].find(
+      (item: { "@type": string }) => item["@type"] === "SoftwareApplication"
+    );
+    expect(app.name).toBe("Acelera Auto CRM");
+    expect(app.applicationCategory).toBe("BusinessApplication");
+    expect(app.offers?.priceCurrency).toBe("BRL");
   });
 });
