@@ -166,14 +166,13 @@ export async function registerNewDealership(
       };
     }
 
-    // Define cookie de autenticação
+    // Limpa quaisquer cookies de modo demonstração ao criar um tenant real
     try {
       const cookieStore = await cookies();
-      cookieStore.set("acelera_demo_mode", "true", {
-        path: "/",
-        maxAge: 86400,
-        sameSite: "lax",
-      });
+      cookieStore.delete("acelera_demo_mode");
+      cookieStore.delete("sb-demo-auth");
+      cookieStore.delete("demo_mode");
+      cookieStore.delete("acelera_demo_session");
     } catch {
       // Ignora erro de cookies fora do request context
     }
@@ -184,6 +183,40 @@ export async function registerNewDealership(
       err instanceof Error ? err.message : "Ocorreu um erro interno ao processar o cadastro.";
     return { success: false, error: message };
   }
+}
+
+/**
+ * Limpa todos os cookies associados ao Modo Demonstração.
+ */
+export async function clearDemoCookiesAction(): Promise<{ success: boolean }> {
+  try {
+    const cookieStore = await cookies();
+    cookieStore.delete("acelera_demo_mode");
+    cookieStore.delete("sb-demo-auth");
+    cookieStore.delete("demo_mode");
+    cookieStore.delete("acelera_demo_session");
+    cookieStore.delete("acelera_demo_expired");
+    cookieStore.delete("acelera_subscription_status");
+  } catch {
+    // Ignora erro de cookies fora do request context
+  }
+  return { success: true };
+}
+
+/**
+ * Encerra a sessão atual do Supabase e limpa cookies de demonstração e acesso.
+ */
+export async function logoutAction(): Promise<{ success: boolean }> {
+  try {
+    await clearDemoCookiesAction();
+    if (isSupabaseServerConfigured()) {
+      const supabase = await createServerSupabaseClient();
+      await supabase.auth.signOut();
+    }
+  } catch {
+    // Ignora erro de signOut fora do request context
+  }
+  return { success: true };
 }
 
 export interface PasswordResetResult {

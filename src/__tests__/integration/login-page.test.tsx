@@ -92,9 +92,9 @@ describe("[IT-12] Página de Login e Autenticação (LoginPage)", () => {
       await user.click(submitBtn);
     });
 
-    // Assert (Redirecionamento para /leads é chamado)
+    // Assert (Redirecionamento para /leads é chamado e cookies de demo são removidos)
     expect(mockPush).toHaveBeenCalledWith("/leads");
-    expect(document.cookie).toContain("acelera_demo_mode=true");
+    expect(document.cookie).not.toContain("acelera_demo_mode=true");
   });
 
   it("[IT-12.4] Deve permitir acesso instantâneo ao clicar em 'Entrar como Concessionária Demo'", () => {

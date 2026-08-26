@@ -135,9 +135,15 @@ export default function LoginPage() {
           }
         }
 
-        // Sucesso / Fallback para modo ativo
+        // Ao autenticar com credenciais reais, limpa explicitamente qualquer cookie de demonstração
         document.cookie =
-          "acelera_demo_mode=true; path=/; max-age=86400; SameSite=Lax";
+          "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie =
+          "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie =
+          "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie =
+          "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         router.push("/leads");
       } catch {
         setErrorMessage("Ocorreu um erro ao autenticar. Tente novamente.");

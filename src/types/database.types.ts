@@ -276,3 +276,9 @@ export interface Database {
     };
   };
 }
+
+export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+export type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
+export type VehicleRow = Database["public"]["Tables"]["vehicles"]["Row"];
+

@@ -96,6 +96,14 @@ export async function middleware(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
+    // Se houver usuário autenticado, limpa cookies residuais de modo demonstração
+    if (user) {
+      response.cookies.delete("acelera_demo_mode");
+      response.cookies.delete("sb-demo-auth");
+      response.cookies.delete("demo_mode");
+      response.cookies.delete("acelera_demo_session");
+    }
+
     // Se estiver em rota protegida sem usuário logado e sem modo demo
     if (isProtectedRoute && !user && !isDemoMode) {
       const loginUrl = new URL("/login", request.url);
