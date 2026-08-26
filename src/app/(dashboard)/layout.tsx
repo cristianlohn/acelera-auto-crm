@@ -18,7 +18,6 @@ import {
   Car,
   BarChart3,
   Settings,
-  ShieldCheck,
   Menu,
   Zap,
   Phone,
@@ -33,6 +32,8 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { DemoRoleProvider } from "@/context/demo-role-context";
+import { RoleSimulatorBar } from "@/components/demo/RoleSimulatorBar";
 
 // ---------------------------------------------------------------------------
 // Configuração dos itens de navegação
@@ -50,7 +51,6 @@ const navItems: NavItem[] = [
   { href: "/vehicles", label: "Estoque", icon: Car },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
   { href: "/settings", label: "Configurações", icon: Settings },
-  { href: "/superadmin", label: "Super Admin", icon: ShieldCheck },
 ];
 
 // ---------------------------------------------------------------------------
@@ -208,15 +208,18 @@ function MobileHeader() {
 
 export default function DashboardLayout(props: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full min-h-screen w-full max-w-full overflow-x-hidden flex-col lg:flex-row">
-      <Sidebar />
+    <DemoRoleProvider>
+      <div className="flex h-full min-h-screen w-full max-w-full overflow-x-hidden flex-col lg:flex-row">
+        <Sidebar />
 
-      <div className="flex flex-1 flex-col w-full max-w-full overflow-hidden">
-        <MobileHeader />
-        <main className="flex-1 w-full max-w-full overflow-y-auto bg-background">
-          {props.children}
-        </main>
+        <div className="flex flex-1 flex-col w-full max-w-full overflow-hidden">
+          <RoleSimulatorBar />
+          <MobileHeader />
+          <main className="flex-1 w-full max-w-full overflow-y-auto bg-background">
+            {props.children}
+          </main>
+        </div>
       </div>
-    </div>
+    </DemoRoleProvider>
   );
 }

@@ -25,6 +25,8 @@
 | **REQ-CRM-12** | Autenticação e Modo Demonstração Sandbox | Login tradicional por e-mail/senha, acesso rápido ao tenant demo em 1 clique e proteção de rotas via middleware. |
 | **REQ-CRM-13** | Cadastro Self-Service e Provisionamento de Tenant | Cadastro de concessionária com trial de 14 dias, provisionamento de organização, perfil admin e validação. |
 | **REQ-CRM-14** | Painel Backoffice Super Admin e Gestão de Assinaturas B2B | Métricas de MRR/SaaS, filtros de lojas, ativação manual de planos, extensão de trial e contatos WhatsApp. |
+| **REQ-CRM-15** | Gestão de Equipe e Controle de Capacidade Multi-Tenant | Cota de vendedores por plano, convite de colaboradores, trava de vagas, modal de upgrade e proteção de admin. |
+| **REQ-CRM-16** | Controle de Acesso RBAC e Simulador de Papéis Demo | Ocultação de Super Admin da sidebar, alternador de papéis (Vendedor, Gerente, Admin) e filtros por perfil em tempo real. |
 
 ---
 
@@ -54,6 +56,8 @@
 | **REQ-CRM-12** | **CT-IT-12** | Renderizar tela de login, validação de campos obrigatórios, autenticação por credenciais e acesso instantâneo ao modo demonstração. | Integração | Autenticação e Gestão de Sessão | `login-page.test.tsx` | **PASS** |
 | **REQ-CRM-13** | **CT-IT-13** | Renderizar tela de cadastro com trial 14 dias, validação de e-mail/senha, provisionamento de novo tenant e tratamento de duplicidade. | Integração | Onboarding e Provisionamento de Tenant | `register-page.test.tsx` | **PASS** |
 | **REQ-CRM-14** | **CT-IT-14** | Renderizar KPIs B2B (MRR, Trials), busca/filtros por status, ativação manual Pix/Boleto, extensão de trial (+7d) e WhatsApp. | Integração | Backoffice Super Admin & Faturamento B2B | `superadmin-page.test.tsx` | **PASS** |
+| **REQ-CRM-15** | **CT-IT-15** | Renderizar barra de vagas, listagem com cargos/status, convite de vendedores, trava de limite, modal upgrade e proteção admin. | Integração | Gestão de Equipe & Capacidade | `team-settings.test.tsx` | **PASS** |
+| **REQ-CRM-16** | **CT-IT-16** | Ocultar Super Admin da sidebar, renderizar simulador RBAC, alternar visões (Vendedor/Gerente/Admin), filtrar leads e bloquear abas. | Integração | RBAC & Simulador Demo | `rbac-demo-simulator.test.tsx` | **PASS** |
 | **REQ-CRM-01** | **CT-E2E-01** | Preencher formulário no modal de novo lead e verificar se o card entra no topo da coluna "Novo Lead". | E2E | Jornada de Usuário Ponta a Ponta | `e2e/leads-kanban.spec.ts` | **PASS** |
 | **REQ-CRM-04** | **CT-E2E-02** | Filtrar estoque por termo de busca instantânea e validar atualização dos cards exibidos. | E2E | Jornada de Usuário Ponta a Ponta | `e2e/inventory-filter.spec.ts` | **PASS** |
 | **REQ-CRM-11** | **CT-E2E-RESP** | Auditar todas as 9 rotas em 3 viewports móveis (375px, 390px, 412px) garantindo zero scroll horizontal e modais responsivos. | E2E | Responsividade e Viewport Regression | `e2e/responsive-overflow.spec.ts` | **PASS** |

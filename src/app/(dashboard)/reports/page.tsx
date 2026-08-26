@@ -28,10 +28,13 @@ import {
   Layers,
   Sparkles,
   Share2,
+  Lock,
+  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/mock-data";
+import { useDemoRole } from "@/context/demo-role-context";
 
 // ---------------------------------------------------------------------------
 // Tipos de Domínio do Módulo de Analytics
@@ -331,7 +334,9 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState<ReportPeriod>("month");
   const [isExporting, startExportTransition] = useTransition();
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
+  const { role, sellerName } = useDemoRole();
 
+  const isVendedorRole = role === "vendedor";
   const currentData = PERIOD_METRICS[period];
   const { kpis, funnel, channels, sellers, topVehicles } = currentData;
 
@@ -361,9 +366,17 @@ export default function ReportsPage() {
                 <Sparkles className="h-3 w-3" />
                 Live
               </span>
+              {isVendedorRole && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                  <User className="h-3 w-3" />
+                  Visão Vendedor ({sellerName})
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Inteligência comercial, conversão de funil e performance de vendas
+              {isVendedorRole
+                ? `Métricas individuais e indicadores do consultor ${sellerName}`
+                : "Inteligência comercial, conversão de funil e performance de vendas"}
             </p>
           </div>
 
@@ -430,6 +443,31 @@ export default function ReportsPage() {
       {/* Conteúdo Principal do Dashboard de Analytics                       */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex-1 space-y-6 p-4 sm:p-6">
+        {/* Banner de Restrição RBAC para Perfil Vendedor */}
+        {isVendedorRole && (
+          <div
+            id="banner-rbac-reports"
+            className="rounded-xl border border-amber-300/80 bg-amber-50/90 dark:border-amber-900/60 dark:bg-amber-950/40 p-4 text-amber-900 dark:text-amber-200 shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-200 dark:bg-amber-900/80 text-amber-800 dark:text-amber-300">
+                <Lock className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-amber-950 dark:text-amber-100 flex items-center gap-1.5">
+                  Relatórios Executivos Restritos a Gerentes e Administradores
+                  <span className="rounded-full bg-amber-200/80 dark:bg-amber-900/80 px-2 py-0.5 text-[10px] font-semibold text-amber-900 dark:text-amber-200">
+                    Acesso Gestor / Admin
+                  </span>
+                </h3>
+                <p className="mt-1 text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+                  Você está operando sob o perfil de <strong>Vendedor ({sellerName})</strong>. Os indicadores consolidados de faturamento da loja, canais de aquisição e ranking geral são reservados aos gerentes e diretores.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 1. KPIs Executivos */}
         <section aria-label="Métricas Executivas">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

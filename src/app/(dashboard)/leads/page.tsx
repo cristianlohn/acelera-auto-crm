@@ -42,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { mockLeads } from "@/lib/mock-data";
 import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
 import { createLead as persistLead } from "@/app/actions/leads";
+import { useDemoRole } from "@/context/demo-role-context";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 
 // ---------------------------------------------------------------------------
@@ -569,6 +570,12 @@ function computeMetrics(leads: Lead[]) {
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>(mockLeads);
+  const { role, sellerName } = useDemoRole();
+
+  const isVendedorRole = role === "vendedor";
+  const visibleLeads = isVendedorRole
+    ? leads.filter((l) => l.sellerName?.toLowerCase().includes("rafael") || l.sellerName === sellerName)
+    : leads;
 
   const handleAddLead = useCallback((lead: Lead) => {
     setLeads((prev) => [lead, ...prev]);
@@ -585,7 +592,7 @@ export default function LeadsPage() {
     });
   }, []);
 
-  const { active, visits, proposals, avgHrs } = computeMetrics(leads);
+  const { active, visits, proposals, avgHrs } = computeMetrics(visibleLeads);
 
   return (
     <div className="flex h-full flex-col">
@@ -595,11 +602,24 @@ export default function LeadsPage() {
       <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm">
         <div className="flex items-center justify-between px-4 py-3 sm:px-6">
           <div>
-            <h1 className="text-lg font-bold text-foreground sm:text-xl">
-              Funil de Vendas
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-foreground sm:text-xl">
+                Funil de Vendas
+              </h1>
+              {isVendedorRole && (
+                <span
+                  id="badge-vendedor-filter"
+                  className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-950/60 dark:text-orange-300"
+                >
+                  <User className="h-3 w-3" />
+                  Meus Leads ({sellerName})
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              {leads.length} leads no total
+              {isVendedorRole
+                ? `${visibleLeads.length} leads atribuídos a você`
+                : `${visibleLeads.length} leads no total da loja`}
             </p>
           </div>
           <AddLeadModal onAdd={handleAddLead} />
@@ -652,7 +672,7 @@ export default function LeadsPage() {
             <KanbanColumnCard
               key={col.id}
               column={col}
-              leads={leads.filter((l) => l.status === col.id)}
+              leads={visibleLeads.filter((l) => l.status === col.id)}
             />
           ))}
           {/* Espaço final para respirar no scroll horizontal */}

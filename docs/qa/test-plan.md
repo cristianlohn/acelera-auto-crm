@@ -94,6 +94,8 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
 | **IT-12.1-5** | Login e Modo Demonstração | `LoginPage` -> Auth/Sandbox | Renderização, validação de campos, autenticação, modo demo e links de retorno | ✅ Passou |
 | **IT-13.1-6** | Cadastro de Concessionária | `RegisterPage` -> Onboarding/Tenant | Trial 14 dias, validação de e-mail/senha, Server Action de provisionamento e links | ✅ Passou |
 | **IT-14.1-7** | Backoffice Super Admin & B2B | `SuperAdminPage` -> Backoffice/SaaS | KPIs de MRR/Trials, busca, filtros de status, ativação manual Pix, trial +7d e WhatsApp | ✅ Passou |
+| **IT-15.1-7** | Gestão de Equipe & Vagas | `SettingsPage` -> Equipe/Capacidade | Barra de ocupação, lista de membros, convite, trava de limite, modal upgrade e proteção admin | ✅ Passou |
+| **IT-16.1-7** | Simulador RBAC & Perfis Demo | `RoleSimulatorBar` -> RBAC/Permissões | Ocultação de Super Admin, seletor de papéis, filtragem no Kanban, relatórios e bloqueio de abas | ✅ Passou |
 | **CT-E2E-01** | Fluxo de Leads no Funil | `leads-kanban.spec.ts` | Abertura do modal, preenchimento, criação e renderização na coluna "Novo Lead" | ✅ Passou |
 | **CT-E2E-02** | Consulta e Filtros de Estoque | `inventory-filter.spec.ts` | Busca instantânea reativa por modelo e validação do grid de veículos | ✅ Passou |
 | **CT-E2E-RESP** | Responsividade e Zero Overflow | `responsive-overflow.spec.ts` | Auditoria de 9 rotas e 3 modais em 3 viewports móveis (375px, 390px, 412px) | ✅ Passou |
