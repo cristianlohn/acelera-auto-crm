@@ -1,5 +1,7 @@
 # 🚗 Acelera Auto CRM
 
+[![CI Quality Pipeline](https://github.com/cristianlohn/acelera-auto-crm/actions/workflows/ci.yml/badge.svg)](https://github.com/cristianlohn/acelera-auto-crm/actions/workflows/ci.yml)
+
 > Sistema SaaS *mobile-first* de CRM e Gestão de Pátio para revendas e concessionárias de veículos.
 
 ![CI Status](https://img.shields.io/github/actions/workflow/status/cristianlohn/acelera-auto-crm/ci.yml?branch=main&label=CI%20Pipeline&logo=github)
