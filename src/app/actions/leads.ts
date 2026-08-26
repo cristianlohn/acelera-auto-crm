@@ -16,6 +16,7 @@ import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import { notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
 import { mockLeads } from "@/lib/mock-data";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 import type { Database } from "@/types/database.types";
@@ -137,7 +138,22 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     }
 
     revalidatePath("/leads");
-    return mapDbLeadToDomain(data);
+    const domainLead = mapDbLeadToDomain(data);
+
+    void notifyAssignedSellerViaWhatsApp({
+      lead: {
+        id: domainLead.id,
+        name: domainLead.name,
+        phone: domainLead.phone,
+        email: domainLead.email,
+        vehicleInterest: domainLead.vehicleInterest,
+        source: domainLead.origin,
+      },
+      sellerName: domainLead.sellerName,
+      organizationId: orgId,
+    });
+
+    return domainLead;
   } catch {
     return fallbackLead;
   }

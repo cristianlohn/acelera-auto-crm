@@ -16,9 +16,6 @@ import {
 } from "@/lib/supabase/server";
 import type { LeadOrigin, LeadStatus } from "@/types/database.types";
 
-/** Organização padrão para persistência demo/sandbox */
-const DEFAULT_DEMO_ORG_ID = "a0000000-0000-0000-0000-000000000001";
-
 /** Chaves de API pré-configuradas para sandbox/testes */
 const VALID_STATIC_API_KEYS = new Set([
   "acelera_api_key_live_123",
@@ -70,81 +67,14 @@ function isApiKeyValid(apiKey: string | null): boolean {
   return false;
 }
 
-/** Lista padrão de vendedores ativos para a Roleta Automática (Round-Robin) */
-const DEFAULT_ACTIVE_SELLERS = [
-  "Rafael Alves",
-  "Juliana Costa",
-  "Marcos Ferreira",
-];
+import {
+  resolveAssignedSeller,
+  resetRoundRobinCursor,
+  notifyAssignedSellerViaWhatsApp,
+  DEFAULT_DEMO_ORG_ID,
+} from "@/lib/crm/roleta";
 
-let roundRobinCursor = 0;
-
-/**
- * Reseta o cursor da roleta de vendedores (utilizado em testes unitários/integração).
- */
-export function resetRoundRobinCursor(val = 0) {
-  roundRobinCursor = val;
-}
-
-/**
- * Determina o vendedor atribuído ao lead (específico ou via Roleta Automática).
- */
-export async function resolveAssignedSeller(
-  explicitSeller?: string | null,
-  organizationId: string = DEFAULT_DEMO_ORG_ID
-): Promise<string> {
-  if (explicitSeller && explicitSeller.trim()) {
-    return explicitSeller.trim();
-  }
-
-  let activeSellers = DEFAULT_ACTIVE_SELLERS;
-
-  if (isSupabaseServerConfigured()) {
-    try {
-      const supabase = await createServerSupabaseClient();
-      const { data: teamData } = await supabase
-        .from("profiles")
-        .select("full_name, role")
-        .eq("organization_id", organizationId)
-        .in("role", ["vendedor"]);
-
-      if (teamData && teamData.length > 0) {
-        const names = teamData
-          .map((p) => p.full_name)
-          .filter((name): name is string => Boolean(name && name.trim()));
-        if (names.length > 0) {
-          activeSellers = names;
-        }
-      } else {
-        // Fallback seguro: quando não houver vendedores ativos, alocar para o Gestor / Admin
-        const { data: adminData } = await supabase
-          .from("profiles")
-          .select("full_name, role")
-          .eq("organization_id", organizationId)
-          .in("role", ["admin", "gerente"]);
-
-        if (adminData && adminData.length > 0) {
-          const adminNames = adminData
-            .map((p) => p.full_name)
-            .filter((name): name is string => Boolean(name && name.trim()));
-          if (adminNames.length > 0) {
-            return adminNames[0];
-          }
-        }
-      }
-    } catch {
-      // Fallback para lista padrão
-    }
-  }
-
-  if (activeSellers.length === 0) {
-    return "Fila de Atendimento";
-  }
-
-  const assigned = activeSellers[roundRobinCursor % activeSellers.length];
-  roundRobinCursor = (roundRobinCursor + 1) % activeSellers.length;
-  return assigned;
-}
+export { resolveAssignedSeller, resetRoundRobinCursor };
 
 /**
  * Normaliza o canal de origem do lead (Webmotors, iCarros, Meta Ads, Site, etc).
@@ -273,6 +203,22 @@ export async function POST(request: NextRequest) {
         leadId = data.id;
       }
     }
+
+    // -------------------------------------------------------------------------
+    // 3.5. Disparo de Notificação Não-Bloqueante via WhatsApp para o Vendedor
+    // -------------------------------------------------------------------------
+    void notifyAssignedSellerViaWhatsApp({
+      lead: {
+        id: leadId,
+        name,
+        phone,
+        email,
+        vehicleInterest,
+        source: normalizedSource,
+      },
+      sellerName: assignedSeller,
+      organizationId: DEFAULT_DEMO_ORG_ID,
+    });
 
     // -------------------------------------------------------------------------
     // 4. Resposta 201 Created com Confirmação e Vendedor Atribuído
