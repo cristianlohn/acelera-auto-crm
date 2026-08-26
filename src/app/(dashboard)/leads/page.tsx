@@ -11,7 +11,7 @@
 
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import {
   Users,
   CalendarCheck,
@@ -41,7 +41,7 @@ import {
 import { cn } from "@/lib/utils";
 import { mockLeads } from "@/lib/mock-data";
 import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
-import { createLead as persistLead } from "@/app/actions/leads";
+import { createLead as persistLead, getLeads } from "@/app/actions/leads";
 import { useDemoRole } from "@/context/demo-role-context";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
@@ -296,24 +296,19 @@ function MetricCard({
   bgGradient,
 }: MetricCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-bold text-foreground">{value}</p>
+    <div className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
+      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", bgGradient)}>
+        <Icon className={cn("h-5 w-5", color)} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs text-muted-foreground">{label}</p>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-xl font-bold text-foreground">{value}</span>
           {trend && (
-            <p className="mt-1 text-xs font-medium text-green-600 dark:text-green-400">
+            <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
               {trend}
-            </p>
+            </span>
           )}
-        </div>
-        <div
-          className={cn(
-            "flex h-10 w-10 items-center justify-center rounded-xl",
-            bgGradient
-          )}
-        >
-          <Icon className={cn("h-5 w-5", color)} />
         </div>
       </div>
     </div>
@@ -321,63 +316,69 @@ function MetricCard({
 }
 
 // ---------------------------------------------------------------------------
-// Componente: Modal Novo Lead
+// Modal para Adicionar Novo Lead
 // ---------------------------------------------------------------------------
 
-const EMPTY_FORM = {
+const INITIAL_FORM: {
+  name: string;
+  phone: string;
+  email: string;
+  vehicleInterest: string;
+  status: LeadStatus;
+  sellerName: string;
+  origin: LeadOrigin;
+} = {
   name: "",
   phone: "",
   email: "",
   vehicleInterest: "",
-  sellerName: "",
-  origin: "whatsapp" as LeadOrigin,
+  status: "novo",
+  sellerName: "Roleta Automática (Equipe)",
+  origin: "whatsapp",
 };
-
-interface AddLeadModalProps {
-  onAdd: (lead: Lead) => void;
-  triggerLabel?: string;
-  triggerId?: string;
-  className?: string;
-}
 
 function AddLeadModal({
   onAdd,
   triggerLabel = "Novo Lead",
   triggerId = "btn-add-lead",
-  className,
-}: AddLeadModalProps) {
+}: {
+  onAdd: (lead: Lead) => void;
+  triggerLabel?: string;
+  triggerId?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(INITIAL_FORM);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.phone || !form.vehicleInterest) return;
-
-    const sellersList = ["Rafael Alves", "Juliana Costa", "Marcos Ferreira"];
-    let finalSeller = form.sellerName;
-    if (!finalSeller || finalSeller === "Roleta Automática (Equipe)") {
-      finalSeller = sellersList[Math.floor(Math.random() * sellersList.length)];
+    if (!form.name.trim() || !form.phone.trim() || !form.vehicleInterest.trim()) {
+      return;
     }
 
     const newLead: Lead = {
-      id: `l-${Date.now()}`,
-      name: form.name,
-      phone: form.phone,
-      email: form.email || undefined,
-      vehicleInterest: form.vehicleInterest,
-      status: "novo",
-      sellerName: finalSeller,
-      lastContactAt: null,
-      origin: form.origin as LeadOrigin,
+      id: `lead_${Date.now()}`,
+      name: form.name.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim() || undefined,
+      vehicleInterest: form.vehicleInterest.trim(),
+      status: form.status,
+      sellerName:
+        form.sellerName === "Roleta Automática (Equipe)"
+          ? "Rafael Alves"
+          : form.sellerName,
+      lastContactAt: new Date().toISOString(),
+      origin: form.origin,
     };
+
     onAdd(newLead);
-    setForm(EMPTY_FORM);
+    setForm(INITIAL_FORM);
     setOpen(false);
   };
 
@@ -386,93 +387,72 @@ function AddLeadModal({
       <DialogTrigger asChild>
         <Button
           id={triggerId}
-          className={cn(
-            "gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-600 hover:shadow-orange-500/35",
-            className
-          )}
-          aria-label={triggerLabel}
+          data-testid={triggerId}
+          size="sm"
+          className="gap-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 shadow-sm"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-3.5 w-3.5" />
           <span>{triggerLabel}</span>
         </Button>
       </DialogTrigger>
-
-      <DialogContent
-        id="modal-add-lead"
-        className="sm:max-w-md"
-        aria-describedby="modal-add-lead-desc"
-      >
+      <DialogContent id="modal-add-lead" className="sm:max-w-md">
         <DialogHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-red-600 shadow-lg shadow-orange-500/30">
-              <Zap className="h-4 w-4 text-white" />
-            </div>
-            <div>
-              <DialogTitle>Adicionar Novo Lead</DialogTitle>
-              <p
-                id="modal-add-lead-desc"
-                className="text-xs text-muted-foreground"
-              >
-                Preencha os dados do potencial cliente
-              </p>
-            </div>
-          </div>
+          <DialogTitle>Cadastrar Novo Lead</DialogTitle>
         </DialogHeader>
-
-        <form id="form-add-lead" onSubmit={handleSubmit} className="mt-2 grid gap-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5 pt-2">
           <div className="grid gap-1.5">
             <label
               htmlFor="lead-name"
               className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
             >
               <User className="h-3.5 w-3.5" />
-              Nome completo *
+              Nome do Cliente *
             </label>
             <Input
               id="lead-name"
               name="name"
+              required
+              placeholder="Ex: Carlos Mendes"
               value={form.name}
               onChange={handleChange}
-              placeholder="Ex: Carlos Mendonça"
-              required
             />
           </div>
 
-          <div className="grid gap-1.5">
-            <label
-              htmlFor="lead-phone"
-              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
-            >
-              <Phone className="h-3.5 w-3.5" />
-              Telefone (WhatsApp) *
-            </label>
-            <Input
-              id="lead-phone"
-              name="phone"
-              value={form.phone}
-              onChange={handleChange}
-              placeholder="Ex: 11987654321"
-              type="tel"
-              required
-            />
-          </div>
-
-          <div className="grid gap-1.5">
-            <label
-              htmlFor="lead-email"
-              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
-            >
-              <Mail className="h-3.5 w-3.5" />
-              E-mail (opcional)
-            </label>
-            <Input
-              id="lead-email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="Ex: carlos@empresa.com.br"
-              type="email"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <label
+                htmlFor="lead-phone"
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+              >
+                <Phone className="h-3.5 w-3.5" />
+                WhatsApp / Tel *
+              </label>
+              <Input
+                id="lead-phone"
+                name="phone"
+                required
+                placeholder="(11) 99999-9999"
+                value={form.phone}
+                onChange={handleChange}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <label
+                htmlFor="lead-email"
+                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                E-mail (opcional)
+              </label>
+              <Input
+                id="lead-email"
+                name="email"
+                type="email"
+                placeholder="cliente@email.com"
+                value={form.email}
+                onChange={handleChange}
+              />
+            </div>
           </div>
 
           <div className="grid gap-1.5">
@@ -486,10 +466,10 @@ function AddLeadModal({
             <Input
               id="lead-vehicle"
               name="vehicleInterest"
+              required
+              placeholder="Ex: Toyota Corolla 2.0 XEi 2023"
               value={form.vehicleInterest}
               onChange={handleChange}
-              placeholder="Ex: Honda Civic 2.0 EXL 2022"
-              required
             />
           </div>
 
@@ -541,7 +521,7 @@ function AddLeadModal({
             </select>
           </div>
 
-          <DialogFooter className="mt-2 flex gap-2">
+          <DialogFooter className="pt-2 flex gap-2">
             <Button
               type="button"
               variant="outline"
@@ -553,12 +533,11 @@ function AddLeadModal({
             </Button>
             <Button
               id="btn-submit-lead"
-              data-testid="btn-confirm-add-lead"
+              data-testid="btn-submit-lead"
               type="submit"
               className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 sm:w-auto"
             >
-              <Plus className="mr-1 h-3.5 w-3.5" />
-              Cadastrar Lead
+              Confirmar Cadastro
             </Button>
           </DialogFooter>
         </form>
@@ -576,7 +555,6 @@ function computeMetrics(leads: Lead[]) {
   const visits = leads.filter((l) => l.status === "visita").length;
   const proposals = leads.filter((l) => l.status === "proposta").length;
 
-  // Tempo médio de resposta: média em horas de leads com contato
   const withContact = leads.filter((l) => l.lastContactAt !== null);
   const avgHrs =
     withContact.length > 0
@@ -601,11 +579,33 @@ export interface LeadsPageProps {
 }
 
 export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
-  const { role, sellerName } = useDemoRole();
+  const { role, sellerName, isDemoMode } = useDemoRole();
   const [leads, setLeads] = useState<Lead[]>(() => {
     if (initialLeads !== undefined) return initialLeads;
+    if (!isDemoMode) return [];
     return mockLeads;
   });
+
+  useEffect(() => {
+    if (initialLeads !== undefined) return;
+    if (!isDemoMode) {
+      let isMounted = true;
+      getLeads()
+        .then((fetchedLeads) => {
+          if (isMounted) {
+            setLeads(fetchedLeads);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setLeads([]);
+          }
+        });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [isDemoMode, initialLeads]);
 
   const isVendedorRole = role === "vendedor";
   const visibleLeads = isVendedorRole

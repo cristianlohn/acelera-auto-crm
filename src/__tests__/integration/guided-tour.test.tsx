@@ -39,7 +39,7 @@ describe("[IT-20] Tour Guiado da Demonstração (GuidedTour)", () => {
   });
 
   const renderWithProvider = (component: React.ReactNode) => {
-    return render(<DemoRoleProvider>{component}</DemoRoleProvider>);
+    return render(<DemoRoleProvider initialDemoMode={true}>{component}</DemoRoleProvider>);
   };
 
   it("[IT-20.1] Deve renderizar o card do Tour Guiado com o Passo 1 ativo", () => {

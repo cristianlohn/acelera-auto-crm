@@ -107,11 +107,18 @@ export const TOUR_STEPS: TourStep[] = [
   },
 ];
 
+const emptySubscribe = () => () => {};
+
 export function GuidedTour() {
   const { isDemoMode } = useDemoRole();
   const router = useRouter();
   const pathname = usePathname();
 
+  const mounted = React.useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [isOpen, setIsOpen] = useState<boolean>(true);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
@@ -123,7 +130,7 @@ export function GuidedTour() {
     if (index >= 0 && index < TOUR_STEPS.length) {
       setCurrentStepIndex(index);
       const nextStep = TOUR_STEPS[index];
-      if (nextStep.targetPath !== pathname && nextStep.targetPath !== "/cadastro") {
+      if (nextStep.targetPath && pathname !== nextStep.targetPath) {
         router.push(nextStep.targetPath);
       }
     }
@@ -149,8 +156,8 @@ export function GuidedTour() {
     setIsOpen(true);
   };
 
-  // Se não estiver em modo demo ou foi fechado permanentemente
-  if (!isDemoMode || !isOpen) {
+  // Se não estiver montado, não estiver em modo demo ou foi fechado permanentemente
+  if (!mounted || !isDemoMode || !isOpen) {
     return null;
   }
 

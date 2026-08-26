@@ -13,10 +13,17 @@ import { Sparkles, User, ShieldCheck, Crown, X, CheckCircle2, LogOut } from "luc
 import { useDemoRole, type DemoRole } from "@/context/demo-role-context";
 import { cn } from "@/lib/utils";
 
+const emptySubscribe = () => () => {};
+
 export function RoleSimulatorBar() {
   const { role, setRole, isDemoMode, notification, clearNotification } = useDemoRole();
+  const mounted = React.useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
 
-  if (!isDemoMode) {
+  if (!mounted || !isDemoMode) {
     return null;
   }
 

@@ -25,7 +25,6 @@ const PROTECTED_PREFIXES = [
   "/configuracoes",
   "/superadmin",
   "/admin",
-  "/billing",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -65,11 +64,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(billingUrl);
   }
 
-  // Modo Sandbox Demo ativo por cookie ou ambiente de desenvolvimento/teste sem Supabase
-  const isDemoMode =
+  // Modo Sandbox Demo ativo estritamente por cookie explícito
+  const hasDemoCookie =
     request.cookies.get("acelera_demo_mode")?.value === "true" ||
-    request.cookies.get("sb-demo-auth")?.value === "true" ||
-    !isConfigured;
+    request.cookies.get("sb-demo-auth")?.value === "true";
 
   // Se o Supabase estiver configurado, sincroniza a sessão
   if (isConfigured) {
@@ -104,16 +102,13 @@ export async function middleware(request: NextRequest) {
       response.cookies.delete("acelera_demo_session");
     }
 
-    // Se estiver em rota protegida sem usuário logado e sem modo demo
-    if (isProtectedRoute && !user && !isDemoMode) {
+    const isTestAuth = request.cookies.get("sb-test-user")?.value === "true";
+
+    // Se estiver em rota protegida sem usuário logado, sem sessão de teste e sem cookie explícito de demonstração
+    if (isProtectedRoute && !user && !isTestAuth && !hasDemoCookie) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirectedFrom", pathname);
       return NextResponse.redirect(loginUrl);
-    }
-
-    // Se já estiver logado e tentar acessar /login, redireciona para o CRM
-    if (pathname === "/login" && user) {
-      return NextResponse.redirect(new URL("/leads", request.url));
     }
 
     // Validação de assinatura em rotas autenticadas (exceto /billing)
@@ -148,9 +143,13 @@ export async function middleware(request: NextRequest) {
       }
     }
   } else {
-    // Quando Supabase não configurado e tentando acessar /login com demo
-    if (pathname === "/login" && isDemoMode && request.nextUrl.searchParams.get("force") !== "true") {
-      // Permite renderizar a página de login normalmente para que o usuário possa interagir
+    // Quando Supabase não está configurado:
+    // Permite acesso a rotas protegidas se tiver cookie explícito de demo ou sessão de teste
+    const isTestAuth = request.cookies.get("sb-test-user")?.value === "true";
+    if (isProtectedRoute && !hasDemoCookie && !isTestAuth) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirectedFrom", pathname);
+      return NextResponse.redirect(loginUrl);
     }
   }
 

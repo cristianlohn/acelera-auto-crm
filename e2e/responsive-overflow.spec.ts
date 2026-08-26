@@ -70,6 +70,17 @@ async function assertZeroHorizontalOverflow(page: Page, routePath: string, viewp
 }
 
 test.describe("[REQ-CRM-11] Auditoria de Responsividade Mobile e Zero Overflow Horizontal", () => {
+  test.beforeEach(async ({ context }) => {
+    await context.addCookies([
+      {
+        name: "acelera_demo_mode",
+        value: "true",
+        domain: "127.0.0.1",
+        path: "/",
+      },
+    ]);
+  });
+
   for (const vp of VIEWPORTS) {
     test.describe(`Viewport: ${vp.name}`, () => {
       for (const route of ROUTES) {

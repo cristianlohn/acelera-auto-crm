@@ -66,7 +66,7 @@ const DemoRoleContext = createContext<DemoRoleContextType | undefined>(undefined
 export function DemoRoleProvider({
   children,
   initialRole = "admin",
-  initialDemoMode = true,
+  initialDemoMode,
 }: {
   children: React.ReactNode;
   initialRole?: DemoRole;
@@ -81,7 +81,7 @@ export function DemoRoleProvider({
         document.cookie.includes("sb-demo-auth=true")
       );
     }
-    return true;
+    return false;
   });
   const [notification, setNotification] = useState<string | null>(null);
 

@@ -29,8 +29,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
-import { requestPasswordReset } from "@/app/actions/auth";
+import { requestPasswordReset, loginAction } from "@/app/actions/auth";
 
 function LoginAuthBanner() {
   const searchParams = useSearchParams();
@@ -123,20 +122,20 @@ export default function LoginPage() {
 
     startTransition(async () => {
       try {
-        if (isSupabaseConfigured()) {
-          const { error } = await supabase.auth.signInWithPassword({
-            email: email.trim(),
-            password,
-          });
+        const result = await loginAction({
+          email: email.trim(),
+          password,
+        });
 
-          if (error) {
-            setErrorMessage("E-mail ou senha incorretos. Verifique seus dados.");
-            return;
-          }
+        if (!result.success) {
+          setErrorMessage(result.error || "E-mail ou senha incorretos. Verifique seus dados.");
+          return;
         }
 
         // Ao autenticar com credenciais reais, limpa explicitamente qualquer cookie de demonstração
         if (typeof document !== "undefined") {
+          document.cookie =
+            "sb-test-user=true; path=/; max-age=86400; SameSite=Lax";
           document.cookie =
             "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
           document.cookie =
@@ -146,8 +145,7 @@ export default function LoginPage() {
           document.cookie =
             "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
         }
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-        window.location.href = "/leads";
+        window.location.href = result.redirectUrl || "/leads";
       } catch {
         setErrorMessage("Ocorreu um erro ao autenticar. Tente novamente.");
       }

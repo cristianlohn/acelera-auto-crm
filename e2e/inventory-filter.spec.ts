@@ -5,7 +5,15 @@ import { test, expect } from '@playwright/test';
  * @scenario CT-E2E-02 - Busca instantânea e filtragem dinâmica de veículos
  */
 test.describe('[REQ-CRM-04] Consulta e Filtragem de Veículos', () => {
-    test.beforeEach(async ({ page }) => {
+    test.beforeEach(async ({ page, context }) => {
+        await context.addCookies([
+          {
+            name: "acelera_demo_mode",
+            value: "true",
+            domain: "127.0.0.1",
+            path: "/",
+          },
+        ]);
         // Arrange: Acessa a listagem de estoque
         await page.goto('/vehicles');
     });

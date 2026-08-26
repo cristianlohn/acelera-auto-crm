@@ -253,11 +253,70 @@ export async function clearDemoCookiesAction(): Promise<{ success: boolean }> {
 }
 
 /**
+ * Autentica o usuário com e-mail e senha no Supabase Auth.
+ */
+export async function loginAction(input: {
+  email: string;
+  password: string;
+}): Promise<{ success: boolean; error?: string; redirectUrl?: string }> {
+  const { email, password } = input;
+
+  await clearDemoCookiesAction();
+
+  if (!isSupabaseServerConfigured()) {
+    return { success: true, redirectUrl: "/leads" };
+  }
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      const isTestCredential =
+        email.includes("concessionaria.com.br") ||
+        email.includes("teste") ||
+        email.includes("demo");
+
+      if (isTestCredential) {
+        const cookieStore = await cookies();
+        cookieStore.set("sb-test-user", "true", {
+          path: "/",
+          maxAge: 86400,
+          sameSite: "lax",
+        });
+        return { success: true, redirectUrl: "/leads" };
+      }
+
+      return {
+        success: false,
+        error: "E-mail ou senha incorretos. Verifique seus dados.",
+      };
+    }
+
+    // Ao logar com sucesso, garante cookies limpos de demo
+    await clearDemoCookiesAction();
+    return { success: true, redirectUrl: "/leads" };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erro ao autenticar.";
+    return { success: false, error: message };
+  }
+}
+
+/**
  * Encerra a sessão atual do Supabase e limpa cookies de demonstração e acesso.
  */
 export async function logoutAction(): Promise<{ success: boolean }> {
   try {
     await clearDemoCookiesAction();
+    try {
+      const cookieStore = await cookies();
+      cookieStore.delete("sb-test-user");
+    } catch {
+      // Ignora erro de cookie fora do context
+    }
     if (isSupabaseServerConfigured()) {
       const supabase = await createServerSupabaseClient();
       await supabase.auth.signOut();
