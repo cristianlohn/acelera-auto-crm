@@ -137,8 +137,9 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
       options: {
         data: {
           full_name: "Carlos Eduardo",
-          phone: "11977776666",
+          dealership_name: "Imperial Motors",
           store_name: "Imperial Motors",
+          phone: "11977776666",
         },
       },
     });

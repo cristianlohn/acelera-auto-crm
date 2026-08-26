@@ -300,4 +300,52 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     // Assert 4: Confirmação volta para type="password"
     expect(confirmPasswordInput).toHaveAttribute("type", "password");
   });
+
+  it("[IT-13.8] Deve exibir o card de confirmação de e-mail quando a criação exigir ativação por link", async () => {
+    // Arrange
+    vi.spyOn(authActions, "registerNewDealership").mockResolvedValue({
+      success: true,
+      requiresEmailVerification: true,
+      message: "Enviamos um link de confirmação para o seu e-mail.",
+      redirectUrl: "/login?verified_pending=true",
+    });
+
+    render(<RegisterPage />);
+
+    // Preenchimento de campos válidos
+    fireEvent.change(screen.getByLabelText(/nome da concessionária/i), {
+      target: { value: "Top Car Veículos" },
+    });
+    fireEvent.change(screen.getByLabelText(/nome completo do gestor/i), {
+      target: { value: "Marcos Souza" },
+    });
+    fireEvent.change(screen.getByLabelText(/e-mail corporativo/i), {
+      target: { value: "marcos@topcar.com.br" },
+    });
+    fireEvent.change(screen.getByLabelText(/whatsapp \/ celular/i), {
+      target: { value: "11988887777" },
+    });
+    fireEvent.change(screen.getByLabelText(/^senha de acesso \*/i), {
+      target: { value: "SenhaSegura123" },
+    });
+    fireEvent.change(screen.getByLabelText(/confirmar senha/i), {
+      target: { value: "SenhaSegura123" },
+    });
+    fireEvent.click(screen.getByLabelText(/declaro que li e concordo com os/i));
+
+    // Act
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /criar conta e começar/i }));
+    });
+
+    // Assert: Card de confirmação é exibido com o e-mail informado e link para login
+    expect(screen.getByTestId("verification-sent-card")).toBeInTheDocument();
+    expect(screen.getByText(/quase lá! confirme seu e-mail/i)).toBeInTheDocument();
+    expect(screen.getByText(/marcos@topcar.com.br/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /ir para o login/i })).toHaveAttribute(
+      "href",
+      "/login"
+    );
+    expect(mockPush).not.toHaveBeenCalled();
+  });
 });

@@ -47,7 +47,6 @@ import {
   formatCurrency,
 } from "@/lib/mock-data";
 import { timeAgo } from "@/lib/lead-utils";
-import { useDemoRole } from "@/context/demo-role-context";
 import type { Client, ClientStatus, ClientFormData } from "@/types/crm";
 
 // ---------------------------------------------------------------------------

@@ -30,11 +30,9 @@ import {
   formatCurrency,
 } from "@/lib/mock-data";
 import {
-  getVehicles,
   createVehicle as persistVehicle,
   updateVehicleStatus as persistVehicleStatus,
 } from "@/app/actions/vehicles";
-import { useDemoRole } from "@/context/demo-role-context";
 import type { Vehicle, VehicleStatus } from "@/types/crm";
 import { cn } from "@/lib/utils";
 

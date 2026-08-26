@@ -41,7 +41,7 @@ import {
 import { cn } from "@/lib/utils";
 import { mockLeads } from "@/lib/mock-data";
 import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
-import { getLeads, createLead as persistLead } from "@/app/actions/leads";
+import { createLead as persistLead } from "@/app/actions/leads";
 import { useDemoRole } from "@/context/demo-role-context";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";

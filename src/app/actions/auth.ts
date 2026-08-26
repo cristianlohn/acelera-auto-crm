@@ -26,6 +26,9 @@ export interface RegisterDealershipInput {
 export interface RegisterResult {
   success: boolean;
   error?: string;
+  requiresEmailVerification?: boolean;
+  message?: string;
+  redirectUrl?: string;
 }
 
 /**
@@ -46,7 +49,7 @@ function generateSlug(storeName: string): string {
  * Provisiona uma nova concessionária com tenant limpo e usuário administrador.
  *
  * Executa com privilégios administrativos (service_role) para contornar bloqueios de RLS
- * durante a fase de cadastro inicial.
+ * durante a fase de cadastro inicial, enviando metadados completos no Supabase Auth.
  *
  * @param input Dados do formulário de cadastro.
  * @returns Resultado com status de sucesso ou mensagem de erro tratada.
@@ -85,22 +88,27 @@ export async function registerNewDealership(
     } catch {
       // Ignora erro de cookies fora do request context (ex: ambiente de testes)
     }
-    return { success: true };
+    return {
+      success: true,
+      requiresEmailVerification: false,
+      redirectUrl: "/leads",
+    };
   }
 
   try {
     const supabase = await createServerSupabaseClient();
     const adminClient = createAdminClient();
 
-    // 1. Cria usuário no Supabase Auth
+    // 1. Cria usuário no Supabase Auth com metadados completos
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
         data: {
           full_name: fullName.trim(),
-          phone: phone.trim(),
+          dealership_name: storeName.trim(),
           store_name: storeName.trim(),
+          phone: phone.trim(),
         },
       },
     });
@@ -177,7 +185,19 @@ export async function registerNewDealership(
       // Ignora erro de cookies fora do request context
     }
 
-    return { success: true };
+    // Determina se há sessão ativa imediata ou se requer confirmação de e-mail
+    const requiresEmailVerification = Boolean(
+      authData.user && !authData.session && authData.user.identities && authData.user.identities.length > 0
+    );
+
+    return {
+      success: true,
+      requiresEmailVerification,
+      message: requiresEmailVerification
+        ? "Enviamos um link de confirmação para o seu e-mail. Verifique sua caixa de entrada para ativar sua conta."
+        : undefined,
+      redirectUrl: requiresEmailVerification ? "/login?verified_pending=true" : "/leads",
+    };
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : "Ocorreu um erro interno ao processar o cadastro.";
