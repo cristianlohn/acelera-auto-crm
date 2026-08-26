@@ -7,7 +7,7 @@
  * - Escolha de ciclo de faturamento (Mensal / Anual com 2 meses grátis).
  * - Seleção de plano (Starter R$ 297, Pro R$ 497, Enterprise R$ 997).
  * - Checkout direto simulado com suporte a Cartão de Crédito e Pix.
- * - Feedback visual de segurança e garantia de 7 dias.
+ * - Ambiente seguro e ativação imediata via gateway Asaas.
  */
 
 "use client";
@@ -286,25 +286,31 @@ function BillingContent() {
           })}
         </div>
 
-        {/* Garantia & Segurança */}
-        <div className="rounded-2xl border border-white/10 bg-[#121218]/50 p-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+        {/* Ambiente Seguro & Métodos de Pagamento */}
+        <div className="rounded-2xl border border-white/10 bg-[#121218]/50 p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
               <ShieldCheck className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-sm font-bold text-white">Garantia Incondicional de 7 Dias</p>
+              <p className="text-sm font-bold text-white">
+                Ambiente Seguro • Ativação Imediata via Pix ou Cartão de Crédito
+              </p>
               <p className="text-xs text-zinc-400">
-                Se o Acelera Auto CRM não aumentar sua velocidade de atendimento, devolvemos 100% do seu investimento.
+                Faturamento transparente e liberação instantânea de todos os recursos processados via gateway Asaas.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-zinc-400">
-            <CreditCard className="h-4 w-4 text-zinc-400" />
-            <span>Cartão de Crédito</span>
+          <div className="flex items-center gap-2.5 text-xs text-zinc-300 bg-white/5 border border-white/10 px-4 py-2 rounded-xl shrink-0">
+            <div className="flex items-center gap-1.5">
+              <CreditCard className="h-4 w-4 text-orange-400" />
+              <span>Cartão de Crédito</span>
+            </div>
             <span className="text-zinc-600">•</span>
-            <QrCode className="h-4 w-4 text-emerald-400" />
-            <span className="text-emerald-400 font-semibold">Pix Instantâneo</span>
+            <div className="flex items-center gap-1.5 text-emerald-400">
+              <QrCode className="h-4 w-4" />
+              <span className="font-semibold">Pix Instantâneo</span>
+            </div>
           </div>
         </div>
       </div>
