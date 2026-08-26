@@ -13,6 +13,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -109,20 +110,17 @@ export default function RegisterPage() {
         <Link
           href="/"
           id="link-brand-home"
-          className="flex items-center gap-2.5 z-10"
+          className="flex items-center gap-2.5 z-10 transition-transform hover:scale-105"
           aria-label="Ir para a página inicial"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 shadow-lg shadow-orange-500/30">
-            <Zap className="h-5 w-5 fill-white text-white" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-extrabold tracking-tight text-white">
-              Acelera<span className="text-orange-500">Auto</span>
-            </span>
-            <span className="text-[10px] font-bold tracking-widest text-muted-foreground uppercase -mt-1">
-              CRM Automotivo
-            </span>
-          </div>
+          <Image
+            src="/logo.png"
+            alt="Acelera Auto CRM"
+            width={160}
+            height={40}
+            className="h-9 w-auto object-contain"
+            priority
+          />
         </Link>
 
         {/* Benefícios do Trial */}
@@ -169,19 +167,21 @@ export default function RegisterPage() {
       {/* ------------------------------------------------------------------ */}
       <div className="flex flex-1 flex-col justify-center px-4 py-8 sm:px-6 lg:px-12 xl:px-16 w-full max-w-lg mx-auto lg:max-w-none">
         <div className="w-full max-w-md mx-auto space-y-6">
-          {/* Logo Mobile */}
-          <div className="lg:hidden flex items-center justify-between">
+          {/* Logo Header Form & Mobile */}
+          <div className="flex items-center justify-between">
             <Link
               href="/"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 transition-transform hover:scale-105"
               aria-label="Ir para a página inicial"
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-600 shadow">
-                <Zap className="h-4 w-4 fill-white text-white" />
-              </div>
-              <span className="text-base font-extrabold tracking-tight text-white">
-                Acelera<span className="text-orange-500">Auto</span>
-              </span>
+              <Image
+                src="/logo.png"
+                alt="Acelera Auto CRM"
+                width={140}
+                height={36}
+                className="h-8 w-auto object-contain"
+                priority
+              />
             </Link>
 
             <Link

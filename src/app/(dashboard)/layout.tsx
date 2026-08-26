@@ -10,6 +10,7 @@
 
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -19,7 +20,6 @@ import {
   BarChart3,
   Settings,
   Menu,
-  Zap,
   Phone,
   TrendingUp,
 } from "lucide-react";
@@ -60,17 +60,14 @@ const navItems: NavItem[] = [
 function Logo({ className }: { className?: string }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-red-600 shadow-lg shadow-orange-500/30">
-        <Zap className="h-4 w-4 text-white" />
-      </div>
-      <div className="flex flex-col leading-none">
-        <span className="text-sm font-bold tracking-tight text-foreground">
-          Acelera Auto
-        </span>
-        <span className="text-[10px] font-medium tracking-widest text-orange-500 uppercase">
-          CRM
-        </span>
-      </div>
+      <Image
+        src="/logo.png"
+        alt="Acelera Auto CRM"
+        width={140}
+        height={36}
+        className="h-8 w-auto object-contain"
+        priority
+      />
     </div>
   );
 }

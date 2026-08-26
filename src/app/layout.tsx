@@ -53,6 +53,11 @@ export const metadata: Metadata = {
     description: "Aumente o giro do seu pátio e não perca mais leads do WhatsApp.",
     images: ["/og-image.png"],
   },
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
   robots: {
     index: true,
     follow: true,

@@ -9,8 +9,9 @@
  * - Rodapé com informações institucionais, segurança de dados e links rápidos.
  */
 
+import Image from "next/image";
 import Link from "next/link";
-import { Zap, ShieldCheck, Database, ArrowRight } from "lucide-react";
+import { ShieldCheck, Database, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const metadata = {
@@ -37,17 +38,14 @@ export default function MarketingLayout({
             className="flex items-center gap-2 transition-transform hover:scale-105 shrink-0"
             aria-label="Acelera Auto CRM Página Inicial"
           >
-            <div className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 shadow-lg shadow-orange-500/25 ring-1 ring-orange-400/30 shrink-0">
-              <Zap className="h-4 w-4 sm:h-5 sm:w-5 fill-white text-white" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-sm font-extrabold tracking-tight text-white sm:text-lg">
-                Acelera<span className="text-orange-500">Auto</span>
-              </span>
-              <span className="hidden sm:inline text-[10px] font-semibold tracking-wider text-muted-foreground uppercase -mt-1">
-                CRM Automotivo
-              </span>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Acelera Auto CRM"
+              width={160}
+              height={40}
+              className="h-8 sm:h-9 w-auto object-contain"
+              priority
+            />
           </Link>
 
           {/* Links de Navegação (Desktop) */}
@@ -125,12 +123,13 @@ export default function MarketingLayout({
             {/* Coluna 1: Sobre */}
             <div className="space-y-3 md:col-span-1">
               <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500 text-white font-bold">
-                  <Zap className="h-4 w-4 fill-current" />
-                </div>
-                <span className="text-sm font-bold text-white">
-                  Acelera<span className="text-orange-500">Auto</span>
-                </span>
+                <Image
+                  src="/logo.png"
+                  alt="Acelera Auto CRM"
+                  width={140}
+                  height={36}
+                  className="h-7 w-auto object-contain"
+                />
               </div>
               <p className="text-zinc-400 leading-relaxed">
                 Plataforma de alta performance desenvolvida para acelerar a

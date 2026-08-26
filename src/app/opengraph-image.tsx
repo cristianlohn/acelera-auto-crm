@@ -151,7 +151,7 @@ export default async function Image() {
               color: "#c084fc",
             }}
           >
-            📊 Métricas em Tempo Real
+            📊 SLA em Tempo Real
           </div>
         </div>
       </div>
