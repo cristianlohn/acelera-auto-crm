@@ -50,6 +50,14 @@
 | **CI/CD** | [GitHub Actions](https://github.com/features/actions) |
 
 ---
+## 🎯 Garantia da Qualidade & Automação de Testes
+
+O projeto segue padrões formais de Engenharia de Qualidade de Software:
+* **Matriz de Rastreabilidade (RTM):** [Consulte a RTM completa aqui](./docs/qa/traceability-matrix.md).
+* **Plano de Testes:** [Consulte o plano de testes aqui](./docs/qa/test-plan.md).
+* **Técnicas Aplicadas:** Análise de Valor Limite (BVA), Partição de Equivalência (EP) e Testes de Transição de Estado.
+
+---
 
 ## 🚀 Como Executar o Projeto
 

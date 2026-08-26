@@ -16,7 +16,7 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
            / \
           / E2E \       <-- Playwright (Fluxos Críticos e Regressão Visual)
          /-------\
-        / Integração\   <-- Testing Library + Vitest (Cards, Modais, Dropdowns)
+        / Integração\   <-- Testing Library + Happy-DOM (Cards, Modais, Dropdowns)
        /-------------\
       /   Unitários   \ <-- Vitest (Formatadores, Regras de Tempo, URLs WhatsApp)
      /-----------------\
@@ -24,8 +24,8 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
 
 | Nível de Teste | Ferramentas | Escopo | Frequência de Execução |
 |---|---|---|---|
-| **Testes Unitários** | Vitest 4+, v8 | Funções puras de formatação (BRL, KM), regras de urgência de leads, higienização de telefones e geração de deep-links WhatsApp. | A cada commit / pré-push e na esteira de CI. |
-| **Testes de Integração** | Testing Library + jsdom | Renderização de cards de veículos, estados de badges de status, dropdown menus, cópia para clipboard com mocks e formulários modais. | A cada commit / PR na esteira de CI. |
+| **Testes Unitários** | Vitest 4+, v8 | Funções puras de formatação (BRL, KM), regras de urgência de leads (BVA), higienização de telefones e geração de deep-links WhatsApp. | A cada commit / pré-push e na esteira de CI. |
+| **Testes de Integração** | Testing Library + happy-dom | Renderização de cards de veículos, estados de badges de status, dropdown menus, cópia para clipboard com mocks e formulários modais. | A cada commit / PR na esteira de CI. |
 | **Testes Estáticos** | TypeScript (`tsc --noEmit`) + ESLint | Tipagem estrita de contratos de dados (sem `any`), boas práticas de React 19 / Next.js 16 e acessibilidade ARIA. | A cada build e no CI. |
 | **Testes E2E (Fase 2)** | Playwright | Navegação ponta-a-ponta entre funil e estoque, persistência no Supabase e fluxos em viewport mobile. | Pré-release e branches de staging/produção. |
 
@@ -35,29 +35,56 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
 
 ### 3.1 Testes Unitários (`src/__tests__/unit/formatters-and-rules.test.ts`)
 
-| ID | Caso de Teste | Regra / Função | Resultado Esperado | Status |
+| ID | Caso de Teste | Regra / Técnica | Resultado Esperado | Status |
 |---|---|---|---|---|
-| **UT-01** | Formatação de moeda BRL inteira | `formatCurrency(149900)` | Retorna string contendo `R$ 149.900` | ✅ Passou |
-| **UT-02** | Formatação de moeda valor zero | `formatCurrency(0)` | Retorna `R$ 0` | ✅ Passou |
-| **UT-03** | Formatação de valor milionário | `formatCurrency(1500000)` | Retorna `R$ 1.500.000` | ✅ Passou |
-| **UT-04** | Formatação de KM com milhar | `formatKm(18500)` | Retorna `18.500 km` | ✅ Passou |
-| **UT-05** | Formatação de KM zero | `formatKm(0)` | Retorna `0 km` | ✅ Passou |
-| **UT-06** | Lead recente (< 6h) | `urgencyLevel(2h)` | Retorna status `'verde'` e classe `text-green-500` | ✅ Passou |
-| **UT-07** | Lead em atenção (6h a 24h) | `urgencyLevel(12h)` | Retorna status `'amarelo'` e classe `text-orange-500` | ✅ Passou |
-| **UT-08** | Lead crítico (> 24h) | `urgencyLevel(48h)` | Retorna status `'vermelho'` e classe `text-red-500` | ✅ Passou |
-| **UT-09** | Lead sem contato (`null`) | `urgencyLevel(null)` | Retorna status `'vermelho'` e classe `text-red-500` | ✅ Passou |
-| **UT-10** | Higienização de telefone com máscara | `sanitizePhone("(11) 98765-4321")` | Retorna string limpa `'11987654321'` | ✅ Passou |
-| **UT-11** | Geração de URL WhatsApp com DDI | `whatsappUrl(lead)` | Gera URL `https://wa.me/55...` codificada com nome e veículo | ✅ Passou |
+| **UT-01** | Formatação de moeda BRL inteira | `formatCurrency(149900)` / EP | Retorna string contendo `R$ 149.900` | ✅ Passou |
+| **UT-02** | Formatação de valor zero | `formatCurrency(0)` / BVA | Retorna `R$ 0` | ✅ Passou |
+| **UT-03** | Formatação de valor fracionado | `formatCurrency(89990.75)` / BVA | Arredonda para inteiro `R$ 89.991` | ✅ Passou |
+| **UT-04** | Formatação de valor milionário | `formatCurrency(1750000)` / EP | Retorna `R$ 1.750.000` | ✅ Passou |
+| **UT-05** | Formatação de valor negativo | `formatCurrency(-5000)` / EP | Retorna `-R$ 5.000` | ✅ Passou |
+| **UT-06** | Formatação de zero km (0km) | `formatKm(0)` / BVA | Retorna `0 km` | ✅ Passou |
+| **UT-07** | Formatação de KM (3 a 4 dígitos) | `formatKm(850)`, `formatKm(5300)` | Retorna `850 km` e `5.300 km` | ✅ Passou |
+| **UT-08** | Formatação de KM (5 a 6 dígitos) | `formatKm(34200)`, `formatKm(125800)` | Retorna `34.200 km` e `125.800 km` | ✅ Passou |
+| **UT-09** | Limite Inferior Verde (0.0h) | `urgencyLevel(0h)` / BVA | Retorna `'verde'` e `text-green-500` | ✅ Passou |
+| **UT-10** | Limite Superior Verde (5.9h) | `urgencyLevel(5.9h)` / BVA | Retorna `'verde'` e `text-green-500` | ✅ Passou |
+| **UT-11** | Limite de Transição Amarelo (6.0h) | `urgencyLevel(6.0h)` / BVA | Retorna `'amarelo'` e `text-orange-500` | ✅ Passou |
+| **UT-12** | Limite Superior Amarelo (23.9h) | `urgencyLevel(23.9h)` / BVA | Retorna `'amarelo'` e `text-orange-500` | ✅ Passou |
+| **UT-13** | Limite de Transição Vermelho (24.0h) | `urgencyLevel(24.0h)` / BVA | Retorna `'vermelho'` e `text-red-500` | ✅ Passou |
+| **UT-14** | Faixa Crítica (>24h) | `urgencyLevel(48h)`, `urgencyLevel(72h)` | Retorna `'vermelho'` e `text-red-500` | ✅ Passou |
+| **UT-15** | Contato Nulo (`null`) | `urgencyLevel(null)` / BVA | Retorna `'vermelho'` e `text-red-500` | ✅ Passou |
+| **UT-16** | Remoção de máscara padrão de telefone | `sanitizePhone("(11) 98765-4321")` | Retorna string `'11987654321'` | ✅ Passou |
+| **UT-17** | Preservação de números limpos | `sanitizePhone("21976543210")` | Retorna `'21976543210'` | ✅ Passou |
+| **UT-18** | Remoção de caracteres internacionais e pontos | `sanitizePhone("+55 (41) 9.9988-7766")` | Retorna `'5541999887766'` | ✅ Passou |
+| **UT-19** | Sanitização de string vazia | `sanitizePhone("")` | Retorna `""` | ✅ Passou |
+| **UT-20** | Geração de URL base wa.me com DDI 55 | `whatsappUrl(lead)` | URL base `https://wa.me/5511987654321?text=` | ✅ Passou |
+| **UT-21** | Safe URI Encoding com acentos e símbolos | `whatsappUrl(leadEspecial)` | Codifica sem espaços, preserva UTF-8 | ✅ Passou |
+| **UT-22** | Emojis e formatação markdown no WhatsApp | `whatsappUrl(lead)` | Inclui saudações, `*carro*` e emojis | ✅ Passou |
+| **UT-23** | Sanitização automática em múltiplos formatos | `whatsappUrl(leadComMascara)` | Remove pontos e traços do path | ✅ Passou |
+| **UT-24** | Formatação de tempo nulo | `timeAgo(null)` | Retorna `'Sem contato'` | ✅ Passou |
+| **UT-25** | Formatação de tempo imediato (< 1min) | `timeAgo(now)` | Retorna `'Agora mesmo'` | ✅ Passou |
+| **UT-26** | Formatação em minutos (< 1h) | `timeAgo(45min)` | Retorna `'45min atrás'` | ✅ Passou |
+| **UT-27** | Formatação em horas (< 24h) | `timeAgo(4h)` | Retorna `'4h atrás'` | ✅ Passou |
+| **UT-28** | Formatação em dias (>= 24h) | `timeAgo(5d)` | Retorna `'5d atrás'` | ✅ Passou |
 
 ### 3.2 Testes de Integração (`src/__tests__/integration/vehicle-card.test.tsx`)
 
-| ID | Caso de Teste | Componente | Verificação | Status |
+| ID | Caso de Teste | Componente / Integração | Verificação | Status |
 |---|---|---|---|---|
-| **IT-01** | Renderização de atributos do veículo | `VehicleCard` | Verifica exibição de Marca, Modelo, Preço BRL, KM, Placa e Anos | ✅ Passou |
-| **IT-02** | Badge flutuante de status | `VehicleCard` | Renderiza `'Disponível'`, `'Reservado'` ou `'Vendido'` conforme prop | ✅ Passou |
-| **IT-03** | Cópia de Ficha Técnica | `VehicleCard` | Aciona `navigator.clipboard.writeText` com texto formatado | ✅ Passou |
-| **IT-04** | Feedback visual de cópia | `VehicleCard` | Exibe `'Copiado! ✓'` no botão após o clique | ✅ Passou |
-| **IT-05** | Alteração de status via Dropdown | `VehicleCard` | Dispara callback `onStatusChange` com o ID e o novo status selecionado | ✅ Passou |
+| **IT-01.1** | Título do Veículo | `VehicleCard` -> DOM | Renderiza `<h3>` com Marca e Modelo | ✅ Passou |
+| **IT-01.2** | Versão / Motorização | `VehicleCard` -> DOM | Exibe texto da versão | ✅ Passou |
+| **IT-01.3** | Preço Formatado | `VehicleCard` -> DOM | Exibe valor formatado `R$ 149.900` | ✅ Passou |
+| **IT-01.4** | Quilometragem | `VehicleCard` -> DOM | Exibe `18.500 km` | ✅ Passou |
+| **IT-01.5** | Final da Placa | `VehicleCard` -> DOM | Exibe `...E22` | ✅ Passou |
+| **IT-01.6** | Anos Fab/Mod | `VehicleCard` -> DOM | Exibe `2022/2023` | ✅ Passou |
+| **IT-01.7** | Semântica ARIA | `VehicleCard` -> Acessibilidade | `<article aria-label="Honda Civic 2022">` | ✅ Passou |
+| **IT-02.1** | Badge 'Disponível' | `VehicleCard` -> Badges | Exibe texto e classe `bg-green-500/90` | ✅ Passou |
+| **IT-02.2** | Badge 'Reservado' | `VehicleCard` -> Badges | Exibe texto e classe `bg-amber-500/90` | ✅ Passou |
+| **IT-02.3** | Badge 'Vendido' | `VehicleCard` -> Badges | Exibe texto e classe `bg-slate-500/90` | ✅ Passou |
+| **IT-03.1** | Disparo de Cópia | `VehicleCard` -> Clipboard API | `navigator.clipboard.writeText` chamado 1x | ✅ Passou |
+| **IT-03.2** | Payload da Ficha Técnica | `VehicleCard` -> Clipboard API | Payload com emojis, preço, KM e placa | ✅ Passou |
+| **IT-04.1** | Feedback Visual de Confirmação | `VehicleCard` -> React State | Exibe `'Copiado! ✓'` após o clique | ✅ Passou |
+| **IT-05.1** | Dropdown: Status Reservado | `VehicleCard` -> Radix Menu | Chama `onStatusChange` com `'reservado'` | ✅ Passou |
+| **IT-05.2** | Dropdown: Status Vendido | `VehicleCard` -> Radix Menu | Chama `onStatusChange` com `'vendido'` | ✅ Passou |
 
 ---
 

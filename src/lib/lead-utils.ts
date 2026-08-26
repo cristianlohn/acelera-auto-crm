@@ -2,21 +2,23 @@
  * @file lead-utils.ts
  * @description Funções utilitárias puras para a lógica de negócio de Leads.
  *
- * Extraídas do componente de página para permitir testes unitários isolados.
- * Sem dependências de UI ou React — só lógica de negócio pura.
+ * Centraliza regras de cálculo de tempo decorrido, classificação de SLA de urgência,
+ * sanitização de telefones e geração de deep links para WhatsApp.
+ * 
+ * Totalmente desacoplado de React/DOM para viabilizar testes unitários de alta performance.
  */
 
 import type { Lead } from "@/types/crm";
 
 // ---------------------------------------------------------------------------
-// Tempo / Urgência
+// Tempo / SLA de Urgência
 // ---------------------------------------------------------------------------
 
 /**
- * Formata a diferença entre agora e uma data ISO em string legível em PT-BR.
+ * Formata a diferença entre o timestamp atual e uma data ISO em string legível (PT-BR).
  *
- * @param isoDate - Data ISO 8601 ou null (sem contato).
- * @returns Texto como "2h atrás", "3d atrás" ou "Sem contato".
+ * @param isoDate - Data em formato ISO 8601 ou null (quando não houve contato).
+ * @returns String amigável como "2h atrás", "3d atrás", "Agora mesmo" ou "Sem contato".
  */
 export function timeAgo(isoDate: string | null): string {
   if (!isoDate) return "Sem contato";
@@ -31,26 +33,33 @@ export function timeAgo(isoDate: string | null): string {
 }
 
 /**
- * Classifica o nível de urgência do contato com base no tempo decorrido.
- *
- * @param isoDate - Data ISO 8601 do último contato, ou null.
- * @returns `"verde"` (< 6h), `"amarelo"` (6–24h) ou `"vermelho"` (> 24h / sem contato).
+ * Níveis de classificação de SLA de atendimento ao lead:
+ * - `"verde"`: Contato recente (< 6.0h).
+ * - `"amarelo"`: Contato intermediário (>= 6.0h e < 24.0h).
+ * - `"vermelho"`: Contato expirado ou inexistente (>= 24.0h ou null).
  */
 export type UrgencyLevel = "verde" | "amarelo" | "vermelho";
 
+/**
+ * Classifica a urgência do lead aplicando Análise de Valor Limite (BVA) sobre o tempo decorrido.
+ *
+ * @param isoDate - Timestamp ISO 8601 do último contato, ou null.
+ * @returns UrgencyLevel ('verde' | 'amarelo' | 'vermelho').
+ */
 export function urgencyLevel(isoDate: string | null): UrgencyLevel {
   if (!isoDate) return "vermelho";
-  const hrs = (Date.now() - new Date(isoDate).getTime()) / 3_600_000;
-  if (hrs > 24) return "vermelho";
-  if (hrs > 6) return "amarelo";
+  const diff = Date.now() - new Date(isoDate).getTime();
+  const hrs = diff / 3_600_000;
+  if (hrs >= 24) return "vermelho";
+  if (hrs >= 6) return "amarelo";
   return "verde";
 }
 
 /**
- * Retorna as classes CSS Tailwind correspondentes ao nível de urgência.
+ * Mapeia o nível de urgência para as classes CSS Tailwind correspondentes.
  *
- * @param isoDate - Data ISO 8601 do último contato, ou null.
- * @returns Classes CSS de cor para aplicar no elemento.
+ * @param isoDate - Timestamp ISO 8601 do último contato, ou null.
+ * @returns Classes Tailwind de cor de texto.
  */
 export function urgencyClass(isoDate: string | null): string {
   const level = urgencyLevel(isoDate);
@@ -60,24 +69,29 @@ export function urgencyClass(isoDate: string | null): string {
 }
 
 // ---------------------------------------------------------------------------
-// WhatsApp
+// WhatsApp & Comunicação
 // ---------------------------------------------------------------------------
 
 /**
- * Higieniza um número de telefone removendo todos os caracteres não numéricos.
+ * Higieniza strings de telefone removendo pontuações, espaços, parênteses e traços.
  *
- * @param phone - Telefone em qualquer formato.
- * @returns Somente dígitos, ex: "11987654321".
+ * @param phone - Telefone em formato arbitrário (ex: "(11) 98765-4321").
+ * @returns String contendo apenas caracteres numéricos.
  */
 export function sanitizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }
 
 /**
- * Gera a URL wa.me com mensagem pré-formatada e personalizada para o lead.
+ * Constrói o deep link `wa.me` para abertura direta do WhatsApp com mensagem codificada.
  *
- * @param lead - Objeto Lead com nome, telefone e veículo de interesse.
- * @returns URL codificada para WhatsApp Web / App.
+ * Garante:
+ * 1. Prefixo de DDI nacional (55) adicionado ao número higienizado.
+ * 2. Mensagem personalizada contendo o nome do cliente e veículo de interesse.
+ * 3. Safe URI encoding para caracteres acentuados, especiais e emojis.
+ *
+ * @param lead - Entidade Lead com dados do cliente e interesse.
+ * @returns URL completa pronta para navegação segura.
  */
 export function whatsappUrl(lead: Lead): string {
   const msg = encodeURIComponent(
