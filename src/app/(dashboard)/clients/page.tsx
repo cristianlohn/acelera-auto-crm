@@ -47,6 +47,7 @@ import {
   formatCurrency,
 } from "@/lib/mock-data";
 import { timeAgo } from "@/lib/lead-utils";
+import { useDemoRole } from "@/context/demo-role-context";
 import type { Client, ClientStatus, ClientFormData } from "@/types/crm";
 
 // ---------------------------------------------------------------------------
@@ -418,8 +419,15 @@ function ClientMetricCard({
 // Componente Principal: ClientsPage
 // ---------------------------------------------------------------------------
 
-export default function ClientsPage() {
-  const [clients, setClients] = useState<Client[]>(mockClients);
+export interface ClientsPageProps {
+  initialClients?: Client[];
+}
+
+export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
+  const [clients, setClients] = useState<Client[]>(() => {
+    if (initialClients !== undefined) return initialClients;
+    return mockClients;
+  });
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("todos");
 

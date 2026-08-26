@@ -30,9 +30,11 @@ import {
   formatCurrency,
 } from "@/lib/mock-data";
 import {
+  getVehicles,
   createVehicle as persistVehicle,
   updateVehicleStatus as persistVehicleStatus,
 } from "@/app/actions/vehicles";
+import { useDemoRole } from "@/context/demo-role-context";
 import type { Vehicle, VehicleStatus } from "@/types/crm";
 import { cn } from "@/lib/utils";
 
@@ -152,8 +154,15 @@ function computeMetrics(vehicles: Vehicle[]) {
 // Página principal
 // ---------------------------------------------------------------------------
 
-export default function VehiclesPage() {
-  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
+export interface VehiclesPageProps {
+  initialVehicles?: Vehicle[];
+}
+
+export default function VehiclesPage({ initialVehicles }: VehiclesPageProps = {}) {
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
+    if (initialVehicles !== undefined) return initialVehicles;
+    return mockVehicles;
+  });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
 

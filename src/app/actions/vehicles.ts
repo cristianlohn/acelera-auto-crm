@@ -15,14 +15,10 @@ import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
+import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { mockVehicles } from "@/lib/mock-data";
 import type { Vehicle, VehicleFormData, VehicleStatus } from "@/types/crm";
 import type { Database } from "@/types/database.types";
-
-/**
- * Organização padrão utilizada em modo de demonstração ou seed.
- */
-const DEFAULT_DEMO_ORG_ID = "a0000000-0000-0000-0000-000000000001";
 
 /**
  * Converte um registro do banco de dados para a entidade Vehicle do domínio.
@@ -48,27 +44,37 @@ function mapDbVehicleToDomain(
 /**
  * Obtém a listagem completa de veículos em estoque.
  *
- * @returns Lista de veículos da organização ou fallback de mock data.
+ * @returns Lista de veículos da organização ou array vazio se a loja não possuir veículos no pátio.
  */
 export async function getVehicles(): Promise<Vehicle[]> {
-  if (!isSupabaseServerConfigured()) {
+  const tenantContext = await resolveUserTenantContext();
+
+  // 1. Modo Demonstração explícito
+  if (tenantContext.isDemo) {
     return mockVehicles;
   }
 
+  // 2. Usuário Autenticado Real sem organização vinculada
+  if (!tenantContext.organizationId) {
+    return [];
+  }
+
+  // 3. Usuário Autenticado Real: consulta estritamente a organização do usuário
   try {
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from("vehicles")
       .select("*")
+      .eq("organization_id", tenantContext.organizationId)
       .order("created_at", { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return mockVehicles;
+    if (error || !data) {
+      return [];
     }
 
     return data.map(mapDbVehicleToDomain);
   } catch {
-    return mockVehicles;
+    return [];
   }
 }
 
@@ -79,6 +85,9 @@ export async function getVehicles(): Promise<Vehicle[]> {
  * @returns O veículo persistido formatado para o domínio.
  */
 export async function createVehicle(form: VehicleFormData): Promise<Vehicle> {
+  const tenantContext = await resolveUserTenantContext();
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
   const fallbackVehicle: Vehicle = {
     id: `v-${Date.now()}`,
     ...form,
@@ -93,7 +102,7 @@ export async function createVehicle(form: VehicleFormData): Promise<Vehicle> {
     const { data, error } = await supabase
       .from("vehicles")
       .insert({
-        organization_id: DEFAULT_DEMO_ORG_ID,
+        organization_id: orgId,
         make: form.make,
         model: form.model,
         version: form.version || null,

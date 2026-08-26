@@ -41,7 +41,7 @@ import {
 import { cn } from "@/lib/utils";
 import { mockLeads } from "@/lib/mock-data";
 import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
-import { createLead as persistLead } from "@/app/actions/leads";
+import { getLeads, createLead as persistLead } from "@/app/actions/leads";
 import { useDemoRole } from "@/context/demo-role-context";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
@@ -335,9 +335,17 @@ const EMPTY_FORM = {
 
 interface AddLeadModalProps {
   onAdd: (lead: Lead) => void;
+  triggerLabel?: string;
+  triggerId?: string;
+  className?: string;
 }
 
-function AddLeadModal({ onAdd }: AddLeadModalProps) {
+function AddLeadModal({
+  onAdd,
+  triggerLabel = "Novo Lead",
+  triggerId = "btn-add-lead",
+  className,
+}: AddLeadModalProps) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
@@ -377,12 +385,15 @@ function AddLeadModal({ onAdd }: AddLeadModalProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
-          id="btn-add-lead"
-          className="gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-600 hover:shadow-orange-500/35"
-          aria-label="Adicionar novo lead"
+          id={triggerId}
+          className={cn(
+            "gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-600 hover:shadow-orange-500/35",
+            className
+          )}
+          aria-label={triggerLabel}
         >
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Novo Lead</span>
+          <span>{triggerLabel}</span>
         </Button>
       </DialogTrigger>
 
@@ -409,7 +420,6 @@ function AddLeadModal({ onAdd }: AddLeadModalProps) {
         </DialogHeader>
 
         <form id="form-add-lead" onSubmit={handleSubmit} className="mt-2 grid gap-4">
-          {/* Nome */}
           <div className="grid gap-1.5">
             <label
               htmlFor="lead-name"
@@ -428,7 +438,6 @@ function AddLeadModal({ onAdd }: AddLeadModalProps) {
             />
           </div>
 
-          {/* Telefone */}
           <div className="grid gap-1.5">
             <label
               htmlFor="lead-phone"
@@ -448,7 +457,6 @@ function AddLeadModal({ onAdd }: AddLeadModalProps) {
             />
           </div>
 
-          {/* E-mail */}
           <div className="grid gap-1.5">
             <label
               htmlFor="lead-email"
@@ -462,98 +470,95 @@ function AddLeadModal({ onAdd }: AddLeadModalProps) {
               name="email"
               value={form.email}
               onChange={handleChange}
-              placeholder="Ex: cliente@email.com"
+              placeholder="Ex: carlos@empresa.com.br"
               type="email"
             />
           </div>
 
-          {/* Veículo de interesse */}
           <div className="grid gap-1.5">
             <label
               htmlFor="lead-vehicle"
               className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
             >
               <Car className="h-3.5 w-3.5" />
-              Veículo de interesse *
+              Veículo de Interesse *
             </label>
             <Input
               id="lead-vehicle"
               name="vehicleInterest"
               value={form.vehicleInterest}
               onChange={handleChange}
-              placeholder="Ex: Honda Civic EXL 2023"
+              placeholder="Ex: Honda Civic 2.0 EXL 2022"
               required
             />
           </div>
 
-          {/* Grid: vendedor + origem */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <label
-                htmlFor="lead-seller"
-                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
-              >
-                <User className="h-3.5 w-3.5" />
-                Vendedor Responsável
-              </label>
-              <select
-                id="lead-seller"
-                name="sellerName"
-                value={form.sellerName}
-                onChange={handleChange}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                <option value="Roleta Automática (Equipe)">
-                  ⚡ Roleta Automática (Equipe)
-                </option>
-                <option value="Rafael Alves">Rafael Alves</option>
-                <option value="Juliana Costa">Juliana Costa</option>
-                <option value="Marcos Ferreira">Marcos Ferreira</option>
-                <option value="Fila de Atendimento">Fila de Atendimento Geral</option>
-              </select>
-            </div>
-
-            <div className="grid gap-1.5">
-              <label
-                htmlFor="lead-origin"
-                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
-              >
-                <Tag className="h-3.5 w-3.5" />
-                Canal de Origem *
-              </label>
-              <select
-                id="lead-origin"
-                name="origin"
-                value={form.origin}
-                onChange={handleChange}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring"
-              >
-                {Object.entries(ORIGIN_LABELS).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="grid gap-1.5">
+            <label
+              htmlFor="lead-origin"
+              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+            >
+              <Tag className="h-3.5 w-3.5" />
+              Canal de Origem
+            </label>
+            <select
+              id="lead-origin"
+              name="origin"
+              value={form.origin}
+              onChange={handleChange}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="whatsapp">WhatsApp Direto</option>
+              <option value="site">Site da Concessionária</option>
+              <option value="webmotors">Webmotors</option>
+              <option value="icarros">iCarros</option>
+              <option value="olx">OLX</option>
+              <option value="instagram">Instagram / Meta Ads</option>
+              <option value="indicacao">Indicação</option>
+              <option value="telefone">Telefone</option>
+            </select>
           </div>
 
-          <DialogFooter className="-mx-4 -mb-4 mt-2">
+          <div className="grid gap-1.5">
+            <label
+              htmlFor="lead-seller"
+              className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+            >
+              <User className="h-3.5 w-3.5" />
+              Vendedor Responsável
+            </label>
+            <select
+              id="lead-seller"
+              name="sellerName"
+              value={form.sellerName}
+              onChange={handleChange}
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="Roleta Automática (Equipe)">Roleta Automática (Equipe)</option>
+              <option value="Rafael Alves">Rafael Alves (Vendedor)</option>
+              <option value="Juliana Costa">Juliana Costa (Vendedora)</option>
+              <option value="Marcos Ferreira">Marcos Ferreira (Gerente)</option>
+            </select>
+          </div>
+
+          <DialogFooter className="mt-2 flex gap-2">
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               onClick={() => setOpen(false)}
-              className="gap-1.5"
+              className="w-full sm:w-auto"
             >
-              <X className="h-4 w-4" />
+              <X className="mr-1 h-3.5 w-3.5" />
               Cancelar
             </Button>
             <Button
               id="btn-submit-lead"
+              data-testid="btn-confirm-add-lead"
               type="submit"
-              className="gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600"
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 sm:w-auto"
             >
-              <Plus className="h-4 w-4" />
-              Adicionar Lead
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Cadastrar Lead
             </Button>
           </DialogFooter>
         </form>
@@ -591,9 +596,16 @@ function computeMetrics(leads: Lead[]) {
 // Página principal: /leads
 // ---------------------------------------------------------------------------
 
-export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
+export interface LeadsPageProps {
+  initialLeads?: Lead[];
+}
+
+export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
   const { role, sellerName } = useDemoRole();
+  const [leads, setLeads] = useState<Lead[]>(() => {
+    if (initialLeads !== undefined) return initialLeads;
+    return mockLeads;
+  });
 
   const isVendedorRole = role === "vendedor";
   const visibleLeads = isVendedorRole
@@ -610,18 +622,13 @@ export default function LeadsPage() {
       status: lead.status,
       sellerName: lead.sellerName,
       origin: lead.origin,
-    }).catch(() => {
-      // Fallback silencioso mantendo estado local
-    });
+    }).catch(() => {});
   }, []);
 
   const { active, visits, proposals, avgHrs } = computeMetrics(visibleLeads);
 
   return (
     <div className="flex h-full flex-col">
-      {/* ---------------------------------------------------------------- */}
-      {/* Cabeçalho da página                                               */}
-      {/* ---------------------------------------------------------------- */}
       <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm">
         <div className="flex items-center justify-between px-4 py-3 sm:px-6">
           <div>
@@ -648,13 +655,12 @@ export default function LeadsPage() {
           <AddLeadModal onAdd={handleAddLead} />
         </div>
 
-        {/* Métricas */}
         <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4 sm:px-6">
           <MetricCard
             label="Leads Ativos"
             value={active}
             icon={Users}
-            trend="+3 esta semana"
+            trend={visibleLeads.length > 0 ? "+3 esta semana" : undefined}
             color="text-blue-600"
             bgGradient="bg-blue-100 dark:bg-blue-900/40"
           />
@@ -682,35 +688,59 @@ export default function LeadsPage() {
         </div>
       </div>
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Cockpit Gerencial "Dinheiro na Mesa"                             */}
-      {/* ---------------------------------------------------------------- */}
-      {!isVendedorRole && (
+      {!isVendedorRole && visibleLeads.length > 0 && (
         <div className="px-4 pt-4 sm:px-6">
           <ManagerActionCockpit />
         </div>
       )}
 
-      {/* ---------------------------------------------------------------- */}
-      {/* Kanban board – scroll horizontal                                   */}
-      {/* ---------------------------------------------------------------- */}
-      <div className="flex-1 overflow-x-auto">
+      {visibleLeads.length === 0 ? (
         <div
-          className="flex min-h-full gap-4 p-4 sm:p-6"
-          role="region"
-          aria-label="Funil Kanban de Leads"
+          data-testid="leads-empty-state"
+          className="flex flex-1 flex-col items-center justify-center p-8 text-center"
         >
-          {KANBAN_COLUMNS.map((col) => (
-            <KanbanColumnCard
-              key={col.id}
-              column={col}
-              leads={visibleLeads.filter((l) => l.status === col.id)}
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-500 mb-4 shadow-lg shadow-orange-500/5">
+            <Users className="h-8 w-8" />
+          </div>
+          <h2 className="text-lg font-bold text-foreground sm:text-xl">
+            Nenhum lead cadastrado ainda
+          </h2>
+          <p className="mt-1.5 max-w-md text-sm text-muted-foreground">
+            Sua concessionária ainda não recebeu novos leads. Você pode cadastrar manualmente um cliente agora ou conectar seus canais de vendas via Webhook.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <AddLeadModal
+              onAdd={handleAddLead}
+              triggerLabel="Cadastrar Primeiro Lead"
+              triggerId="btn-empty-add-lead"
             />
-          ))}
-          {/* Espaço final para respirar no scroll horizontal */}
-          <div className="w-4 shrink-0" aria-hidden />
+            <a
+              href="/settings"
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted hover:border-orange-500/40 transition-all shadow-sm"
+            >
+              <Zap className="h-4 w-4 text-orange-500" />
+              Configurar Integrações / Webhooks
+            </a>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="flex-1 overflow-x-auto">
+          <div
+            className="flex min-h-full gap-4 p-4 sm:p-6"
+            role="region"
+            aria-label="Funil Kanban de Leads"
+          >
+            {KANBAN_COLUMNS.map((col) => (
+              <KanbanColumnCard
+                key={col.id}
+                column={col}
+                leads={visibleLeads.filter((l) => l.status === col.id)}
+              />
+            ))}
+            <div className="w-4 shrink-0" aria-hidden />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

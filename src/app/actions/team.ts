@@ -14,7 +14,6 @@
 import { revalidatePath } from "next/cache";
 import {
   createServerSupabaseClient,
-  isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import {
   INITIAL_TEAM_MEMBERS,
@@ -24,6 +23,7 @@ import {
   type InviteMemberInput,
   type InviteResult,
 } from "@/lib/team-data";
+import { resolveUserTenantContext } from "@/lib/auth/tenant";
 
 export type {
   TeamMember,
@@ -50,19 +50,29 @@ export async function getTeamCapacity(): Promise<TeamCapacity> {
  * Consulta a lista de colaboradores vinculados à organização logada.
  */
 export async function getTeamMembers(): Promise<TeamMember[]> {
-  if (!isSupabaseServerConfigured()) {
+  const tenantContext = await resolveUserTenantContext();
+
+  // 1. Modo Demonstração explícito (ou offline sem Supabase)
+  if (tenantContext.isDemo) {
     return [...localTeamMembers];
   }
 
+  // 2. Usuário Autenticado Real sem organização vinculada
+  if (!tenantContext.organizationId) {
+    return [];
+  }
+
+  // 3. Usuário Autenticado Real: consulta estritamente a organização do usuário logado
   try {
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
+      .eq("organization_id", tenantContext.organizationId)
       .order("created_at", { ascending: true });
 
-    if (error || !data || data.length === 0) {
-      return [...localTeamMembers];
+    if (error || !data) {
+      return [];
     }
 
     return data.map((p) => ({
@@ -77,7 +87,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
       createdAt: p.created_at,
     }));
   } catch {
-    return [...localTeamMembers];
+    return [];
   }
 }
 

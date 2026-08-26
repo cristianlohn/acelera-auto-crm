@@ -15,14 +15,10 @@ import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
+import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { mockLeads } from "@/lib/mock-data";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 import type { Database } from "@/types/database.types";
-
-/**
- * Organização padrão utilizada em modo de demonstração ou seed.
- */
-const DEFAULT_DEMO_ORG_ID = "a0000000-0000-0000-0000-000000000001";
 
 /**
  * Converte um registro do banco de dados para a entidade Lead do domínio.
@@ -44,29 +40,39 @@ function mapDbLeadToDomain(
 }
 
 /**
- * Obtém a listagem completa de leads ordenados por data de atualização.
+ * Obtém a listagem completa de leads ordenados por data de criação.
  *
- * @returns Lista de leads da organização ou fallback de mock data.
+ * @returns Lista de leads da organização ou array vazio caso a loja não possua leads cadastrados.
  */
 export async function getLeads(): Promise<Lead[]> {
-  if (!isSupabaseServerConfigured()) {
+  const tenantContext = await resolveUserTenantContext();
+
+  // 1. Modo Demonstração explícito (sandbox)
+  if (tenantContext.isDemo) {
     return mockLeads;
   }
 
+  // 2. Usuário Autenticado Real sem organização vinculada
+  if (!tenantContext.organizationId) {
+    return [];
+  }
+
+  // 3. Usuário Autenticado Real: consulta estritamente a organização do usuário logado
   try {
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from("leads")
       .select("*")
+      .eq("organization_id", tenantContext.organizationId)
       .order("created_at", { ascending: false });
 
-    if (error || !data || data.length === 0) {
-      return mockLeads;
+    if (error || !data) {
+      return [];
     }
 
     return data.map(mapDbLeadToDomain);
   } catch {
-    return mockLeads;
+    return [];
   }
 }
 
@@ -83,12 +89,15 @@ export interface CreateLeadInput {
 }
 
 /**
- * Cria um novo lead na organização ativa.
+ * Cria um novo lead na organização ativa do usuário.
  *
  * @param input - Dados do novo lead.
  * @returns O lead criado formatado para o domínio.
  */
 export async function createLead(input: CreateLeadInput): Promise<Lead> {
+  const tenantContext = await resolveUserTenantContext();
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
   const fallbackLead: Lead = {
     id: `l-${Date.now()}`,
     name: input.name,
@@ -98,7 +107,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     status: input.status || "novo",
     sellerName: input.sellerName || "Rafael Alves",
     lastContactAt: new Date().toISOString(),
-    origin: input.origin || "whatsapp",
+    origin: input.origin || "site",
   };
 
   if (!isSupabaseServerConfigured()) {
@@ -110,15 +119,14 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     const { data, error } = await supabase
       .from("leads")
       .insert({
-        organization_id: DEFAULT_DEMO_ORG_ID,
+        organization_id: orgId,
         name: input.name,
         phone: input.phone,
         email: input.email || null,
         vehicle_interest: input.vehicleInterest,
         status: input.status || "novo",
         seller_name: input.sellerName || "Rafael Alves",
-        origin: input.origin || "whatsapp",
-        last_contact_at: new Date().toISOString(),
+        origin: input.origin || "site",
         notes: input.notes || null,
       })
       .select()
@@ -134,6 +142,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     return fallbackLead;
   }
 }
+
 
 /**
  * Atualiza o status (etapa do funil) de um lead existente.
