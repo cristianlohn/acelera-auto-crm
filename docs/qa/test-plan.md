@@ -85,6 +85,8 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
 | **IT-04.1** | Feedback Visual de Confirmação | `VehicleCard` -> React State | Exibe `'Copiado! ✓'` após o clique | ✅ Passou |
 | **IT-05.1** | Dropdown: Status Reservado | `VehicleCard` -> Radix Menu | Chama `onStatusChange` com `'reservado'` | ✅ Passou |
 | **IT-05.2** | Dropdown: Status Vendido | `VehicleCard` -> Radix Menu | Chama `onStatusChange` com `'vendido'` | ✅ Passou |
+| **IT-06.1-10** | Modal de Cadastro de Veículo | `NewVehicleModal` -> Lifecycle/Form | Valida abertura, campos obrigatórios, fotos mock, preview e `onAdd` | ✅ Passou |
+| **IT-07.1-8** | Gestão de Estoque Completa | `VehiclesPage` -> Full Page | Métricas dinâmicas, busca instantânea, abas de status, empty state e inserção | ✅ Passou |
 
 ---
 

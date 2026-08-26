@@ -139,7 +139,7 @@ export function VehicleCard({ vehicle: v, onStatusChange }: VehicleCardProps) {
       {/* Imagem                                                              */}
       {/* ----------------------------------------------------------------- */}
       <div className="relative aspect-video w-full overflow-hidden bg-muted">
-        {!imgError ? (
+        {!imgError && v.imageUrl ? (
           <Image
             src={v.imageUrl}
             alt={`${v.make} ${v.model}`}
@@ -149,7 +149,7 @@ export function VehicleCard({ vehicle: v, onStatusChange }: VehicleCardProps) {
             onError={() => setImgError(true)}
           />
         ) : (
-          /* Fallback quando a imagem falha */
+          /* Fallback quando a imagem falha ou não foi informada */
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50">
             <span className="text-4xl opacity-30">🚗</span>
           </div>

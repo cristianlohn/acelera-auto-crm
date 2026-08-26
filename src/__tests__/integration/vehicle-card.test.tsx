@@ -32,9 +32,11 @@ import type { Vehicle, VehicleStatus } from "@/types/crm";
  */
 vi.mock("next/image", () => ({
   default: (props: { src: string; alt: string; [key: string]: unknown }) => {
-    const { src, alt } = props;
+    const { src, alt, ...rest } = props;
+    delete (rest as { fill?: unknown }).fill;
+    delete (rest as { priority?: unknown }).priority;
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={alt} />;
+    return <img src={src} alt={alt} {...rest} />;
   },
 }));
 
@@ -143,6 +145,20 @@ describe("[IT-01] Renderização das Propriedades Essenciais do Veículo", () =>
     expect(
       screen.getByRole("article", { name: /Honda Civic 2022/i })
     ).toBeInTheDocument();
+  });
+
+  it("[IT-01.8] Deve renderizar o fallback visual quando o carregamento da imagem falhar (onError)", () => {
+    // Arrange (Dado o card montado com imagem)
+    renderVehicleCard();
+    const imgElement = screen.getByAltText("Honda Civic");
+
+    // Act (Quando a imagem dispara evento de erro de carregamento)
+    act(() => {
+      fireEvent.error(imgElement);
+    });
+
+    // Assert (Então o fallback com o emoji de carro deve ser renderizado no lugar)
+    expect(screen.getByText("🚗")).toBeInTheDocument();
   });
 });
 

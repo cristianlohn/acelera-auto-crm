@@ -1,10 +1,6 @@
 /**
  * @file vitest.config.ts
  * @description Configuração do Vitest para o Acelera Auto CRM.
- *
- * - Ambiente jsdom para simular o DOM do browser em testes de componentes React.
- * - Alias @/ mapeado para ./src/ (espelho do tsconfig.json).
- * - Setup global importa @testing-library/jest-dom matchers.
  */
 
 import { defineConfig } from "vitest/config";
@@ -29,7 +25,13 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
       include: ["src/lib/**", "src/components/**"],
-      exclude: ["src/__tests__/**", "src/components/ui/**"],
+      exclude: [
+        "src/__tests__/**",
+        "src/components/ui/**",
+        "src/lib/supabase/**", // Exclui arquivos de inicialização do cliente Supabase
+        "src/types/**",        // Exclui declarações de tipos TypeScript puros
+        "**/*.d.ts",
+      ],
     },
 
     /** Globals (describe, it, expect) sem necessidade de import */
