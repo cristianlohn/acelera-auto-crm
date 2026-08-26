@@ -2,7 +2,7 @@
 
 **Projeto:** Acelera Auto CRM  
 **Padrão:** ISTQB / IEEE 829  
-**Cobertura Atual:** 100% das Regras de Negócio e Componentes de Veículos (`src/components/vehicles/`)  
+**Cobertura Atual:** 100% das Regras de Negócio e Componentes Críticos  
 **Última Atualização:** Agosto de 2026  
 
 ---
@@ -17,6 +17,7 @@
 | **REQ-CRM-04** | Gestão de Estoque e Ficha Rápida | Consulta de veículos, alteração de status e cópia rápida de ficha técnica com emojis. |
 | **REQ-CRM-05** | Formatação e Métricas Financeiras | Exibição correta de moeda BRL (R$), cálculo de pátio, ticket médio e quilometragem. |
 | **REQ-CRM-06** | Cadastro Ágil de Veículos | Modal de cadastro com validação de campos obrigatórios, fotos mock e preview de URL. |
+| **REQ-CRM-07** | Relatórios e Indicadores Comerciais | KPIs executivos, filtros por período, funil comercial, eficiência de canais e ranking de vendedores. |
 
 ---
 
@@ -39,5 +40,6 @@
 | **REQ-CRM-04** | **CT-IT-05** | Disparar callback `onStatusChange` com os parâmetros corretos ao trocar o status no dropdown. | Integração | Teste de Comunicação de Props | `vehicle-card.test.tsx` | **PASS** |
 | **REQ-CRM-06** | **CT-IT-06** | Validar abertura do modal, campos obrigatórios, seleção de fotos mock, preview de URL e submissão com `onAdd`. | Integração | Teste de Formulários e Estados | `new-vehicle-modal.test.tsx` | **PASS** |
 | **REQ-CRM-04** | **CT-IT-07** | Renderizar grid de veículos, métricas de pátio dinâmicas, busca instantânea, abas de status e empty state. | Integração | Integração de Página Completa | `vehicles-page.test.tsx` | **PASS** |
+| **REQ-CRM-07** | **CT-IT-08** | Renderizar KPIs executivos em BRL, alternância de períodos, funil de conversão, canais, ranking de vendedores e exportação. | Integração | Validação de Analytics e Métricas | `reports-page.test.tsx` | **PASS** |
 | **REQ-CRM-01** | **CT-E2E-01** | Preencher formulário no modal de novo lead e verificar se o card entra no topo da coluna "Novo Lead". | E2E | Jornada de Usuário Ponta a Ponta | `e2e/leads-kanban.spec.ts` | **PASS** |
 | **REQ-CRM-04** | **CT-E2E-02** | Filtrar estoque por termo de busca instantânea e validar atualização dos cards exibidos. | E2E | Jornada de Usuário Ponta a Ponta | `e2e/inventory-filter.spec.ts` | **PASS** |

@@ -47,7 +47,7 @@ const navItems: NavItem[] = [
   { href: "/leads", label: "Funil de Vendas", icon: LayoutDashboard },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/vehicles", label: "Estoque", icon: Car },
-  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
+  { href: "/reports", label: "Relatórios", icon: BarChart3 },
   { href: "/configuracoes", label: "Configurações", icon: Settings },
 ];
 

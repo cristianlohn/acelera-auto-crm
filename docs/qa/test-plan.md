@@ -87,6 +87,7 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
 | **IT-05.2** | Dropdown: Status Vendido | `VehicleCard` -> Radix Menu | Chama `onStatusChange` com `'vendido'` | ✅ Passou |
 | **IT-06.1-10** | Modal de Cadastro de Veículo | `NewVehicleModal` -> Lifecycle/Form | Valida abertura, campos obrigatórios, fotos mock, preview e `onAdd` | ✅ Passou |
 | **IT-07.1-8** | Gestão de Estoque Completa | `VehiclesPage` -> Full Page | Métricas dinâmicas, busca instantânea, abas de status, empty state e inserção | ✅ Passou |
+| **IT-08.1-7** | Relatórios e Indicadores | `ReportsPage` -> Analytics/KPIs | KPIs executivos, filtros por período, funil 5 etapas, canais, ranking e exportação | ✅ Passou |
 
 ---
 
