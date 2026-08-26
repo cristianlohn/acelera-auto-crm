@@ -70,22 +70,78 @@ function isApiKeyValid(apiKey: string | null): boolean {
   return false;
 }
 
+/** Lista padrão de vendedores ativos para a Roleta Automática (Round-Robin) */
+const DEFAULT_ACTIVE_SELLERS = [
+  "Rafael Alves",
+  "Juliana Costa",
+  "Marcos Ferreira",
+];
+
+let roundRobinCursor = 0;
+
+/**
+ * Determina o vendedor atribuído ao lead (específico ou via Roleta Automática).
+ */
+export async function resolveAssignedSeller(
+  explicitSeller?: string | null,
+  organizationId: string = DEFAULT_DEMO_ORG_ID
+): Promise<string> {
+  if (explicitSeller && explicitSeller.trim()) {
+    return explicitSeller.trim();
+  }
+
+  let activeSellers = DEFAULT_ACTIVE_SELLERS;
+
+  if (isSupabaseServerConfigured()) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { data: teamData } = await supabase
+        .from("profiles")
+        .select("full_name, role")
+        .eq("organization_id", organizationId)
+        .in("role", ["vendedor"]);
+
+      if (teamData && teamData.length > 0) {
+        const names = teamData
+          .map((p) => p.full_name)
+          .filter((name): name is string => Boolean(name && name.trim()));
+        if (names.length > 0) {
+          activeSellers = names;
+        }
+      }
+    } catch {
+      // Fallback para lista padrão
+    }
+  }
+
+  if (activeSellers.length === 0) {
+    return "Fila de Atendimento";
+  }
+
+  const assigned = activeSellers[roundRobinCursor % activeSellers.length];
+  roundRobinCursor = (roundRobinCursor + 1) % activeSellers.length;
+  return assigned;
+}
+
 /**
  * Normaliza o canal de origem do lead (Webmotors, iCarros, Meta Ads, Site, etc).
  */
-function normalizeOrigin(rawOrigin?: string): LeadOrigin {
+export function normalizeOrigin(rawOrigin?: string): LeadOrigin {
   if (!rawOrigin) return "site";
 
   const clean = rawOrigin.toLowerCase().trim();
 
-  if (clean === "webmotors" || clean.includes("webmotors")) return "site" as LeadOrigin; // fallback compatível ou mapeado
+  if (clean === "webmotors" || clean.includes("webmotors")) return "webmotors";
   if (clean === "icarros" || clean.includes("icarros")) return "icarros";
   if (clean === "instagram" || clean.includes("insta")) return "instagram";
   if (clean === "facebook" || clean.includes("face") || clean.includes("meta")) return "instagram";
   if (clean === "whatsapp" || clean.includes("whats")) return "whatsapp";
   if (clean === "olx" || clean.includes("olx")) return "olx";
-  if (clean === "indicacao") return "indicacao";
-  if (clean === "telefone") return "telefone";
+  if (clean.includes("dono") || clean === "indicacao_dono") return "indicacao_dono";
+  if (clean.includes("carteira") || clean === "cliente_carteira") return "cliente_carteira";
+  if (clean.includes("patio") || clean.includes("balcao") || clean === "patio_balcao") return "patio_balcao";
+  if (clean === "indicacao" || clean.includes("indica")) return "indicacao";
+  if (clean === "telefone" || clean.includes("fone")) return "telefone";
 
   return "site";
 }
@@ -147,6 +203,13 @@ export async function POST(request: NextRequest) {
       (typeof body.origin === "string" && body.origin.trim()) ||
       "site";
 
+    const explicitSeller =
+      (typeof body.seller_name === "string" && body.seller_name.trim()) ||
+      (typeof body.sellerName === "string" && body.sellerName.trim()) ||
+      (typeof body.assigned_to === "string" && body.assigned_to.trim()) ||
+      null;
+
+    const assignedSeller = await resolveAssignedSeller(explicitSeller, DEFAULT_DEMO_ORG_ID);
     const normalizedSource = normalizeOrigin(rawSource);
     const initialStatus: LeadStatus = "novo";
     const nowIso = new Date().toISOString();
@@ -167,7 +230,7 @@ export async function POST(request: NextRequest) {
           vehicle_interest: vehicleInterest,
           status: initialStatus,
           origin: normalizedSource,
-          seller_name: "Fila de Atendimento",
+          seller_name: assignedSeller,
           last_contact_at: nowIso,
           notes,
           created_at: nowIso,
@@ -189,13 +252,15 @@ export async function POST(request: NextRequest) {
     }
 
     // -------------------------------------------------------------------------
-    // 4. Resposta 201 Created com Confirmação
+    // 4. Resposta 201 Created com Confirmação e Vendedor Atribuído
     // -------------------------------------------------------------------------
     return NextResponse.json(
       {
         success: true,
         lead_id: leadId,
-        message: "Lead recebido e inserido no funil com sucesso.",
+        assigned_seller: assignedSeller,
+        distribution_mode: explicitSeller ? "explicit" : "round_robin",
+        message: "Lead recebido e atribuído via Roleta Automática com sucesso.",
       },
       { status: 201 }
     );

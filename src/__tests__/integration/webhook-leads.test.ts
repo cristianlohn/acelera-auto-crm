@@ -152,7 +152,9 @@ describe("[IT-WH] Ingestão Externa de Leads via Webhook (POST /api/webhooks/lea
     expect(res.status).toBe(201);
     expect(data.success).toBe(true);
     expect(data.lead_id).toBeDefined();
-    expect(data.message).toBe("Lead recebido e inserido no funil com sucesso.");
+    expect(data.assigned_seller).toBeDefined();
+    expect(data.distribution_mode).toBe("round_robin");
+    expect(data.message).toContain("Lead recebido");
   });
 
   it("[IT-WH.4] Deve atribuir corretamente o status inicial 'novo' e timestamp de criação para ativação de SLA", async () => {
@@ -200,6 +202,7 @@ describe("[IT-WH] Ingestão Externa de Leads via Webhook (POST /api/webhooks/lea
     expect(insertedData.vehicle_interest).toBe("Jeep Compass Longitude");
     expect(insertedData.status).toBe("novo");
     expect(insertedData.origin).toBe("instagram");
+    expect(insertedData.seller_name).toBeDefined();
     expect(insertedData.created_at).toBeDefined();
     expect(new Date(insertedData.created_at).getTime()).toBeGreaterThan(0);
   });
@@ -279,5 +282,55 @@ describe("[IT-WH] Ingestão Externa de Leads via Webhook (POST /api/webhooks/lea
     expect(res.status).toBe(500);
     expect(data.error).toBe("Erro interno ao processar o webhook.");
     expect(data.error).not.toContain("Database connection timeout");
+  });
+
+  it("[IT-WH.8] Deve distribuir leads sequencialmente via Roleta Automática (Round-Robin) entre vendedores", async () => {
+    // Enviar 3 requisições consecutivas sem vendedor explícito
+    const res1 = await POST(
+      createWebhookRequest({ name: "Lead 1", phone: "11999990001" }, { "x-api-key": VALID_API_KEY })
+    );
+    const data1 = await res1.json();
+
+    const res2 = await POST(
+      createWebhookRequest({ name: "Lead 2", phone: "11999990002" }, { "x-api-key": VALID_API_KEY })
+    );
+    const data2 = await res2.json();
+
+    const res3 = await POST(
+      createWebhookRequest({ name: "Lead 3", phone: "11999990003" }, { "x-api-key": VALID_API_KEY })
+    );
+    const data3 = await res3.json();
+
+    expect(res1.status).toBe(201);
+    expect(res2.status).toBe(201);
+    expect(res3.status).toBe(201);
+
+    expect(data1.distribution_mode).toBe("round_robin");
+    expect(data2.distribution_mode).toBe("round_robin");
+    expect(data3.distribution_mode).toBe("round_robin");
+
+    // Valida que os vendedores atribuídos são válidos da lista
+    const validSellers = ["Rafael Alves", "Juliana Costa", "Marcos Ferreira"];
+    expect(validSellers).toContain(data1.assigned_seller);
+    expect(validSellers).toContain(data2.assigned_seller);
+    expect(validSellers).toContain(data3.assigned_seller);
+  });
+
+  it("[IT-WH.9] Deve respeitar a atribuição direta quando o campo 'seller_name' for fornecido", async () => {
+    const res = await POST(
+      createWebhookRequest(
+        {
+          name: "Lead VIP Direto",
+          phone: "11999998888",
+          seller_name: "Marcos Ferreira",
+        },
+        { "x-api-key": VALID_API_KEY }
+      )
+    );
+    const data = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(data.assigned_seller).toBe("Marcos Ferreira");
+    expect(data.distribution_mode).toBe("explicit");
   });
 });

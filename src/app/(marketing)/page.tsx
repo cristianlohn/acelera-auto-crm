@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Hero } from "@/components/landing/Hero";
 import { ROISection } from "@/components/landing/ROISection";
 import { PricingSection } from "@/components/landing/PricingSection";
+import { FAQSection } from "@/components/landing/FAQSection";
 
 export default function MarketingPage() {
   return (
@@ -188,7 +189,12 @@ export default function MarketingPage() {
       <PricingSection />
 
       {/* ------------------------------------------------------------------ */}
-      {/* 6. Seção de Chamada Final (Bottom CTA)                             */}
+      {/* 6. Perguntas Frequentes & Detalhes Técnicos (FAQ)                   */}
+      {/* ------------------------------------------------------------------ */}
+      <FAQSection />
+
+      {/* ------------------------------------------------------------------ */}
+      {/* 7. Seção de Chamada Final (Bottom CTA)                             */}
       {/* ------------------------------------------------------------------ */}
       <section className="py-14 sm:py-24 w-full max-w-full overflow-hidden">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">

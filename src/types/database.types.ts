@@ -28,7 +28,11 @@ export type LeadOrigin =
   | "indicacao"
   | "telefone"
   | "olx"
-  | "icarros";
+  | "icarros"
+  | "webmotors"
+  | "indicacao_dono"
+  | "cliente_carteira"
+  | "patio_balcao";
 
 export type VehicleStatus = "disponivel" | "reservado" | "vendido";
 

@@ -25,7 +25,11 @@ export type LeadOrigin =
   | "indicacao"
   | "telefone"
   | "olx"
-  | "icarros";
+  | "icarros"
+  | "webmotors"
+  | "indicacao_dono"
+  | "cliente_carteira"
+  | "patio_balcao";
 
 /**
  * Representa um lead (potencial cliente) no funil de vendas.
