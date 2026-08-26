@@ -153,4 +153,46 @@ describe("[IT-12] Página de Login e Autenticação (LoginPage)", () => {
       screen.getByText(/não foi possível validar o link de autenticação/i)
     ).toBeInTheDocument();
   });
+
+  it("[IT-12.8] Deve exibir banner de confirmação quando password_updated=true na URL", () => {
+    // Arrange
+    mockSearchParams = new URLSearchParams("password_updated=true");
+
+    // Act
+    render(<LoginPage />);
+
+    // Assert
+    expect(
+      screen.getByText(/senha redefinida com sucesso/i)
+    ).toBeInTheDocument();
+  });
+
+  it("[IT-12.9] Deve abrir modal de recuperação de senha e enviar solicitação", async () => {
+    // Arrange
+    const user = userEvent.setup();
+    render(<LoginPage />);
+
+    const forgotBtn = screen.getByRole("button", { name: /esqueceu a senha\?/i });
+
+    // Act: Abre o modal
+    await user.click(forgotBtn);
+
+    // Assert modal aberto
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText(/recuperar acesso/i)).toBeInTheDocument();
+
+    // Act: Preenche e-mail e envia
+    const emailInput = screen.getByLabelText(/e-mail corporativo/i);
+    const sendBtn = screen.getByRole("button", { name: /enviar link de recuperação/i });
+
+    await user.type(emailInput, "gestor@concessionaria.com.br");
+    await act(async () => {
+      await user.click(sendBtn);
+    });
+
+    // Assert feedback exibido
+    expect(
+      screen.getByText(/enviamos um link de recuperação/i)
+    ).toBeInTheDocument();
+  });
 });

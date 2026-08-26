@@ -185,3 +185,88 @@ export async function registerNewDealership(
     return { success: false, error: message };
   }
 }
+
+export interface PasswordResetResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Solicita link de recuperação de senha por e-mail no Supabase Auth.
+ */
+export async function requestPasswordReset(
+  email: string,
+  redirectTo?: string
+): Promise<PasswordResetResult> {
+  if (!email?.trim() || !email.includes("@") || !email.includes(".")) {
+    return { success: false, error: "Informe um endereço de e-mail corporativo válido." };
+  }
+
+  if (!isSupabaseServerConfigured()) {
+    return {
+      success: true,
+      message: "Enviamos um link de recuperação para o seu e-mail.",
+    };
+  }
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const defaultRedirect =
+      redirectTo || "https://aceleraautocrm.com.br/auth/callback?next=/reset-password";
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: defaultRedirect,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      message: "Enviamos um link de recuperação para o seu e-mail.",
+    };
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Erro ao solicitar recuperação de senha.";
+    return { success: false, error: message };
+  }
+}
+
+export interface UpdatePasswordResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Atualiza a senha do usuário autenticado no Supabase Auth.
+ */
+export async function updateUserPassword(
+  newPassword: string
+): Promise<UpdatePasswordResult> {
+  if (!newPassword || newPassword.length < 6) {
+    return { success: false, error: "A nova senha deve ter no mínimo 6 caracteres." };
+  }
+
+  if (!isSupabaseServerConfigured()) {
+    return { success: true };
+  }
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erro ao atualizar senha.";
+    return { success: false, error: message };
+  }
+}
+

@@ -30,11 +30,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { requestPasswordReset } from "@/app/actions/auth";
 
 function LoginAuthBanner() {
   const searchParams = useSearchParams();
   const verified = searchParams.get("verified");
   const error = searchParams.get("error");
+  const passwordUpdated = searchParams.get("password_updated");
+
+  if (passwordUpdated === "true") {
+    return (
+      <div
+        role="status"
+        id="banner-password-updated"
+        className="flex items-center gap-2.5 rounded-xl border border-emerald-500/40 bg-emerald-950/40 p-3.5 text-xs text-emerald-300 shadow-lg shadow-emerald-950/30 animate-in fade-in"
+      >
+        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+        <span className="leading-snug">
+          Senha redefinida com sucesso! Você já pode entrar com sua nova senha.
+        </span>
+      </div>
+    );
+  }
 
   if (verified === "true") {
     return (
@@ -76,6 +93,13 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isDemoPending, startDemoTransition] = useTransition();
+
+  // Estados do Modal de Recuperação de Senha
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotStatus, setForgotStatus] = useState<string | null>(null);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [isForgotPending, startForgotTransition] = useTransition();
 
   // Acesso rápido instantâneo ao modo Sandbox / Demo
   const handleDemoAccess = () => {
@@ -121,6 +145,31 @@ export default function LoginPage() {
     });
   };
 
+  // Submissão da recuperação de senha
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotError(null);
+    setForgotStatus(null);
+
+    if (!forgotEmail.trim() || !forgotEmail.includes("@") || !forgotEmail.includes(".")) {
+      setForgotError("Informe um endereço de e-mail corporativo válido.");
+      return;
+    }
+
+    startForgotTransition(async () => {
+      try {
+        const result = await requestPasswordReset(forgotEmail.trim());
+        if (!result.success) {
+          setForgotError(result.error || "Não foi possível enviar o link de recuperação.");
+          return;
+        }
+        setForgotStatus(result.message || "Enviamos um link de recuperação para o seu e-mail.");
+      } catch {
+        setForgotError("Erro inesperado ao solicitar recuperação. Tente novamente.");
+      }
+    });
+  };
+
   return (
     <div className="flex min-h-screen w-full max-w-full overflow-x-hidden bg-[#09090b] text-[#f4f4f5]">
       {/* ------------------------------------------------------------------ */}
@@ -136,84 +185,86 @@ export default function LoginPage() {
         {/* Logo */}
         <Link
           href="/"
-          id="link-brand-home"
-          className="flex items-center gap-2.5 z-10 transition-transform hover:scale-105"
-          aria-label="Ir para a página inicial"
+          className="inline-block relative z-10 transition-transform hover:scale-105"
         >
           <Image
             src="/logo.png"
             alt="Acelera Auto CRM"
-            width={180}
-            height={48}
+            width={200}
+            height={52}
             className="h-10 md:h-12 w-auto object-contain"
             priority
           />
         </Link>
 
-        {/* Mensagem de Destaque */}
-        <div className="space-y-6 max-w-lg z-10">
-          <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3.5 py-1 text-xs font-semibold text-orange-400">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Acelerando mais de 500 revendas</span>
+        {/* Mensagem e Proposta de Valor */}
+        <div className="relative z-10 space-y-6 max-w-lg">
+          <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-400">
+            <Sparkles className="h-4 w-4" />
+            <span>CRM Automotivo #1 em Velocidade</span>
           </div>
 
-          <h2 className="text-3xl lg:text-4xl font-extrabold text-white leading-tight">
-            Aumente o giro do seu pátio com atendimento em menos de 15 minutos.
+          <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl leading-tight">
+            Centralize leads, estoque e vendedores em uma única tela.
           </h2>
 
-          <div className="space-y-3 pt-2 text-sm text-zinc-300">
-            <div className="flex items-center gap-3">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500/20 text-orange-400">
-                <LayoutDashboard className="h-3.5 w-3.5" />
+          <p className="text-sm text-zinc-400 leading-relaxed">
+            Elimine o tempo de resposta lento no WhatsApp e aumente a conversão do seu estoque em até 35% com o Kanban inteligente.
+          </p>
+
+          {/* Mini Indicadores de Destaque */}
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-orange-400 text-xs font-bold">
+                <Car className="h-4 w-4" />
+                <span>Gestão de Estoque</span>
               </div>
-              <span>Funil Kanban com alertas de SLA em tempo real</span>
+              <p className="text-xs text-zinc-400">
+                Fotos, preços e status do pátio integrados aos leads.
+              </p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
-                <Car className="h-3.5 w-3.5" />
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Roleta de Leads</span>
               </div>
-              <span>Gestão ágil de estoque e cópia rápida de ficha técnica</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/20 text-blue-400">
-                <ShieldCheck className="h-3.5 w-3.5" />
-              </div>
-              <span>Segurança avançada multi-tenant com Supabase RLS</span>
+              <p className="text-xs text-zinc-400">
+                Distribuição equitativa e SLA de atendimento automático.
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Rodapé do Painel */}
-        <div className="text-xs text-zinc-400 z-10">
-          © {new Date().getFullYear()} Acelera Auto CRM. Todos os direitos reservados.
+        {/* Rodapé do Painel Institucional */}
+        <div className="relative z-10 flex items-center justify-between text-xs text-zinc-500 border-t border-white/5 pt-6">
+          <span>© {new Date().getFullYear()} Acelera Auto CRM</span>
+          <div className="flex items-center gap-1 text-emerald-400 font-medium">
+            <ShieldCheck className="h-4 w-4" />
+            <span>Dados 100% Protegidos (LGPD)</span>
+          </div>
         </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Painel Direito: Formulário e Acesso Demo                           */}
+      {/* Painel Direito: Formulário de Autenticação                         */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:px-12 xl:px-16 w-full max-w-md mx-auto lg:max-w-none">
-        <div className="w-full max-w-md mx-auto space-y-6">
-          {/* Logo Header Form & Mobile */}
-          <div className="flex items-center justify-between">
-            <Link
-              href="/"
-              className="flex items-center gap-2 transition-transform hover:scale-105"
-              aria-label="Ir para a página inicial"
-            >
+      <div className="flex flex-1 flex-col justify-center px-4 py-12 sm:px-6 lg:px-16 xl:px-24">
+        <div className="mx-auto w-full max-w-sm space-y-6">
+          {/* Logo Mobile e Link de Retorno */}
+          <div className="flex items-center justify-between lg:hidden">
+            <Link href="/" className="inline-block">
               <Image
                 src="/logo.png"
                 alt="Acelera Auto CRM"
-                width={180}
-                height={48}
-                className="h-10 md:h-12 w-auto object-contain"
+                width={160}
+                height={40}
+                className="h-9 w-auto object-contain"
                 priority
               />
             </Link>
-
             <Link
               href="/"
-              className="text-xs font-semibold text-zinc-400 hover:text-white"
+              className="text-xs text-zinc-400 hover:text-white transition-colors"
             >
               Voltar ao site
             </Link>
@@ -314,16 +365,19 @@ export default function LoginPage() {
                   <Lock className="h-3.5 w-3.5 text-zinc-400" />
                   Senha
                 </label>
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setErrorMessage("Para redefinir a senha, utilize o modo demonstração ou contate o administrador.");
+                <button
+                  type="button"
+                  id="btn-forgot-password"
+                  onClick={() => {
+                    setForgotEmail(email);
+                    setForgotError(null);
+                    setForgotStatus(null);
+                    setIsForgotModalOpen(true);
                   }}
                   className="text-[11px] text-orange-400 hover:text-orange-300 transition-colors"
                 >
                   Esqueceu a senha?
-                </a>
+                </button>
               </div>
               <Input
                 id="login-password"
@@ -359,6 +413,101 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Recuperação de Senha */}
+      {isForgotModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-forgot-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#121218] p-6 shadow-2xl space-y-5">
+            <div>
+              <h2 id="modal-forgot-title" className="text-lg font-bold text-white">
+                Recuperar Acesso
+              </h2>
+              <p className="text-xs text-zinc-400 mt-1">
+                Digite o e-mail cadastrado da sua conta. Enviaremos um link seguro para você redefinir sua senha.
+              </p>
+            </div>
+
+            {forgotStatus && (
+              <div
+                role="status"
+                className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/40 p-3 text-xs text-emerald-300"
+              >
+                <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>{forgotStatus}</span>
+              </div>
+            )}
+
+            {forgotError && (
+              <div
+                role="alert"
+                className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-300"
+              >
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                <span>{forgotError}</span>
+              </div>
+            )}
+
+            {!forgotStatus && (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="forgot-email-input"
+                    className="flex items-center gap-1.5 text-xs font-medium text-zinc-300"
+                  >
+                    <Mail className="h-3.5 w-3.5 text-zinc-400" />
+                    E-mail Corporativo
+                  </label>
+                  <Input
+                    id="forgot-email-input"
+                    type="email"
+                    placeholder="seu.email@concessionaria.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="bg-white/5 border-white/10 text-white placeholder:text-zinc-400 text-xs h-9"
+                    required
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setIsForgotModalOpen(false)}
+                    className="text-xs text-zinc-400 hover:text-white"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    id="btn-send-recovery"
+                    type="submit"
+                    disabled={isForgotPending}
+                    className="bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs font-bold hover:from-orange-600 hover:to-red-700"
+                  >
+                    {isForgotPending ? "Enviando..." : "Enviar Link de Recuperação"}
+                  </Button>
+                </div>
+              </form>
+            )}
+
+            {forgotStatus && (
+              <div className="pt-2 flex justify-end">
+                <Button
+                  type="button"
+                  onClick={() => setIsForgotModalOpen(false)}
+                  className="bg-white text-black font-bold text-xs hover:bg-zinc-200"
+                >
+                  Fechar
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
