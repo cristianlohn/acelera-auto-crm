@@ -62,10 +62,18 @@ export function SubscriptionBanner({ status: initialStatus }: SubscriptionBanner
             <Clock className="h-3 w-3" />
           </div>
           <p className="truncate">
-            <span className="font-semibold text-white">Período de Testes:</span> Restam{" "}
-            <strong className="text-orange-400 font-bold">
-              {days} {days === 1 ? "dia" : "dias"}
-            </strong>{" "}
+            <span className="font-semibold text-white">Período de Testes:</span>{" "}
+            {days === 0 ? (
+              <strong className="text-orange-400 font-bold">Último dia de teste</strong>
+            ) : days === 1 ? (
+              <>
+                Resta <strong className="text-orange-400 font-bold">1 dia</strong>
+              </>
+            ) : (
+              <>
+                Restam <strong className="text-orange-400 font-bold">{days} dias</strong>
+              </>
+            )}{" "}
             gratuitos para acelerar suas vendas.
           </p>
         </div>
