@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const PORT = process.env.PORT || 3000;
+const baseURL = `http://127.0.0.1:${PORT}`;
+
 /**
  * Configuração E2E do Playwright - Acelera Auto CRM
  */
@@ -15,8 +18,7 @@ export default defineConfig({
     ],
 
     use: {
-        /* 127.0.0.1 previne conflitos de DNS/IPv6 no CI */
-        baseURL: 'http://127.0.0.1:3001',
+        baseURL,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
@@ -33,11 +35,15 @@ export default defineConfig({
         },
     ],
 
-    /* Sobe o servidor: 'npm run start' no CI (rápido) ou 'npm run dev' localmente */
+    /* Sobe o servidor explicitamente em 127.0.0.1 e exibe logs em tempo real */
     webServer: {
-        command: process.env.CI ? 'npm run start' : 'npm run dev',
-        url: 'http://127.0.0.1:3001',
+        command: process.env.CI
+            ? 'npx next start -p 3000 -H 127.0.0.1'
+            : 'npm run dev',
+        url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,
+        stdout: 'pipe',
+        stderr: 'pipe',
     },
 });
