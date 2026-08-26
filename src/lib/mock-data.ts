@@ -6,7 +6,14 @@
  * atualizar veículos no estado local (pré-Supabase).
  */
 
-import type { Lead, Vehicle, VehicleFormData, VehicleStatus } from "@/types/crm";
+import type {
+  Lead,
+  Vehicle,
+  VehicleFormData,
+  VehicleStatus,
+  Client,
+  ClientFormData,
+} from "@/types/crm";
 
 // ---------------------------------------------------------------------------
 // Veículos de demonstração
@@ -296,3 +303,108 @@ export const mockLeads: Lead[] = [
     origin: "olx",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Clientes de demonstração (Carteira CRM)
+// ---------------------------------------------------------------------------
+
+export const mockClients: Client[] = [
+  {
+    id: "c-001",
+    name: "Mariana Souza",
+    phone: "47998877665",
+    email: "mariana.souza@gmail.com",
+    document: "123.456.789-00",
+    status: "comprador",
+    sellerName: "Rafael Alves",
+    vehiclePreference: "Corolla Cross XRE",
+    totalPurchased: 168900,
+    purchasesCount: 1,
+    lastInteractionAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    notes: "Cliente fiel, comprou SUV recentemente. Interesse em troca após 2 anos.",
+  },
+  {
+    id: "c-002",
+    name: "Carlos Mendonça",
+    phone: "11987654321",
+    email: "carlos.mendonca@email.com",
+    document: "234.567.890-11",
+    status: "ativo",
+    sellerName: "Rafael Alves",
+    vehiclePreference: "Honda Civic EXL",
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    notes: "Aguardando proposta de financiamento do banco Santander.",
+  },
+  {
+    id: "c-003",
+    name: "Roberto Silveira",
+    phone: "21988887777",
+    email: "roberto.silveira@outlook.com",
+    document: "345.678.901-22",
+    status: "comprador",
+    sellerName: "Camila Dias",
+    vehiclePreference: "Jeep Compass Limited",
+    totalPurchased: 354800,
+    purchasesCount: 2,
+    lastInteractionAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
+    notes: "Colecionador de utilitários, comprou dois veículos na loja.",
+  },
+  {
+    id: "c-004",
+    name: "Aline Gomes",
+    phone: "71910987654",
+    email: "aline.gomes@empresa.com",
+    document: "456.789.012-33",
+    status: "ativo",
+    sellerName: "Camila Dias",
+    vehiclePreference: "Volkswagen T-Cross",
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+    notes: "Test-drive agendado para o próximo sábado às 10h.",
+  },
+  {
+    id: "c-005",
+    name: "Eduardo Castro",
+    phone: "85900876543",
+    email: "edu.castro@outlook.com",
+    document: "567.890.123-44",
+    status: "inativo",
+    sellerName: "Lucas Santana",
+    vehiclePreference: "Fiat Strada Volcano",
+    totalPurchased: 112900,
+    purchasesCount: 1,
+    lastInteractionAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
+    notes: "Sem contato há mais de 3 meses. Campanha de reativação necessária.",
+  },
+  {
+    id: "c-006",
+    name: "Patrícia Vieira",
+    phone: "91889765432",
+    email: "patricia.vieira@uol.com.br",
+    document: "678.901.234-55",
+    status: "comprador",
+    sellerName: "Rafael Alves",
+    vehiclePreference: "Renault Kwid Intense",
+    totalPurchased: 59900,
+    purchasesCount: 1,
+    lastInteractionAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
+    notes: "Primeiro carro comprado para o filho recém-habilitado.",
+  },
+];
+
+/**
+ * Cria uma nova entidade Client a partir dos dados do formulário.
+ */
+export function createClient(data: ClientFormData): Client {
+  return {
+    id: `c-${Date.now()}`,
+    ...data,
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: new Date().toISOString(),
+  };
+}
+

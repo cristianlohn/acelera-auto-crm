@@ -119,3 +119,60 @@ export interface Vehicle {
  * Exclui `id`, que é gerado automaticamente.
  */
 export type VehicleFormData = Omit<Vehicle, "id">;
+
+// ---------------------------------------------------------------------------
+// Client
+// ---------------------------------------------------------------------------
+
+/** Status de relacionamento com o cliente na base. */
+export type ClientStatus = "ativo" | "comprador" | "inativo";
+
+/**
+ * Representa um cliente cadastrado na carteira do CRM.
+ */
+export interface Client {
+  /** Identificador único do cliente. */
+  id: string;
+
+  /** Nome completo do cliente. */
+  name: string;
+
+  /** Telefone/WhatsApp com DDD. */
+  phone: string;
+
+  /** E-mail para contato. */
+  email?: string;
+
+  /** CPF ou Documento de identificação. */
+  document?: string;
+
+  /** Status do cliente na base (ativo, comprador, inativo). */
+  status: ClientStatus;
+
+  /** Vendedor responsável pelo relacionamento. */
+  sellerName: string;
+
+  /** Categoria ou modelo de veículo de preferência. */
+  vehiclePreference?: string;
+
+  /** Valor total acumulado em compras de veículos (R$). */
+  totalPurchased: number;
+
+  /** Quantidade total de veículos adquiridos. */
+  purchasesCount: number;
+
+  /** Data/hora do último contato ou negociação (ISO 8601). */
+  lastInteractionAt: string | null;
+
+  /** Observações ou histórico de atendimento. */
+  notes?: string;
+}
+
+/**
+ * Dados de formulário para criação de um novo cliente.
+ */
+export type ClientFormData = Omit<
+  Client,
+  "id" | "totalPurchased" | "purchasesCount" | "lastInteractionAt"
+>;
+
