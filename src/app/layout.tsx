@@ -13,7 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://acelera-auto-crm.app"),
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "https://aceleraautocrm.com.br"
+  ),
   title: {
     default: "Acelera Auto CRM | CRM Automotivo de Alta Velocidade",
     template: "%s | Acelera Auto CRM",
@@ -31,27 +33,30 @@ export const metadata: Metadata = {
   authors: [{ name: "Acelera Auto" }],
   creator: "Acelera Auto",
   openGraph: {
-    type: "website",
-    locale: "pt_BR",
-    url: "/",
-    siteName: "Acelera Auto CRM",
     title: "Acelera Auto CRM | CRM Automotivo de Alta Velocidade",
     description:
       "O CRM que acelera o fechamento de vendas de veículos. Funil Kanban integrado ao WhatsApp, gestão de pátio e métricas em tempo real.",
+    url: "https://aceleraautocrm.com.br",
+    siteName: "Acelera Auto CRM",
+    locale: "pt_BR",
+    type: "website",
     images: [
       {
-        url: "/og-image.png",
+        url: "https://aceleraautocrm.com.br/og-image.png",
+        secureUrl: "https://aceleraautocrm.com.br/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Acelera Auto CRM - Visual Preview",
+        type: "image/png",
+        alt: "Acelera Auto CRM Preview",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Acelera Auto CRM | CRM Automotivo de Alta Velocidade",
-    description: "Aumente o giro do seu pátio e não perca mais leads do WhatsApp.",
-    images: ["/og-image.png"],
+    description:
+      "Acelere o fechamento de vendas de veículos e gerencie seus leads em tempo real.",
+    images: ["https://aceleraautocrm.com.br/og-image.png"],
   },
   icons: {
     icon: "/icon.png",

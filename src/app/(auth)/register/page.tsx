@@ -13,11 +13,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Zap,
   ArrowRight,
   Lock,
   Mail,
@@ -34,6 +32,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { registerNewDealership } from "@/app/actions/auth";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -113,14 +112,7 @@ export default function RegisterPage() {
           className="flex items-center gap-2.5 z-10 transition-transform hover:scale-105"
           aria-label="Ir para a página inicial"
         >
-          <Image
-            src="/logo.png"
-            alt="Acelera Auto CRM"
-            width={160}
-            height={40}
-            className="h-9 w-auto object-contain"
-            priority
-          />
+          <BrandLogo size="lg" />
         </Link>
 
         {/* Benefícios do Trial */}
@@ -174,14 +166,7 @@ export default function RegisterPage() {
               className="flex items-center gap-2 transition-transform hover:scale-105"
               aria-label="Ir para a página inicial"
             >
-              <Image
-                src="/logo.png"
-                alt="Acelera Auto CRM"
-                width={140}
-                height={36}
-                className="h-8 w-auto object-contain"
-                priority
-              />
+              <BrandLogo size="sm" />
             </Link>
 
             <Link

@@ -9,10 +9,10 @@
  * - Rodapé com informações institucionais, segurança de dados e links rápidos.
  */
 
-import Image from "next/image";
 import Link from "next/link";
 import { ShieldCheck, Database, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/ui/brand-logo";
 
 export const metadata = {
   title: "Acelera Auto CRM — O CRM Automotivo de Alta Velocidade",
@@ -38,14 +38,7 @@ export default function MarketingLayout({
             className="flex items-center gap-2 transition-transform hover:scale-105 shrink-0"
             aria-label="Acelera Auto CRM Página Inicial"
           >
-            <Image
-              src="/logo.png"
-              alt="Acelera Auto CRM"
-              width={160}
-              height={40}
-              className="h-8 sm:h-9 w-auto object-contain"
-              priority
-            />
+            <BrandLogo />
           </Link>
 
           {/* Links de Navegação (Desktop) */}
@@ -123,13 +116,7 @@ export default function MarketingLayout({
             {/* Coluna 1: Sobre */}
             <div className="space-y-3 md:col-span-1">
               <div className="flex items-center gap-2">
-                <Image
-                  src="/logo.png"
-                  alt="Acelera Auto CRM"
-                  width={140}
-                  height={36}
-                  className="h-7 w-auto object-contain"
-                />
+                <BrandLogo size="sm" />
               </div>
               <p className="text-zinc-400 leading-relaxed">
                 Plataforma de alta performance desenvolvida para acelerar a

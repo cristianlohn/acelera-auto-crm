@@ -54,6 +54,7 @@ describe("[IT-17] SEO Técnico, OpenGraph e Metadados de Indexação", () => {
     expect((metadata.openGraph as { title?: string })?.title).toBe(
       "Acelera Auto CRM | CRM Automotivo de Alta Velocidade"
     );
+    expect((metadata.openGraph as { images?: Array<{ url: string }> })?.images?.[0]?.url).toContain("/og-image.png");
 
     // Robots
     expect(metadata.robots).toBeDefined();
@@ -72,14 +73,14 @@ describe("[IT-17] SEO Técnico, OpenGraph e Metadados de Indexação", () => {
     const urls = sitemapEntries.map((e) => e.url);
 
     // Deve conter '/', '/login', '/register' e '/cadastro'
-    expect(urls.some((u) => u.endsWith("/") || u.includes("https://acelera-auto-crm.app"))).toBe(true);
+    expect(urls.some((u) => u.includes("acelera"))).toBe(true);
     expect(urls.some((u) => u.includes("/login"))).toBe(true);
     expect(urls.some((u) => u.includes("/register"))).toBe(true);
     expect(urls.some((u) => u.includes("/cadastro"))).toBe(true);
 
     // Prioridade máxima na home
     const homeEntry = sitemapEntries.find(
-      (e) => e.url === "https://acelera-auto-crm.app" || e.url === "https://acelera-auto-crm.app/"
+      (e) => !e.url.includes("/login") && !e.url.includes("/register") && !e.url.includes("/cadastro")
     );
     expect(homeEntry?.priority).toBe(1.0);
     expect(homeEntry?.changeFrequency).toBe("weekly");
