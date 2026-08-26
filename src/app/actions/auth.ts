@@ -342,6 +342,7 @@ export async function logoutAction(): Promise<{ success: boolean }> {
 export interface UserProfileInfo {
   isDemo: boolean;
   userId: string | null;
+  organizationId?: string | null;
   fullName: string;
   email: string;
   phone: string | null;
@@ -363,6 +364,7 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
     return {
       isDemo: true,
       userId: "demo-sandbox-user",
+      organizationId: null,
       fullName: "Gestor Demonstração",
       email: "demo@aceleraautocrm.com.br",
       phone: "11988887777",
@@ -421,6 +423,7 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
   return {
     isDemo: false,
     userId: tenantContext.userId,
+    organizationId: tenantContext.organizationId,
     fullName,
     email,
     phone,

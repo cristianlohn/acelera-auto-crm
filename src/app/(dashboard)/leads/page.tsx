@@ -42,7 +42,9 @@ import { cn } from "@/lib/utils";
 import { mockLeads } from "@/lib/mock-data";
 import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
 import { createLead as persistLead, getLeads } from "@/app/actions/leads";
+import { getCurrentUserProfileAction } from "@/app/actions/auth";
 import { useDemoRole } from "@/context/demo-role-context";
+import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 
@@ -580,6 +582,7 @@ export interface LeadsPageProps {
 
 export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
   const { role, sellerName, isDemoMode } = useDemoRole();
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [leads, setLeads] = useState<Lead[]>(() => {
     if (initialLeads !== undefined) return initialLeads;
     if (!isDemoMode) return [];
@@ -590,6 +593,16 @@ export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
     if (initialLeads !== undefined) return;
     if (!isDemoMode) {
       let isMounted = true;
+
+      // Busca organização do usuário para isolamento de canais realtime
+      getCurrentUserProfileAction()
+        .then((profile) => {
+          if (isMounted && profile.organizationId) {
+            setOrganizationId(profile.organizationId);
+          }
+        })
+        .catch(() => {});
+
       getLeads()
         .then((fetchedLeads) => {
           if (isMounted) {
@@ -606,6 +619,28 @@ export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
       };
     }
   }, [isDemoMode, initialLeads]);
+
+  // Sincronização e reconciliação reativa via Supabase Realtime
+  useLeadsRealtime({
+    organizationId,
+    isDemo: isDemoMode,
+    onLeadInserted: useCallback((newLead: Lead) => {
+      setLeads((prev) => {
+        if (prev.some((l) => l.id === newLead.id)) {
+          return prev;
+        }
+        return [newLead, ...prev];
+      });
+    }, []),
+    onLeadUpdated: useCallback((updatedLead: Lead) => {
+      setLeads((prev) =>
+        prev.map((l) => (l.id === updatedLead.id ? { ...l, ...updatedLead } : l))
+      );
+    }, []),
+    onLeadDeleted: useCallback((deletedLeadId: string) => {
+      setLeads((prev) => prev.filter((l) => l.id !== deletedLeadId));
+    }, []),
+  });
 
   const isVendedorRole = role === "vendedor";
   const visibleLeads = isVendedorRole

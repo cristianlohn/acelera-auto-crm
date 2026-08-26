@@ -67,6 +67,8 @@ export interface Lead {
 
   /** Canal de aquisição do lead. */
   origin: LeadOrigin;
+  /** Identificador UUID da organização / tenant proprietário */
+  organizationId?: string;
 }
 
 // ---------------------------------------------------------------------------
