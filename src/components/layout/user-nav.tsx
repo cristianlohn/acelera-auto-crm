@@ -1,0 +1,159 @@
+/**
+ * @file user-nav.tsx
+ * @description Componente de Perfil, Identificação e Logout do Usuário Autenticado.
+ *
+ * Funcionalidades:
+ * - Exibe o nome real do usuário autenticado (profile.full_name -> user_metadata -> prefixo do e-mail -> 'Gestor').
+ * - Exibe o e-mail corporativo real do usuário autenticado.
+ * - Calcula as iniciais do avatar dinamicamente a partir do nome real.
+ * - Integra com o Modo Demonstração (RBAC Simulator) quando isDemoMode for ativo.
+ * - Botão de Logout com confirmação visual e transição limpa para /login.
+ */
+
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { LogOut, TrendingUp } from "lucide-react";
+import { useDemoRole } from "@/context/demo-role-context";
+import {
+  logoutAction,
+  getCurrentUserProfileAction,
+  type UserProfileInfo,
+} from "@/app/actions/auth";
+
+export interface UserNavProps {
+  logoutButtonId?: string;
+  className?: string;
+}
+
+export function UserNav({
+  logoutButtonId = "btn-logout-sidebar",
+  className = "",
+}: UserNavProps) {
+  const { role, sellerName, isDemoMode } = useDemoRole();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [realProfile, setRealProfile] = useState<UserProfileInfo | null>(null);
+
+  // Busca dados reais do usuário autenticado quando não estiver no Modo Demonstração
+  useEffect(() => {
+    let isMounted = true;
+    if (!isDemoMode) {
+      getCurrentUserProfileAction()
+        .then((info) => {
+          if (isMounted) {
+            setRealProfile(info);
+          }
+        })
+        .catch(() => {
+          // Mantém fallback limpo
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isDemoMode]);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logoutAction();
+    } finally {
+      if (typeof document !== "undefined") {
+        document.cookie =
+          "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie =
+          "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie =
+          "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie =
+          "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie =
+          "sb-test-user=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      }
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = "/login";
+    }
+  };
+
+  // Cálculo dinâmico das iniciais do avatar
+  const getInitials = (name: string) => {
+    return (
+      name
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "GE"
+    );
+  };
+
+  // Resolução dinâmica do nome e e-mail:
+  // Se for Modo Demonstração -> usa o perfil da persona selecionada no simulador
+  // Se for Usuário Real -> usa os dados retornados do Supabase / sessão real (NUNCA nomes mockados)
+  const displayName = isDemoMode
+    ? sellerName || "Gestor Demonstração"
+    : realProfile?.fullName || "Gestor";
+
+  const displayEmail = isDemoMode
+    ? "demo@aceleraautocrm.com.br"
+    : realProfile?.email || "";
+
+  const activeRole = isDemoMode ? role : realProfile?.role || "admin";
+
+  const displayRole =
+    activeRole === "admin"
+      ? "Administrador"
+      : activeRole === "gerente"
+        ? "Gerente Comercial"
+        : "Vendedor";
+
+  return (
+    <div className={`border-t p-3 space-y-2.5 bg-card/60 ${className}`}>
+      <div className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/5 p-2.5 ring-1 ring-orange-500/20">
+        <div
+          data-testid="user-avatar-initials"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs font-bold text-white shadow"
+        >
+          {getInitials(displayName)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p
+            data-testid="user-display-name"
+            className="truncate text-xs font-semibold text-foreground"
+            title={displayName}
+          >
+            {displayName}
+          </p>
+          {displayEmail ? (
+            <p
+              data-testid="user-display-email"
+              className="truncate text-[10px] text-muted-foreground"
+              title={displayEmail}
+            >
+              {displayEmail}
+            </p>
+          ) : (
+            <p className="truncate text-[10px] text-muted-foreground">
+              {displayRole} • Ativo
+            </p>
+          )}
+        </div>
+        <TrendingUp className="h-3.5 w-3.5 shrink-0 text-orange-500" />
+      </div>
+
+      <button
+        id={logoutButtonId}
+        type="button"
+        disabled={isLoggingOut}
+        onClick={handleLogout}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40 transition-all active:scale-[0.98] disabled:opacity-50"
+        aria-label="Sair da Conta"
+      >
+        <LogOut className="h-3.5 w-3.5 shrink-0" />
+        <span>{isLoggingOut ? "Saindo..." : "Sair da Conta"}</span>
+      </button>
+    </div>
+  );
+}

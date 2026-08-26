@@ -77,4 +77,63 @@ describe("[IT-LOGOUT] Botão de Logout e Perfil do Usuário na Sidebar", () => {
     expect(screen.getAllByText(/ativo/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/administrador/i).length).toBeGreaterThanOrEqual(1);
   });
+
+  it("[IT-LOGOUT.4] Deve renderizar o nome real do usuário, e-mail e iniciais dinamicamente (ex: Cristian Lohn -> CL)", async () => {
+    // Arrange
+    vi.spyOn(authActions, "getCurrentUserProfileAction").mockResolvedValue({
+      isDemo: false,
+      userId: "user-real-123",
+      fullName: "Cristian Lohn",
+      email: "cristian@catuto.com.br",
+      phone: "11988887777",
+      role: "admin",
+      avatarUrl: null,
+      initials: "CL",
+      organizationName: "Catuto Concessionária",
+    });
+
+    // Act
+    await act(async () => {
+      render(
+        <DashboardLayout>
+          <div>Conteúdo</div>
+        </DashboardLayout>
+      );
+    });
+
+    // Assert: Nome real, email real e iniciais
+    expect(screen.getAllByText("Cristian Lohn").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("cristian@catuto.com.br").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("CL").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("[IT-LOGOUT.5] Deve usar fallback de prefixo do e-mail quando full_name for vazio e calcular iniciais", async () => {
+    // Arrange
+    vi.spyOn(authActions, "getCurrentUserProfileAction").mockResolvedValue({
+      isDemo: false,
+      userId: "user-real-456",
+      fullName: "marcos silva",
+      email: "marcos.silva@auto.com.br",
+      phone: null,
+      role: "gerente",
+      avatarUrl: null,
+      initials: "MS",
+      organizationName: "Auto Prime",
+    });
+
+    // Act
+    await act(async () => {
+      render(
+        <DashboardLayout>
+          <div>Conteúdo</div>
+        </DashboardLayout>
+      );
+    });
+
+    // Assert
+    expect(screen.getAllByText("marcos silva").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("marcos.silva@auto.com.br").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("MS").length).toBeGreaterThanOrEqual(1);
+  });
 });
+

@@ -12,7 +12,7 @@
 
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import {
   User,
   Building2,
@@ -53,7 +53,9 @@ import {
 import {
   inviteTeamMember,
   removeTeamMember,
+  getTeamMembers,
 } from "@/app/actions/team";
+import { getCurrentUserProfileAction } from "@/app/actions/auth";
 
 // ---------------------------------------------------------------------------
 // Tipos das Abas e Configurações
@@ -224,7 +226,44 @@ export default function SettingsPage() {
     }
   };
 
-  const { role, sellerName } = useDemoRole();
+  const { role, sellerName, isDemoMode } = useDemoRole();
+
+  // Carrega dinamicamente o perfil e a equipe do usuário autenticado
+  useEffect(() => {
+    let isMounted = true;
+    if (!isDemoMode) {
+      getCurrentUserProfileAction()
+        .then((userProfile) => {
+          if (isMounted && userProfile) {
+            setProfile((prev) => ({
+              ...prev,
+              fullName: userProfile.fullName || prev.fullName,
+              email: userProfile.email || prev.email,
+              phone: userProfile.phone || prev.phone,
+              role: userProfile.role || prev.role,
+            }));
+            if (userProfile.organizationName) {
+              setStore((prev) => ({
+                ...prev,
+                tradeName: userProfile.organizationName,
+              }));
+            }
+          }
+        })
+        .catch(() => {});
+
+      getTeamMembers()
+        .then((members) => {
+          if (isMounted && members && members.length > 0) {
+            setTeamMembers(members);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isDemoMode]);
 
   const isVendedorRole = role === "vendedor";
 
@@ -412,10 +451,13 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-3 border-b pb-4">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 text-white font-bold text-base shadow-sm">
                     {profile.fullName
-                      .split(" ")
+                      .trim()
+                      .split(/\s+/)
+                      .filter(Boolean)
                       .map((n) => n[0])
                       .slice(0, 2)
-                      .join("")}
+                      .join("")
+                      .toUpperCase() || "GE"}
                   </div>
                   <div>
                     <h2 className="text-sm font-bold text-foreground">

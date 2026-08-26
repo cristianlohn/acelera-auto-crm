@@ -15,6 +15,7 @@ import {
 } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidBRPhone, maskPhone } from "@/lib/utils/phone";
+import { resolveUserTenantContext } from "@/lib/auth/tenant";
 
 export interface RegisterDealershipInput {
   storeName: string;
@@ -325,6 +326,81 @@ export async function logoutAction(): Promise<{ success: boolean }> {
     // Ignora erro de signOut fora do request context
   }
   return { success: true };
+}
+
+export interface UserProfileInfo {
+  isDemo: boolean;
+  userId: string | null;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  role: "admin" | "gerente" | "vendedor";
+  avatarUrl: string | null;
+  initials: string;
+  organizationName: string;
+}
+
+/**
+ * Retorna os dados de perfil do usuário autenticado no Supabase ou da sessão Demo ativa.
+ */
+export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
+  const tenantContext = await resolveUserTenantContext();
+
+  if (tenantContext.isDemo) {
+    return {
+      isDemo: true,
+      userId: "demo-sandbox-user",
+      fullName: "Gestor Demonstração",
+      email: "demo@aceleraautocrm.com.br",
+      phone: "11988887777",
+      role: "admin",
+      avatarUrl: null,
+      initials: "GD",
+      organizationName: "Concessionária Demo",
+    };
+  }
+
+  // Resolução do Nome Real:
+  // 1. profile?.full_name
+  // 2. Fallback: prefixo do e-mail formatado ou 'Gestor' (NUNCA nomes fictícios)
+  const fullName =
+    tenantContext.profile?.full_name?.trim() ||
+    (tenantContext.userEmail
+      ? tenantContext.userEmail.split("@")[0].replace(/[._-]/g, " ")
+      : "Gestor");
+
+  const email =
+    tenantContext.userEmail ||
+    tenantContext.profile?.email ||
+    "";
+
+  const phone = tenantContext.profile?.phone || null;
+  const role = (tenantContext.profile?.role as "admin" | "gerente" | "vendedor") || "admin";
+
+  const initials =
+    fullName
+      .split(" ")
+      .filter(Boolean)
+      .map((n: string) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "GE";
+
+  const organizationName =
+    tenantContext.organization?.name ||
+    "Minha Concessionária";
+
+  return {
+    isDemo: false,
+    userId: tenantContext.userId,
+    fullName,
+    email,
+    phone,
+    role,
+    avatarUrl: tenantContext.profile?.avatar_url || null,
+    initials,
+    organizationName,
+  };
 }
 
 export interface PasswordResetResult {
