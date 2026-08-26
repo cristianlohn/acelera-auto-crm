@@ -16,12 +16,6 @@ test.describe('[REQ-CRM-01] Fluxo de Leads no Funil Kanban', () => {
         await openModalBtn.click();
 
         const nameInput = page.locator('#lead-name');
-
-        // Tratamento para emulação mobile (touch events do Radix UI)
-        if (!(await nameInput.isVisible())) {
-            await openModalBtn.dispatchEvent('click');
-        }
-
         // Aguarda a renderização do campo de entrada
         await expect(nameInput).toBeVisible({ timeout: 5000 });
 

@@ -28,6 +28,10 @@ import {
   updateVehicleStatus,
   formatCurrency,
 } from "@/lib/mock-data";
+import {
+  createVehicle as persistVehicle,
+  updateVehicleStatus as persistVehicleStatus,
+} from "@/app/actions/vehicles";
 import type { Vehicle, VehicleStatus } from "@/types/crm";
 import { cn } from "@/lib/utils";
 
@@ -155,12 +159,29 @@ export default function VehiclesPage() {
   // Adiciona novo veículo ao topo da lista
   const handleAdd = useCallback((vehicle: Vehicle) => {
     setVehicles((prev) => [vehicle, ...prev]);
+    persistVehicle({
+      make: vehicle.make,
+      model: vehicle.model,
+      version: vehicle.version,
+      yearFab: vehicle.yearFab,
+      yearModel: vehicle.yearModel,
+      plate: vehicle.plate,
+      km: vehicle.km,
+      price: vehicle.price,
+      status: vehicle.status,
+      imageUrl: vehicle.imageUrl,
+    }).catch(() => {
+      // Fallback silencioso
+    });
   }, []);
 
   // Altera status de um veículo
   const handleStatusChange = useCallback(
     (id: string, status: VehicleStatus) => {
       setVehicles((prev) => updateVehicleStatus(prev, id, status));
+      persistVehicleStatus(id, status).catch(() => {
+        // Fallback silencioso
+      });
     },
     []
   );

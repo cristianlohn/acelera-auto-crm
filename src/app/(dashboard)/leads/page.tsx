@@ -40,54 +40,9 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { mockLeads } from "@/lib/mock-data";
+import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
+import { createLead as persistLead } from "@/app/actions/leads";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
-
-// ---------------------------------------------------------------------------
-// Helpers de tempo
-// ---------------------------------------------------------------------------
-
-/**
- * Formata a diferença entre agora e uma data ISO em string legível.
- * Ex.: "2h atrás", "3 dias atrás".
- */
-function timeAgo(isoDate: string | null): string {
-  if (!isoDate) return "Sem contato";
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const mins = Math.floor(diff / 60_000);
-  const hrs = Math.floor(mins / 60);
-  const days = Math.floor(hrs / 24);
-  if (days > 0) return `${days}d atrás`;
-  if (hrs > 0) return `${hrs}h atrás`;
-  if (mins > 0) return `${mins}min atrás`;
-  return "Agora mesmo";
-}
-
-/**
- * Retorna classes CSS de urgência baseadas no tempo sem contato.
- */
-function urgencyClass(isoDate: string | null): string {
-  if (!isoDate) return "text-red-500";
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const hrs = diff / 3_600_000;
-  if (hrs > 24) return "text-red-500";
-  if (hrs > 6) return "text-orange-500";
-  return "text-green-500";
-}
-
-// ---------------------------------------------------------------------------
-// Helpers WhatsApp
-// ---------------------------------------------------------------------------
-
-/**
- * Gera URL de conversa WhatsApp com mensagem pré-formatada.
- */
-function whatsappUrl(lead: Lead): string {
-  const msg = encodeURIComponent(
-    `Olá ${lead.name}! Tudo bem? 😊\n\nSou da *Acelera Auto* e vi que você se interessou pelo *${lead.vehicleInterest}*.\n\nPosso te enviar mais informações ou agendar uma visita? 🚗`
-  );
-  const phone = lead.phone.replace(/\D/g, "");
-  return `https://wa.me/55${phone}?text=${msg}`;
-}
 
 // ---------------------------------------------------------------------------
 // Configuração das colunas do Kanban
@@ -617,6 +572,17 @@ export default function LeadsPage() {
 
   const handleAddLead = useCallback((lead: Lead) => {
     setLeads((prev) => [lead, ...prev]);
+    persistLead({
+      name: lead.name,
+      phone: lead.phone,
+      email: lead.email,
+      vehicleInterest: lead.vehicleInterest,
+      status: lead.status,
+      sellerName: lead.sellerName,
+      origin: lead.origin,
+    }).catch(() => {
+      // Fallback silencioso mantendo estado local
+    });
   }, []);
 
   const { active, visits, proposals, avgHrs } = computeMetrics(leads);
