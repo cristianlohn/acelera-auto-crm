@@ -89,6 +89,7 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
 | **IT-07.1-8** | Gestão de Estoque Completa | `VehiclesPage` -> Full Page | Métricas dinâmicas, busca instantânea, abas de status, empty state e inserção | ✅ Passou |
 | **IT-08.1-7** | Relatórios e Indicadores | `ReportsPage` -> Analytics/KPIs | KPIs executivos, filtros por período, funil 5 etapas, canais, ranking e exportação | ✅ Passou |
 | **IT-09.1-8** | Gestão de Clientes | `ClientsPage` -> Carteira/CRM | KPIs da carteira, busca instantânea, abas de status, empty state, modal e WhatsApp | ✅ Passou |
+| **IT-10.1-6** | Configurações do Sistema | `SettingsPage` -> Sistema/Perfil | 4 abas organizacionais, edição de perfil com salvamento, dados da loja, metas/SLA e tema | ✅ Passou |
 
 ---
 

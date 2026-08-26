@@ -48,7 +48,7 @@ const navItems: NavItem[] = [
   { href: "/clients", label: "Clientes", icon: Users },
   { href: "/vehicles", label: "Estoque", icon: Car },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
-  { href: "/configuracoes", label: "Configurações", icon: Settings },
+  { href: "/settings", label: "Configurações", icon: Settings },
 ];
 
 // ---------------------------------------------------------------------------
