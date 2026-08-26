@@ -164,7 +164,7 @@ export default function SettingsPage() {
         <div
           role="tablist"
           aria-label="Abas de configuração"
-          className="flex space-x-2 overflow-x-auto py-2 text-xs"
+          className="flex space-x-2 overflow-x-auto max-w-full py-2 text-xs"
         >
           {TAB_ITEMS.map((tab) => {
             const Icon = tab.icon;

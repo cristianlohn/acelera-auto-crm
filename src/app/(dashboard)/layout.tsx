@@ -206,12 +206,12 @@ function MobileHeader() {
 
 export default function DashboardLayout(props: { children: React.ReactNode }) {
   return (
-    <div className="flex h-full min-h-screen flex-col lg:flex-row">
+    <div className="flex h-full min-h-screen w-full max-w-full overflow-x-hidden flex-col lg:flex-row">
       <Sidebar />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col w-full max-w-full overflow-hidden">
         <MobileHeader />
-        <main className="flex-1 overflow-y-auto bg-background">
+        <main className="flex-1 w-full max-w-full overflow-y-auto bg-background">
           {props.children}
         </main>
       </div>

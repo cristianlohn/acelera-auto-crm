@@ -276,7 +276,7 @@ export default function VehiclesPage() {
 
           {/* Filtro por status (tabs) */}
           <div
-            className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1"
+            className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 overflow-x-auto max-w-full"
             role="tablist"
             aria-label="Filtrar por status"
           >

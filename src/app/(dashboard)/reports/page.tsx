@@ -372,7 +372,7 @@ export default function ReportsPage() {
             <div
               role="tablist"
               aria-label="Filtro de período dos relatórios"
-              className="inline-flex rounded-lg border bg-muted/60 p-1 text-xs"
+              className="inline-flex rounded-lg border bg-muted/60 p-1 text-xs overflow-x-auto max-w-full"
             >
               {PERIOD_OPTIONS.map((opt) => (
                 <button

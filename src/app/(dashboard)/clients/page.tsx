@@ -546,7 +546,7 @@ export default function ClientsPage() {
           <div
             role="tablist"
             aria-label="Filtro de status do cliente"
-            className="inline-flex rounded-lg border bg-muted/60 p-1 text-xs"
+            className="inline-flex rounded-lg border bg-muted/60 p-1 text-xs overflow-x-auto max-w-full"
           >
             {TAB_OPTIONS.map((tab) => (
               <button
