@@ -278,4 +278,139 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
     // Assert
     expect(result.success).toBe(true);
   });
+
+  it("[TEST-RLS-BYPASS] Deve garantir que o fluxo de provisionamento utiliza estritamente o cliente administrativo com service_role", async () => {
+    // Arrange
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    const mockSignUp = vi.fn().mockResolvedValue({
+      data: { user: { id: "user_rls_bypass_id" } },
+      error: null,
+    });
+
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
+      auth: { signUp: mockSignUp },
+    } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
+
+    const mockInsertOrg = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: { id: "org_rls_bypass_id" },
+          error: null,
+        }),
+      }),
+    });
+
+    const mockUpsertProfile = vi.fn().mockResolvedValue({
+      error: null,
+    });
+
+    const mockAdminClient = {
+      from: vi.fn((table: string) => {
+        if (table === "organizations") return { insert: mockInsertOrg };
+        if (table === "profiles") return { upsert: mockUpsertProfile };
+        return {};
+      }),
+      auth: {
+        admin: {
+          deleteUser: vi.fn().mockResolvedValue({}),
+        },
+      },
+    };
+
+    const spyCreateAdmin = vi
+      .spyOn(supabaseAdminModule, "createAdminClient")
+      .mockReturnValue(mockAdminClient as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>);
+
+    // Act
+    const result = await registerNewDealership({
+      storeName: "Bypass RLS Motors",
+      fullName: "Diretor Master",
+      email: "diretor@bypassrls.com.br",
+      phone: "(11) 99999-8888",
+      password: "SenhaSegura123",
+    });
+
+    // Assert: Valida que a ação invocou createAdminClient para mutação das tabelas protegidas por RLS
+    expect(result.success).toBe(true);
+    expect(spyCreateAdmin).toHaveBeenCalled();
+    expect(mockAdminClient.from).toHaveBeenCalledWith("organizations");
+    expect(mockAdminClient.from).toHaveBeenCalledWith("profiles");
+  });
+
+  it("[TEST-ORG-CREATION] Deve garantir que cada novo cadastro gera um organization_id e slug únicos e isolados", async () => {
+    // Arrange
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
+      auth: {
+        signUp: vi.fn().mockResolvedValue({
+          data: { user: { id: "user_isolated_org_id" } },
+          error: null,
+        }),
+      },
+    } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
+
+    let insertedOrgSlug = "";
+    const mockAdminClient = {
+      from: vi.fn((table: string) => {
+        if (table === "organizations") {
+          return {
+            insert: vi.fn((payload: { name: string; slug: string }) => {
+              insertedOrgSlug = payload.slug;
+              return {
+                select: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: { id: `org_unique_${Date.now()}` },
+                    error: null,
+                  }),
+                }),
+              };
+            }),
+          };
+        }
+        if (table === "profiles") {
+          return { upsert: vi.fn().mockResolvedValue({ error: null }) };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+      mockAdminClient as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+    );
+
+    // Act
+    const result = await registerNewDealership({
+      storeName: "Loja Isolada Premium",
+      fullName: "Gestor Isolado",
+      email: "gestor@isolada.com.br",
+      phone: "(11) 98888-1111",
+      password: "SenhaSegura123",
+    });
+
+    // Assert
+    expect(result.success).toBe(true);
+    expect(insertedOrgSlug).toMatch(/^loja-isolada-premium-[a-z0-9]+$/);
+  });
+
+  it("[TEST-NO-MOCK-LEAK] Deve validar erro crítico em createAdminClient se variáveis de ambiente estiverem ausentes", () => {
+    // Arrange: Salva e remove temporariamente as variáveis de ambiente
+    const originalUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const originalKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    try {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      // Act & Assert: Deve lançar erro crítico com mensagem explícita
+      expect(() => supabaseAdminModule.createAdminClient()).toThrow(
+        /\[CRITICAL\] NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configuradas no ambiente/i
+      );
+    } finally {
+      // Restaura variáveis
+      if (originalUrl) process.env.NEXT_PUBLIC_SUPABASE_URL = originalUrl;
+      if (originalKey) process.env.SUPABASE_SERVICE_ROLE_KEY = originalKey;
+    }
+  });
 });

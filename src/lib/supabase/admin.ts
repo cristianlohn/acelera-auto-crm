@@ -15,19 +15,18 @@ import type { Database } from "@/types/database.types";
 /**
  * Cria uma instância isolada do Supabase Client com privilégios de Service Role.
  *
+ * @throws {Error} Quando as variáveis NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não estiverem definidas.
  * @returns Instância tipada do Supabase Client configurada com Service Role Key.
  */
 export function createAdminClient() {
-  const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.SUPABASE_URL ||
-    "https://placeholder.supabase.co";
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  const serviceRoleKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    "placeholder-service-role-key";
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      "[CRITICAL] NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configuradas no ambiente. Verifique o .env.local e variáveis da Vercel."
+    );
+  }
 
   return createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: {

@@ -109,7 +109,6 @@ export async function registerNewDealership(
 
   try {
     const supabase = await createServerSupabaseClient();
-    const adminClient = createAdminClient();
 
     // 1. Cria usuário no Supabase Auth com metadados completos
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -146,6 +145,7 @@ export async function registerNewDealership(
       };
     }
 
+    const adminClient = createAdminClient();
     const userId = authData.user.id;
     const slug = generateSlug(storeName);
 
@@ -160,6 +160,11 @@ export async function registerNewDealership(
       .single();
 
     if (orgError || !orgData) {
+      try {
+        await adminClient.auth.admin.deleteUser(userId);
+      } catch {
+        // Ignora caso deleteUser falhe
+      }
       return {
         success: false,
         error: `Erro ao provisionar a concessionária: ${orgError?.message || "falha ao criar organização"}`,
@@ -178,8 +183,13 @@ export async function registerNewDealership(
     });
 
     if (profileError) {
-      // Rollback da organização recém-criada em caso de falha no perfil
+      // Rollback da organização e do usuário em caso de falha no perfil
       await adminClient.from("organizations").delete().eq("id", orgData.id);
+      try {
+        await adminClient.auth.admin.deleteUser(userId);
+      } catch {
+        // Ignora caso deleteUser falhe
+      }
       return {
         success: false,
         error: `Erro ao associar perfil administrativo: ${profileError.message}`,
