@@ -41,6 +41,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -68,6 +69,14 @@ export default function RegisterPage() {
     }
     if (!password || password.length < 6) {
       setErrorMessage("A senha deve ter no mínimo 6 caracteres.");
+      return;
+    }
+    if (!confirmPassword) {
+      setErrorMessage("Por favor, confirme sua senha.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMessage("As senhas não coincidem. Verifique e tente novamente.");
       return;
     }
 
@@ -302,25 +311,47 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Senha */}
-            <div className="space-y-1">
-              <label
-                htmlFor="register-password"
-                className="flex items-center gap-1.5 text-xs font-medium text-zinc-300"
-              >
-                <Lock className="h-3.5 w-3.5 text-zinc-400" />
-                Senha de Acesso *
-              </label>
-              <Input
-                id="register-password"
-                name="password"
-                type="password"
-                placeholder="Mínimo de 6 caracteres"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 text-xs h-9"
-                required
-              />
+            {/* Grid: Senha e Confirmar Senha */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label
+                  htmlFor="register-password"
+                  className="flex items-center gap-1.5 text-xs font-medium text-zinc-300"
+                >
+                  <Lock className="h-3.5 w-3.5 text-zinc-400" />
+                  Senha de Acesso *
+                </label>
+                <Input
+                  id="register-password"
+                  name="password"
+                  type="password"
+                  placeholder="Mínimo de 6 caracteres"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 text-xs h-9"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="register-confirm-password"
+                  className="flex items-center gap-1.5 text-xs font-medium text-zinc-300"
+                >
+                  <Lock className="h-3.5 w-3.5 text-zinc-400" />
+                  Confirmar Senha *
+                </label>
+                <Input
+                  id="register-confirm-password"
+                  name="confirmPassword"
+                  type="password"
+                  placeholder="Repita sua senha"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 text-xs h-9"
+                  required
+                />
+              </div>
             </div>
 
             {/* Botão de Submissão */}

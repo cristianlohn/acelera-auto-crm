@@ -210,4 +210,90 @@ describe("[IT-10] Configurações e Parâmetros (SettingsPage)", () => {
     expect(themeSelect).toHaveValue("dark");
     expect(whatsappCheckbox).not.toBeChecked();
   });
+
+  it("[IT-10.7] Deve renderizar a aba 'Integrações & Webhooks' com endpoint, chave de API e guia em 3 passos", async () => {
+    // Arrange
+    const user = userEvent.setup();
+    render(<SettingsPage />);
+
+    const integracoesTab = screen.getByRole("tab", {
+      name: /integrações & webhooks/i,
+    });
+    expect(integracoesTab).toBeInTheDocument();
+
+    // Act
+    await user.click(integracoesTab);
+
+    // Assert (Aba ativa e cartões visíveis)
+    expect(integracoesTab).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("heading", { name: /integrações & webhooks de leads/i })
+    ).toBeInTheDocument();
+
+    // Endpoint Webhook
+    expect(
+      screen.getByDisplayValue("https://aceleraautocrm.com.br/api/webhooks/leads")
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /copiar url/i })).toBeInTheDocument();
+
+    // Chave de API mascarada
+    expect(screen.getByRole("button", { name: /copiar chave/i })).toBeInTheDocument();
+
+    // Guia 3 passos e Exemplo JSON
+    expect(
+      screen.getByText(/como conectar seus leads em 3 passos/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/exemplo prático de payload \(json\)/i)
+    ).toBeInTheDocument();
+  });
+
+  it("[IT-10.8] Deve alternar a visibilidade da chave de API e permitir cópia para o clipboard", async () => {
+    // Arrange
+    const user = userEvent.setup();
+    const writeTextSpy = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: writeTextSpy },
+      configurable: true,
+      writable: true,
+    });
+
+    render(<SettingsPage />);
+
+    const integracoesTab = screen.getByRole("tab", {
+      name: /integrações & webhooks/i,
+    });
+    await user.click(integracoesTab);
+
+    // Act 1: Toggle mostrar chave
+    const toggleKeyBtn = screen.getByRole("button", { name: /mostrar chave/i });
+    expect(toggleKeyBtn).toBeInTheDocument();
+    await user.click(toggleKeyBtn);
+
+    // Assert 1: Chave desmascarada
+    expect(
+      screen.getByDisplayValue("sk_live_acelera_loja_8849bf21a7c0")
+    ).toBeInTheDocument();
+
+    // Act 2: Copiar URL do Webhook
+    const copyUrlBtn = screen.getByRole("button", { name: /copiar url/i });
+    await user.click(copyUrlBtn);
+    expect(writeTextSpy).toHaveBeenCalledWith(
+      "https://aceleraautocrm.com.br/api/webhooks/leads"
+    );
+
+    // Act 3: Copiar Chave de API
+    const copyKeyBtn = screen.getByRole("button", { name: /copiar chave/i });
+    await user.click(copyKeyBtn);
+    expect(writeTextSpy).toHaveBeenCalledWith(
+      "sk_live_acelera_loja_8849bf21a7c0"
+    );
+
+    // Act 4: Copiar Payload JSON
+    const copyPayloadBtn = screen.getByRole("button", { name: /copiar json/i });
+    await user.click(copyPayloadBtn);
+    expect(writeTextSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Carlos Mendonça")
+    );
+  });
 });

@@ -302,8 +302,7 @@ export function PricingSection() {
                   <strong className="text-orange-400 font-semibold">
                     Taxa única de setup: R$ 997.
                   </strong>{" "}
-                  Inclui configuração inicial da loja, importação do estoque
-                  atual, treinamento ao vivo da equipe de vendas e parametrização
+                  Inclui configuração inicial da loja, Importação assistida de estoque via planilha padrão (CSV/Excel), treinamento ao vivo da equipe de vendas e parametrização
                   dos SLAs de atendimento.
                 </p>
                 <p className="mt-2 text-xs text-emerald-400 font-medium flex items-center gap-1.5">

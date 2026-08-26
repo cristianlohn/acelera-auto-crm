@@ -60,6 +60,9 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
       screen.getByLabelText(/senha de acesso/i)
     ).toBeInTheDocument();
     expect(
+      screen.getByLabelText(/confirmar senha/i)
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: /criar conta e começar/i })
     ).toBeInTheDocument();
     expect(
@@ -85,7 +88,7 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("[IT-13.3] Deve validar o formato de e-mail e comprimento mínimo de senha", async () => {
+  it("[IT-13.3] Deve validar o formato de e-mail, comprimento mínimo de senha e confirmação de senha", async () => {
     // Arrange
     const user = userEvent.setup();
     render(<RegisterPage />);
@@ -95,6 +98,7 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     const emailInput = screen.getByLabelText(/e-mail corporativo/i);
     const phoneInput = screen.getByLabelText(/whatsapp/i);
     const passwordInput = screen.getByLabelText(/senha de acesso/i);
+    const confirmPasswordInput = screen.getByLabelText(/confirmar senha/i);
     const submitBtn = screen.getByRole("button", {
       name: /criar conta e começar/i,
     });
@@ -105,6 +109,7 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     await user.type(emailInput, "email-invalido-sem-arroba");
     await user.type(phoneInput, "11999998888");
     await user.type(passwordInput, "123456");
+    await user.type(confirmPasswordInput, "123456");
     await user.click(submitBtn);
 
     // Assert 1
@@ -116,11 +121,24 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     await user.type(emailInput, "carlos@autoprime.com.br");
     await user.clear(passwordInput);
     await user.type(passwordInput, "123");
+    await user.clear(confirmPasswordInput);
+    await user.type(confirmPasswordInput, "123");
     await user.click(submitBtn);
 
     // Assert 2
     alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/no mínimo 6 caracteres/i);
+
+    // Act 3: Senhas divergentes
+    await user.clear(passwordInput);
+    await user.type(passwordInput, "SenhaSegura123");
+    await user.clear(confirmPasswordInput);
+    await user.type(confirmPasswordInput, "SenhaDiferente456");
+    await user.click(submitBtn);
+
+    // Assert 3
+    alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/as senhas não coincidem/i);
   });
 
   it("[IT-13.4] Deve submeter dados válidos, chamar registerNewDealership e redirecionar para /leads", async () => {
@@ -151,6 +169,10 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     );
     await user.type(
       screen.getByLabelText(/senha de acesso/i),
+      "SenhaForte123"
+    );
+    await user.type(
+      screen.getByLabelText(/confirmar senha/i),
       "SenhaForte123"
     );
 
@@ -189,6 +211,7 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     await user.type(screen.getByLabelText(/e-mail corporativo/i), "existente@loja.com");
     await user.type(screen.getByLabelText(/whatsapp/i), "11999991111");
     await user.type(screen.getByLabelText(/senha de acesso/i), "Senha123");
+    await user.type(screen.getByLabelText(/confirmar senha/i), "Senha123");
 
     const submitBtn = screen.getByRole("button", {
       name: /criar conta e começar/i,

@@ -29,6 +29,14 @@ import {
   AlertCircle,
   X,
   Lock,
+  Webhook,
+  Copy,
+  Check,
+  Eye,
+  EyeOff,
+  Code,
+  FileJson,
+  Key,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +64,8 @@ export type SettingsTab =
   | "loja"
   | "sla"
   | "preferencias"
-  | "equipe";
+  | "equipe"
+  | "integracoes";
 
 export interface UserProfileState {
   fullName: string;
@@ -97,6 +106,7 @@ const TAB_ITEMS: {
   { id: "sla", label: "Parâmetros do CRM & SLA", icon: Sliders },
   { id: "preferencias", label: "Preferências & Notificações", icon: Bell },
   { id: "equipe", label: "Equipe & Vendedores", icon: Users },
+  { id: "integracoes", label: "Integrações & Webhooks", icon: Webhook },
 ];
 
 const ROLE_CONFIG: Record<
@@ -176,6 +186,44 @@ export default function SettingsPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [teamFeedback, setTeamFeedback] = useState<string | null>(null);
   const [isTeamPending, startTeamTransition] = useTransition();
+
+  // Estados do Módulo de Integrações & Webhooks
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [copiedApiKey, setCopiedApiKey] = useState(false);
+  const [copiedPayload, setCopiedPayload] = useState(false);
+
+  const webhookEndpoint = "https://aceleraautocrm.com.br/api/webhooks/leads";
+  const storeApiKey = "sk_live_acelera_loja_8849bf21a7c0";
+  const examplePayloadJson = JSON.stringify(
+    {
+      name: "Carlos Mendonça",
+      phone: "11987654321",
+      email: "carlos@gmail.com",
+      vehicle_interest: "Honda Civic EXL 2023",
+      source: "Webmotors",
+      notes: "Cliente interessado em dar seminovo na troca.",
+    },
+    null,
+    2
+  );
+
+  const handleCopyClipboard = (text: string, type: "webhook" | "key" | "payload") => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    if (type === "webhook") {
+      setCopiedWebhook(true);
+      setTimeout(() => setCopiedWebhook(false), 2000);
+    } else if (type === "key") {
+      setCopiedApiKey(true);
+      setTimeout(() => setCopiedApiKey(false), 2000);
+    } else if (type === "payload") {
+      setCopiedPayload(true);
+      setTimeout(() => setCopiedPayload(false), 2000);
+    }
+  };
+
   const { role, sellerName } = useDemoRole();
 
   const isVendedorRole = role === "vendedor";
@@ -924,8 +972,251 @@ export default function SettingsPage() {
             </section>
           )}
 
+          {/* ============================================================== */}
+          {/* ABA 6: Integrações & Webhooks de Leads                         */}
+          {/* ============================================================== */}
+          {activeTab === "integracoes" && (
+            <section id="tab-integracoes" className="space-y-6 animate-in fade-in duration-200">
+              {/* Header da Aba */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-bold text-foreground">
+                    Integrações & Webhooks de Leads
+                  </h2>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/15 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
+                    <Sparkles className="h-3 w-3" />
+                    Ingestão Automática
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Conecte seu site, campanhas do Meta Ads, Webmotors, iCarros e plataformas externas diretamente ao Funil Kanban do Acelera Auto CRM.
+                </p>
+              </div>
+
+              {/* 1. Card: URL do Webhook */}
+              <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-500/15 text-orange-400 border border-orange-500/30">
+                      <Webhook className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-foreground">
+                        URL do Endpoint de Ingestão (Webhook)
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Recebe requisições HTTP via método POST
+                      </p>
+                    </div>
+                  </div>
+                  <span className="rounded bg-orange-500/20 text-orange-400 px-2 py-0.5 text-[10px] font-mono font-bold border border-orange-500/30">
+                    POST
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="input-webhook-url"
+                      readOnly
+                      value={webhookEndpoint}
+                      className="bg-muted/40 font-mono text-xs text-foreground pr-20 h-9"
+                    />
+                  </div>
+                  <Button
+                    id="btn-copy-webhook"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyClipboard(webhookEndpoint, "webhook")}
+                    className={cn(
+                      "h-9 gap-1.5 text-xs font-semibold shrink-0 transition-all",
+                      copiedWebhook && "border-emerald-500/40 text-emerald-400 bg-emerald-950/20"
+                    )}
+                  >
+                    {copiedWebhook ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Copiar URL</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* 2. Card: Chave de API da Loja (Token) */}
+              <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                      <Key className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-bold text-foreground">
+                        Chave de API da Loja (Token do Lojista)
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        Utilizada para autenticar as requisições enviadas ao Webhook
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="input-store-api-key"
+                      readOnly
+                      value={showApiKey ? storeApiKey : "sk_live_acelera_loja_••••••••••••"}
+                      className="bg-muted/40 font-mono text-xs text-foreground pr-10 h-9"
+                    />
+                    <button
+                      type="button"
+                      id="btn-toggle-show-key"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
+                      title={showApiKey ? "Ocultar chave" : "Mostrar chave"}
+                      aria-label={showApiKey ? "Ocultar chave" : "Mostrar chave"}
+                    >
+                      {showApiKey ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+                  <Button
+                    id="btn-copy-api-key"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyClipboard(storeApiKey, "key")}
+                    className={cn(
+                      "h-9 gap-1.5 text-xs font-semibold shrink-0 transition-all",
+                      copiedApiKey && "border-emerald-500/40 text-emerald-400 bg-emerald-950/20"
+                    )}
+                  >
+                    {copiedApiKey ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Copiado!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>Copiar Chave</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <p className="text-[11px] text-muted-foreground">
+                  💡 <strong>Instrução de Header:</strong> Envie o token no header HTTP <code className="bg-muted px-1.5 py-0.5 rounded text-orange-400 font-mono">x-api-key: {storeApiKey}</code> ou <code className="bg-muted px-1.5 py-0.5 rounded text-orange-400 font-mono">Authorization: Bearer {storeApiKey}</code>.
+                </p>
+              </div>
+
+              {/* 3. Card: Guia Passo a Passo "Como conectar seus leads" */}
+              <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 border-b pb-3">
+                  <Code className="h-4 w-4 text-orange-400" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                    Como conectar seus leads em 3 passos
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <div className="rounded-lg border bg-muted/20 p-3.5 space-y-1.5">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400">
+                      1
+                    </div>
+                    <h4 className="text-xs font-bold text-foreground">
+                      Copie os Dados de Acesso
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Copie a URL do Webhook e sua Chave de API exclusiva da sua loja exibidas nos cartões acima.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border bg-muted/20 p-3.5 space-y-1.5">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400">
+                      2
+                    </div>
+                    <h4 className="text-xs font-bold text-foreground">
+                      Configure no seu Canal
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Configure no seu site, campanhas do Meta Ads (Zapier, Make, n8n) ou integrador de portais enviando um POST com <code className="text-foreground font-mono">name</code> e <code className="text-foreground font-mono">phone</code>.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border bg-muted/20 p-3.5 space-y-1.5">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-orange-500/20 text-xs font-bold text-orange-400">
+                      3
+                    </div>
+                    <h4 className="text-xs font-bold text-foreground">
+                      Ação Imediata no Funil
+                    </h4>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Receba os leads em tempo real no Funil Kanban com o semáforo de SLA ativo para o vendedor agir em menos de 15 minutos.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. Card: Exemplo Prático de Payload JSON */}
+              <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-sm space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileJson className="h-4 w-4 text-emerald-400" />
+                    <h3 className="text-xs font-bold text-foreground">
+                      Exemplo Prático de Payload (JSON)
+                    </h3>
+                  </div>
+                  <Button
+                    id="btn-copy-payload"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleCopyClipboard(examplePayloadJson, "payload")}
+                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                  >
+                    {copiedPayload ? (
+                      <>
+                        <Check className="h-3 w-3 text-emerald-400" />
+                        <span>Copiado</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3 w-3" />
+                        <span>Copiar JSON</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <div className="overflow-x-auto rounded-lg border bg-zinc-950 p-3 font-mono text-[11px] text-zinc-300">
+                  <pre>{examplePayloadJson}</pre>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-muted-foreground">
+                  <span>
+                    ✅ <strong>Campos Obrigatórios:</strong> <code className="text-orange-400 font-mono">name</code>, <code className="text-orange-400 font-mono">phone</code>
+                  </span>
+                  <span>
+                    ℹ️ <strong>Campos Opcionais:</strong> <code className="text-zinc-400 font-mono">email</code>, <code className="text-zinc-400 font-mono">vehicle_interest</code>, <code className="text-zinc-400 font-mono">source</code>, <code className="text-zinc-400 font-mono">notes</code>
+                  </span>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Botão de Salvar Alterações (Geral) */}
-          {activeTab !== "equipe" && (
+          {activeTab !== "equipe" && activeTab !== "integracoes" && (
             <div className="mt-6 flex items-center justify-end gap-3 border-t pt-4">
               <Button
                 id="btn-save-settings"
