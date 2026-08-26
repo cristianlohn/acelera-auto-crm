@@ -35,6 +35,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { registerNewDealership } from "@/app/actions/auth";
+import { maskPhone, isValidBRPhone } from "@/lib/utils/phone";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -51,6 +52,11 @@ export default function RegisterPage() {
   const [verificationSent, setVerificationSent] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = maskPhone(e.target.value);
+    setPhone(formatted);
+  };
 
   // Submissão do formulário de provisionamento
   const handleRegister = async (e: React.FormEvent) => {
@@ -72,6 +78,12 @@ export default function RegisterPage() {
     }
     if (!phone.trim()) {
       setErrorMessage("Por favor, informe o seu telefone ou WhatsApp com DDD.");
+      return;
+    }
+    if (!isValidBRPhone(phone)) {
+      setErrorMessage(
+        "Por favor, informe um número de WhatsApp ou celular brasileiro válido com DDD (ex: (11) 98888-7777)."
+      );
       return;
     }
     if (!password || password.length < 6) {
@@ -351,9 +363,12 @@ export default function RegisterPage() {
                 <Input
                   id="register-phone"
                   name="phone"
+                  type="tel"
+                  inputMode="numeric"
                   placeholder="(11) 98888-7777"
+                  maxLength={15}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={handlePhoneChange}
                   className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 text-xs h-9"
                   required
                 />

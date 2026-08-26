@@ -14,6 +14,7 @@ import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isValidBRPhone, maskPhone } from "@/lib/utils/phone";
 
 export interface RegisterDealershipInput {
   storeName: string;
@@ -72,9 +73,17 @@ export async function registerNewDealership(
   if (!phone?.trim()) {
     return { success: false, error: "Informe o telefone ou WhatsApp de contato." };
   }
+  if (!isValidBRPhone(phone)) {
+    return {
+      success: false,
+      error: "Informe um número de telefone ou WhatsApp brasileiro válido com DDD (10 ou 11 dígitos).",
+    };
+  }
   if (!password || password.length < 6) {
     return { success: false, error: "A senha deve ter no mínimo 6 caracteres." };
   }
+
+  const formattedPhone = maskPhone(phone);
 
   // Limpa cookies de demonstração antes de iniciar o provisionamento
   await clearDemoCookiesAction();
@@ -111,7 +120,7 @@ export async function registerNewDealership(
           full_name: fullName.trim(),
           dealership_name: storeName.trim(),
           store_name: storeName.trim(),
-          phone: phone.trim(),
+          phone: formattedPhone,
         },
       },
     });
@@ -164,7 +173,7 @@ export async function registerNewDealership(
       full_name: fullName.trim(),
       email: email.trim(),
       role: "admin",
-      phone: phone.trim(),
+      phone: formattedPhone,
       avatar_url: null,
     });
 

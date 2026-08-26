@@ -65,7 +65,18 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
     expect(resEmptyPhone.success).toBe(false);
     expect(resEmptyPhone.error).toContain("telefone ou WhatsApp");
 
-    // 5. Senha curta (< 6 caracteres)
+    // 5. Telefone com formato/DDD inválido
+    const resInvalidPhone = await registerNewDealership({
+      storeName: "Auto Prime",
+      fullName: "Roberto Silva",
+      email: "roberto@loja.com",
+      phone: "01988887777",
+      password: "password123",
+    });
+    expect(resInvalidPhone.success).toBe(false);
+    expect(resInvalidPhone.error).toContain("número de telefone ou WhatsApp brasileiro válido");
+
+    // 6. Senha curta (< 6 caracteres)
     const resShortPassword = await registerNewDealership({
       storeName: "Auto Prime",
       fullName: "Roberto Silva",
@@ -139,7 +150,7 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
           full_name: "Carlos Eduardo",
           dealership_name: "Imperial Motors",
           store_name: "Imperial Motors",
-          phone: "11977776666",
+          phone: "(11) 97777-6666",
         },
       },
     });
@@ -155,7 +166,7 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
       full_name: "Carlos Eduardo",
       email: "carlos@imperialmotors.com.br",
       role: "admin",
-      phone: "11977776666",
+      phone: "(11) 97777-6666",
       avatar_url: null,
     });
   });

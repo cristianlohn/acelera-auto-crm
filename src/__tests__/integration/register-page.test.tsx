@@ -348,4 +348,52 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     );
     expect(mockPush).not.toHaveBeenCalled();
   });
+
+  it("[IT-13.9] Deve aplicar máscara dinâmica de telefone/WhatsApp progressivamente conforme digitação", () => {
+    // Arrange
+    render(<RegisterPage />);
+    const phoneInput = screen.getByLabelText(/whatsapp \/ celular/i) as HTMLInputElement;
+
+    // Act 1: Digita DDD e início do número
+    fireEvent.change(phoneInput, { target: { value: "11988" } });
+    expect(phoneInput.value).toBe("(11) 988");
+
+    // Act 2: Digita celular completo com 11 dígitos
+    fireEvent.change(phoneInput, { target: { value: "11988887777" } });
+    expect(phoneInput.value).toBe("(11) 98888-7777");
+
+    // Act 3: Digita telefone fixo com 10 dígitos
+    fireEvent.change(phoneInput, { target: { value: "1133334444" } });
+    expect(phoneInput.value).toBe("(11) 3333-4444");
+  });
+
+  it("[IT-13.10] Deve exibir alerta de validação se o número de WhatsApp informado for inválido", async () => {
+    // Arrange
+    render(<RegisterPage />);
+    const storeInput = screen.getByLabelText(/nome da concessionária/i);
+    const nameInput = screen.getByLabelText(/nome completo do gestor/i);
+    const emailInput = screen.getByLabelText(/e-mail corporativo/i);
+    const phoneInput = screen.getByLabelText(/whatsapp \/ celular/i);
+    const passwordInput = screen.getByLabelText(/^senha de acesso \*/i);
+    const confirmPasswordInput = screen.getByLabelText(/confirmar senha/i);
+    const termsCheckbox = screen.getByLabelText(/declaro que li e concordo com os/i);
+    const submitBtn = screen.getByRole("button", { name: /criar conta e começar/i });
+
+    // Preenche com telefone com DDD inválido (01)
+    fireEvent.change(storeInput, { target: { value: "Auto Prime" } });
+    fireEvent.change(nameInput, { target: { value: "Carlos Eduardo" } });
+    fireEvent.change(emailInput, { target: { value: "carlos@autoprime.com.br" } });
+    fireEvent.change(phoneInput, { target: { value: "01988887777" } });
+    fireEvent.change(passwordInput, { target: { value: "SenhaSegura123" } });
+    fireEvent.change(confirmPasswordInput, { target: { value: "SenhaSegura123" } });
+    fireEvent.click(termsCheckbox);
+
+    // Act
+    fireEvent.click(submitBtn);
+
+    // Assert
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/número de whatsapp ou celular brasileiro válido/i);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
 });
