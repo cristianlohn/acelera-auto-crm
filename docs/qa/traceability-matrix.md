@@ -36,5 +36,5 @@
 | **REQ-CRM-04** | **CT-IT-03** | Acionar Clipboard API com a ficha técnica estruturada ao clicar no botão "Copiar Ficha Técnica". | Integração | Simulação de Eventos de Usuário | `vehicle-card.test.tsx` | **PASS** |
 | **REQ-CRM-04** | **CT-IT-04** | Exibir feedback visual temporário "Copiado! ✓" durante o intervalo de 2 segundos. | Integração | Validação de Estado Efêmero | `vehicle-card.test.tsx` | **PASS** |
 | **REQ-CRM-04** | **CT-IT-05** | Disparar callback `onStatusChange` com os parâmetros corretos ao trocar o status no dropdown. | Integração | Teste de Comunicação de Props | `vehicle-card.test.tsx` | **PASS** |
-| **REQ-CRM-01** | **CT-E2E-01** | Preencher formulário no modal de novo lead e verificar se o card entra no topo da coluna "Novo Lead". | E2E | Jornada de Usuário Ponta a Ponta | `e2e/leads-kanban.spec.ts` | *Pendente* |
-| **REQ-CRM-04** | **CT-E2E-02** | Filtrar estoque por termo de busca instantânea e validar atualização dos cards exibidos. | E2E | Jornada de Usuário Ponta a Ponta | `e2e/inventory-filter.spec.ts` | *Pendente* |
+| **REQ-CRM-01** | **CT-E2E-01** | Preencher formulário no modal de novo lead e verificar se o card entra no topo da coluna "Novo Lead". | E2E | Jornada de Usuário Ponta a Ponta | `e2e/leads-kanban.spec.ts` | **PASS** |
+| **REQ-CRM-04** | **CT-E2E-02** | Filtrar estoque por termo de busca instantânea e validar atualização dos cards exibidos. | E2E | Jornada de Usuário Ponta a Ponta | `e2e/inventory-filter.spec.ts` | **PASS** |

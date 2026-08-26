@@ -6,14 +6,14 @@ on:
   pull_request:
     branches: [main]
 
-# Cancela runs anteriores do mesmo PR para economizar minutos de CI
+# Cancela runs anteriores do mesmo PR/branch para economizar minutos de CI
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   ci:
-    name: Type-check · Lint · Test · Build
+    name: Type-check · Lint · Test · E2E · Build
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -52,13 +52,13 @@ jobs:
         run: npm run lint
 
       # -----------------------------------------------------------------------
-      # 6. Testes unitários e de integração com cobertura
+      # 6. Testes unitários e de integração com cobertura (Vitest)
       # -----------------------------------------------------------------------
       - name: Run tests with coverage
         run: npm run test:coverage
 
       # -----------------------------------------------------------------------
-      # 7. Upload do relatório de cobertura como artefato do GitHub Actions
+      # 7. Upload do relatório de cobertura como artefato
       # -----------------------------------------------------------------------
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -69,11 +69,37 @@ jobs:
           retention-days: 7
 
       # -----------------------------------------------------------------------
-      # 8. Build de produção — valida que a aplicação compila sem erros
+      # 8. Instalar navegador Chromium para testes E2E
+      # -----------------------------------------------------------------------
+      - name: Install Playwright Chromium & dependencies
+        run: npx playwright install --with-deps chromium
+
+      # -----------------------------------------------------------------------
+      # 9. Executar testes E2E (Playwright)
+      # -----------------------------------------------------------------------
+      - name: Run Playwright E2E tests
+        run: npx playwright test
+        env:
+          CI: true
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+
+      # -----------------------------------------------------------------------
+      # 10. Upload do relatório visual do Playwright (Screenshots, vídeos e traces)
+      # -----------------------------------------------------------------------
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      # -----------------------------------------------------------------------
+      # 11. Build de produção — valida que a aplicação compila sem erros
       # -----------------------------------------------------------------------
       - name: Build production bundle
         run: npm run build
         env:
-          # Variáveis necessárias para o build sem Supabase real
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
