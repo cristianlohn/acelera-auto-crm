@@ -43,6 +43,7 @@ import { mockLeads } from "@/lib/mock-data";
 import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
 import { createLead as persistLead } from "@/app/actions/leads";
 import { useDemoRole } from "@/context/demo-role-context";
+import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 
 // ---------------------------------------------------------------------------
@@ -658,6 +659,15 @@ export default function LeadsPage() {
           />
         </div>
       </div>
+
+      {/* ---------------------------------------------------------------- */}
+      {/* Cockpit Gerencial "Dinheiro na Mesa"                             */}
+      {/* ---------------------------------------------------------------- */}
+      {!isVendedorRole && (
+        <div className="px-4 pt-4 sm:px-6">
+          <ManagerActionCockpit />
+        </div>
+      )}
 
       {/* ---------------------------------------------------------------- */}
       {/* Kanban board – scroll horizontal                                   */}

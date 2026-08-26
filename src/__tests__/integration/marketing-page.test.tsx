@@ -59,19 +59,24 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     ).toBeInTheDocument();
   });
 
-  it("[IT-11.2] Deve renderizar a Hero Section com badge de lançamento, headline de conversão e duplo CTA", () => {
+  it("[IT-11.2] Deve renderizar a Hero Section com posicionamento comercial e duplo CTA", () => {
     // Arrange & Act
     render(<MarketingPage />);
 
-    // Assert (Então a headline principal e os CTAs de topo são exibidos)
+    // Assert (Então o badge e a headline principal contra perda de leads são exibidos)
     expect(
-      screen.getByText(/integração direta com whatsapp e funil kanban/i)
-    ).toBeInTheDocument();
+      screen.getAllByText(/o crm que não deixa sua revenda perder leads por demora no atendimento/i).length
+    ).toBeGreaterThanOrEqual(1);
 
     expect(
       screen.getByRole("heading", {
-        name: /o crm automotivo construído para acelerar o fechamento de vendas de veículos/i,
+        name: /o crm que não deixa sua revenda perder leads por demora no atendimento/i,
       })
+    ).toBeInTheDocument();
+
+    expect(screen.getByText(/Lead entrou/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/vendedor precisa agir → sistema acompanha → gestor é avisado/i)
     ).toBeInTheDocument();
 
     expect(
@@ -117,22 +122,40 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     ).toBeInTheDocument();
   });
 
-  it("[IT-11.4] Deve recalcular vendas e receita adicional interativamente ao alterar o slider de leads", () => {
-    // Arrange (Dado o simulador com valor inicial de 200 leads)
+  it("[IT-11.4] Deve recalcular vendas e receita adicional interativamente ao alterar o slider de leads e conversão", () => {
+    // Arrange (Dado o simulador com valor inicial de 200 leads, conv 2% -> 3.5% = delta 1.5%)
     render(<MarketingPage />);
 
-    const slider = screen.getByLabelText(
-      /quantos leads sua loja recebe por mês\?/i
-    );
+    const slider = screen.getByLabelText(/leads recebidos\/mês/i);
     expect(screen.getByText("200 leads/mês")).toBeInTheDocument();
-    expect(screen.getByText("+16")).toBeInTheDocument(); // 200 * 0.08 = 16 carros
+    expect(screen.getByText("+3")).toBeInTheDocument(); // 200 * 0.015 = 3 carros
+    expect(screen.getByText("Como calculamos o retorno da sua revenda?")).toBeInTheDocument();
 
-    // Act (Quando o usuário altera o slider para 500 leads)
-    fireEvent.change(slider, { target: { value: "500" } });
+    // Act 1 (Quando o usuário altera o slider para 600 leads)
+    fireEvent.change(slider, { target: { value: "600" } });
+    expect(screen.getByText("600 leads/mês")).toBeInTheDocument();
+    expect(screen.getByText("+9")).toBeInTheDocument();
 
-    // Assert (Então as estimativas devem ser recalculadas para 40 carros)
-    expect(screen.getByText("500 leads/mês")).toBeInTheDocument();
-    expect(screen.getByText("+40")).toBeInTheDocument(); // 500 * 0.08 = 40 carros
+    // Act 2 (Altera conversão atual e projetada)
+    const currentConvInput = screen.getByLabelText(/conversão atual \(%\)/i);
+    fireEvent.change(currentConvInput, { target: { value: "4.0" } });
+
+    const projectedConvInput = screen.getByLabelText(/conversão com acelera \(%\)/i);
+    fireEvent.change(projectedConvInput, { target: { value: "6.0" } });
+
+    // Act 3 (Altera Ticket Médio e Margem)
+    const ticketSlider = screen.getByLabelText(/ticket médio/i);
+    fireEvent.change(ticketSlider, { target: { value: "100000" } });
+
+    const marginSlider = screen.getByLabelText(/margem média bruta/i);
+    fireEvent.change(marginSlider, { target: { value: "8.0" } });
+
+    // Assert (Recalculado com 600 leads * (6.0% - 4.0% = 2.0%) = 12 carros)
+    expect(screen.getByText("+12")).toBeInTheDocument();
+
+    // Act 4: Ajusta conversão projetada para baixo da atual para testar sincronização
+    fireEvent.change(projectedConvInput, { target: { value: "2.0" } });
+    expect(screen.getAllByText("2%").length).toBeGreaterThanOrEqual(1);
   });
 
   it("[IT-11.5] Deve renderizar os 3 cartões de preços (Starter, Pro, Enterprise), limites e taxa de setup de R$ 997", () => {

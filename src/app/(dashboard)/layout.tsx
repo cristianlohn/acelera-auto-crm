@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DemoRoleProvider } from "@/context/demo-role-context";
 import { RoleSimulatorBar } from "@/components/demo/RoleSimulatorBar";
+import { GuidedTour } from "@/components/demo/GuidedTour";
 
 // ---------------------------------------------------------------------------
 // Configuração dos itens de navegação
@@ -219,6 +220,7 @@ export default function DashboardLayout(props: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
+      <GuidedTour />
     </DemoRoleProvider>
   );
 }
