@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import RegisterPage from "@/app/(auth)/register/page";
 import * as authActions from "@/app/actions/auth";
@@ -93,7 +93,6 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
 
   it("[IT-13.3] Deve validar o formato de e-mail, comprimento mínimo de senha e confirmação de senha", async () => {
     // Arrange
-    const user = userEvent.setup();
     render(<RegisterPage />);
 
     const storeInput = screen.getByLabelText(/nome da concessionária/i);
@@ -108,48 +107,42 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     });
 
     // Act 1: E-mail inválido
-    await user.type(storeInput, "Auto Prime");
-    await user.type(nameInput, "Carlos Eduardo");
-    await user.type(emailInput, "email-invalido-sem-arroba");
-    await user.type(phoneInput, "11999998888");
-    await user.type(passwordInput, "123456");
-    await user.type(confirmPasswordInput, "123456");
-    await user.click(termsCheckbox);
-    await user.click(submitBtn);
+    fireEvent.change(storeInput, { target: { value: "Auto Prime" } });
+    fireEvent.change(nameInput, { target: { value: "Carlos Eduardo" } });
+    fireEvent.change(emailInput, { target: { value: "email-invalido-sem-arroba" } });
+    fireEvent.change(phoneInput, { target: { value: "11999998888" } });
+    fireEvent.change(passwordInput, { target: { value: "123456" } });
+    fireEvent.change(confirmPasswordInput, { target: { value: "123456" } });
+    fireEvent.click(termsCheckbox);
+    fireEvent.click(submitBtn);
 
     // Assert 1
     let alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/e-mail corporativo válido/i);
 
     // Act 2: Senha curta (< 6 caracteres)
-    await user.clear(emailInput);
-    await user.type(emailInput, "carlos@autoprime.com.br");
-    await user.clear(passwordInput);
-    await user.type(passwordInput, "123");
-    await user.clear(confirmPasswordInput);
-    await user.type(confirmPasswordInput, "123");
-    await user.click(submitBtn);
+    fireEvent.change(emailInput, { target: { value: "carlos@autoprime.com.br" } });
+    fireEvent.change(passwordInput, { target: { value: "123" } });
+    fireEvent.change(confirmPasswordInput, { target: { value: "123" } });
+    fireEvent.click(submitBtn);
 
     // Assert 2
     alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/no mínimo 6 caracteres/i);
 
     // Act 3: Senhas divergentes
-    await user.clear(passwordInput);
-    await user.type(passwordInput, "SenhaSegura123");
-    await user.clear(confirmPasswordInput);
-    await user.type(confirmPasswordInput, "SenhaDiferente456");
-    await user.click(submitBtn);
+    fireEvent.change(passwordInput, { target: { value: "SenhaSegura123" } });
+    fireEvent.change(confirmPasswordInput, { target: { value: "SenhaDiferente456" } });
+    fireEvent.click(submitBtn);
 
     // Assert 3
     alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/as senhas não coincidem/i);
 
     // Act 4: Senhas coincidem mas desmarca termos
-    await user.clear(confirmPasswordInput);
-    await user.type(confirmPasswordInput, "SenhaSegura123");
-    await user.click(termsCheckbox); // Desmarca
-    await user.click(submitBtn);
+    fireEvent.change(confirmPasswordInput, { target: { value: "SenhaSegura123" } });
+    fireEvent.click(termsCheckbox); // Desmarca
+    fireEvent.click(submitBtn);
 
     // Assert 4
     alert = await screen.findByRole("alert");
@@ -162,44 +155,35 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
       .spyOn(authActions, "registerNewDealership")
       .mockResolvedValueOnce({ success: true });
 
-    const user = userEvent.setup();
     render(<RegisterPage />);
 
     // Act (Preenche todos os campos válidos)
-    await user.type(
-      screen.getByLabelText(/nome da concessionária/i),
-      "Auto Imperial Veículos"
-    );
-    await user.type(
-      screen.getByLabelText(/nome completo do gestor/i),
-      "Roberto Silva"
-    );
-    await user.type(
-      screen.getByLabelText(/e-mail corporativo/i),
-      "roberto@autoimperial.com.br"
-    );
-    await user.type(
-      screen.getByLabelText(/whatsapp/i),
-      "(11) 98888-7777"
-    );
-    await user.type(
-      screen.getByLabelText(/senha de acesso/i),
-      "SenhaForte123"
-    );
-    await user.type(
-      screen.getByLabelText(/confirmar senha/i),
-      "SenhaForte123"
-    );
-    await user.click(
-      screen.getByLabelText(/declaro que li e concordo com os/i)
-    );
+    fireEvent.change(screen.getByLabelText(/nome da concessionária/i), {
+      target: { value: "Auto Imperial Veículos" },
+    });
+    fireEvent.change(screen.getByLabelText(/nome completo do gestor/i), {
+      target: { value: "Roberto Silva" },
+    });
+    fireEvent.change(screen.getByLabelText(/e-mail corporativo/i), {
+      target: { value: "roberto@autoimperial.com.br" },
+    });
+    fireEvent.change(screen.getByLabelText(/whatsapp/i), {
+      target: { value: "(11) 98888-7777" },
+    });
+    fireEvent.change(screen.getByLabelText(/senha de acesso/i), {
+      target: { value: "SenhaForte123" },
+    });
+    fireEvent.change(screen.getByLabelText(/confirmar senha/i), {
+      target: { value: "SenhaForte123" },
+    });
+    fireEvent.click(screen.getByLabelText(/declaro que li e concordo com os/i));
 
     const submitBtn = screen.getByRole("button", {
       name: /criar conta e começar/i,
     });
 
     await act(async () => {
-      await user.click(submitBtn);
+      fireEvent.click(submitBtn);
     });
 
     // Assert (Ação do servidor é chamada com os dados e redireciona para /leads)
@@ -224,20 +208,32 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     render(<RegisterPage />);
 
     // Act
-    await user.type(screen.getByLabelText(/nome da concessionária/i), "Loja Teste");
-    await user.type(screen.getByLabelText(/nome completo do gestor/i), "Gestor Teste");
-    await user.type(screen.getByLabelText(/e-mail corporativo/i), "existente@loja.com");
-    await user.type(screen.getByLabelText(/whatsapp/i), "11999991111");
-    await user.type(screen.getByLabelText(/senha de acesso/i), "Senha123");
-    await user.type(screen.getByLabelText(/confirmar senha/i), "Senha123");
-    await user.click(screen.getByLabelText(/declaro que li e concordo com os/i));
+    fireEvent.change(screen.getByLabelText(/nome da concessionária/i), {
+      target: { value: "Loja Teste" },
+    });
+    fireEvent.change(screen.getByLabelText(/nome completo do gestor/i), {
+      target: { value: "Gestor Teste" },
+    });
+    fireEvent.change(screen.getByLabelText(/e-mail corporativo/i), {
+      target: { value: "existente@loja.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/whatsapp/i), {
+      target: { value: "11999991111" },
+    });
+    fireEvent.change(screen.getByLabelText(/senha de acesso/i), {
+      target: { value: "Senha123" },
+    });
+    fireEvent.change(screen.getByLabelText(/confirmar senha/i), {
+      target: { value: "Senha123" },
+    });
+    fireEvent.click(screen.getByLabelText(/declaro que li e concordo com os/i));
 
     const submitBtn = screen.getByRole("button", {
       name: /criar conta e começar/i,
     });
 
     await act(async () => {
-      await user.click(submitBtn);
+      fireEvent.click(submitBtn);
     });
 
     // Assert (Mensagem de erro da Server Action é exibida no alert)

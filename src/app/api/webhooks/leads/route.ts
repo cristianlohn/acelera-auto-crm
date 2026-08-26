@@ -80,6 +80,13 @@ const DEFAULT_ACTIVE_SELLERS = [
 let roundRobinCursor = 0;
 
 /**
+ * Reseta o cursor da roleta de vendedores (utilizado em testes unitários/integração).
+ */
+export function resetRoundRobinCursor(val = 0) {
+  roundRobinCursor = val;
+}
+
+/**
  * Determina o vendedor atribuído ao lead (específico ou via Roleta Automática).
  */
 export async function resolveAssignedSeller(
@@ -107,6 +114,22 @@ export async function resolveAssignedSeller(
           .filter((name): name is string => Boolean(name && name.trim()));
         if (names.length > 0) {
           activeSellers = names;
+        }
+      } else {
+        // Fallback seguro: quando não houver vendedores ativos, alocar para o Gestor / Admin
+        const { data: adminData } = await supabase
+          .from("profiles")
+          .select("full_name, role")
+          .eq("organization_id", organizationId)
+          .in("role", ["admin", "gerente"]);
+
+        if (adminData && adminData.length > 0) {
+          const adminNames = adminData
+            .map((p) => p.full_name)
+            .filter((name): name is string => Boolean(name && name.trim()));
+          if (adminNames.length > 0) {
+            return adminNames[0];
+          }
         }
       }
     } catch {
@@ -258,6 +281,8 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         lead_id: leadId,
+        status: initialStatus,
+        sla_minutes: 15,
         assigned_seller: assignedSeller,
         distribution_mode: explicitSeller ? "explicit" : "round_robin",
         message: "Lead recebido e atribuído via Roleta Automática com sucesso.",
