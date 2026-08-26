@@ -287,17 +287,20 @@ export default function LoginPage() {
           </div>
 
           {/* Botão de Destaque: Acesso Rápido ao Modo Demonstração */}
-          <div className="rounded-2xl border-2 border-orange-500/40 bg-gradient-to-b from-orange-500/10 to-transparent p-4 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-orange-400 uppercase tracking-wider">
+          <div
+            data-testid="demo-card"
+            className="rounded-2xl border border-orange-500/30 bg-gradient-to-b from-orange-500/10 to-transparent p-4 shadow-lg w-full box-border"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-orange-400 uppercase tracking-wider truncate">
                   Avaliação & Demonstração
                 </p>
-                <p className="text-xs text-zinc-300 mt-0.5">
+                <p className="text-xs text-zinc-300 mt-0.5 leading-snug">
                   Teste o CRM com dados reais pré-carregados
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 shrink-0">
                 <CheckCircle2 className="h-3 w-3" />
                 Sem Senha
               </span>
@@ -305,13 +308,16 @@ export default function LoginPage() {
 
             <Button
               id="btn-demo-login"
+              data-testid="demo-login-button"
               type="button"
               onClick={handleDemoAccess}
               disabled={isDemoPending}
-              className="mt-3.5 w-full gap-2 bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 text-xs sm:text-sm font-bold text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-700 hover:shadow-orange-500/40 transition-all hover:scale-[1.02] active:scale-98"
+              className="mt-3.5 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 text-xs sm:text-sm font-bold text-white shadow-md shadow-orange-500/20 hover:from-orange-600 hover:to-red-700 transition-all active:scale-[0.99] h-auto min-h-[38px] box-border max-w-full"
               aria-label="Entrar como Concessionária Demo"
             >
-              <span>{isDemoPending ? "Acessando..." : "🚀 Entrar como Concessionária Demo (Acesso Rápido)"}</span>
+              <span className="truncate">
+                {isDemoPending ? "Acessando..." : "🚀 Entrar como Concessionária Demo"}
+              </span>
               <ArrowRight className="h-4 w-4 shrink-0" />
             </Button>
           </div>
