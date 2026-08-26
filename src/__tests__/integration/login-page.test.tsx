@@ -93,7 +93,7 @@ describe("[IT-12] Página de Login e Autenticação (LoginPage)", () => {
     });
 
     // Assert (Redirecionamento para /leads é chamado e cookies de demo são removidos)
-    expect(mockPush).toHaveBeenCalledWith("/leads");
+    expect(window.location.href).toContain("/leads");
     expect(document.cookie).not.toContain("acelera_demo_mode=true");
   });
 
@@ -112,7 +112,7 @@ describe("[IT-12] Página de Login e Autenticação (LoginPage)", () => {
 
     // Assert (Cookie de demo definido e redirecionado para /leads)
     expect(document.cookie).toContain("acelera_demo_mode=true");
-    expect(mockPush).toHaveBeenCalledWith("/leads");
+    expect(window.location.href).toContain("/leads");
   });
 
   it("[IT-12.5] Deve conter links de navegação para retornar à página inicial", () => {

@@ -15,7 +15,6 @@
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   Lock,
@@ -38,7 +37,6 @@ import { registerNewDealership } from "@/app/actions/auth";
 import { maskPhone, isValidBRPhone } from "@/lib/utils/phone";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [storeName, setStoreName] = useState("");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -128,7 +126,7 @@ export default function RegisterPage() {
         }
 
         // Sucesso imediato: Redireciona para o CRM
-        router.push(result.redirectUrl || "/leads");
+        window.location.href = result.redirectUrl || "/leads";
       } catch {
         setErrorMessage("Erro de conexão ao criar conta. Tente novamente.");
       }

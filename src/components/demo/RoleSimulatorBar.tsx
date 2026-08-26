@@ -9,7 +9,7 @@
 "use client";
 
 import React from "react";
-import { Sparkles, User, ShieldCheck, Crown, X, CheckCircle2 } from "lucide-react";
+import { Sparkles, User, ShieldCheck, Crown, X, CheckCircle2, LogOut } from "lucide-react";
 import { useDemoRole, type DemoRole } from "@/context/demo-role-context";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +19,21 @@ export function RoleSimulatorBar() {
   if (!isDemoMode) {
     return null;
   }
+
+  const handleExitDemo = () => {
+    if (typeof document !== "undefined") {
+      document.cookie =
+        "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      document.cookie =
+        "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      document.cookie =
+        "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      document.cookie =
+        "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    }
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = "/login";
+  };
 
   const rolesList: {
     id: DemoRole;
@@ -68,7 +83,7 @@ export function RoleSimulatorBar() {
           </div>
         </div>
 
-        {/* Botões de Alternância de Papéis */}
+        {/* Botões de Alternância de Papéis & Botão Sair da Demo */}
         <div
           role="group"
           aria-label="Selecionar Perfil de Acesso Demo"
@@ -97,6 +112,18 @@ export function RoleSimulatorBar() {
               </button>
             );
           })}
+
+          <button
+            type="button"
+            id="btn-exit-demo"
+            data-testid="btn-exit-demo"
+            onClick={handleExitDemo}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all active:scale-95 whitespace-nowrap ml-1 cursor-pointer"
+            aria-label="Sair da Demonstração"
+          >
+            <LogOut className="h-3.5 w-3.5 shrink-0" />
+            <span>Sair da Demonstração</span>
+          </button>
         </div>
       </div>
 

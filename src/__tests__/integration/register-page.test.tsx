@@ -194,7 +194,7 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
       phone: "(11) 98888-7777",
       password: "SenhaForte123",
     });
-    expect(mockPush).toHaveBeenCalledWith("/leads");
+    expect(window.location.href).toContain("/leads");
   });
 
   it("[IT-13.5] Deve exibir mensagem de erro quando a Server Action retornar falha (e-mail duplicado)", async () => {

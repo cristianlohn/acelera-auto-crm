@@ -15,7 +15,7 @@
 import React, { useState, useTransition, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Lock,
@@ -87,12 +87,11 @@ function LoginAuthBanner() {
 }
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [isDemoPending, startDemoTransition] = useTransition();
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   // Estados do Modal de Recuperação de Senha
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
@@ -103,12 +102,13 @@ export default function LoginPage() {
 
   // Acesso rápido instantâneo ao modo Sandbox / Demo
   const handleDemoAccess = () => {
-    startDemoTransition(() => {
-      // Define cookie para indicar modo demonstração
+    setIsDemoLoading(true);
+    if (typeof document !== "undefined") {
       document.cookie =
         "acelera_demo_mode=true; path=/; max-age=86400; SameSite=Lax";
-      router.push("/leads");
-    });
+    }
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    window.location.href = "/leads";
   };
 
   // Submissão do formulário tradicional de login
@@ -136,15 +136,18 @@ export default function LoginPage() {
         }
 
         // Ao autenticar com credenciais reais, limpa explicitamente qualquer cookie de demonstração
-        document.cookie =
-          "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        document.cookie =
-          "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        document.cookie =
-          "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        document.cookie =
-          "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        router.push("/leads");
+        if (typeof document !== "undefined") {
+          document.cookie =
+            "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+          document.cookie =
+            "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+          document.cookie =
+            "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+          document.cookie =
+            "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        }
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.href = "/leads";
       } catch {
         setErrorMessage("Ocorreu um erro ao autenticar. Tente novamente.");
       }
@@ -317,14 +320,20 @@ export default function LoginPage() {
               data-testid="demo-login-button"
               type="button"
               onClick={handleDemoAccess}
-              disabled={isDemoPending}
-              className="mt-3.5 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 text-xs sm:text-sm font-bold text-white shadow-md shadow-orange-500/20 hover:from-orange-600 hover:to-red-700 transition-all active:scale-[0.99] h-auto min-h-[38px] box-border max-w-full"
+              disabled={isDemoLoading || isPending}
+              className="mt-3.5 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 text-xs sm:text-sm font-bold text-white shadow-md shadow-orange-500/20 hover:from-orange-600 hover:to-red-700 transition-all active:scale-[0.99] h-auto min-h-[38px] box-border max-w-full disabled:opacity-75 cursor-pointer"
               aria-label="Entrar como Concessionária Demo"
             >
+              {isDemoLoading ? (
+                <div
+                  data-testid="demo-spinner"
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent shrink-0"
+                />
+              ) : null}
               <span className="truncate">
-                {isDemoPending ? "Acessando..." : "🚀 Entrar como Concessionária Demo"}
+                {isDemoLoading ? "Acessando demonstração..." : "🚀 Entrar como Concessionária Demo"}
               </span>
-              <ArrowRight className="h-4 w-4 shrink-0" />
+              {!isDemoLoading && <ArrowRight className="h-4 w-4 shrink-0" />}
             </Button>
           </div>
 

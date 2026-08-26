@@ -13,7 +13,7 @@
 import React, { Suspense, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -131,7 +131,6 @@ function SidebarFooter({
 }: {
   logoutButtonId?: string;
 }) {
-  const router = useRouter();
   const { role, sellerName } = useDemoRole();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -141,12 +140,13 @@ function SidebarFooter({
       await logoutAction();
     } finally {
       if (typeof document !== "undefined") {
-        document.cookie = "acelera_demo_mode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        document.cookie = "sb-demo-auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        document.cookie = "demo_mode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        document.cookie = "acelera_demo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
       }
-      router.push("/login");
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = "/login";
     }
   };
 
