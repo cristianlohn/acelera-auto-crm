@@ -171,4 +171,87 @@ describe("[IT-EMPTY] Empty State Legítimo & Isolamento de Dados Mock", () => {
       screen.getByRole("button", { name: /cadastrar primeiro lead/i })
     ).toBeInTheDocument();
   });
+
+  it("[IT-EMPTY.6] resolveUserTenantContext deve auto-provisionar organização com Admin Client quando usuário real não tiver profile", async () => {
+    // Arrange
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: {
+            user: {
+              id: "user-without-org-id",
+              email: "novo@concessionaria.com.br",
+              user_metadata: {
+                dealership_name: "Nova Matriz Motors",
+                full_name: "Guilherme Santos",
+              },
+            },
+          },
+          error: null,
+        }),
+      },
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      }),
+    };
+
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
+      mockSupabase as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>
+    );
+
+    const mockAdminClient = {
+      from: vi.fn((table: string) => {
+        if (table === "organizations") {
+          return {
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: "org-auto-provisioned", name: "Nova Matriz Motors" },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "profiles") {
+          return {
+            upsert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: {
+                    id: "user-without-org-id",
+                    organization_id: "org-auto-provisioned",
+                    full_name: "Guilherme Santos",
+                    role: "admin",
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+
+    const adminModule = await import("@/lib/supabase/admin");
+    vi.spyOn(adminModule, "createAdminClient").mockReturnValue(
+      mockAdminClient as unknown as ReturnType<typeof adminModule.createAdminClient>
+    );
+
+    // Act
+    const context = await tenantAuthModule.resolveUserTenantContext();
+
+    // Assert
+    expect(context.isDemo).toBe(false);
+    expect(context.organizationId).toBe("org-auto-provisioned");
+    expect(context.userId).toBe("user-without-org-id");
+    expect(context.needsOnboarding).toBe(false);
+  });
 });

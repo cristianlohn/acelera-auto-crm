@@ -20,6 +20,7 @@ import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Organization, Profile } from "@/types/database.types";
 
 /** Identificador UUID padrão da concessionária Sandbox / Demonstração */
@@ -76,8 +77,53 @@ export async function resolveUserTenantContext(): Promise<TenantContextResult> {
         .eq("id", user.id)
         .single();
 
-      // Usuário sem organização vinculada no profile -> Direcionar para Onboarding
+      // Usuário sem organização vinculada no profile -> Provisionamento seguro de fallback
       if (!profile || !profile.organization_id) {
+        try {
+          const adminClient = createAdminClient();
+          const storeName =
+            (user.user_metadata?.dealership_name ||
+              user.user_metadata?.store_name ||
+              user.user_metadata?.full_name ||
+              "Minha Concessionária") as string;
+          const slug = `${storeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") || "loja"}-${Math.random().toString(36).substring(2, 7)}`;
+
+          const { data: newOrg } = await adminClient
+            .from("organizations")
+            .insert({ name: storeName, slug })
+            .select()
+            .single();
+
+          if (newOrg) {
+            const { data: newProfile } = await adminClient
+              .from("profiles")
+              .upsert({
+                id: user.id,
+                organization_id: newOrg.id,
+                full_name:
+                  (user.user_metadata?.full_name ||
+                    user.email?.split("@")[0] ||
+                    "Gestor") as string,
+                email: user.email || "",
+                role: "admin",
+                phone: (user.user_metadata?.phone || null) as string | null,
+              })
+              .select()
+              .single();
+
+            return {
+              isDemo: false,
+              userId: user.id,
+              organizationId: newOrg.id,
+              profile: (newProfile as Profile) || null,
+              organization: (newOrg as Organization) || null,
+              needsOnboarding: false,
+            };
+          }
+        } catch {
+          // Em caso de erro no auto-provisionamento, mantém status de onboarding sem vazar dados demo
+        }
+
         return {
           isDemo: false,
           userId: user.id,

@@ -85,4 +85,36 @@ test.describe("Autenticação e Layout da Página de Login", () => {
     const demoCookie = cookies.find((c) => c.name === "acelera_demo_mode");
     expect(demoCookie?.value || "").not.toBe("true");
   });
+
+  test("logout: clique no botão Sair desloga a sessão e redireciona para /login", async ({
+    page,
+  }) => {
+    // 1. Entra no CRM via demo
+    await page.goto("/login");
+    await page.click('[data-testid="demo-login-button"]');
+    await page.waitForURL("**/leads");
+
+    // 2. Clica no botão de Logout na sidebar (ou no sheet do mobile)
+    const isMobile = await page.evaluate(() => window.innerWidth < 1024);
+    if (isMobile) {
+      const menuBtn = page.locator('button[aria-label="Abrir menu"]');
+      await menuBtn.click();
+      const mobileLogoutBtn = page.locator("#btn-logout-mobile");
+      await expect(mobileLogoutBtn).toBeVisible();
+      await mobileLogoutBtn.click();
+    } else {
+      const logoutBtn = page.locator("#btn-logout-sidebar");
+      await expect(logoutBtn).toBeVisible();
+      await logoutBtn.click();
+    }
+
+    // 3. Aguarda redirecionamento para a tela de login
+    await page.waitForURL("**/login");
+    await expect(page).toHaveURL(/.*login/);
+
+    // 4. Valida limpeza de cookies de demo
+    const cookies = await page.context().cookies();
+    const demoCookie = cookies.find((c) => c.name === "acelera_demo_mode");
+    expect(demoCookie?.value || "").not.toBe("true");
+  });
 });

@@ -76,6 +76,9 @@ export async function registerNewDealership(
     return { success: false, error: "A senha deve ter no mínimo 6 caracteres." };
   }
 
+  // Limpa cookies de demonstração antes de iniciar o provisionamento
+  await clearDemoCookiesAction();
+
   // Fallback seguro caso o Supabase não esteja configurado
   if (!isSupabaseServerConfigured()) {
     try {
@@ -175,20 +178,27 @@ export async function registerNewDealership(
     }
 
     // Limpa quaisquer cookies de modo demonstração ao criar um tenant real
-    try {
-      const cookieStore = await cookies();
-      cookieStore.delete("acelera_demo_mode");
-      cookieStore.delete("sb-demo-auth");
-      cookieStore.delete("demo_mode");
-      cookieStore.delete("acelera_demo_session");
-    } catch {
-      // Ignora erro de cookies fora do request context
-    }
+    await clearDemoCookiesAction();
 
-    // Determina se há sessão ativa imediata ou se requer confirmação de e-mail
-    const requiresEmailVerification = Boolean(
+    // Determina se há sessão ativa imediata ou tenta autenticação com senha
+    let requiresEmailVerification = Boolean(
       authData.user && !authData.session && authData.user.identities && authData.user.identities.length > 0
     );
+
+    if (!authData.session) {
+      try {
+        const { data: signInData, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+        if (!signInError && signInData?.session) {
+          requiresEmailVerification = false;
+        }
+      } catch {
+        // Se a confirmação de e-mail for obrigatória no Supabase, mantém requiresEmailVerification = true
+      }
+    }
 
     return {
       success: true,

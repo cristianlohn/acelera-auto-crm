@@ -10,10 +10,10 @@
 
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -24,6 +24,7 @@ import {
   Phone,
   TrendingUp,
   HelpCircle,
+  LogOut,
 } from "lucide-react";
 import {
   Sheet,
@@ -34,11 +35,12 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { DemoRoleProvider } from "@/context/demo-role-context";
+import { DemoRoleProvider, useDemoRole } from "@/context/demo-role-context";
 import { RoleSimulatorBar } from "@/components/demo/RoleSimulatorBar";
 import { GuidedTour } from "@/components/demo/GuidedTour";
 import { VerifiedAccountToast } from "@/components/dashboard/VerifiedAccountToast";
 import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
+import { logoutAction } from "@/app/actions/auth";
 
 // ---------------------------------------------------------------------------
 // Configuração dos itens de navegação
@@ -121,6 +123,82 @@ function NavLink({
 }
 
 // ---------------------------------------------------------------------------
+// Componente: Rodapé de Perfil e Logout
+// ---------------------------------------------------------------------------
+
+function SidebarFooter({
+  logoutButtonId = "btn-logout-sidebar",
+}: {
+  logoutButtonId?: string;
+}) {
+  const router = useRouter();
+  const { role, sellerName } = useDemoRole();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logoutAction();
+    } finally {
+      if (typeof document !== "undefined") {
+        document.cookie = "acelera_demo_mode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "sb-demo-auth=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "demo_mode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "acelera_demo_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      }
+      router.push("/login");
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return (
+      name
+        .split(" ")
+        .filter(Boolean)
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "AC"
+    );
+  };
+
+  const displayName = sellerName || "Gestor da Loja";
+  const displayRole =
+    role === "admin"
+      ? "Administrador"
+      : role === "gerente"
+        ? "Gerente Comercial"
+        : "Vendedor";
+
+  return (
+    <div className="border-t p-3 space-y-2.5 bg-card/60">
+      <div className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/5 p-2.5 ring-1 ring-orange-500/20">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs font-bold text-white shadow">
+          {getInitials(displayName)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-semibold text-foreground">{displayName}</p>
+          <p className="truncate text-[10px] text-muted-foreground">{displayRole} • Ativo</p>
+        </div>
+        <TrendingUp className="h-3.5 w-3.5 shrink-0 text-orange-500" />
+      </div>
+
+      <button
+        id={logoutButtonId}
+        type="button"
+        disabled={isLoggingOut}
+        onClick={handleLogout}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40 transition-all active:scale-[0.98] disabled:opacity-50"
+        aria-label="Sair da Conta"
+      >
+        <LogOut className="h-3.5 w-3.5 shrink-0" />
+        <span>{isLoggingOut ? "Saindo..." : "Sair da Conta"}</span>
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Componente: Sidebar (desktop)
 // ---------------------------------------------------------------------------
 
@@ -139,19 +217,8 @@ function Sidebar() {
         ))}
       </nav>
 
-      {/* Rodapé da sidebar */}
-      <div className="border-t p-4">
-        <div className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/5 px-3 py-3 ring-1 ring-orange-500/20">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs font-bold text-white shadow">
-            LA
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-semibold text-foreground">Loja Principal</p>
-            <p className="truncate text-[10px] text-muted-foreground">Plano Pro • Ativo</p>
-          </div>
-          <TrendingUp className="h-3.5 w-3.5 shrink-0 text-orange-500" />
-        </div>
-      </div>
+      {/* Rodapé da sidebar com Perfil e Botão Sair */}
+      <SidebarFooter logoutButtonId="btn-logout-sidebar" />
     </aside>
   );
 }
@@ -170,27 +237,19 @@ function MobileHeader() {
             <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-72 p-0">
-          <SheetHeader className="border-b px-5 py-4">
-            <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
-            <Logo />
-          </SheetHeader>
-          <nav className="flex flex-col gap-1 p-3">
-            {navItems.map((item) => (
-              <NavLink key={item.href} item={item} />
-            ))}
-          </nav>
-          <div className="border-t p-4">
-            <div className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/5 px-3 py-3 ring-1 ring-orange-500/20">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs font-bold text-white shadow">
-                LA
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold text-foreground">Loja Principal</p>
-                <p className="truncate text-[10px] text-muted-foreground">Plano Pro • Ativo</p>
-              </div>
-            </div>
+        <SheetContent side="left" className="w-72 p-0 flex flex-col justify-between">
+          <div>
+            <SheetHeader className="border-b px-5 py-4">
+              <SheetTitle className="sr-only">Menu de navegação</SheetTitle>
+              <Logo />
+            </SheetHeader>
+            <nav className="flex flex-col gap-1 p-3">
+              {navItems.map((item) => (
+                <NavLink key={item.href} item={item} />
+              ))}
+            </nav>
           </div>
+          <SidebarFooter logoutButtonId="btn-logout-mobile" />
         </SheetContent>
       </Sheet>
 

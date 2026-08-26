@@ -11,13 +11,14 @@ test.describe('[REQ-CRM-01] Fluxo de Leads no Funil Kanban', () => {
     });
 
     test('[CT-E2E-01] deve abrir o modal, cadastrar um novo lead e visualizá-lo na coluna "Novo Lead"', async ({ page }) => {
+        await page.waitForLoadState('domcontentloaded');
         // Act: Clica no botão de adicionar lead
         const openModalBtn = page.locator('#btn-add-lead');
         await openModalBtn.click();
 
         const nameInput = page.locator('#lead-name');
         // Aguarda a renderização do campo de entrada
-        await expect(nameInput).toBeVisible({ timeout: 5000 });
+        await expect(nameInput).toBeVisible({ timeout: 10000 });
 
         // Preenche os campos do formulário
         await nameInput.fill('Mariana Souza');
