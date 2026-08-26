@@ -99,6 +99,17 @@ export default function LoginPage() {
   const [forgotError, setForgotError] = useState<string | null>(null);
   const [isForgotPending, startForgotTransition] = useTransition();
 
+  // Redirecionamento automático se já estiver autenticado
+  React.useEffect(() => {
+    if (typeof document !== "undefined") {
+      const isTestAuth = document.cookie.includes("sb-test-user=true");
+      if (isTestAuth) {
+        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+        window.location.href = "/leads";
+      }
+    }
+  }, []);
+
   // Acesso rápido instantâneo ao modo Sandbox / Demo
   const handleDemoAccess = () => {
     setIsDemoLoading(true);

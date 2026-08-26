@@ -38,6 +38,10 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix)
   );
+  const isAuthRoute =
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/cadastro";
   const isBillingRoute = pathname.startsWith("/billing") || pathname.startsWith("/assinatura");
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -100,9 +104,19 @@ export async function middleware(request: NextRequest) {
       response.cookies.delete("sb-demo-auth");
       response.cookies.delete("demo_mode");
       response.cookies.delete("acelera_demo_session");
+
+      // Redireciona usuário autenticado que tenta acessar /login ou /register para /leads
+      if (isAuthRoute) {
+        return NextResponse.redirect(new URL("/leads", request.url));
+      }
     }
 
     const isTestAuth = request.cookies.get("sb-test-user")?.value === "true";
+
+    // Usuário em ambiente de teste autenticado acessando /login ou /register
+    if (isTestAuth && isAuthRoute) {
+      return NextResponse.redirect(new URL("/leads", request.url));
+    }
 
     // Se estiver em rota protegida sem usuário logado, sem sessão de teste e sem cookie explícito de demonstração
     if (isProtectedRoute && !user && !isTestAuth && !hasDemoCookie) {
@@ -144,8 +158,13 @@ export async function middleware(request: NextRequest) {
     }
   } else {
     // Quando Supabase não está configurado:
-    // Permite acesso a rotas protegidas se tiver cookie explícito de demo ou sessão de teste
     const isTestAuth = request.cookies.get("sb-test-user")?.value === "true";
+
+    if (isTestAuth && isAuthRoute) {
+      return NextResponse.redirect(new URL("/leads", request.url));
+    }
+
+    // Permite acesso a rotas protegidas se tiver cookie explícito de demo ou sessão de teste
     if (isProtectedRoute && !hasDemoCookie && !isTestAuth) {
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("redirectedFrom", pathname);

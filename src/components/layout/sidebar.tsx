@@ -29,6 +29,8 @@ export interface NavItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  target?: string;
+  rel?: string;
 }
 
 export const navItems: NavItem[] = [
@@ -37,7 +39,13 @@ export const navItems: NavItem[] = [
   { href: "/vehicles", label: "Estoque", icon: Car },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
   { href: "/settings", label: "Configurações", icon: Settings },
-  { href: "/ajuda", label: "Central de Ajuda", icon: HelpCircle },
+  {
+    href: "/ajuda",
+    label: "Central de Ajuda",
+    icon: HelpCircle,
+    target: "_blank",
+    rel: "noopener noreferrer",
+  },
 ];
 
 export function Logo({ className }: { className?: string }) {
@@ -70,6 +78,8 @@ export function NavLink({
     <Link
       href={item.href}
       onClick={onClick}
+      target={item.target}
+      rel={item.rel}
       className={cn(
         "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
         isActive
