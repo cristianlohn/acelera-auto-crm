@@ -68,19 +68,21 @@ describe("[IT-17] SEO Técnico, OpenGraph e Metadados de Indexação", () => {
 
     // Assert
     expect(Array.isArray(sitemapEntries)).toBe(true);
-    expect(sitemapEntries.length).toBeGreaterThanOrEqual(4);
+    expect(sitemapEntries.length).toBeGreaterThanOrEqual(6);
 
     const urls = sitemapEntries.map((e) => e.url);
 
-    // Deve conter '/', '/login', '/register' e '/cadastro'
+    // Deve conter '/', '/login', '/register', '/cadastro', '/termos' e '/privacidade'
     expect(urls.some((u) => u.includes("acelera"))).toBe(true);
     expect(urls.some((u) => u.includes("/login"))).toBe(true);
     expect(urls.some((u) => u.includes("/register"))).toBe(true);
     expect(urls.some((u) => u.includes("/cadastro"))).toBe(true);
+    expect(urls.some((u) => u.includes("/termos"))).toBe(true);
+    expect(urls.some((u) => u.includes("/privacidade"))).toBe(true);
 
     // Prioridade máxima na home
     const homeEntry = sitemapEntries.find(
-      (e) => !e.url.includes("/login") && !e.url.includes("/register") && !e.url.includes("/cadastro")
+      (e) => !e.url.includes("/login") && !e.url.includes("/register") && !e.url.includes("/cadastro") && !e.url.includes("/termos") && !e.url.includes("/privacidade")
     );
     expect(homeEntry?.priority).toBe(1.0);
     expect(homeEntry?.changeFrequency).toBe("weekly");

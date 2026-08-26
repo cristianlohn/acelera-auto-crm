@@ -63,6 +63,9 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
       screen.getByLabelText(/confirmar senha/i)
     ).toBeInTheDocument();
     expect(
+      screen.getByLabelText(/declaro que li e concordo com os/i)
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole("button", { name: /criar conta e começar/i })
     ).toBeInTheDocument();
     expect(
@@ -99,6 +102,7 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     const phoneInput = screen.getByLabelText(/whatsapp/i);
     const passwordInput = screen.getByLabelText(/senha de acesso/i);
     const confirmPasswordInput = screen.getByLabelText(/confirmar senha/i);
+    const termsCheckbox = screen.getByLabelText(/declaro que li e concordo com os/i);
     const submitBtn = screen.getByRole("button", {
       name: /criar conta e começar/i,
     });
@@ -110,6 +114,7 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     await user.type(phoneInput, "11999998888");
     await user.type(passwordInput, "123456");
     await user.type(confirmPasswordInput, "123456");
+    await user.click(termsCheckbox);
     await user.click(submitBtn);
 
     // Assert 1
@@ -139,6 +144,16 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     // Assert 3
     alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(/as senhas não coincidem/i);
+
+    // Act 4: Senhas coincidem mas desmarca termos
+    await user.clear(confirmPasswordInput);
+    await user.type(confirmPasswordInput, "SenhaSegura123");
+    await user.click(termsCheckbox); // Desmarca
+    await user.click(submitBtn);
+
+    // Assert 4
+    alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(/você deve concordar com os termos de uso/i);
   });
 
   it("[IT-13.4] Deve submeter dados válidos, chamar registerNewDealership e redirecionar para /leads", async () => {
@@ -174,6 +189,9 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     await user.type(
       screen.getByLabelText(/confirmar senha/i),
       "SenhaForte123"
+    );
+    await user.click(
+      screen.getByLabelText(/declaro que li e concordo com os/i)
     );
 
     const submitBtn = screen.getByRole("button", {
@@ -212,6 +230,7 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     await user.type(screen.getByLabelText(/whatsapp/i), "11999991111");
     await user.type(screen.getByLabelText(/senha de acesso/i), "Senha123");
     await user.type(screen.getByLabelText(/confirmar senha/i), "Senha123");
+    await user.click(screen.getByLabelText(/declaro que li e concordo com os/i));
 
     const submitBtn = screen.getByRole("button", {
       name: /criar conta e começar/i,

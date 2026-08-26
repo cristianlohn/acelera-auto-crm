@@ -182,10 +182,14 @@ export default function MarketingLayout({
                   <span>PostgreSQL & Supabase Realtime</span>
                 </li>
                 <li>
-                  <span className="hover:text-white">Conformidade LGPD</span>
+                  <Link href="/privacidade" className="hover:text-white transition">
+                    Conformidade LGPD & Privacidade
+                  </Link>
                 </li>
                 <li>
-                  <span className="hover:text-white">SLA de 99.9% em Nuvem</span>
+                  <Link href="/termos" className="hover:text-white transition">
+                    Termos de Licenciamento (SaaS)
+                  </Link>
                 </li>
                 <li>
                   <span className="hover:text-white">Backup Automatizado</span>
@@ -225,13 +229,18 @@ export default function MarketingLayout({
 
           <div className="mt-8 border-t border-white/5 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-zinc-400">
             <p>
-              © {new Date().getFullYear()} Acelera Auto CRM. Todos os direitos
-              reservados.
+              © {new Date().getFullYear()} Acelera Auto CRM. Um produto operado por Catuto Soluções Digitais.
             </p>
             <div className="flex gap-4">
-              <span className="hover:text-zinc-300">Termos de Uso</span>
-              <span className="hover:text-zinc-300">Privacidade</span>
-              <span className="hover:text-zinc-300">Suporte Técnico</span>
+              <Link href="/termos" className="hover:text-zinc-300 transition-colors">
+                Termos de Uso
+              </Link>
+              <Link href="/privacidade" className="hover:text-zinc-300 transition-colors">
+                Política de Privacidade
+              </Link>
+              <Link href="/ajuda" className="hover:text-zinc-300 transition-colors">
+                Central de Ajuda
+              </Link>
             </div>
           </div>
         </div>

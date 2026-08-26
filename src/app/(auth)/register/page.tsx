@@ -42,6 +42,7 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -77,6 +78,10 @@ export default function RegisterPage() {
     }
     if (password !== confirmPassword) {
       setErrorMessage("As senhas não coincidem. Verifique e tente novamente.");
+      return;
+    }
+    if (!termsAccepted) {
+      setErrorMessage("Você deve concordar com os Termos de Uso e a Política de Privacidade.");
       return;
     }
 
@@ -352,6 +357,41 @@ export default function RegisterPage() {
                   required
                 />
               </div>
+            </div>
+
+            {/* Aceite dos Termos de Uso e Política de Privacidade */}
+            <div className="flex items-start gap-2 pt-1">
+              <input
+                id="register-terms"
+                name="termsAccepted"
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/5 text-orange-500 accent-orange-500 cursor-pointer"
+                required
+              />
+              <label
+                htmlFor="register-terms"
+                className="text-[11px] text-zinc-400 leading-snug cursor-pointer select-none"
+              >
+                Declaro que li e concordo com os{" "}
+                <Link
+                  href="/termos"
+                  target="_blank"
+                  className="text-orange-400 underline underline-offset-2 hover:text-orange-300"
+                >
+                  Termos de Uso
+                </Link>{" "}
+                e a{" "}
+                <Link
+                  href="/privacidade"
+                  target="_blank"
+                  className="text-orange-400 underline underline-offset-2 hover:text-orange-300"
+                >
+                  Política de Privacidade
+                </Link>
+                .
+              </label>
             </div>
 
             {/* Botão de Submissão */}

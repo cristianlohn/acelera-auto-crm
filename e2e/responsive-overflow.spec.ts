@@ -44,6 +44,8 @@ const ROUTES = [
   { path: "/settings", title: "Configurações do Sistema" },
   { path: "/superadmin", title: "Super Admin Backoffice" },
   { path: "/ajuda", title: "Central de Ajuda & Guia Rápido" },
+  { path: "/termos", title: "Termos de Uso e Licenciamento" },
+  { path: "/privacidade", title: "Política de Privacidade" },
 ];
 
 /**
