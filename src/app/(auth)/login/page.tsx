@@ -12,10 +12,10 @@
 
 "use client";
 
-import { useState, useTransition } from "react";
+import React, { useState, useTransition, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   Lock,
@@ -30,6 +30,44 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
+
+function LoginAuthBanner() {
+  const searchParams = useSearchParams();
+  const verified = searchParams.get("verified");
+  const error = searchParams.get("error");
+
+  if (verified === "true") {
+    return (
+      <div
+        role="status"
+        id="banner-email-verified"
+        className="flex items-center gap-2.5 rounded-xl border border-emerald-500/40 bg-emerald-950/40 p-3.5 text-xs text-emerald-300 shadow-lg shadow-emerald-950/30 animate-in fade-in"
+      >
+        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+        <span className="leading-snug">
+          E-mail confirmado com sucesso! Você já pode entrar com suas credenciais.
+        </span>
+      </div>
+    );
+  }
+
+  if (error === "auth_callback_error" || error === "missing_code") {
+    return (
+      <div
+        role="alert"
+        id="banner-auth-callback-error"
+        className="flex items-center gap-2.5 rounded-xl border border-red-500/30 bg-red-950/40 p-3.5 text-xs text-red-300 animate-in fade-in"
+      >
+        <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+        <span className="leading-snug">
+          Não foi possível validar o link de autenticação. Tente novamente ou solicite um novo e-mail.
+        </span>
+      </div>
+    );
+  }
+
+  return null;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -228,6 +266,11 @@ export default function LoginPage() {
               ou com e-mail corporativo
             </span>
           </div>
+
+          {/* Alerta de Verificação ou Erro de Callback */}
+          <Suspense fallback={null}>
+            <LoginAuthBanner />
+          </Suspense>
 
           {/* Alerta de Erro */}
           {errorMessage && (

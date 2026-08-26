@@ -29,13 +29,14 @@ import SettingsPage from "@/app/(dashboard)/settings/page";
 import { DemoRoleProvider } from "@/context/demo-role-context";
 import { RoleSimulatorBar } from "@/components/demo/RoleSimulatorBar";
 
-// Mock do hook usePathname do Next.js
+// Mock dos hooks do Next.js
 vi.mock("next/navigation", () => ({
   usePathname: () => "/leads",
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
   }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstração", () => {

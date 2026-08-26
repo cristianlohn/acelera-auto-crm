@@ -10,6 +10,7 @@
 
 "use client";
 
+import React, { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -36,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { DemoRoleProvider } from "@/context/demo-role-context";
 import { RoleSimulatorBar } from "@/components/demo/RoleSimulatorBar";
 import { GuidedTour } from "@/components/demo/GuidedTour";
+import { VerifiedAccountToast } from "@/components/dashboard/VerifiedAccountToast";
 
 // ---------------------------------------------------------------------------
 // Configuração dos itens de navegação
@@ -209,6 +211,9 @@ function MobileHeader() {
 export default function DashboardLayout(props: { children: React.ReactNode }) {
   return (
     <DemoRoleProvider>
+      <Suspense fallback={null}>
+        <VerifiedAccountToast />
+      </Suspense>
       <div className="flex h-full min-h-screen w-full max-w-full overflow-x-hidden flex-col lg:flex-row">
         <Sidebar />
 

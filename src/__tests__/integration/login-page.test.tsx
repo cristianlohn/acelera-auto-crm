@@ -22,19 +22,23 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import LoginPage from "@/app/(auth)/login/page";
 
-// Mock do useRouter do Next.js
+// Mock do useRouter e useSearchParams do Next.js
 const mockPush = vi.fn();
+let mockSearchParams = new URLSearchParams();
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: mockPush,
     replace: vi.fn(),
     prefetch: vi.fn(),
   }),
+  useSearchParams: () => mockSearchParams,
 }));
 
 describe("[IT-12] Página de Login e Autenticação (LoginPage)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams = new URLSearchParams();
     document.cookie = "";
   });
 
@@ -122,5 +126,31 @@ describe("[IT-12] Página de Login e Autenticação (LoginPage)", () => {
 
     expect(homeLinks.length).toBeGreaterThanOrEqual(1);
     expect(homeLinks[0]).toHaveAttribute("href", "/");
+  });
+
+  it("[IT-12.6] Deve exibir banner de confirmação de e-mail quando verified=true na URL", () => {
+    // Arrange
+    mockSearchParams = new URLSearchParams("verified=true");
+
+    // Act
+    render(<LoginPage />);
+
+    // Assert
+    expect(
+      screen.getByText(/e-mail confirmado com sucesso/i)
+    ).toBeInTheDocument();
+  });
+
+  it("[IT-12.7] Deve exibir banner de erro de autenticação quando error=auth_callback_error na URL", () => {
+    // Arrange
+    mockSearchParams = new URLSearchParams("error=auth_callback_error");
+
+    // Act
+    render(<LoginPage />);
+
+    // Assert
+    expect(
+      screen.getByText(/não foi possível validar o link de autenticação/i)
+    ).toBeInTheDocument();
   });
 });
