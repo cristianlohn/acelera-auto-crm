@@ -42,6 +42,7 @@ const ROUTES = [
   { path: "/reports", title: "Relatórios e Indicadores" },
   { path: "/clients", title: "Carteira de Clientes" },
   { path: "/settings", title: "Configurações do Sistema" },
+  { path: "/superadmin", title: "Super Admin Backoffice" },
 ];
 
 /**

@@ -18,6 +18,7 @@ import {
   Car,
   BarChart3,
   Settings,
+  ShieldCheck,
   Menu,
   Zap,
   Phone,
@@ -49,6 +50,7 @@ const navItems: NavItem[] = [
   { href: "/vehicles", label: "Estoque", icon: Car },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
   { href: "/settings", label: "Configurações", icon: Settings },
+  { href: "/superadmin", label: "Super Admin", icon: ShieldCheck },
 ];
 
 // ---------------------------------------------------------------------------

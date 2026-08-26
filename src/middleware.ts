@@ -20,6 +20,8 @@ const PROTECTED_PREFIXES = [
   "/clientes",
   "/settings",
   "/configuracoes",
+  "/superadmin",
+  "/admin",
 ];
 
 export async function middleware(request: NextRequest) {
