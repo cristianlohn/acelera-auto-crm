@@ -19,6 +19,7 @@ import {
   TrendingUp,
   Search,
   SlidersHorizontal,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { VehicleCard } from "@/components/vehicles/vehicle-card";
@@ -210,8 +211,8 @@ export default function VehiclesPage() {
       {/* Header fixo com métricas                                             */}
       {/* ------------------------------------------------------------------ */}
       <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm">
-        {/* Título + ação */}
-        <div className="flex items-center justify-between px-4 py-3 sm:px-6">
+        {/* Título + ações */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div>
             <h1 className="text-lg font-bold text-foreground sm:text-xl">
               Estoque de Veículos
@@ -221,7 +222,19 @@ export default function VehiclesPage() {
               {vehicles.length !== 1 ? "s" : ""}
             </p>
           </div>
-          <NewVehicleModal onAdd={handleAdd} />
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <a
+              id="btn-download-stock-template"
+              href="/templates/modelo_estoque.csv"
+              download="modelo_estoque_acelera.csv"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-orange-500/40 transition-all shadow-sm"
+              title="Preencha os dados dos veículos da sua loja seguindo as colunas do modelo antes de importar."
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span>Baixar Planilha Modelo (CSV)</span>
+            </a>
+            <NewVehicleModal onAdd={handleAdd} />
+          </div>
         </div>
 
         {/* Métricas */}
