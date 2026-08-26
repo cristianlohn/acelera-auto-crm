@@ -11,6 +11,9 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getOrganizationAccessStatus } from "@/lib/auth/subscription";
+import type { Database } from "@/types/database.types";
+import type { Organization } from "@/types/crm";
 
 const PROTECTED_PREFIXES = [
   "/leads",
@@ -22,6 +25,7 @@ const PROTECTED_PREFIXES = [
   "/configuracoes",
   "/superadmin",
   "/admin",
+  "/billing",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -35,6 +39,7 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix)
   );
+  const isBillingRoute = pathname.startsWith("/billing") || pathname.startsWith("/assinatura");
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -46,6 +51,20 @@ export async function middleware(request: NextRequest) {
       !supabaseUrl.includes("placeholder")
   );
 
+  // Verificação de expiração no modo demo / sandbox
+  const demoExpiredCookie = request.cookies.get("acelera_demo_expired")?.value === "true";
+  const demoSubscriptionStatus = request.cookies.get("acelera_subscription_status")?.value;
+
+  if (
+    isProtectedRoute &&
+    !isBillingRoute &&
+    (demoExpiredCookie || demoSubscriptionStatus === "expired" || demoSubscriptionStatus === "canceled")
+  ) {
+    const billingUrl = new URL("/billing", request.url);
+    billingUrl.searchParams.set("expired", "true");
+    return NextResponse.redirect(billingUrl);
+  }
+
   // Modo Sandbox Demo ativo por cookie ou ambiente de desenvolvimento/teste sem Supabase
   const isDemoMode =
     request.cookies.get("acelera_demo_mode")?.value === "true" ||
@@ -54,7 +73,7 @@ export async function middleware(request: NextRequest) {
 
   // Se o Supabase estiver configurado, sincroniza a sessão
   if (isConfigured) {
-    const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
+    const supabase = createServerClient<Database>(supabaseUrl!, supabaseAnonKey!, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -87,6 +106,38 @@ export async function middleware(request: NextRequest) {
     // Se já estiver logado e tentar acessar /login, redireciona para o CRM
     if (pathname === "/login" && user) {
       return NextResponse.redirect(new URL("/leads", request.url));
+    }
+
+    // Validação de assinatura em rotas autenticadas (exceto /billing)
+    if (isProtectedRoute && user && !isBillingRoute) {
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, organization_id")
+          .eq("id", user.id)
+          .single();
+
+        if (profile?.organization_id) {
+          const { data: org } = await supabase
+            .from("organizations")
+            .select("*")
+            .eq("id", profile.organization_id)
+            .single();
+
+          const accessStatus = getOrganizationAccessStatus(
+            org as unknown as Organization,
+            profile.role
+          );
+
+          if (!accessStatus.hasAccess) {
+            const billingUrl = new URL("/billing", request.url);
+            billingUrl.searchParams.set("expired", "true");
+            return NextResponse.redirect(billingUrl);
+          }
+        }
+      } catch (err) {
+        console.error("[Middleware Subscription Guard Error]", err);
+      }
     }
   } else {
     // Quando Supabase não configurado e tentando acessar /login com demo

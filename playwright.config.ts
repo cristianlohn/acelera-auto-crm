@@ -7,7 +7,7 @@ const baseURL = `http://127.0.0.1:${PORT}`;
  * Configuração E2E do Playwright - Acelera Auto CRM
  */
 export default defineConfig({
-    testDir: './e2e',
+    testMatch: '**/*.spec.ts',
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,

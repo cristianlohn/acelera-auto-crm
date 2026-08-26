@@ -38,6 +38,7 @@ import { DemoRoleProvider } from "@/context/demo-role-context";
 import { RoleSimulatorBar } from "@/components/demo/RoleSimulatorBar";
 import { GuidedTour } from "@/components/demo/GuidedTour";
 import { VerifiedAccountToast } from "@/components/dashboard/VerifiedAccountToast";
+import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
 
 // ---------------------------------------------------------------------------
 // Configuração dos itens de navegação
@@ -218,6 +219,7 @@ export default function DashboardLayout(props: { children: React.ReactNode }) {
         <Sidebar />
 
         <div className="flex flex-1 flex-col w-full max-w-full overflow-hidden">
+          <SubscriptionBanner status={{ hasAccess: true, reason: "TRIAL_ACTIVE", daysRemaining: 12 }} />
           <RoleSimulatorBar />
           <MobileHeader />
           <main className="flex-1 w-full max-w-full overflow-y-auto bg-background">

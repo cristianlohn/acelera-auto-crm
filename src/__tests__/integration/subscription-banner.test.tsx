@@ -1,0 +1,75 @@
+/**
+ * @file subscription-banner.test.tsx
+ * @description Testes de Integração para o SubscriptionBanner (Aviso de Trial e Alerta de Inadimplência).
+ *
+ * Cenários Testados:
+ * - [IT-SB.1]: Não renderiza nada quando o status for nulo ou assinatura estiver ativa.
+ * - [IT-SB.2]: Renderiza banner de trial ativo com contagem de dias restantes e botão CTA.
+ * - [IT-SB.3]: Renderiza alerta de pendência financeira para status PAST_DUE_GRACE.
+ * - [IT-SB.4]: Permite fechar o banner de trial ao clicar no botão X.
+ */
+
+import { describe, it, expect } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
+
+describe("[IT-SB] Banner de Ciclo de Vida da Assinatura (SubscriptionBanner)", () => {
+  it("[IT-SB.1] Não deve renderizar quando o status for nulo ou assinatura regular", () => {
+    // Arrange & Act
+    const { container: c1 } = render(<SubscriptionBanner />);
+    expect(c1).toBeEmptyDOMElement();
+
+    const { container: c2 } = render(
+      <SubscriptionBanner status={{ hasAccess: true, reason: "ACTIVE_SUBSCRIPTION" }} />
+    );
+    expect(c2).toBeEmptyDOMElement();
+  });
+
+  it("[IT-SB.2] Deve renderizar banner de trial ativo com dias restantes e link para /billing", () => {
+    // Arrange & Act
+    render(
+      <SubscriptionBanner
+        status={{ hasAccess: true, reason: "TRIAL_ACTIVE", daysRemaining: 5 }}
+      />
+    );
+
+    // Assert
+    expect(screen.getByText(/período de testes:/i)).toBeInTheDocument();
+    expect(screen.getByText(/5 dias/i)).toBeInTheDocument();
+    const cta = screen.getByRole("link", { name: /ativar plano definitivo/i });
+    expect(cta).toHaveAttribute("href", "/billing");
+  });
+
+  it("[IT-SB.3] Deve renderizar alerta de pendência financeira para status PAST_DUE_GRACE", () => {
+    // Arrange & Act
+    render(
+      <SubscriptionBanner
+        status={{ hasAccess: true, reason: "PAST_DUE_GRACE", warning: true }}
+      />
+    );
+
+    // Assert
+    expect(screen.getByText(/pendência financeira:/i)).toBeInTheDocument();
+    const cta = screen.getByRole("link", { name: /regularizar agora/i });
+    expect(cta).toHaveAttribute("href", "/billing");
+  });
+
+  it("[IT-SB.4] Deve permitir fechar o banner de trial ao clicar no botão de fechar", () => {
+    // Arrange
+    render(
+      <SubscriptionBanner
+        status={{ hasAccess: true, reason: "TRIAL_ACTIVE", daysRemaining: 3 }}
+      />
+    );
+
+    const closeBtn = screen.getByRole("button", { name: /fechar banner de trial/i });
+
+    // Act
+    act(() => {
+      fireEvent.click(closeBtn);
+    });
+
+    // Assert
+    expect(screen.queryByText(/período de testes:/i)).not.toBeInTheDocument();
+  });
+});

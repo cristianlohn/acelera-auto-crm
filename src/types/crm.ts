@@ -180,3 +180,28 @@ export type ClientFormData = Omit<
   "id" | "totalPurchased" | "purchasesCount" | "lastInteractionAt"
 >;
 
+// ---------------------------------------------------------------------------
+// Organização & Assinatura (Multi-tenant)
+// ---------------------------------------------------------------------------
+
+export type SubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "unpaid";
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  document?: string | null;
+  subscription_status?: SubscriptionStatus | string | null;
+  trial_ends_at?: string | null;
+  current_period_end?: string | null;
+  plan_tier?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+
