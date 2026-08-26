@@ -43,6 +43,7 @@ const ROUTES = [
   { path: "/clients", title: "Carteira de Clientes" },
   { path: "/settings", title: "Configurações do Sistema" },
   { path: "/superadmin", title: "Super Admin Backoffice" },
+  { path: "/ajuda", title: "Central de Ajuda & Guia Rápido" },
 ];
 
 /**

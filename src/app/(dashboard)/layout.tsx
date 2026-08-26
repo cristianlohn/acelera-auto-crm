@@ -21,6 +21,7 @@ import {
   Menu,
   Phone,
   TrendingUp,
+  HelpCircle,
 } from "lucide-react";
 import {
   Sheet,
@@ -51,6 +52,7 @@ const navItems: NavItem[] = [
   { href: "/vehicles", label: "Estoque", icon: Car },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
   { href: "/settings", label: "Configurações", icon: Settings },
+  { href: "/ajuda", label: "Central de Ajuda", icon: HelpCircle },
 ];
 
 // ---------------------------------------------------------------------------
