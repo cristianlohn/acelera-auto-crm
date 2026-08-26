@@ -13,6 +13,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -32,7 +33,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { registerNewDealership } from "@/app/actions/auth";
-import { BrandLogo } from "@/components/ui/brand-logo";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -44,6 +44,7 @@ export default function RegisterPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Submissão do formulário de provisionamento
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -112,7 +113,14 @@ export default function RegisterPage() {
           className="flex items-center gap-2.5 z-10 transition-transform hover:scale-105"
           aria-label="Ir para a página inicial"
         >
-          <BrandLogo size="lg" />
+          <Image
+            src="/logo.png"
+            alt="Acelera Auto CRM"
+            width={180}
+            height={48}
+            className="h-10 md:h-12 w-auto object-contain"
+            priority
+          />
         </Link>
 
         {/* Benefícios do Trial */}
@@ -166,7 +174,14 @@ export default function RegisterPage() {
               className="flex items-center gap-2 transition-transform hover:scale-105"
               aria-label="Ir para a página inicial"
             >
-              <BrandLogo size="sm" />
+              <Image
+                src="/logo.png"
+                alt="Acelera Auto CRM"
+                width={180}
+                height={48}
+                className="h-10 md:h-12 w-auto object-contain"
+                priority
+              />
             </Link>
 
             <Link

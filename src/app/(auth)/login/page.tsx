@@ -13,6 +13,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -29,7 +30,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
-import { BrandLogo } from "@/components/ui/brand-logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -102,7 +102,14 @@ export default function LoginPage() {
           className="flex items-center gap-2.5 z-10 transition-transform hover:scale-105"
           aria-label="Ir para a página inicial"
         >
-          <BrandLogo size="lg" />
+          <Image
+            src="/logo.png"
+            alt="Acelera Auto CRM"
+            width={180}
+            height={48}
+            className="h-10 md:h-12 w-auto object-contain"
+            priority
+          />
         </Link>
 
         {/* Mensagem de Destaque */}
@@ -156,7 +163,14 @@ export default function LoginPage() {
               className="flex items-center gap-2 transition-transform hover:scale-105"
               aria-label="Ir para a página inicial"
             >
-              <BrandLogo size="sm" />
+              <Image
+                src="/logo.png"
+                alt="Acelera Auto CRM"
+                width={180}
+                height={48}
+                className="h-10 md:h-12 w-auto object-contain"
+                priority
+              />
             </Link>
 
             <Link

@@ -10,6 +10,7 @@
 
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -34,7 +35,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { DemoRoleProvider } from "@/context/demo-role-context";
 import { RoleSimulatorBar } from "@/components/demo/RoleSimulatorBar";
-import { BrandLogo } from "@/components/ui/brand-logo";
 
 // ---------------------------------------------------------------------------
 // Configuração dos itens de navegação
@@ -60,7 +60,18 @@ const navItems: NavItem[] = [
 // ---------------------------------------------------------------------------
 
 function Logo({ className }: { className?: string }) {
-  return <BrandLogo className={className} size="sm" />;
+  return (
+    <div className={cn("flex items-center shrink-0", className)}>
+      <Image
+        src="/logo.png"
+        alt="Acelera Auto CRM"
+        width={180}
+        height={48}
+        className="h-10 md:h-12 w-auto object-contain"
+        priority
+      />
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
