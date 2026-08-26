@@ -13,6 +13,7 @@ import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface RegisterDealershipInput {
   storeName: string;
@@ -44,6 +45,9 @@ function generateSlug(storeName: string): string {
 /**
  * Provisiona uma nova concessionária com tenant limpo e usuário administrador.
  *
+ * Executa com privilégios administrativos (service_role) para contornar bloqueios de RLS
+ * durante a fase de cadastro inicial.
+ *
  * @param input Dados do formulário de cadastro.
  * @returns Resultado com status de sucesso ou mensagem de erro tratada.
  */
@@ -71,17 +75,22 @@ export async function registerNewDealership(
 
   // Fallback seguro caso o Supabase não esteja configurado
   if (!isSupabaseServerConfigured()) {
-    const cookieStore = await cookies();
-    cookieStore.set("acelera_demo_mode", "true", {
-      path: "/",
-      maxAge: 86400,
-      sameSite: "lax",
-    });
+    try {
+      const cookieStore = await cookies();
+      cookieStore.set("acelera_demo_mode", "true", {
+        path: "/",
+        maxAge: 86400,
+        sameSite: "lax",
+      });
+    } catch {
+      // Ignora erro de cookies fora do request context (ex: ambiente de testes)
+    }
     return { success: true };
   }
 
   try {
     const supabase = await createServerSupabaseClient();
+    const adminClient = createAdminClient();
 
     // 1. Cria usuário no Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -120,8 +129,8 @@ export async function registerNewDealership(
     const userId = authData.user.id;
     const slug = generateSlug(storeName);
 
-    // 2. Cria a organização na tabela organizations
-    const { data: orgData, error: orgError } = await supabase
+    // 2. Cria a organização via adminClient (evita bloqueio de RLS)
+    const { data: orgData, error: orgError } = await adminClient
       .from("organizations")
       .insert({
         name: storeName.trim(),
@@ -137,8 +146,8 @@ export async function registerNewDealership(
       };
     }
 
-    // 3. Cria ou atualiza o perfil do usuário como admin
-    const { error: profileError } = await supabase.from("profiles").upsert({
+    // 3. Cria ou atualiza o perfil do usuário como admin via adminClient
+    const { error: profileError } = await adminClient.from("profiles").upsert({
       id: userId,
       organization_id: orgData.id,
       full_name: fullName.trim(),
@@ -149,6 +158,8 @@ export async function registerNewDealership(
     });
 
     if (profileError) {
+      // Rollback da organização recém-criada em caso de falha no perfil
+      await adminClient.from("organizations").delete().eq("id", orgData.id);
       return {
         success: false,
         error: `Erro ao associar perfil administrativo: ${profileError.message}`,
@@ -156,12 +167,16 @@ export async function registerNewDealership(
     }
 
     // Define cookie de autenticação
-    const cookieStore = await cookies();
-    cookieStore.set("acelera_demo_mode", "true", {
-      path: "/",
-      maxAge: 86400,
-      sameSite: "lax",
-    });
+    try {
+      const cookieStore = await cookies();
+      cookieStore.set("acelera_demo_mode", "true", {
+        path: "/",
+        maxAge: 86400,
+        sameSite: "lax",
+      });
+    } catch {
+      // Ignora erro de cookies fora do request context
+    }
 
     return { success: true };
   } catch (err: unknown) {

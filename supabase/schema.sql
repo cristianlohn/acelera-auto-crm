@@ -176,16 +176,44 @@ $$ language sql stable security definer;
 -- Políticas para `organizations`
 create policy "Utilizadores visualizam a sua própria organização"
   on public.organizations for select
-  using (id = public.current_org_id());
+  using (
+    id = public.current_org_id()
+    or auth.jwt()->>'role' = 'service_role'
+  );
+
+create policy "Permitir inserção de organização no cadastro"
+  on public.organizations for insert
+  with check (true);
+
+create policy "Admins atualizam sua organização"
+  on public.organizations for update
+  using (
+    id = public.current_org_id()
+    or auth.jwt()->>'role' = 'service_role'
+  );
 
 -- Políticas para `profiles`
 create policy "Perfis visíveis dentro da mesma organização"
   on public.profiles for select
-  using (organization_id = public.current_org_id());
+  using (
+    organization_id = public.current_org_id()
+    or id = auth.uid()
+    or auth.jwt()->>'role' = 'service_role'
+  );
+
+create policy "Utilizador cria o seu próprio perfil"
+  on public.profiles for insert
+  with check (
+    id = auth.uid()
+    or auth.jwt()->>'role' = 'service_role'
+  );
 
 create policy "Utilizador atualiza o seu próprio perfil"
   on public.profiles for update
-  using (id = auth.uid());
+  using (
+    id = auth.uid()
+    or auth.jwt()->>'role' = 'service_role'
+  );
 
 -- Políticas para `vehicles` (CRUD completo restrito à organização do utilizador)
 create policy "Acesso a veículos da organização"
