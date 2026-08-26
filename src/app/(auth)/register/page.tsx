@@ -29,6 +29,8 @@ import {
   ShieldCheck,
   Rocket,
   Clock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +44,8 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -326,16 +330,31 @@ export default function RegisterPage() {
                   <Lock className="h-3.5 w-3.5 text-zinc-400" />
                   Senha de Acesso *
                 </label>
-                <Input
-                  id="register-password"
-                  name="password"
-                  type="password"
-                  placeholder="Mínimo de 6 caracteres"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 text-xs h-9"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="register-password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Mínimo de 6 caracteres"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 text-xs h-9 pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    id="btn-toggle-password"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100 transition-colors focus:outline-none"
+                    aria-label={showPassword ? "Ocultar senha" : "Exibir senha"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -346,16 +365,31 @@ export default function RegisterPage() {
                   <Lock className="h-3.5 w-3.5 text-zinc-400" />
                   Confirmar Senha *
                 </label>
-                <Input
-                  id="register-confirm-password"
-                  name="confirmPassword"
-                  type="password"
-                  placeholder="Repita sua senha"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 text-xs h-9"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="register-confirm-password"
+                    name="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Repita sua senha"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 text-xs h-9 pr-10"
+                    required
+                  />
+                  <button
+                    type="button"
+                    id="btn-toggle-confirm-password"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-100 transition-colors focus:outline-none"
+                    aria-label={showConfirmPassword ? "Ocultar confirmação de senha" : "Exibir confirmação de senha"}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 

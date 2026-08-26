@@ -263,4 +263,46 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
     expect(homeLinks.length).toBeGreaterThanOrEqual(1);
     expect(homeLinks[0]).toHaveAttribute("href", "/");
   });
+
+  it("[IT-13.7] Deve alternar a visibilidade da Senha e Confirmar Senha entre 'password' e 'text' ao clicar nos botões de olho", async () => {
+    // Arrange
+    const user = userEvent.setup();
+    render(<RegisterPage />);
+
+    const passwordInput = screen.getByLabelText(/senha de acesso/i);
+    const confirmPasswordInput = screen.getByLabelText(/confirmar senha/i);
+    const togglePasswordBtn = screen.getByRole("button", { name: /exibir senha/i });
+    const toggleConfirmPasswordBtn = screen.getByRole("button", { name: /exibir confirmação de senha/i });
+
+    // Assert inicial: Ambos devem iniciar com type="password"
+    expect(passwordInput).toHaveAttribute("type", "password");
+    expect(confirmPasswordInput).toHaveAttribute("type", "password");
+
+    // Act 1: Clica para exibir a Senha
+    await user.click(togglePasswordBtn);
+
+    // Assert 1: Senha vira type="text", botão atualiza aria-label para "Ocultar senha"
+    expect(passwordInput).toHaveAttribute("type", "text");
+    expect(screen.getByRole("button", { name: /ocultar senha/i })).toBeInTheDocument();
+    expect(confirmPasswordInput).toHaveAttribute("type", "password");
+
+    // Act 2: Clica para ocultar a Senha novamente
+    await user.click(screen.getByRole("button", { name: /ocultar senha/i }));
+
+    // Assert 2: Senha volta a ser type="password"
+    expect(passwordInput).toHaveAttribute("type", "password");
+
+    // Act 3: Clica para exibir a Confirmação de Senha
+    await user.click(toggleConfirmPasswordBtn);
+
+    // Assert 3: Confirmação vira type="text", botão atualiza aria-label para "Ocultar confirmação de senha"
+    expect(confirmPasswordInput).toHaveAttribute("type", "text");
+    expect(screen.getByRole("button", { name: /ocultar confirmação de senha/i })).toBeInTheDocument();
+
+    // Act 4: Clica para ocultar a Confirmação de Senha novamente
+    await user.click(screen.getByRole("button", { name: /ocultar confirmação de senha/i }));
+
+    // Assert 4: Confirmação volta para type="password"
+    expect(confirmPasswordInput).toHaveAttribute("type", "password");
+  });
 });
