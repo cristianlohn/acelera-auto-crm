@@ -9,23 +9,49 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Clock, AlertTriangle, ArrowRight, X } from "lucide-react";
 import type { OrganizationAccessStatus } from "@/lib/auth/subscription";
+import { getSubscriptionStatusAction } from "@/app/actions/auth";
 
 interface SubscriptionBannerProps {
   status?: OrganizationAccessStatus;
 }
 
-export function SubscriptionBanner({ status }: SubscriptionBannerProps) {
+export function SubscriptionBanner({ status: initialStatus }: SubscriptionBannerProps) {
   const [dismissed, setDismissed] = useState(false);
+  const [accessStatus, setAccessStatus] = useState<OrganizationAccessStatus | undefined>(
+    initialStatus
+  );
+
+  useEffect(() => {
+    if (initialStatus) {
+      return;
+    }
+
+    let isMounted = true;
+    getSubscriptionStatusAction()
+      .then((res) => {
+        if (isMounted) {
+          setAccessStatus(res);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [initialStatus]);
 
   if (dismissed) return null;
 
+  const currentStatus = initialStatus || accessStatus;
+  if (!currentStatus) return null;
+
   // Estado 1: Período de Testes Ativo (Trial)
-  if (status?.reason === "TRIAL_ACTIVE") {
-    const days = status.daysRemaining ?? 14;
+  if (currentStatus.reason === "TRIAL_ACTIVE") {
+    const days = currentStatus.daysRemaining ?? 14;
     return (
       <aside
         aria-label="Aviso de Período de Testes"
@@ -65,7 +91,7 @@ export function SubscriptionBanner({ status }: SubscriptionBannerProps) {
   }
 
   // Estado 2: Inadimplência em Período de Tolerância (Past Due)
-  if (status?.reason === "PAST_DUE_GRACE") {
+  if (currentStatus.reason === "PAST_DUE_GRACE") {
     return (
       <aside
         aria-label="Alerta de Pagamento Pendente"

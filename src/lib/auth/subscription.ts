@@ -12,6 +12,7 @@
  */
 
 import type { Organization } from "@/types/crm";
+import { calculateTrialDaysRemaining } from "@/lib/utils/date";
 
 export type SubscriptionAccessReason =
   | "SUPERADMIN_BYPASS"
@@ -56,6 +57,7 @@ export function getOrganizationAccessStatus(
   }
 
   const status = (org.subscription_status || "").toLowerCase();
+  const plan = (org.plan || "").toLowerCase();
 
   // 3. Assinatura Ativa
   if (status === "active") {
@@ -66,14 +68,13 @@ export function getOrganizationAccessStatus(
   }
 
   // 4. Período de Teste (Trial)
-  if (status === "trialing") {
+  if (status === "trialing" || plan === "trial") {
     if (org.trial_ends_at) {
       const trialEnds = new Date(org.trial_ends_at).getTime();
       const now = Date.now();
 
       if (trialEnds > now) {
-        const diffMs = trialEnds - now;
-        const daysRemaining = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+        const daysRemaining = calculateTrialDaysRemaining(org.trial_ends_at);
         return {
           hasAccess: true,
           reason: "TRIAL_ACTIVE",

@@ -90,6 +90,12 @@ describe("[IT-LOGOUT] Botão de Logout e Perfil do Usuário na Sidebar", () => {
       avatarUrl: null,
       initials: "CL",
       organizationName: "Catuto Concessionária",
+      trialDaysRemaining: 14,
+      subscriptionAccess: {
+        hasAccess: true,
+        reason: "TRIAL_ACTIVE",
+        daysRemaining: 14,
+      },
     });
 
     // Act
@@ -119,6 +125,12 @@ describe("[IT-LOGOUT] Botão de Logout e Perfil do Usuário na Sidebar", () => {
       avatarUrl: null,
       initials: "MS",
       organizationName: "Auto Prime",
+      trialDaysRemaining: 14,
+      subscriptionAccess: {
+        hasAccess: true,
+        reason: "TRIAL_ACTIVE",
+        daysRemaining: 14,
+      },
     });
 
     // Act

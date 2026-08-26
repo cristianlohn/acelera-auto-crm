@@ -159,6 +159,9 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
     const orgPayload = mockInsertOrg.mock.calls[0][0];
     expect(orgPayload.name).toBe("Imperial Motors");
     expect(orgPayload.slug).toContain("imperial-motors");
+    expect(orgPayload.plan).toBe("trial");
+    expect(orgPayload.subscription_status).toBe("trialing");
+    expect(orgPayload.trial_ends_at).toBeDefined();
 
     expect(mockUpsertProfile).toHaveBeenCalledWith({
       id: "user_uuid_12345",

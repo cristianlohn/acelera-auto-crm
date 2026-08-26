@@ -16,6 +16,11 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isValidBRPhone, maskPhone } from "@/lib/utils/phone";
 import { resolveUserTenantContext } from "@/lib/auth/tenant";
+import { calculateTrialDaysRemaining } from "@/lib/utils/date";
+import {
+  getOrganizationAccessStatus,
+  type OrganizationAccessStatus,
+} from "@/lib/auth/subscription";
 
 export interface RegisterDealershipInput {
   storeName: string;
@@ -150,12 +155,18 @@ export async function registerNewDealership(
     const userId = authData.user.id;
     const slug = generateSlug(storeName);
 
-    // 2. Cria a organização via adminClient (evita bloqueio de RLS)
+    // 2. Cria a organização via adminClient (evita bloqueio de RLS) com 14 dias de teste gratuito
+    const now = new Date();
+    const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
     const { data: orgData, error: orgError } = await adminClient
       .from("organizations")
       .insert({
         name: storeName.trim(),
         slug,
+        plan: "trial",
+        subscription_status: "trialing",
+        trial_ends_at: trialEndsAt,
       })
       .select("id")
       .single();
@@ -338,6 +349,8 @@ export interface UserProfileInfo {
   avatarUrl: string | null;
   initials: string;
   organizationName: string;
+  trialDaysRemaining: number;
+  subscriptionAccess: OrganizationAccessStatus;
 }
 
 /**
@@ -357,6 +370,12 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
       avatarUrl: null,
       initials: "GD",
       organizationName: "Concessionária Demo",
+      trialDaysRemaining: 14,
+      subscriptionAccess: {
+        hasAccess: true,
+        reason: "TRIAL_ACTIVE",
+        daysRemaining: 14,
+      },
     };
   }
 
@@ -390,6 +409,15 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
     tenantContext.organization?.name ||
     "Minha Concessionária";
 
+  const trialDaysRemaining = calculateTrialDaysRemaining(
+    tenantContext.organization?.trial_ends_at
+  );
+
+  const subscriptionAccess = getOrganizationAccessStatus(
+    tenantContext.organization,
+    tenantContext.profile?.role
+  );
+
   return {
     isDemo: false,
     userId: tenantContext.userId,
@@ -400,7 +428,29 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
     avatarUrl: tenantContext.profile?.avatar_url || null,
     initials,
     organizationName,
+    trialDaysRemaining,
+    subscriptionAccess,
   };
+}
+
+/**
+ * Retorna o status de acesso e dias restantes de assinatura/trial do tenant autenticado.
+ */
+export async function getSubscriptionStatusAction(): Promise<OrganizationAccessStatus> {
+  const tenantContext = await resolveUserTenantContext();
+
+  if (tenantContext.isDemo) {
+    return {
+      hasAccess: true,
+      reason: "TRIAL_ACTIVE",
+      daysRemaining: 14,
+    };
+  }
+
+  return getOrganizationAccessStatus(
+    tenantContext.organization,
+    tenantContext.profile?.role
+  );
 }
 
 export interface PasswordResetResult {

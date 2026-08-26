@@ -196,6 +196,7 @@ export interface Organization {
   name: string;
   slug: string;
   document?: string | null;
+  plan?: string | null;
   subscription_status?: SubscriptionStatus | string | null;
   trial_ends_at?: string | null;
   current_period_end?: string | null;

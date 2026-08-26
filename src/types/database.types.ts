@@ -57,6 +57,11 @@ export interface Database {
           name: string;
           slug: string;
           document: string | null;
+          plan?: string | null;
+          subscription_status?: string | null;
+          trial_ends_at?: string | null;
+          current_period_end?: string | null;
+          plan_tier?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -65,6 +70,11 @@ export interface Database {
           name: string;
           slug: string;
           document?: string | null;
+          plan?: string | null;
+          subscription_status?: string | null;
+          trial_ends_at?: string | null;
+          current_period_end?: string | null;
+          plan_tier?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -73,6 +83,11 @@ export interface Database {
           name?: string;
           slug?: string;
           document?: string | null;
+          plan?: string | null;
+          subscription_status?: string | null;
+          trial_ends_at?: string | null;
+          current_period_end?: string | null;
+          plan_tier?: string | null;
           created_at?: string;
           updated_at?: string;
         };

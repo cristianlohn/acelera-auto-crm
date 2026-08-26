@@ -85,9 +85,18 @@ export async function resolveUserTenantContext(): Promise<TenantContextResult> {
                 "Minha Concessionária") as string;
             const slug = `${storeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") || "loja"}-${Math.random().toString(36).substring(2, 7)}`;
 
+            const now = new Date();
+            const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
             const { data: newOrg } = await adminClient
               .from("organizations")
-              .insert({ name: storeName, slug })
+              .insert({
+                name: storeName,
+                slug,
+                plan: "trial",
+                subscription_status: "trialing",
+                trial_ends_at: trialEndsAt,
+              })
               .select()
               .single();
 
@@ -118,8 +127,8 @@ export async function resolveUserTenantContext(): Promise<TenantContextResult> {
                 needsOnboarding: false,
               };
             }
-          } catch {
-            // Em caso de erro no provisionamento, segue com profile nulo
+          } catch (provisionError) {
+            console.error("[Tenant Context Auto-Provisioning Error]", provisionError);
           }
 
           return {
@@ -133,7 +142,7 @@ export async function resolveUserTenantContext(): Promise<TenantContextResult> {
           };
         }
 
-        const { data: org } = await supabase
+        const { data: organization } = await supabase
           .from("organizations")
           .select("*")
           .eq("id", profile.organization_id)
@@ -143,10 +152,10 @@ export async function resolveUserTenantContext(): Promise<TenantContextResult> {
           isDemo: false,
           userId: user.id,
           userEmail: user.email || null,
-          organizationId: profile.organization_id,
+          organizationId: organization?.id || null,
           profile: profile as Profile,
-          organization: (org as Organization) || null,
-          needsOnboarding: !org,
+          organization: (organization as Organization) || null,
+          needsOnboarding: !organization,
         };
       }
     }
@@ -176,6 +185,9 @@ export async function resolveUserTenantContext(): Promise<TenantContextResult> {
         id: "org-test-id",
         name: "Concessionária Titular",
         slug: "concessionaria-titular",
+        plan: "trial",
+        subscription_status: "trialing",
+        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       } as Organization,

@@ -29,9 +29,7 @@ export default function DashboardLayout(props: { children: React.ReactNode }) {
         <Sidebar />
 
         <div className="flex flex-1 flex-col w-full max-w-full overflow-hidden">
-          <SubscriptionBanner
-            status={{ hasAccess: true, reason: "TRIAL_ACTIVE", daysRemaining: 12 }}
-          />
+          <SubscriptionBanner />
           <RoleSimulatorBar />
           <MobileHeader />
           <main className="flex-1 w-full max-w-full overflow-y-auto bg-background">
