@@ -24,7 +24,12 @@ export function MobileHeader() {
       {/* Menu sheet retrátil */}
       <Sheet>
         <SheetTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Abrir menu">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Abrir menu"
+            data-testid="mobile-menu-trigger"
+          >
             <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>

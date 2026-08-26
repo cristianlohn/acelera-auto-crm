@@ -325,7 +325,7 @@ export default function LoginPage() {
             </div>
 
             <Button
-              id="btn-demo-login"
+              id="btn-enter-demo"
               data-testid="demo-login-button"
               type="button"
               onClick={handleDemoAccess}
