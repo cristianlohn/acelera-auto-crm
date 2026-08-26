@@ -135,29 +135,66 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     expect(screen.getByText("+40")).toBeInTheDocument(); // 500 * 0.08 = 40 carros
   });
 
-  it("[IT-11.5] Deve renderizar os 3 cartões de preços (Starter, Pro, Enterprise) com valores e badges", () => {
+  it("[IT-11.5] Deve renderizar os 3 cartões de preços (Starter, Pro, Enterprise), limites e taxa de setup de R$ 997", () => {
     // Arrange & Act
     render(<MarketingPage />);
 
-    // Assert (Verifica planos e valores)
+    // Assert (Verifica planos e valores mensais)
     expect(
       screen.getByRole("heading", { name: "Plano Starter" })
     ).toBeInTheDocument();
-    expect(screen.getByText("R$ 197")).toBeInTheDocument();
+    expect(screen.getByText("R$ 297")).toBeInTheDocument();
+    expect(screen.getByText(/até 3 vendedores inclusos/i)).toBeInTheDocument();
 
     expect(
       screen.getByRole("heading", { name: "Plano Pro" })
     ).toBeInTheDocument();
-    expect(screen.getByText("R$ 497")).toBeInTheDocument();
-    expect(screen.getByText("Mais Escolhido")).toBeInTheDocument();
+    expect(screen.getByText("R$ 597")).toBeInTheDocument();
+    expect(screen.getByText("Mais Popular")).toBeInTheDocument();
+    expect(screen.getByText(/até 8 vendedores inclusos/i)).toBeInTheDocument();
 
     expect(
       screen.getByRole("heading", { name: "Plano Enterprise" })
     ).toBeInTheDocument();
-    expect(screen.getByText("Sob Consulta")).toBeInTheDocument();
+    expect(screen.getByText(/a partir de r\$ 1\.297/i)).toBeInTheDocument();
+    expect(screen.getByText(/vendedores e filiais ilimitados/i)).toBeInTheDocument();
+
+    // Link WhatsApp Consultor no Enterprise
+    const consultorBtn = screen.getByRole("link", { name: /falar com consultor/i });
+    expect(consultorBtn).toHaveAttribute("href", expect.stringContaining("wa.me"));
+
+    // Bloco de Taxa de Setup
+    expect(
+      screen.getByRole("heading", { name: /implantação e onboarding guiado/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/taxa única de setup: r\$ 997/i)).toBeInTheDocument();
   });
 
-  it("[IT-11.6] Deve conter links de direcionamento válidos para a rota do CRM (/leads)", () => {
+  it("[IT-11.6] Deve alternar o toggle de periodicidade Mensal -> Anual e recalcular valores com 2 meses grátis", () => {
+    // Arrange
+    render(<MarketingPage />);
+
+    // Act 1 (Clica no botão Anual)
+    const annualBtn = screen.getByRole("button", { name: /anual/i });
+    fireEvent.click(annualBtn);
+
+    // Assert 1 (Verifica valores anuais com desconto de 2 meses grátis)
+    expect(screen.getByText("R$ 2.970")).toBeInTheDocument();
+    expect(screen.getByText("R$ 5.970")).toBeInTheDocument();
+    expect(screen.getAllByText("/ano").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/2 meses grátis/i)).toBeInTheDocument();
+
+    // Act 2 (Clica de volta no botão Mensal)
+    const monthlyBtn = screen.getByRole("button", { name: /^mensal$/i });
+    fireEvent.click(monthlyBtn);
+
+    // Assert 2 (Verifica restauração dos valores mensais)
+    expect(screen.getByText("R$ 297")).toBeInTheDocument();
+    expect(screen.getByText("R$ 597")).toBeInTheDocument();
+    expect(screen.getAllByText("/mês").length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("[IT-11.7] Deve conter links de direcionamento válidos para a rota do CRM (/leads)", () => {
     // Arrange & Act
     render(
       <MarketingLayout>

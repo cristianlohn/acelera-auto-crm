@@ -24,7 +24,6 @@ import {
   LayoutDashboard,
   Car,
   BarChart3,
-  Check,
   TrendingUp,
   Clock,
   Sparkles,
@@ -33,6 +32,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/mock-data";
+import { PricingSection } from "@/components/landing/PricingSection";
 
 export default function MarketingPage() {
   // Estado da calculadora interativa de ROI
@@ -401,159 +401,7 @@ export default function MarketingPage() {
       {/* ------------------------------------------------------------------ */}
       {/* 5. Tabela Transparente de Planos e Preços (Pricing)                 */}
       {/* ------------------------------------------------------------------ */}
-      <section id="planos" className="py-16 sm:py-28 w-full max-w-full overflow-hidden">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-orange-400">
-              Planos Transparentes
-            </h2>
-            <p className="mt-2 text-xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight">
-              Investimento simples para impulsionar suas vendas
-            </p>
-            <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-zinc-400">
-              Sem taxas escondidas. Cancele quando quiser.
-            </p>
-          </div>
-
-          <div className="mt-10 sm:mt-12 grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3">
-            {/* Plano Starter */}
-            <div className="flex flex-col justify-between rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 shadow-sm transition hover:border-white/20">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-white">Plano Starter</h3>
-                <p className="mt-1 text-xs text-zinc-400">
-                  Ideal para pequenas revendas e lojas independentes
-                </p>
-                <div className="mt-5 sm:mt-6 flex items-baseline gap-1">
-                  <span className="text-2xl sm:text-4xl font-black text-white">
-                    R$ 197
-                  </span>
-                  <span className="text-xs text-zinc-400">/mês</span>
-                </div>
-
-                <ul className="mt-5 sm:mt-6 space-y-2.5 sm:space-y-3 text-xs text-zinc-300">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Até 2 vendedores simultâneos</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Gestão de até 30 veículos no pátio</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Funil Kanban com SLA de leads</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Disparo WhatsApp com 1 clique</span>
-                  </li>
-                </ul>
-              </div>
-
-              <Link href="/leads" className="mt-6 sm:mt-8">
-                <Button
-                  variant="outline"
-                  className="w-full border-white/20 text-xs font-semibold text-white hover:bg-white/10"
-                >
-                  Começar com Starter
-                </Button>
-              </Link>
-            </div>
-
-            {/* Plano Pro (Destaque) */}
-            <div className="relative flex flex-col justify-between rounded-2xl border-2 border-orange-500 bg-gradient-to-b from-[#181822] to-[#121216] p-6 sm:p-8 shadow-2xl shadow-orange-500/15">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-3 py-0.5 text-[10px] font-bold text-white tracking-wider uppercase shadow">
-                Mais Escolhido
-              </div>
-
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-white">Plano Pro</h3>
-                <p className="mt-1 text-xs text-zinc-400">
-                  Para concessionárias e lojas em rápido crescimento
-                </p>
-                <div className="mt-5 sm:mt-6 flex items-baseline gap-1">
-                  <span className="text-2xl sm:text-4xl font-black text-white">
-                    R$ 497
-                  </span>
-                  <span className="text-xs text-zinc-400">/mês</span>
-                </div>
-
-                <ul className="mt-5 sm:mt-6 space-y-2.5 sm:space-y-3 text-xs text-zinc-300">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Até 8 vendedores cadastrados</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Estoque ilimitado de veículos</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Relatórios executivos e metas</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Controle de comissões por vendedor</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Suporte prioritário via WhatsApp</span>
-                  </li>
-                </ul>
-              </div>
-
-              <Link href="/leads" className="mt-6 sm:mt-8">
-                <Button className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-xs font-bold text-white shadow-lg shadow-orange-500/30 hover:from-orange-600 hover:to-red-700">
-                  Testar Plano Pro Grátis
-                </Button>
-              </Link>
-            </div>
-
-            {/* Plano Enterprise */}
-            <div className="flex flex-col justify-between rounded-2xl border border-white/10 bg-[#121216] p-6 sm:p-8 shadow-sm transition hover:border-white/20">
-              <div>
-                <h3 className="text-base sm:text-lg font-bold text-white">Plano Enterprise</h3>
-                <p className="mt-1 text-xs text-zinc-400">
-                  Para redes com múltiplas lojas e grandes grupos
-                </p>
-                <div className="mt-5 sm:mt-6 flex items-baseline gap-1">
-                  <span className="text-2xl sm:text-4xl font-black text-white">
-                    Sob Consulta
-                  </span>
-                </div>
-
-                <ul className="mt-5 sm:mt-6 space-y-2.5 sm:space-y-3 text-xs text-zinc-300">
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Múltiplas lojas e filiais unificadas</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Usuários e vendedores ilimitados</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Acesso a APIs e integrações customizadas</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                    <span>Gerente de contas dedicado</span>
-                  </li>
-                </ul>
-              </div>
-
-              <Link href="/leads" className="mt-6 sm:mt-8">
-                <Button
-                  variant="outline"
-                  className="w-full border-white/20 text-xs font-semibold text-white hover:bg-white/10"
-                >
-                  Falar com Especialista
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      <PricingSection />
 
       {/* ------------------------------------------------------------------ */}
       {/* 6. Seção de Chamada Final (Bottom CTA)                             */}
