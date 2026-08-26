@@ -10,8 +10,14 @@
 import "@testing-library/jest-dom";
 import { vi } from "vitest";
 
+// Mock global de fontes do Next.js
+vi.mock("next/font/google", () => ({
+  Geist: () => ({ variable: "--font-sans" }),
+  Geist_Mono: () => ({ variable: "--font-geist-mono" }),
+}));
+
 // Mock global do Clipboard API para jsdom
-if (!navigator.clipboard) {
+if (typeof navigator !== "undefined" && !navigator.clipboard) {
   Object.defineProperty(navigator, "clipboard", {
     value: {
       writeText: vi.fn().mockResolvedValue(undefined),
