@@ -16,7 +16,7 @@ export default defineConfig({
 
   test: {
     /** Simula APIs de browser (document, window, etc.) */
-    environment: "jsdom",
+    environment: "happy-dom",
 
     /** Arquivo executado antes de cada suíte de testes */
     setupFiles: ["./src/__tests__/setup.ts"],
@@ -39,7 +39,7 @@ export default defineConfig({
   resolve: {
     alias: {
       /** Resolve @/ para src/ — espelho exato do tsconfig paths */
-      "@": resolve(import.meta.dirname, "./src"),
+      "@": resolve(process.cwd(), "./src"),
     },
   },
 });
