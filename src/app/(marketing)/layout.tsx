@@ -89,7 +89,7 @@ export default function MarketingLayout({
 
           {/* CTAs de Topo */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <Link href="/leads" className="hidden sm:inline-block">
+            <Link href="/login" className="hidden sm:inline-block">
               <Button
                 variant="ghost"
                 size="sm"
@@ -206,7 +206,7 @@ export default function MarketingLayout({
                   </Link>
                 </li>
                 <li>
-                  <Link href="/leads" className="hover:text-white transition">
+                  <Link href="/login" className="hover:text-white transition">
                     Login no Sistema
                   </Link>
                 </li>

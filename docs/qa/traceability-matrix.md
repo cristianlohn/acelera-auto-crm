@@ -22,6 +22,7 @@
 | **REQ-CRM-09** | Configurações do Sistema e Perfil | Abas de perfil, dados da concessionária, parâmetros de SLA/metas, tema e preferências de aviso. |
 | **REQ-CRM-10** | Portal Institucional e Demonstração | Landing page de vendas, hero com duplo CTA, bento grid de recursos, calculadora ROI e planos. |
 | **REQ-CRM-11** | Responsividade e Zero Overflow Mobile | Garantia de zero scroll horizontal em viewports móveis (375px, 390px, 412px) e modais compatíveis. |
+| **REQ-CRM-12** | Autenticação e Modo Demonstração Sandbox | Login tradicional por e-mail/senha, acesso rápido ao tenant demo em 1 clique e proteção de rotas via middleware. |
 
 ---
 
@@ -48,6 +49,7 @@
 | **REQ-CRM-08** | **CT-IT-09** | Renderizar KPIs da carteira, busca reativa (nome/telefone), empty state, abas de status, modal de cliente e WhatsApp URL. | Integração | Gestão de Carteira e Clientes | `clients-page.test.tsx` | **PASS** |
 | **REQ-CRM-09** | **CT-IT-10** | Renderizar 4 abas de configurações, edição de perfil com salvamento, dados da loja, metas/SLA e preferências de tema. | Integração | Configurações e Parâmetros | `settings-page.test.tsx` | **PASS** |
 | **REQ-CRM-10** | **CT-IT-11** | Renderizar Header/Nav institucional, Hero de alta conversão, bento grid, calculadora ROI interativa, preços e links demo. | Integração | Portal Institucional e Vendas | `marketing-page.test.tsx` | **PASS** |
+| **REQ-CRM-12** | **CT-IT-12** | Renderizar tela de login, validação de campos obrigatórios, autenticação por credenciais e acesso instantâneo ao modo demonstração. | Integração | Autenticação e Gestão de Sessão | `login-page.test.tsx` | **PASS** |
 | **REQ-CRM-01** | **CT-E2E-01** | Preencher formulário no modal de novo lead e verificar se o card entra no topo da coluna "Novo Lead". | E2E | Jornada de Usuário Ponta a Ponta | `e2e/leads-kanban.spec.ts` | **PASS** |
 | **REQ-CRM-04** | **CT-E2E-02** | Filtrar estoque por termo de busca instantânea e validar atualização dos cards exibidos. | E2E | Jornada de Usuário Ponta a Ponta | `e2e/inventory-filter.spec.ts` | **PASS** |
-| **REQ-CRM-11** | **CT-E2E-RESP** | Auditar todas as 6 rotas em 3 viewports móveis (375px, 390px, 412px) garantindo zero scroll horizontal e modais responsivos. | E2E | Responsividade e Viewport Regression | `e2e/responsive-overflow.spec.ts` | **PASS** |
+| **REQ-CRM-11** | **CT-E2E-RESP** | Auditar todas as 7 rotas em 3 viewports móveis (375px, 390px, 412px) garantindo zero scroll horizontal e modais responsivos. | E2E | Responsividade e Viewport Regression | `e2e/responsive-overflow.spec.ts` | **PASS** |

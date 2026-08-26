@@ -91,9 +91,10 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
 | **IT-09.1-8** | Gestão de Clientes | `ClientsPage` -> Carteira/CRM | KPIs da carteira, busca instantânea, abas de status, empty state, modal e WhatsApp | ✅ Passou |
 | **IT-10.1-6** | Configurações do Sistema | `SettingsPage` -> Sistema/Perfil | 4 abas organizacionais, edição de perfil com salvamento, dados da loja, metas/SLA e tema | ✅ Passou |
 | **IT-11.1-6** | Portal Institucional & Vendas | `MarketingPage` -> Landing/SaaS | Header/Nav, Hero duplo CTA, bento grid, calculadora ROI interativa, preços e links | ✅ Passou |
+| **IT-12.1-5** | Login e Modo Demonstração | `LoginPage` -> Auth/Sandbox | Renderização, validação de campos, autenticação, modo demo e links de retorno | ✅ Passou |
 | **CT-E2E-01** | Fluxo de Leads no Funil | `leads-kanban.spec.ts` | Abertura do modal, preenchimento, criação e renderização na coluna "Novo Lead" | ✅ Passou |
 | **CT-E2E-02** | Consulta e Filtros de Estoque | `inventory-filter.spec.ts` | Busca instantânea reativa por modelo e validação do grid de veículos | ✅ Passou |
-| **CT-E2E-RESP** | Responsividade e Zero Overflow | `responsive-overflow.spec.ts` | Auditoria de 6 rotas e 3 modais em 3 viewports móveis (375px, 390px, 412px) | ✅ Passou |
+| **CT-E2E-RESP** | Responsividade e Zero Overflow | `responsive-overflow.spec.ts` | Auditoria de 7 rotas e 3 modais em 3 viewports móveis (375px, 390px, 412px) | ✅ Passou |
 
 ---
 

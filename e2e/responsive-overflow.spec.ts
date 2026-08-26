@@ -35,6 +35,7 @@ const VIEWPORTS = [
 
 const ROUTES = [
   { path: "/", title: "Acelera Auto CRM" },
+  { path: "/login", title: "Acessar sua Conta" },
   { path: "/leads", title: "Funil de Vendas" },
   { path: "/vehicles", title: "Estoque de Veículos" },
   { path: "/reports", title: "Relatórios e Indicadores" },
