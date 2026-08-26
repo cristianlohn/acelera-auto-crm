@@ -2,7 +2,6 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Configuração E2E do Playwright - Acelera Auto CRM
- * Executa contra o servidor local do Next.js e gera relatórios HTML com traces.
  */
 export default defineConfig({
     testDir: './e2e',
@@ -16,7 +15,8 @@ export default defineConfig({
     ],
 
     use: {
-        baseURL: 'http://localhost:3001',
+        /* 127.0.0.1 previne conflitos de DNS/IPv6 no CI */
+        baseURL: 'http://127.0.0.1:3001',
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',
@@ -33,10 +33,10 @@ export default defineConfig({
         },
     ],
 
-    /* Sobe automaticamente o servidor Next.js durante a execução dos testes */
+    /* Sobe o servidor: 'npm run start' no CI (rápido) ou 'npm run dev' localmente */
     webServer: {
-        command: 'npm run dev',
-        url: 'http://localhost:3001',
+        command: process.env.CI ? 'npm run start' : 'npm run dev',
+        url: 'http://127.0.0.1:3001',
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,
     },
