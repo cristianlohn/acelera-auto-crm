@@ -199,11 +199,35 @@ export async function requestPasswordReset(
   email: string,
   redirectTo?: string
 ): Promise<PasswordResetResult> {
-  if (!email?.trim() || !email.includes("@") || !email.includes(".")) {
+  const normalizedEmail = email?.trim();
+  console.log("[Auth Reset] =========================================");
+  console.log("[Auth Reset] Iniciando recuperação para:", normalizedEmail);
+  console.log(
+    "[Auth Reset] Supabase URL:",
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "NÃO CONFIGURADA"
+  );
+  console.log(
+    "[Auth Reset] Supabase Server Configured:",
+    isSupabaseServerConfigured()
+  );
+
+  if (!normalizedEmail || !normalizedEmail.includes("@") || !normalizedEmail.includes(".")) {
+    console.warn("[Auth Reset] Validação falhou: e-mail inválido ->", normalizedEmail);
     return { success: false, error: "Informe um endereço de e-mail corporativo válido." };
   }
 
+  const redirectToUrl =
+    redirectTo ||
+    (process.env.NEXT_PUBLIC_SITE_URL
+      ? `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback?next=/reset-password`
+      : "https://aceleraautocrm.com.br/auth/callback?next=/reset-password");
+
+  console.log("[Auth Reset] Redirect URL configurada:", redirectToUrl);
+
   if (!isSupabaseServerConfigured()) {
+    console.log(
+      "[Auth Reset] Supabase não configurado no servidor (modo demo). Retornando sucesso simulado."
+    );
     return {
       success: true,
       message: "Enviamos um link de recuperação para o seu e-mail.",
@@ -212,17 +236,26 @@ export async function requestPasswordReset(
 
   try {
     const supabase = await createServerSupabaseClient();
-    const defaultRedirect =
-      redirectTo || "https://aceleraautocrm.com.br/auth/callback?next=/reset-password";
+    console.log("[Auth Reset] Disparando supabase.auth.resetPasswordForEmail...");
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: defaultRedirect,
+    const { data, error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+      redirectTo: redirectToUrl,
     });
 
     if (error) {
+      console.error(
+        "[Auth Reset] ERRO retornado pelo Supabase:",
+        error.message,
+        error.status,
+        error
+      );
       return { success: false, error: error.message };
     }
 
+    console.log(
+      "[Auth Reset] Sucesso no envio do e-mail de recuperação pelo Supabase:",
+      data
+    );
     return {
       success: true,
       message: "Enviamos um link de recuperação para o seu e-mail.",
@@ -230,7 +263,10 @@ export async function requestPasswordReset(
   } catch (err: unknown) {
     const message =
       err instanceof Error ? err.message : "Erro ao solicitar recuperação de senha.";
+    console.error("[Auth Reset] Exceção capturada durante resetPasswordForEmail:", err);
     return { success: false, error: message };
+  } finally {
+    console.log("[Auth Reset] =========================================");
   }
 }
 
@@ -245,28 +281,44 @@ export interface UpdatePasswordResult {
 export async function updateUserPassword(
   newPassword: string
 ): Promise<UpdatePasswordResult> {
+  console.log("[Auth Update] Iniciando atualização de senha...");
+
   if (!newPassword || newPassword.length < 6) {
+    console.warn("[Auth Update] Validação falhou: senha com menos de 6 caracteres");
     return { success: false, error: "A nova senha deve ter no mínimo 6 caracteres." };
   }
 
   if (!isSupabaseServerConfigured()) {
+    console.log(
+      "[Auth Update] Supabase não configurado no servidor (modo demo). Retornando sucesso simulado."
+    );
     return { success: true };
   }
 
   try {
     const supabase = await createServerSupabaseClient();
-    const { error } = await supabase.auth.updateUser({
+    console.log("[Auth Update] Disparando supabase.auth.updateUser...");
+    const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
     });
 
     if (error) {
+      console.error(
+        "[Auth Update] ERRO retornado pelo Supabase:",
+        error.message,
+        error.status,
+        error
+      );
       return { success: false, error: error.message };
     }
 
+    console.log("[Auth Update] Senha atualizada com sucesso pelo Supabase:", data);
     return { success: true };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erro ao atualizar senha.";
+    console.error("[Auth Update] Exceção capturada durante updateUser:", err);
     return { success: false, error: message };
   }
 }
+
 

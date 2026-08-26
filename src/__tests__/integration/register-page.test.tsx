@@ -204,7 +204,6 @@ describe("[IT-13] Cadastro de Concessionária e Provisionamento de Tenant (Regis
       error: "Este e-mail já está cadastrado no sistema. Faça login para continuar.",
     });
 
-    const user = userEvent.setup();
     render(<RegisterPage />);
 
     // Act

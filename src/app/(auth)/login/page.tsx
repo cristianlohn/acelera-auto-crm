@@ -158,7 +158,13 @@ export default function LoginPage() {
 
     startForgotTransition(async () => {
       try {
-        const result = await requestPasswordReset(forgotEmail.trim());
+        const origin =
+          typeof window !== "undefined" && window.location.origin
+            ? window.location.origin
+            : "https://aceleraautocrm.com.br";
+        const redirectUrl = `${origin}/auth/callback?next=/reset-password`;
+
+        const result = await requestPasswordReset(forgotEmail.trim(), redirectUrl);
         if (!result.success) {
           setForgotError(result.error || "Não foi possível enviar o link de recuperação.");
           return;
