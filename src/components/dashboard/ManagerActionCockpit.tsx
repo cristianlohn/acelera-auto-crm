@@ -1,14 +1,14 @@
 /**
  * @file ManagerActionCockpit.tsx
- * @description Widget Executivo "Dinheiro na Mesa", SLA de Primeiro Atendimento & Ranking da Roleta de Vendas.
+ * @description Widget Executivo "Dinheiro na Mesa", SLA de Primeiro Atendimento & Exportação de Relatórios.
  *
  * Transforma o CRM de um simples "sistema que registra informações" para um
  * "cockpit que ajuda o gerente a tomar decisões imediatas, salvar propostas em risco e fechar mais vendas".
  *
  * Módulos:
- * 1. Cards Executivos de Topo: "Dinheiro na Mesa" com valor em risco, "SLA de Primeiro Atendimento" e "Conversão do Funil".
- * 2. Indicadores de Gargalo em Tempo Real (Leads sem retorno, Propostas paradas, Financiamento, Leads quentes).
- * 3. Ranking da Equipe de Vendas com badges de SLA e auditoria da Roleta.
+ * 1. Topo com Ações de Exportação (CSV e PDF/Impressão).
+ * 2. Cards Executivos de Topo: "Dinheiro na Mesa" com valor em risco, "SLA de Primeiro Atendimento" e "Conversão do Funil".
+ * 3. Indicadores de Gargalo em Tempo Real (Leads sem retorno, Propostas paradas, Financiamento, Leads quentes).
  * 4. Painel de Intervenções e Ações Recomendadas por Vendedor com cobrança rápida via WhatsApp.
  */
 
@@ -30,10 +30,13 @@ import {
   Zap,
   Target,
   AlertTriangle,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ManagerCockpitMetrics } from "@/lib/crm/analytics";
+import { generateCockpitCSV, downloadCSV } from "@/lib/crm/export-csv";
+import { printCockpitReport } from "@/lib/crm/export-pdf";
 
 export interface BottleneckMetric {
   id: string;
@@ -142,6 +145,47 @@ const DEFAULT_SELLER_ACTIONS: SellerAction[] = [
   },
 ];
 
+const DEFAULT_METRICS: ManagerCockpitMetrics = {
+  totalPipelineValue: 1480000,
+  valueAtRisk: 190000,
+  totalActiveLeads: 24,
+  totalLeads: 57,
+  averageFirstContactMinutes: 8.4,
+  slaComplianceRate: 88,
+  overdueLeadsCount: 3,
+  wonLeadsCount: 14,
+  conversionRate: 24.5,
+  sellerRanking: [
+    {
+      sellerName: "Rafael Alves",
+      leadsCount: 20,
+      activeDeals: 8,
+      wonDeals: 6,
+      avgResponseMinutes: 6.2,
+      slaBadge: "verde",
+      sharePercentage: 35.1,
+    },
+    {
+      sellerName: "Juliana Costa",
+      leadsCount: 19,
+      activeDeals: 9,
+      wonDeals: 5,
+      avgResponseMinutes: 8.8,
+      slaBadge: "verde",
+      sharePercentage: 33.3,
+    },
+    {
+      sellerName: "Marcos Ferreira",
+      leadsCount: 18,
+      activeDeals: 7,
+      wonDeals: 3,
+      avgResponseMinutes: 11.4,
+      slaBadge: "amarelo",
+      sharePercentage: 31.6,
+    },
+  ],
+};
+
 function formatBrl(val: number): string {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -153,29 +197,42 @@ function formatBrl(val: number): string {
 export interface ManagerActionCockpitProps {
   className?: string;
   metrics?: ManagerCockpitMetrics;
+  dealershipName?: string;
 }
 
 export function ManagerActionCockpit({
   className,
   metrics,
+  dealershipName = "Concessionária Acelera Auto",
 }: ManagerActionCockpitProps) {
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [notifiedActions, setNotifiedActions] = useState<Set<string>>(new Set());
 
-  // Métricas com fallbacks realistas para visualização imediata
-  const totalPipeline = metrics?.totalPipelineValue || 1480000;
-  const valueAtRisk = metrics?.valueAtRisk || 190000;
-  const avgSlaMinutes = metrics?.averageFirstContactMinutes || 8.4;
-  const complianceRate = metrics?.slaComplianceRate || 88;
-  const overdueCount = metrics?.overdueLeadsCount ?? 3;
-  const conversionRate = metrics?.conversionRate || 24.5;
-  const wonCount = metrics?.wonLeadsCount || 14;
+  const activeMetrics = metrics || DEFAULT_METRICS;
+
+  const totalPipeline = activeMetrics.totalPipelineValue;
+  const valueAtRisk = activeMetrics.valueAtRisk;
+  const avgSlaMinutes = activeMetrics.averageFirstContactMinutes;
+  const complianceRate = activeMetrics.slaComplianceRate;
+  const overdueCount = activeMetrics.overdueLeadsCount;
+  const conversionRate = activeMetrics.conversionRate;
+  const wonCount = activeMetrics.wonLeadsCount;
 
   const handleNotifySeller = (action: SellerAction) => {
     setNotifiedActions((prev) => new Set(prev).add(action.id));
     const encodedMsg = encodeURIComponent(action.defaultMessage);
     const waLink = `https://wa.me/${action.phone}?text=${encodedMsg}`;
     window.open(waLink, "_blank", "noopener,noreferrer");
+  };
+
+  const handleExportCSV = () => {
+    const csvContent = generateCockpitCSV(activeMetrics, dealershipName);
+    const today = new Date().toISOString().split("T")[0];
+    downloadCSV(csvContent, `relatorio-performance-equipe-${today}.csv`);
+  };
+
+  const handleExportPDF = () => {
+    printCockpitReport(activeMetrics, dealershipName);
   };
 
   return (
@@ -187,8 +244,8 @@ export function ManagerActionCockpit({
         className
       )}
     >
-      {/* Topo do Card com Título e Toggle */}
-      <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3.5">
+      {/* Topo do Card com Título, Botões de Exportação e Toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3.5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 via-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/25">
             <TrendingDown className="h-5 w-5" />
@@ -209,19 +266,46 @@ export function ManagerActionCockpit({
           </div>
         </div>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="h-8 px-2 text-xs text-zinc-400 hover:text-white"
-          aria-label={isExpanded ? "Recolher cockpit" : "Expandir cockpit"}
-        >
-          {isExpanded ? (
-            <ChevronUp className="h-4 w-4" />
-          ) : (
-            <ChevronDown className="h-4 w-4" />
-          )}
-        </Button>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {/* Botão Exportar CSV */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            className="h-8 gap-1.5 border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-200 hover:text-white"
+            aria-label="Exportar CSV"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="hidden xs:inline">Exportar CSV</span>
+          </Button>
+
+          {/* Botão Exportar PDF */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            className="h-8 gap-1.5 border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-200 hover:text-white"
+            aria-label="Exportar PDF"
+          >
+            <Printer className="h-3.5 w-3.5 text-blue-400" />
+            <span className="hidden xs:inline">Exportar PDF</span>
+          </Button>
+
+          {/* Toggle Expandir / Recolher */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="h-8 px-2 text-xs text-zinc-400 hover:text-white"
+            aria-label={isExpanded ? "Recolher cockpit" : "Expandir cockpit"}
+          >
+            {isExpanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {isExpanded && (
