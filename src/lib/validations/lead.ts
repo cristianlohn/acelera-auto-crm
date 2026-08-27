@@ -38,8 +38,41 @@ const emailOptionalSchema = z
   .or(z.literal("").transform(() => undefined))
   .or(z.null().transform(() => undefined));
 
+const segmentSchema = z.preprocess(
+  (val) => {
+    if (typeof val === "string") {
+      const lower = val.toLowerCase().trim();
+      if (
+        lower === "seminovos" ||
+        lower === "usados" ||
+        lower === "used" ||
+        lower === "used_cars"
+      ) {
+        return "used_cars";
+      }
+      if (
+        lower === "novos" ||
+        lower === "zero_km" ||
+        lower === "0km" ||
+        lower === "new" ||
+        lower === "new_cars"
+      ) {
+        return "new_cars";
+      }
+      if (lower === "f&i" || lower === "financiamento" || lower === "f_and_i") {
+        return "f_and_i";
+      }
+      if (lower === "geral" || lower === "todos" || lower === "all") {
+        return "all";
+      }
+    }
+    return val;
+  },
+  z.enum(["new_cars", "used_cars", "f_and_i", "all"]).default("all")
+);
+
 /**
- * Schema principal de validação de payload para ingestão externa (/api/v1/leads/ingest)
+ * Schema principal de validação de payload para ingestão externa (/api/v1/leads e /api/v1/leads/ingest)
  */
 export const leadIngestSchema = z.object({
   name: z
@@ -59,7 +92,7 @@ export const leadIngestSchema = z.object({
       "other",
     ])
     .default("other"),
-  segment: z.enum(["new_cars", "used_cars", "f_and_i", "all"]).default("all"),
+  segment: segmentSchema,
   vehicle_of_interest: z.string().trim().optional().or(z.null().transform(() => undefined)),
   notes: z.string().trim().optional().or(z.null().transform(() => undefined)),
   utm_source: z.string().trim().optional().or(z.null().transform(() => undefined)),

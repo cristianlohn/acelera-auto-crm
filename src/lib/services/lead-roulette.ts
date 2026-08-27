@@ -170,6 +170,9 @@ export async function distributeLead(
     allMembers = memorySellers.filter(
       (m) => m.organization_id === organizationId || organizationId === DEFAULT_DEMO_ORG_ID
     );
+    if (allMembers.length === 0 && memorySellers.length > 0) {
+      allMembers = memorySellers;
+    }
   }
 
   // 2. Filtra vendedores estritamente ATIVOS e EM PLANTÃO NA ROLETA
@@ -202,21 +205,39 @@ export async function distributeLead(
   // 4. Aplica compatibilidade de especialidade de segmento
   let candidatePool = activeInRoulette;
 
-  if (leadSegment === "new_cars") {
+  const normalizedSegment =
+    leadSegment?.toLowerCase() === "seminovos" ||
+    leadSegment?.toLowerCase() === "usados" ||
+    leadSegment?.toLowerCase() === "used" ||
+    leadSegment?.toLowerCase() === "used_cars"
+      ? "used_cars"
+      : leadSegment?.toLowerCase() === "novos" ||
+        leadSegment?.toLowerCase() === "zero_km" ||
+        leadSegment?.toLowerCase() === "0km" ||
+        leadSegment?.toLowerCase() === "new" ||
+        leadSegment?.toLowerCase() === "new_cars"
+      ? "new_cars"
+      : leadSegment?.toLowerCase() === "f&i" ||
+        leadSegment?.toLowerCase() === "financiamento" ||
+        leadSegment?.toLowerCase() === "f_and_i"
+      ? "f_and_i"
+      : "all";
+
+  if (normalizedSegment === "new_cars") {
     const specialists = activeInRoulette.filter(
       (m) => m.segment === "new_cars" || m.segment === "all"
     );
     if (specialists.length > 0) {
       candidatePool = specialists;
     }
-  } else if (leadSegment === "used_cars") {
+  } else if (normalizedSegment === "used_cars") {
     const specialists = activeInRoulette.filter(
       (m) => m.segment === "used_cars" || m.segment === "all"
     );
     if (specialists.length > 0) {
       candidatePool = specialists;
     }
-  } else if (leadSegment === "f_and_i") {
+  } else if (normalizedSegment === "f_and_i") {
     const specialists = activeInRoulette.filter(
       (m) => m.segment === "f_and_i" || m.segment === "all"
     );

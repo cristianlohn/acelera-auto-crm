@@ -129,29 +129,64 @@ export async function POST(request: NextRequest) {
     // 3. Execução da Roleta Comercial (Fair Round-Robin)
     const assignedSeller = await distributeLead(organizationId, payload.segment);
 
-    // 4. Criação do Registro de Lead
-    const leadId = `lead_ingest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    // 4. Criação do Registro de Lead ou Detecção de Recontato / Idempotência
+    let leadId = `lead_ingest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    let isRecontact = false;
     const vehicleInterest = payload.vehicle_of_interest || "Interesse Geral";
     const origin = mapSourceToLeadOrigin(payload.source);
+    const nowIso = new Date().toISOString();
 
-    // 5. Persistência no Supabase se configurado
+    // 5. Persistência e Idempotência no Supabase se configurado
     if (isSupabaseServerConfigured()) {
       try {
         const supabase = await createServerSupabaseClient();
-        await supabase.from("leads").insert({
-          id: leadId,
-          organization_id: organizationId,
-          name: payload.name,
-          phone: payload.phone,
-          email: payload.email || null,
-          vehicle_interest: vehicleInterest,
-          status: "novo",
-          origin,
-          seller_id: assignedSeller?.id || null,
-          seller_name: assignedSeller?.name || "Fila de Atendimento",
-          notes: payload.notes || null,
-          last_contact_at: null,
-        });
+
+        // Verifica se existe lead recente com mesmo telefone na mesma organização (últimos 10 minutos)
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        const { data: existingLeads } = await supabase
+          .from("leads")
+          .select("id, seller_id, seller_name, notes")
+          .eq("organization_id", organizationId)
+          .eq("phone", payload.phone)
+          .gte("created_at", tenMinutesAgo)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (existingLeads && existingLeads.length > 0) {
+          const existing = existingLeads[0];
+          leadId = existing.id;
+          isRecontact = true;
+
+          const updatedNotes = payload.notes
+            ? `${existing.notes ? `${existing.notes}\n` : ""}[Recontato]: ${payload.notes}`
+            : existing.notes;
+
+          await supabase
+            .from("leads")
+            .update({
+              vehicle_interest: vehicleInterest,
+              notes: updatedNotes,
+              updated_at: nowIso,
+            })
+            .eq("id", leadId);
+        } else {
+          await supabase.from("leads").insert({
+            id: leadId,
+            organization_id: organizationId,
+            name: payload.name,
+            phone: payload.phone,
+            email: payload.email || null,
+            vehicle_interest: vehicleInterest,
+            status: "novo",
+            origin,
+            seller_id: assignedSeller?.id || null,
+            seller_name: assignedSeller?.name || "Fila de Atendimento",
+            notes: payload.notes || null,
+            last_contact_at: null,
+            created_at: nowIso,
+            updated_at: nowIso,
+          });
+        }
       } catch (dbError) {
         console.warn("[Lead Ingestion DB] Erro ao persistir lead no banco relacional:", dbError);
       }
@@ -172,18 +207,23 @@ export async function POST(request: NextRequest) {
       whatsappDirectUrl = `https://wa.me/${cleanCustomerPhone}`;
     }
 
-    // 7. Retorno com Status 201 Created
+    // 7. Retorno com Status 201 Created (suportando snake_case e camelCase)
+    const assignedPayload = assignedSeller
+      ? {
+          id: assignedSeller.id,
+          name: assignedSeller.name,
+          phone: assignedSeller.phone,
+        }
+      : null;
+
     return NextResponse.json(
       {
         success: true,
         lead_id: leadId,
-        assigned_to: assignedSeller
-          ? {
-              id: assignedSeller.id,
-              name: assignedSeller.name,
-              phone: assignedSeller.phone,
-            }
-          : null,
+        leadId,
+        is_recontact: isRecontact,
+        assigned_to: assignedPayload,
+        assignedTo: assignedPayload,
         whatsapp_direct_url: whatsappDirectUrl,
       },
       {
