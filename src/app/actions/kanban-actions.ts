@@ -645,3 +645,100 @@ export async function updateLeadNotesAction(
 
   return { success: true, lead: memLead };
 }
+
+/**
+ * Consulta um lead por ID garantindo isolamento estrito de tenant (RLS).
+ */
+export async function getLeadByIdAction(
+  leadId: string
+): Promise<KanbanLead | null> {
+  const tenantContext = await resolveUserTenantContext();
+  if (!tenantContext.organizationId && !tenantContext.isDemo) {
+    return null;
+  }
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  if (tenantContext.isDemo) {
+    const memLead = memoryKanbanLeads.find(
+      (l) => l.id === leadId && l.organization_id === orgId
+    );
+    return memLead || null;
+  }
+
+  if (isSupabaseServerConfigured() && tenantContext.organizationId) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { data, error } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("id", leadId)
+        .eq("organization_id", orgId)
+        .single();
+
+      if (error || !data) {
+        return null;
+      }
+
+      return {
+        id: data.id,
+        organization_id: data.organization_id,
+        name: data.name,
+        phone: data.phone,
+        email: data.email || undefined,
+        source: data.origin || "site",
+        vehicle_of_interest: data.vehicle_interest || "Veículo",
+        assigned_to: data.seller_id
+          ? { id: data.seller_id, name: data.seller_name || "Vendedor" }
+          : null,
+        assigned_to_name: data.seller_name || "Fila Geral",
+        stage: normalizeDbStatusToStage(data.status),
+        sla_minutes: 0,
+        sla_minutes_elapsed: 0,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        notes: data.notes || undefined,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Remove um lead do CRM garantindo isolamento estrito de tenant (RLS).
+ */
+export async function deleteLeadAction(
+  leadId: string
+): Promise<KanbanActionResult> {
+  const tenantContext = await resolveUserTenantContext();
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  const memIndex = memoryKanbanLeads.findIndex(
+    (l) => l.id === leadId && l.organization_id === orgId
+  );
+  if (memIndex !== -1) {
+    memoryKanbanLeads.splice(memIndex, 1);
+  }
+
+  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { error } = await supabase
+        .from("leads")
+        .delete()
+        .eq("id", leadId)
+        .eq("organization_id", orgId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao remover lead.";
+      return { success: false, error: msg };
+    }
+  }
+
+  return { success: true };
+}
