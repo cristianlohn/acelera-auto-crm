@@ -216,6 +216,13 @@ export async function distributeLead(
     if (specialists.length > 0) {
       candidatePool = specialists;
     }
+  } else if (leadSegment === "f_and_i") {
+    const specialists = activeInRoulette.filter(
+      (m) => m.segment === "f_and_i" || m.segment === "all"
+    );
+    if (specialists.length > 0) {
+      candidatePool = specialists;
+    }
   }
 
   // 5. Algoritmo Fair Round-Robin:

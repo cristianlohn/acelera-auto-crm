@@ -59,7 +59,7 @@ export const leadIngestSchema = z.object({
       "other",
     ])
     .default("other"),
-  segment: z.enum(["new_cars", "used_cars", "all"]).default("all"),
+  segment: z.enum(["new_cars", "used_cars", "f_and_i", "all"]).default("all"),
   vehicle_of_interest: z.string().trim().optional().or(z.null().transform(() => undefined)),
   notes: z.string().trim().optional().or(z.null().transform(() => undefined)),
   utm_source: z.string().trim().optional().or(z.null().transform(() => undefined)),

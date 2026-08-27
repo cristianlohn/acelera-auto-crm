@@ -12,7 +12,7 @@ export type LeadSource =
   | "google_ads"
   | "other";
 
-export type LeadSegment = "new_cars" | "used_cars" | "all";
+export type LeadSegment = "new_cars" | "used_cars" | "f_and_i" | "all";
 
 export interface LeadIngestPayload {
   name: string;
