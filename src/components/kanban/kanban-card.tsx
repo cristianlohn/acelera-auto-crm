@@ -287,7 +287,7 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
               onMoveStage(lead.id, prevStage);
             }
           }}
-          data-testid="btn-mobile-prev-stage"
+          data-testid="btn-previous-stage"
           aria-label="Recuar etapa"
           className={cn(
             "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-xs font-semibold transition-all",
@@ -332,7 +332,7 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
               onMoveStage(lead.id, nextStage);
             }
           }}
-          data-testid="btn-mobile-next-stage"
+          data-testid="btn-advance-stage"
           aria-label="Avançar etapa"
           className={cn(
             "flex h-8 px-2.5 shrink-0 items-center gap-1 rounded-lg border text-xs font-bold transition-all shadow-sm",

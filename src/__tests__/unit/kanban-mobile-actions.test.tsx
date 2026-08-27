@@ -54,7 +54,7 @@ describe("[UNIT-KANBAN-MOBILE] Controles Rápidos de Etapa no Card para Mobile",
       />
     );
 
-    const advanceBtn = screen.getByTestId("btn-mobile-next-stage");
+    const advanceBtn = screen.getByRole("button", { name: /avançar etapa/i });
     expect(advanceBtn).toBeInTheDocument();
     expect(advanceBtn).not.toBeDisabled();
 
@@ -76,7 +76,7 @@ describe("[UNIT-KANBAN-MOBILE] Controles Rápidos de Etapa no Card para Mobile",
       />
     );
 
-    const prevBtn = screen.getByTestId("btn-mobile-prev-stage");
+    const prevBtn = screen.getByTestId("btn-previous-stage");
     expect(prevBtn).toBeInTheDocument();
     expect(prevBtn).not.toBeDisabled();
 
@@ -89,7 +89,7 @@ describe("[UNIT-KANBAN-MOBILE] Controles Rápidos de Etapa no Card para Mobile",
   it("[TEST-MOBILE-PREV-DISABLED] deve manter o botão de recuo desabilitado na primeira etapa ('new')", () => {
     render(<KanbanCard lead={mockLeadNew} />);
 
-    const prevBtn = screen.getByTestId("btn-mobile-prev-stage");
+    const prevBtn = screen.getByTestId("btn-previous-stage");
     expect(prevBtn).toBeDisabled();
   });
 

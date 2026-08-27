@@ -89,15 +89,16 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
   test("[E2E-KANBAN-02] Movimentação Otimista de Lead Entre Colunas do Funil", async ({ page }) => {
     await navigateToKanban(page);
 
-    await page.waitForLoadState("networkidle").catch(() => {});
+    // 1. Aguarda o carregamento do board e do primeiro card
+    await page.waitForSelector('[data-testid="kanban-card"]', { state: "visible", timeout: 15000 });
 
-    // 1. Aciona o botão de avanço de etapa no primeiro card ativo disponível
-    const advanceBtn = page.locator('[data-testid="btn-advance-stage"]').first();
+    // 2. Localiza o botão de avanço visível no primeiro card ativo disponível
+    const advanceBtn = page.locator('[data-testid="btn-advance-stage"]').filter({ visible: true }).first();
     await advanceBtn.scrollIntoViewIfNeeded();
     await expect(advanceBtn).toBeVisible({ timeout: 10000 });
     await advanceBtn.click();
 
-    // 2. Valida o feedback do Toast do Sonner
+    // 3. Valida o feedback do Toast do Sonner
     const toast = page.locator("[data-sonner-toast]").first();
     await expect(toast).toBeVisible({ timeout: 10000 });
   });
