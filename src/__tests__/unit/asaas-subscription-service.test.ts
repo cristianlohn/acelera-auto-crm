@@ -223,4 +223,38 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
     expect(result.success).toBe(false);
     expect(result.error).toContain("Não foi possível obter a URL da fatura");
   });
+
+  it("[TEST-ASAAS-SUB-6] deve utilizar CNPJ de teste em sandbox/dev quando a loja não tiver documento cadastrado", async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      if (url.includes("/customers?") && options?.method === "GET") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response);
+      }
+
+      if (url.endsWith("/customers") && options?.method === "POST") {
+        capturedBody = JSON.parse(options?.body as string);
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: "cus_sandbox_doc", name: "Loja Sem Doc" }),
+        } as Response);
+      }
+
+      return Promise.resolve({ ok: false } as Response);
+    });
+
+    globalThis.fetch = mockFetch;
+
+    const result = await createOrGetAsaasCustomer({
+      organizationId: "org-no-doc",
+      name: "Loja Sem Doc",
+      email: "semdoc@loja.com",
+    });
+
+    expect(result.customerId).toBe("cus_sandbox_doc");
+    expect(capturedBody).toBeDefined();
+    expect(capturedBody?.cpfCnpj).toBe("24991428000188");
+  });
 });

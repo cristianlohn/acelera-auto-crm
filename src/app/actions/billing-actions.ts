@@ -59,6 +59,20 @@ export async function createSubscriptionCheckoutAction(
     const orgDoc = org?.document || null;
     const currentAsaasCustomerId = org?.asaas_customer_id || null;
 
+    const apiUrl = (process.env.ASAAS_API_URL || "https://sandbox.asaas.com/api/v3").toLowerCase();
+    const isSandboxOrDev =
+      process.env.NODE_ENV === "development" ||
+      process.env.NODE_ENV === "test" ||
+      apiUrl.includes("sandbox.asaas.com");
+
+    if (!orgDoc && !isSandboxOrDev) {
+      return {
+        success: false,
+        error:
+          "Cadastre o CNPJ ou CPF da concessionária nas Configurações da Loja antes de assinar um plano.",
+      };
+    }
+
     // 2. Dispara a criação real no Asaas (SEM MOCKS OU FALLBACKS FICTÍCIOS)
     const result = await createAsaasSubscription({
       organizationId: orgId,

@@ -175,14 +175,29 @@ export async function createOrGetAsaasCustomer(
 
   // 4. Criação de novo cliente no Asaas
   const cleanPhone = input.phone ? input.phone.replace(/\D/g, "") : undefined;
-  const cleanDoc = input.document ? input.document.replace(/\D/g, "") : undefined;
+  const rawDoc = input.document ? input.document.replace(/\D/g, "") : "";
+  const isSandboxOrDev =
+    process.env.NODE_ENV === "development" ||
+    process.env.NODE_ENV === "test" ||
+    apiUrl.includes("sandbox.asaas.com");
+
+  let cpfCnpj: string | undefined = rawDoc || undefined;
+  if (!cpfCnpj) {
+    if (isSandboxOrDev) {
+      cpfCnpj = "24991428000188"; // CNPJ válido para testes em Sandbox
+    } else {
+      throw new Error(
+        "Cadastre o CNPJ ou CPF da concessionária nas Configurações da Loja antes de assinar um plano."
+      );
+    }
+  }
 
   const payload = {
     name: input.name || "Concessionária Acelera Auto",
     email: input.email || "contato@aceleraautocrm.com.br",
     phone: cleanPhone || undefined,
     mobilePhone: cleanPhone || undefined,
-    cpfCnpj: cleanDoc || undefined,
+    cpfCnpj,
     externalReference: input.organizationId,
     notificationDisabled: false,
   };
