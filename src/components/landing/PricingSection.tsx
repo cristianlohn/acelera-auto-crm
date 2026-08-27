@@ -88,7 +88,7 @@ export function PricingSection() {
                 </h3>
               </div>
               <p className="mt-1 text-xs text-zinc-400">
-                Para revendas pequenas e lojas de entrada
+                Para lojas e revendas de entrada
               </p>
 
               {/* Badge de capacidade de vendedores */}
@@ -117,19 +117,27 @@ export function PricingSection() {
               <ul className="mt-5 sm:mt-6 space-y-2.5 sm:space-y-3 text-xs text-zinc-300">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Motor de Ingestão de Leads (Meta Ads, Webmotors, iCarros via API Key)</span>
+                  <span>Roleta Comercial com distribuição justa (Round-Robin)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Distribuição Fair Round-Robin por ordem de espera</span>
+                  <span>Controle de plantão dos vendedores (Ligar / Pausar)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Funil Kanban com cronômetro de SLA e link WhatsApp 1-clique</span>
+                  <span>Funil Kanban de Vendas com cronômetro de SLA</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Gestão de Clientes e Estoque de Veículos</span>
+                  <span>Contato com o lead via WhatsApp em 1 clique</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-orange-400 shrink-0" />
+                  <span>Chave de API para ingestão automática de leads externos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-orange-400 shrink-0" />
+                  <span>Gestão da carteira de clientes e estoque da loja</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
@@ -141,9 +149,9 @@ export function PricingSection() {
             <Link href="/leads" className="mt-6 sm:mt-8">
               <Button
                 variant="outline"
-                className="w-full border-white/20 text-xs font-semibold text-white hover:bg-white/10"
+                className="w-full border-white/20 bg-zinc-800/80 text-xs font-semibold text-white hover:bg-zinc-700 transition-colors shadow-sm"
               >
-                Começar com Starter
+                Testar Plano Starter Grátis
               </Button>
             </Link>
           </div>
@@ -192,24 +200,28 @@ export function PricingSection() {
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
                   <span className="font-medium text-white">
-                    Todos os recursos do Starter +
+                    Todos os recursos do Plano Starter +
                   </span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Roleta com Especialização por Segmento (Novos 0km, Seminovos e F&I)</span>
+                  <span>Roleta com especialização por segmento (Novos e Seminovos)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Cockpit do Gestor com Auditoria de Leads e Perda de Oportunidades</span>
+                  <span>Cockpit do Gestor com auditoria de tempo de resposta da equipe</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Acompanhamento de Metas Comerciais e Pausa de Plantão em tempo real</span>
+                  <span>Isolamento total de permissões (Visão Gestor vs. Vendedor)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Suporte Prioritário</span>
+                  <span>Múltiplas Chaves de API para diferentes canais de captação</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-orange-400 shrink-0" />
+                  <span>Suporte prioritário via WhatsApp</span>
                 </li>
               </ul>
             </div>
@@ -230,12 +242,12 @@ export function PricingSection() {
                 </h3>
               </div>
               <p className="mt-1 text-xs text-zinc-400">
-                Para redes de lojas e grandes pátios
+                Para grandes concessionárias e redes
               </p>
 
               {/* Badge de capacidade */}
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-purple-500/10 px-2.5 py-1 text-[11px] font-medium text-purple-300 border border-purple-500/20">
-                <span>Vendedores e filiais ilimitados</span>
+                <span>Vendedores ilimitados</span>
               </div>
 
               {/* Preço */}
@@ -255,19 +267,23 @@ export function PricingSection() {
               <ul className="mt-5 sm:mt-6 space-y-2.5 sm:space-y-3 text-xs text-zinc-300">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span className="font-medium text-white">Todos os recursos do Pro +</span>
+                  <span className="font-medium text-white">Todos os recursos do Plano Pro +</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Múltiplas Chaves de API para portais e campanhas</span>
+                  <span>Vendedores ilimitados na roleta e na esteira de atendimento</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Onboarding guiado com treinamento ao vivo da equipe</span>
+                  <span>Ingestão de leads de alto volume</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Atendimento VIP com SLA dedicado</span>
+                  <span>Onboarding guiado com configuração inicial e treino da equipe</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-purple-400 shrink-0" />
+                  <span>Atendimento dedicado com gerente de contas</span>
                 </li>
               </ul>
             </div>

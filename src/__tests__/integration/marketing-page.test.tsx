@@ -180,7 +180,7 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
       screen.getByRole("heading", { name: "Plano Enterprise" })
     ).toBeInTheDocument();
     expect(screen.getByText(/a partir de r\$ 1\.297/i)).toBeInTheDocument();
-    expect(screen.getByText(/vendedores e filiais ilimitados/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/vendedores ilimitados/i).length).toBeGreaterThanOrEqual(1);
 
     // Link WhatsApp Consultor no Enterprise
     const consultorBtn = screen.getByRole("link", { name: /falar com consultor/i });
