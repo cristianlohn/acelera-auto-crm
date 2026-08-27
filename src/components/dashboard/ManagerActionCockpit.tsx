@@ -208,7 +208,7 @@ export function ManagerActionCockpit({
   metrics,
   dealershipName = "Concessionária Acelera Auto",
 }: ManagerActionCockpitProps) {
-  const { role } = useDemoRole();
+  const { role, isDemoMode } = useDemoRole();
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [notifiedActions, setNotifiedActions] = useState<Set<string>>(new Set());
 
@@ -218,7 +218,22 @@ export function ManagerActionCockpit({
     return <SellerActionCockpit className={className} metrics={metrics} />;
   }
 
-  const activeMetrics = metrics || DEFAULT_METRICS;
+  const activeMetrics: ManagerCockpitMetrics =
+    metrics ||
+    (isDemoMode
+      ? DEFAULT_METRICS
+      : {
+          totalPipelineValue: 0,
+          valueAtRisk: 0,
+          totalActiveLeads: 0,
+          totalLeads: 0,
+          averageFirstContactMinutes: 0,
+          slaComplianceRate: 100,
+          overdueLeadsCount: 0,
+          wonLeadsCount: 0,
+          conversionRate: 0,
+          sellerRanking: [],
+        });
 
   const totalPipeline = activeMetrics.totalPipelineValue;
   const valueAtRisk = activeMetrics.valueAtRisk;
@@ -227,6 +242,8 @@ export function ManagerActionCockpit({
   const overdueCount = activeMetrics.overdueLeadsCount;
   const conversionRate = activeMetrics.conversionRate;
   const wonCount = activeMetrics.wonLeadsCount;
+
+  const actionsList: SellerAction[] = isDemoMode ? DEFAULT_SELLER_ACTIONS : [];
 
   const handleNotifySeller = (action: SellerAction) => {
     setNotifiedActions((prev) => new Set(prev).add(action.id));
@@ -445,81 +462,93 @@ export function ManagerActionCockpit({
                 <span>Ações Recomendadas pelo Sistema</span>
               </div>
               <span className="text-[11px] text-zinc-400">
-                {DEFAULT_SELLER_ACTIONS.length} alertas pendentes
+                {actionsList.length} alertas pendentes
               </span>
             </div>
 
-            <div className="space-y-2.5">
-              {DEFAULT_SELLER_ACTIONS.map((action) => {
-                const isDone = notifiedActions.has(action.id);
-                return (
-                  <div
-                    key={action.id}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-white/5 bg-zinc-900/60 p-2.5 sm:p-3 transition-colors hover:bg-zinc-900/90"
-                  >
-                    {/* Vendedor e alerta */}
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-xs font-bold text-white shadow">
-                        {action.avatar}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-xs sm:text-sm font-semibold text-white">
-                            {action.sellerName}
-                          </p>
-                          <span
-                            className={cn(
-                              "rounded px-1.5 py-0.5 text-[10px] font-bold",
-                              action.urgencyType === "danger"
-                                ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                                : action.urgencyType === "warning"
-                                ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                                : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                            )}
-                          >
-                            {action.actionText}
-                          </span>
+            {actionsList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/20 p-6 text-center">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <p className="text-xs font-bold text-white">Nenhuma ação crítica pendente</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5 max-w-sm">
+                  Excelente! Toda a equipe comercial está atendendo dentro dos SLAs estabelecidos.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {actionsList.map((action) => {
+                  const isDone = notifiedActions.has(action.id);
+                  return (
+                    <div
+                      key={action.id}
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-white/5 bg-zinc-900/60 p-2.5 sm:p-3 transition-colors hover:bg-zinc-900/90"
+                    >
+                      {/* Vendedor e alerta */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-xs font-bold text-white shadow">
+                          {action.avatar || action.sellerName.slice(0, 2).toUpperCase()}
                         </div>
-                        <p className="text-[11px] text-zinc-400 truncate">
-                          {action.defaultMessage}
-                        </p>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-xs sm:text-sm font-semibold text-white">
+                              {action.sellerName}
+                            </p>
+                            <span
+                              className={cn(
+                                "rounded px-1.5 py-0.5 text-[10px] font-bold",
+                                action.urgencyType === "danger"
+                                  ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                                  : action.urgencyType === "warning"
+                                  ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                                  : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                              )}
+                            >
+                              {action.actionText}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400 truncate">
+                            {action.defaultMessage}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Botão de Cobrança / Ação Rápida */}
+                      <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                        <span className="text-[10px] font-mono text-zinc-500">
+                          {action.timeText}
+                        </span>
+                        <Button
+                          size="sm"
+                          variant={isDone ? "outline" : "default"}
+                          onClick={() => handleNotifySeller(action)}
+                          className={cn(
+                            "h-7 gap-1 px-2.5 text-[11px] font-bold transition-all",
+                            isDone
+                              ? "border-emerald-500/30 text-emerald-400 bg-emerald-950/20 hover:bg-emerald-950/40"
+                              : "bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-md shadow-orange-500/20"
+                          )}
+                          aria-label={`Cobrar ${action.sellerName} no WhatsApp`}
+                        >
+                          {isDone ? (
+                            <>
+                              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                              <span>Cobrado</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send className="h-3 w-3" />
+                              <span>Cobrar no WhatsApp</span>
+                            </>
+                          )}
+                        </Button>
                       </div>
                     </div>
-
-                    {/* Botão de Cobrança / Ação Rápida */}
-                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                      <span className="text-[10px] font-mono text-zinc-500">
-                        {action.timeText}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant={isDone ? "outline" : "default"}
-                        onClick={() => handleNotifySeller(action)}
-                        className={cn(
-                          "h-7 gap-1 px-2.5 text-[11px] font-bold transition-all",
-                          isDone
-                            ? "border-emerald-500/30 text-emerald-400 bg-emerald-950/20 hover:bg-emerald-950/40"
-                            : "bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-md shadow-orange-500/20"
-                        )}
-                        aria-label={`Cobrar ${action.sellerName} no WhatsApp`}
-                      >
-                        {isDone ? (
-                          <>
-                            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                            <span>Cobrado</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="h-3 w-3" />
-                            <span>Cobrar no WhatsApp</span>
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

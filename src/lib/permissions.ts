@@ -16,11 +16,11 @@ export type UserRole =
 export type NormalizedRole = "seller" | "manager" | "admin" | "superadmin";
 
 /**
- * Normaliza variações textuais e papéis legados em inglês/português para a tipagem canônica.
+ * Normaliza variações textuais e papéis legados em inglês/português para a tipagem canônica (case-insensitive).
  */
 export function normalizeRole(role?: string | null): NormalizedRole {
   if (!role) return "seller";
-  const r = role.toLowerCase().trim();
+  const r = String(role).trim().toLowerCase();
   if (r === "superadmin" || r === "super_admin" || r === "super") {
     return "superadmin";
   }

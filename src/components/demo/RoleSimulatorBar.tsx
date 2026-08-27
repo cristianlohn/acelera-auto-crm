@@ -9,6 +9,7 @@
 "use client";
 
 import React from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { Sparkles, User, ShieldCheck, Crown, X, CheckCircle2, LogOut } from "lucide-react";
 import { useDemoRole, type DemoRole } from "@/context/demo-role-context";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,8 @@ import { cn } from "@/lib/utils";
 const emptySubscribe = () => () => {};
 
 export function RoleSimulatorBar() {
+  const router = useRouter();
+  const pathname = usePathname();
   const { role, setRole, isDemoMode, notification, clearNotification } = useDemoRole();
   const mounted = React.useSyncExternalStore(
     emptySubscribe,
@@ -26,6 +29,23 @@ export function RoleSimulatorBar() {
   if (!mounted || !isDemoMode) {
     return null;
   }
+
+  const handleRoleChange = (newRole: DemoRole) => {
+    setRole(newRole);
+
+    const isRestrictedForSeller =
+      pathname.startsWith("/dashboard/team") ||
+      pathname.startsWith("/reports") ||
+      pathname.startsWith("/dashboard/settings/integrations") ||
+      pathname.startsWith("/superadmin") ||
+      pathname.startsWith("/settings");
+
+    if ((newRole === "vendedor" || newRole === "seller") && isRestrictedForSeller) {
+      router.push("/dashboard");
+    } else {
+      router.refresh();
+    }
+  };
 
   const handleExitDemo = () => {
     if (typeof document !== "undefined") {
@@ -111,7 +131,7 @@ export function RoleSimulatorBar() {
                 key={item.id}
                 type="button"
                 id={`role-btn-${item.id}`}
-                onClick={() => setRole(item.id)}
+                onClick={() => handleRoleChange(item.id)}
                 aria-pressed={isActive}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all duration-200 active:scale-95 whitespace-nowrap",

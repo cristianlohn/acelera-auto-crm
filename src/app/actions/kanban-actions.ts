@@ -255,11 +255,19 @@ const initialMemoryKanbanLeads: KanbanLead[] = [
   },
 ];
 
-const memoryKanbanLeads: KanbanLead[] = [...initialMemoryKanbanLeads];
+const memoryKanbanLeads: KanbanLead[] = initialMemoryKanbanLeads.map((l) => ({
+  ...l,
+  assigned_to: l.assigned_to ? { ...l.assigned_to } : null,
+}));
 
 export async function resetMemoryKanbanLeads(): Promise<void> {
   memoryKanbanLeads.length = 0;
-  memoryKanbanLeads.push(...initialMemoryKanbanLeads.map((l) => ({ ...l })));
+  memoryKanbanLeads.push(
+    ...initialMemoryKanbanLeads.map((l) => ({
+      ...l,
+      assigned_to: l.assigned_to ? { ...l.assigned_to } : null,
+    }))
+  );
 }
 
 /**
@@ -344,6 +352,12 @@ export async function getKanbanLeadsAction(
   const allowAll = canViewAllLeads(effectiveRole);
 
   if (tenantContext.isDemo) {
+    const activeCount = memoryKanbanLeads.filter(
+      (l) => l.stage !== "lost" && l.stage !== "won"
+    ).length;
+    if (activeCount === 0) {
+      await resetMemoryKanbanLeads();
+    }
     const allOrgLeads = memoryKanbanLeads.filter((l) => l.organization_id === DEFAULT_DEMO_ORG_ID);
     if (!allowAll) {
       // Vendedor: visualiza apenas os leads atribuídos a si ("Rafael Alves" ou "sp-001")

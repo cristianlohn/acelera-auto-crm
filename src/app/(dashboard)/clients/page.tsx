@@ -17,8 +17,6 @@ import { useState, useMemo, useCallback } from "react";
 import {
   Users,
   UserCheck,
-  ShoppingBag,
-  DollarSign,
   Search,
   Plus,
   Phone,
@@ -26,10 +24,10 @@ import {
   Car,
   Clock,
   MessageCircle,
-  Sparkles,
   FileText,
   User,
   ShieldCheck,
+  CircleDollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,7 +79,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const TAB_OPTIONS: { id: FilterTab; label: string }[] = [
+const FILTER_TABS: { id: FilterTab; label: string }[] = [
   { id: "todos", label: "Todos" },
   { id: "ativo", label: "Ativos" },
   { id: "comprador", label: "Compradores" },
@@ -424,22 +422,19 @@ function ClientMetricCard({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Componente Principal: ClientsPage
-// ---------------------------------------------------------------------------
-
 export interface ClientsPageProps {
   initialClients?: Client[];
 }
 
 export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
-  const { role, sellerName } = useDemoRole();
+  const { role, sellerName, isDemoMode } = useDemoRole();
   const isVendedor = !canViewAllLeads(role);
   const [sellerFilter, setSellerFilter] = useState<string>("todos");
 
   const [clients, setClients] = useState<Client[]>(() => {
     if (initialClients !== undefined) return initialClients;
-    return mockClients;
+    if (isDemoMode) return mockClients;
+    return [];
   });
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("todos");
@@ -468,34 +463,33 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
     const buyers = roleFilteredClients.filter((c) => c.purchasesCount > 0);
     const totalSalesCount = buyers.reduce((acc, c) => acc + c.purchasesCount, 0);
     const totalRevenue = buyers.reduce((acc, c) => acc + c.totalPurchased, 0);
-    const averageTicket =
-      totalSalesCount > 0 ? Math.round(totalRevenue / totalSalesCount) : 0;
+    const averageTicket = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
 
     return {
       total,
       active,
+      buyersCount: buyers.length,
       totalSalesCount,
+      totalRevenue,
       averageTicket,
     };
   }, [roleFilteredClients]);
 
-  // Filtragem combinada por busca textual e abas de status
+  // Filtragem combinada por busca textual e aba de status
   const filteredClients = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return roleFilteredClients.filter((c) => {
-      const matchesTab = activeTab === "todos" ? true : c.status === activeTab;
-      if (!matchesTab) return false;
-
-      if (!search.trim()) return true;
-      const term = search.toLowerCase();
-      const cleanPhoneTerm = term.replace(/\D/g, "");
-      const nameMatch = c.name.toLowerCase().includes(term);
-      const phoneMatch =
-        cleanPhoneTerm.length > 0 && c.phone.includes(cleanPhoneTerm);
-      const emailMatch = c.email?.toLowerCase().includes(term) ?? false;
-      const vehicleMatch =
-        c.vehiclePreference?.toLowerCase().includes(term) ?? false;
-
-      return nameMatch || phoneMatch || emailMatch || vehicleMatch;
+      // Filtro por tab
+      if (activeTab !== "todos" && c.status !== activeTab) return false;
+      // Filtro por busca textual
+      if (!q) return true;
+      return (
+        c.name.toLowerCase().includes(q) ||
+        c.phone.includes(q) ||
+        (c.email && c.email.toLowerCase().includes(q)) ||
+        (c.vehiclePreference && c.vehiclePreference.toLowerCase().includes(q)) ||
+        (c.document && c.document.includes(q))
+      );
     });
   }, [roleFilteredClients, activeTab, search]);
 
@@ -504,19 +498,15 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
       {/* ------------------------------------------------------------------ */}
       {/* Topo / Header da Carteira                                          */}
       {/* ------------------------------------------------------------------ */}
-      <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-4 py-3 sm:px-6">
+      <div className="sticky top-0 z-10 border-b bg-background/95 px-4 py-3 backdrop-blur-sm sm:px-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold tracking-tight text-foreground sm:text-xl">
                 Carteira de Clientes
               </h1>
-              <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-950/60 dark:text-orange-300">
-                <Sparkles className="h-3 w-3" />
-                CRM
-              </span>
               {isVendedor && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
                   <User className="h-3 w-3" />
                   Minha Carteira ({sellerName || "Rafael Alves"})
                 </span>
@@ -524,95 +514,96 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
             </div>
             <p className="text-xs text-muted-foreground">
               {isVendedor
-                ? `Visualizando apenas os ${roleFilteredClients.length} clientes sob sua responsabilidade`
-                : `${roleFilteredClients.length} clientes cadastrados na sua base de relacionamento`}
+                ? `Clientes e compradores sob responsabilidade de ${sellerName || "Rafael Alves"}`
+                : "Gestão unificada de compradores, histórico de aquisições e pós-venda"}
             </p>
           </div>
 
-          <AddClientModal
-            onAdd={handleAddClient}
-            defaultSellerName={sellerName || "Rafael Alves"}
-            lockSeller={isVendedor}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Seletor de Vendedor para Gestor/Admin */}
+            {!isVendedor && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-muted-foreground hidden md:inline">Vendedor:</span>
+                <select
+                  value={sellerFilter}
+                  onChange={(e) => setSellerFilter(e.target.value)}
+                  className="h-9 rounded-lg border bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  aria-label="Filtrar por Vendedor"
+                >
+                  <option value="todos">Todos os Vendedores</option>
+                  <option value="Rafael Alves">Rafael Alves</option>
+                  <option value="Juliana Costa">Juliana Costa</option>
+                  <option value="Marcos Ferreira">Marcos Ferreira</option>
+                </select>
+              </div>
+            )}
+
+            {/* Modal de Adição de Cliente */}
+            <AddClientModal
+              onAdd={handleAddClient}
+              defaultSellerName={isVendedor ? (sellerName || "Rafael Alves") : undefined}
+              lockSeller={isVendedor}
+            />
+          </div>
         </div>
 
-        {/* KPIs da Carteira */}
-        <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4 sm:px-6">
+        {/* ------------------------------------------------------------------ */}
+        {/* Cartões de Métricas no Topo                                        */}
+        {/* ------------------------------------------------------------------ */}
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <ClientMetricCard
-            label="Total de Clientes"
+            label={isVendedor ? "Meus Clientes" : "Total de Clientes"}
             value={metrics.total}
             icon={Users}
-            iconBg="bg-blue-100 dark:bg-blue-950/60"
-            iconColor="text-blue-600 dark:text-blue-400"
-            trend="+2 cadastrados este mês"
+            iconBg="bg-blue-500/10"
+            iconColor="text-blue-500"
           />
           <ClientMetricCard
             label="Clientes Ativos"
             value={metrics.active}
             icon={UserCheck}
-            iconBg="bg-emerald-100 dark:bg-emerald-950/60"
-            iconColor="text-emerald-600 dark:text-emerald-400"
-            trend="Em negociação ativa"
+            iconBg="bg-emerald-500/10"
+            iconColor="text-emerald-500"
           />
           <ClientMetricCard
             label="Vendas na Carteira"
             value={metrics.totalSalesCount}
-            icon={ShoppingBag}
-            iconBg="bg-amber-100 dark:bg-amber-950/60"
-            iconColor="text-amber-600 dark:text-amber-400"
-            trend="Veículos entregues"
+            icon={Car}
+            iconBg="bg-orange-500/10"
+            iconColor="text-orange-500"
           />
           <ClientMetricCard
             label="Ticket Médio da Base"
             value={formatCurrency(metrics.averageTicket)}
-            icon={DollarSign}
-            iconBg="bg-violet-100 dark:bg-violet-950/60"
-            iconColor="text-violet-600 dark:text-violet-400"
-            trend="Valor médio por compra"
+            icon={CircleDollarSign}
+            iconBg="bg-purple-500/10"
+            iconColor="text-purple-500"
           />
         </div>
 
-        {/* Barra de Busca e Filtros por Abas */}
-        <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div className="flex flex-1 items-center gap-2.5 max-w-lg">
-            {/* Busca Instantânea */}
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                role="searchbox"
-                aria-label="Buscar clientes"
-                placeholder="Buscar por nome, telefone ou e-mail..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 text-xs h-8"
-              />
-            </div>
-
-            {/* Filtro por Vendedor para Gestores / Admins */}
-            {!isVendedor && (
-              <select
-                id="filter-seller-select"
-                aria-label="Filtrar por vendedor"
-                value={sellerFilter}
-                onChange={(e) => setSellerFilter(e.target.value)}
-                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                <option value="todos">Todos os Vendedores</option>
-                <option value="Rafael Alves">Rafael Alves</option>
-                <option value="Camila Dias">Camila Dias</option>
-                <option value="Lucas Santana">Lucas Santana</option>
-                <option value="Beatriz Rocha">Beatriz Rocha</option>
-              </select>
-            )}
+        {/* ------------------------------------------------------------------ */}
+        {/* Filtros: Busca e Tabs de Status                                    */}
+        {/* ------------------------------------------------------------------ */}
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              role="searchbox"
+              aria-label="Buscar clientes por nome, telefone ou e-mail"
+              placeholder="Buscar por nome, telefone, e-mail..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 pl-8 text-xs"
+            />
           </div>
 
-          {/* Abas de Status */}
           <div
             role="tablist"
-            aria-label="Filtro de status do cliente"
-            className="inline-flex rounded-lg border bg-muted/60 p-1 text-xs overflow-x-auto max-w-full"
+            aria-label="Filtro de status dos clientes"
+            className="flex items-center gap-1 rounded-lg border bg-muted/60 p-1 text-xs"
           >
-            {TAB_OPTIONS.map((tab) => (
+            {FILTER_TABS.map((tab) => (
               <button
                 key={tab.id}
                 role="tab"
@@ -638,19 +629,19 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
       <div className="flex-1 p-4 sm:p-6">
         {filteredClients.length === 0 ? (
           /* Empty State */
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed p-12 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-2xl">
-              🔍
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700/60 bg-slate-900/30 p-12 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-2xl">
+              👥
             </div>
-            <h2 className="mt-4 text-sm font-bold text-foreground">
-              Nenhum cliente encontrado
+            <h2 className="mt-4 text-base font-bold text-foreground">
+              {search ? "Nenhum cliente encontrado" : "Nenhum cliente cadastrado ainda"}
             </h2>
             <p className="mt-1 max-w-sm text-xs text-muted-foreground">
               {search
                 ? `Nenhum resultado para "${search}". Tente buscar por outro termo ou limpe o filtro.`
-                : "Não há clientes cadastrados nesta categoria."}
+                : "Cadastre clientes para registrar preferências de veículos, histórico de compras e acelerar o contato via WhatsApp."}
             </p>
-            {search && (
+            {search ? (
               <Button
                 variant="outline"
                 size="sm"
@@ -658,6 +649,18 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
                 onClick={() => setSearch("")}
               >
                 Limpar Busca
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className="mt-4 text-xs font-semibold bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/20 gap-1.5"
+                onClick={() => {
+                  const addBtn = document.getElementById("btn-add-client");
+                  addBtn?.click();
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                <span>+ Cadastrar Primeiro Cliente</span>
               </Button>
             )}
           </div>

@@ -111,6 +111,8 @@ function Field({ id, label, icon: Icon, required, children }: FieldProps) {
 export interface NewVehicleModalProps {
   /** Chamado quando o formulário é submetido com sucesso. */
   onAdd: (vehicle: Vehicle) => void;
+  /** Disparador customizado do botão de abertura. */
+  trigger?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +122,7 @@ export interface NewVehicleModalProps {
 /**
  * Dialog de cadastro de novo veículo com preview de foto e validação de campos.
  */
-export function NewVehicleModal({ onAdd }: NewVehicleModalProps) {
+export function NewVehicleModal({ onAdd, trigger }: NewVehicleModalProps) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<VehicleFormData>(INITIAL_FORM);
   const [imgPreviewError, setImgPreviewError] = useState(false);
@@ -138,31 +140,34 @@ export function NewVehicleModal({ onAdd }: NewVehicleModalProps) {
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       const { name, value, type } = e.target as HTMLInputElement;
-      const parsed =
+      const parsedValue =
         type === "number" ? (value === "" ? 0 : Number(value)) : value;
-      setField(name as keyof VehicleFormData, parsed as VehicleFormData[keyof VehicleFormData]);
+      setField(name as keyof VehicleFormData, parsedValue as never);
     },
     [setField]
   );
+
+  const isFormValid =
+    form.make.trim().length > 0 &&
+    form.model.trim().length > 0 &&
+    form.plate.trim().length > 0 &&
+    form.price > 0;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isFormValid) return;
+
+    startTransition(() => {
+      const newVehicle = createVehicle(form);
+      onAdd(newVehicle);
+      setForm(INITIAL_FORM);
+      setOpen(false);
+    });
+  };
 
   const handleQuickPhoto = useCallback(
     (url: string) => setField("imageUrl", url),
     [setField]
-  );
-
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!form.make || !form.model || !form.plate || !form.price) return;
-      startTransition(() => {
-        const vehicle = createVehicle(form);
-        onAdd(vehicle);
-        setForm(INITIAL_FORM);
-        setImgPreviewError(false);
-        setOpen(false);
-      });
-    },
-    [form, onAdd]
   );
 
   /**
@@ -186,14 +191,18 @@ export function NewVehicleModal({ onAdd }: NewVehicleModalProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          id="btn-new-vehicle"
-          className="gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-600 hover:shadow-orange-500/35"
-          aria-label="Adicionar novo veículo ao estoque"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">Novo Veículo</span>
-        </Button>
+        {trigger ? (
+          trigger
+        ) : (
+          <Button
+            id="btn-new-vehicle"
+            className="gap-2 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-600 hover:shadow-orange-500/35"
+            aria-label="Adicionar novo veículo ao estoque"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Novo Veículo</span>
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent

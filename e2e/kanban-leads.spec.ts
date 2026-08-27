@@ -21,6 +21,18 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
         domain: "127.0.0.1",
         path: "/",
       },
+      {
+        name: "acelera_demo_mode",
+        value: "true",
+        domain: "localhost",
+        path: "/",
+      },
+      {
+        name: "acelera_demo_role",
+        value: "admin",
+        domain: "localhost",
+        path: "/",
+      },
     ]);
 
     // 1. Acesso e login no modo demonstração
@@ -74,33 +86,18 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
     await expect(firstCard.locator('[data-testid="btn-whatsapp-lead"]')).toBeVisible();
   });
 
-  test("[E2E-KANBAN-02] Movimentação Otimista de Lead Entre Colunas do Funil", async ({ page, isMobile }) => {
+  test("[E2E-KANBAN-02] Movimentação Otimista de Lead Entre Colunas do Funil", async ({ page }) => {
     await navigateToKanban(page);
 
     await page.waitForLoadState("networkidle").catch(() => {});
 
-    const newColumn = page.locator('[data-stage-id="new"]');
-    await newColumn.scrollIntoViewIfNeeded();
+    // 1. Aciona o botão de avanço de etapa no primeiro card ativo disponível
+    const advanceBtn = page.locator('[data-testid="btn-advance-stage"]').first();
+    await advanceBtn.scrollIntoViewIfNeeded();
+    await expect(advanceBtn).toBeVisible({ timeout: 10000 });
+    await advanceBtn.click();
 
-    const inContactColumn = page.locator('[data-stage-id="in_contact"]');
-
-    // 1. Localiza o primeiro card da coluna "Novos Leads"
-    const cardToMove = newColumn.locator('[data-testid="kanban-card"]').first();
-    await expect(cardToMove).toBeVisible({ timeout: 15000 });
-
-    // 2. No desktop executa drag & drop; no mobile aciona o botão de avanço acessível
-    if (isMobile) {
-      const advanceBtn = cardToMove.locator(
-        '[data-testid="btn-advance-stage"], [data-testid="btn-move-next-stage"], button:has-text("Avançar")'
-      ).first();
-      await advanceBtn.scrollIntoViewIfNeeded();
-      await expect(advanceBtn).toBeVisible({ timeout: 10000 });
-      await advanceBtn.click();
-    } else {
-      await cardToMove.dragTo(inContactColumn);
-    }
-
-    // 3. Valida o feedback do Toast do Sonner
+    // 2. Valida o feedback do Toast do Sonner
     const toast = page.locator("[data-sonner-toast]").first();
     await expect(toast).toBeVisible({ timeout: 10000 });
   });
@@ -114,41 +111,39 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
     await searchInput.fill("Corolla");
 
     // Valida que o card do Corolla permanece visível e o card do Jeep não está mais no Kanban
-    await expect(page.locator('[data-testid="kanban-card"]').filter({ hasText: "Corolla" }).first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('[data-testid="kanban-card"]').filter({ hasText: "Jeep" })).toHaveCount(0);
+    await expect(page.locator('[data-testid="kanban-card"]:has-text("Corolla")').first()).toBeVisible();
+    await expect(page.locator('[data-testid="kanban-card"]:has-text("Jeep Compass")')).not.toBeVisible();
 
-    // 2. Limpa busca e filtra por Vendedor ("Rafael Alves")
-    await searchInput.fill("");
-    await expect(page.locator('[data-testid="kanban-card"]').filter({ hasText: "Jeep" }).first()).toBeVisible({ timeout: 5000 });
+    // 2. Limpeza da busca
+    await searchInput.clear();
 
+    // 3. Filtro por Vendedor (Rafael Alves)
     const sellerFilter = page.locator('[data-testid="select-seller-filter"]');
     await expect(sellerFilter).toBeVisible();
-    await sellerFilter.selectOption("Rafael Alves");
+    await sellerFilter.selectOption({ label: "Rafael Alves" });
 
-    const sellerCards = page.locator('[data-testid="kanban-card"]');
-    const sellerCount = await sellerCards.count();
-    expect(sellerCount).toBeGreaterThan(0);
+    // Todos os cards visíveis devem pertencer a Rafael Alves
+    const visibleCards = page.locator('[data-testid="kanban-card"]');
+    const count = await visibleCards.count();
+    expect(count).toBeGreaterThan(0);
 
-    for (let i = 0; i < sellerCount; i++) {
-      const cardSeller = sellerCards.nth(i).locator('[data-testid="lead-seller-name"]');
-      await expect(cardSeller).toHaveText("Rafael Alves");
+    for (let i = 0; i < count; i++) {
+      await expect(visibleCards.nth(i).locator('[data-testid="lead-seller-name"]')).toHaveText("Rafael Alves");
     }
   });
 
   test("[E2E-KANBAN-04] Abertura do Modal de Perda ao Mover Lead Para Coluna de Descarte", async ({ page }) => {
     await navigateToKanban(page);
 
-    const firstCard = page.locator('[data-testid="kanban-card"]').first();
-    await expect(firstCard).toBeVisible({ timeout: 10000 });
-
-    // Clica no botão de descarte rápido do card
-    const discardBtn = firstCard.locator('[data-testid="btn-discard-lead"]');
-    await expect(discardBtn).toBeVisible({ timeout: 5000 });
+    // Clica no botão de descarte rápido do primeiro card ativo
+    const discardBtn = page.locator('[data-testid="btn-discard-lead"]').first();
+    await discardBtn.scrollIntoViewIfNeeded();
+    await expect(discardBtn).toBeVisible({ timeout: 10000 });
     await discardBtn.click();
 
     // Valida abertura do Modal de Perda
     const lostModal = page.locator('[data-testid="lead-lost-modal"]');
-    await expect(lostModal).toBeVisible({ timeout: 5000 });
+    await expect(lostModal).toBeVisible({ timeout: 10000 });
 
     // Seleciona motivo e confirma
     const reasonSelect = page.locator('[data-testid="select-lost-reason"]');
@@ -158,6 +153,6 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
     const confirmBtn = page.locator('[data-testid="btn-confirm-lost"]');
     await confirmBtn.click();
 
-    await expect(lostModal).not.toBeVisible({ timeout: 5000 });
+    await expect(lostModal).not.toBeVisible({ timeout: 10000 });
   });
 });

@@ -25,6 +25,7 @@ import {
   MessageCircle,
   Car,
 } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ManagerCockpitMetrics } from "@/lib/crm/analytics";
@@ -37,55 +38,70 @@ export interface SellerActionCockpitProps {
 
 export function SellerActionCockpit({
   className,
+  metrics,
 }: SellerActionCockpitProps) {
-  const { sellerName } = useDemoRole();
+  const { sellerName, isDemoMode } = useDemoRole();
   const [isExpanded, setIsExpanded] = useState(true);
   const [notifiedActions, setNotifiedActions] = useState<Set<string>>(new Set());
 
+  const activeSellerName = sellerName || "Rafael Alves";
+  const sellerMetric = metrics?.sellerRanking.find((s) => s.sellerName === activeSellerName);
+
   // Métricas do vendedor (Rafael Alves ou vendedor logado)
-  const myPendingLeadsCount = 4;
-  const myPendingPipelineValue = 680000;
-  const myMonthlyWonDeals = 6;
-  const myMonthlyRevenue = 420000;
-  const myAverageSlaMinutes = 6.2;
-  const mySlaComplianceRate = 94;
+  const myPendingLeadsCount = isDemoMode ? 4 : (sellerMetric?.leadsCount ?? 0);
+  const myPendingPipelineValue = isDemoMode ? 680000 : ((sellerMetric?.activeDeals ?? 0) * 120000);
+  const myMonthlyWonDeals = isDemoMode ? 6 : (sellerMetric?.wonDeals ?? 0);
+  const myMonthlyRevenue = isDemoMode ? 420000 : ((sellerMetric?.wonDeals ?? 0) * 115000);
+  const myAverageSlaMinutes = isDemoMode ? 6.2 : (sellerMetric?.avgResponseMinutes ?? 0.0);
+  const mySlaComplianceRate = isDemoMode ? 94 : (sellerMetric ? (sellerMetric.avgResponseMinutes <= 15 ? 100 : 50) : 100);
 
   // Ações e alertas estritamente do próprio vendedor
-  const myActions = [
-    {
-      id: "seller-act-1",
-      leadName: "Carlos Mendonça",
-      vehicle: "Honda Civic EXL 2023",
-      actionText: "Aguardando 1º contato há 18 min",
-      timeText: "Há 18 min",
-      urgency: "critico" as const,
-      phone: "5511987654321",
-      defaultMessage:
-        "Olá Carlos, tudo bem? Sou o Rafael da Acelera Auto. Vi seu interesse no Honda Civic EXL 2023. Como posso te ajudar hoje?",
-    },
-    {
-      id: "seller-act-2",
-      leadName: "Patrícia Vieira",
-      vehicle: "Renault Kwid Intense",
-      actionText: "Proposta de financiamento enviada há 4h",
-      timeText: "Há 4h",
-      urgency: "medio" as const,
-      phone: "5591889765432",
-      defaultMessage:
-        "Oi Patrícia! Passando para checar se você conseguiu analisar a simulação de parcelas do Kwid. Quer que eu ajuste a entrada?",
-    },
-    {
-      id: "seller-act-3",
-      leadName: "Mariana Souza",
-      vehicle: "Corolla Cross XRE",
-      actionText: "Cliente compradora com interesse em troca",
-      timeText: "Há 1 dia",
-      urgency: "info" as const,
-      phone: "5547998877665",
-      defaultMessage:
-        "Olá Mariana! Chegou uma nova unidade de Corolla Cross com condições exclusivas de avaliação do seu seminovo. Vamos agendar uma visita?",
-    },
-  ];
+  const myActions: {
+    id: string;
+    leadName: string;
+    vehicle: string;
+    actionText: string;
+    timeText: string;
+    urgency: "critico" | "medio" | "info";
+    phone: string;
+    defaultMessage: string;
+  }[] = isDemoMode
+    ? [
+        {
+          id: "seller-act-1",
+          leadName: "Carlos Mendonça",
+          vehicle: "Honda Civic EXL 2023",
+          actionText: "Aguardando 1º contato há 18 min",
+          timeText: "Há 18 min",
+          urgency: "critico" as const,
+          phone: "5511987654321",
+          defaultMessage:
+            "Olá Carlos, tudo bem? Sou o Rafael da Acelera Auto. Vi seu interesse no Honda Civic EXL 2023. Como posso te ajudar hoje?",
+        },
+        {
+          id: "seller-act-2",
+          leadName: "Patrícia Vieira",
+          vehicle: "Renault Kwid Intense",
+          actionText: "Proposta de financiamento enviada há 4h",
+          timeText: "Há 4h",
+          urgency: "medio" as const,
+          phone: "5591889765432",
+          defaultMessage:
+            "Oi Patrícia! Passando para checar se você conseguiu analisar a simulação de parcelas do Kwid. Quer que eu ajuste a entrada?",
+        },
+        {
+          id: "seller-act-3",
+          leadName: "Mariana Souza",
+          vehicle: "Corolla Cross XRE",
+          actionText: "Cliente compradora com interesse em troca",
+          timeText: "Há 1 dia",
+          urgency: "info" as const,
+          phone: "5547998877665",
+          defaultMessage:
+            "Olá Mariana! Chegou uma nova unidade de Corolla Cross com condições exclusivas de avaliação do seu seminovo. Vamos agendar uma visita?",
+        },
+      ]
+    : [];
 
   const handleContactLead = (actionId: string, phone: string, message: string) => {
     setNotifiedActions((prev) => new Set(prev).add(actionId));
@@ -230,76 +246,96 @@ export function SellerActionCockpit({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-              {myActions.map((action) => {
-                const isNotified = notifiedActions.has(action.id);
-                return (
-                  <div
-                    key={action.id}
-                    className="flex flex-col justify-between rounded-lg border border-white/10 bg-[#16161c]/80 p-3 hover:border-orange-500/40 transition-all shadow-sm"
+            {myActions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-700/60 bg-slate-900/30 p-8 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-3">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <h4 className="text-sm font-bold text-white">Nenhum atendimento pendente</h4>
+                <p className="mt-1 max-w-sm text-xs text-zinc-400">
+                  Parabéns! Todos os seus contatos foram respondidos dentro do SLA de atendimento. Novos leads distribuídos pela roleta aparecerão aqui instantaneamente.
+                </p>
+                <Link href="/leads" className="mt-3.5">
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs font-semibold bg-white/10 hover:bg-white/15 text-zinc-200 border border-white/10"
                   >
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-xs font-bold text-white">
-                          {action.leadName}
-                        </span>
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-[9px] font-bold",
-                            action.urgency === "critico"
-                              ? "bg-red-500/20 text-red-300 border border-red-500/30"
-                              : action.urgency === "medio"
-                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                              : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                          )}
-                        >
-                          {action.timeText}
-                        </span>
+                    Ver Funil de Vendas
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+                {myActions.map((action) => {
+                  const isNotified = notifiedActions.has(action.id);
+                  return (
+                    <div
+                      key={action.id}
+                      className="flex flex-col justify-between rounded-lg border border-white/10 bg-[#16161c]/80 p-3 hover:border-orange-500/40 transition-all shadow-sm"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-xs font-bold text-white">
+                            {action.leadName}
+                          </span>
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[9px] font-bold",
+                              action.urgency === "critico"
+                                ? "bg-red-500/20 text-red-300 border border-red-500/30"
+                                : action.urgency === "medio"
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                : "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                            )}
+                          >
+                            {action.timeText}
+                          </span>
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-300">
+                          <Car className="h-3 w-3 text-orange-400" />
+                          <span>{action.vehicle}</span>
+                        </div>
+                        <p className="mt-1.5 text-[11px] text-zinc-400">
+                          {action.actionText}
+                        </p>
                       </div>
-                      <div className="mt-1 flex items-center gap-1.5 text-[11px] text-zinc-300">
-                        <Car className="h-3 w-3 text-orange-400" />
-                        <span>{action.vehicle}</span>
-                      </div>
-                      <p className="mt-1.5 text-[11px] text-zinc-400">
-                        {action.actionText}
-                      </p>
-                    </div>
 
-                    <div className="mt-3 pt-2 border-t border-white/5">
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          handleContactLead(
-                            action.id,
-                            action.phone,
-                            action.defaultMessage
-                          )
-                        }
-                        className={cn(
-                          "w-full h-7 gap-1.5 text-[11px] font-bold text-white transition-all shadow-sm",
-                          isNotified
-                            ? "bg-emerald-600 hover:bg-emerald-700"
-                            : "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500"
-                        )}
-                        aria-label={`Chamar ${action.leadName} no WhatsApp`}
-                      >
-                        {isNotified ? (
-                          <>
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            <span>Mensagem Aberta</span>
-                          </>
-                        ) : (
-                          <>
-                            <MessageCircle className="h-3.5 w-3.5" />
-                            <span>Chamar no WhatsApp</span>
-                          </>
-                        )}
-                      </Button>
+                      <div className="mt-3 pt-2 border-t border-white/5">
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            handleContactLead(
+                              action.id,
+                              action.phone,
+                              action.defaultMessage
+                            )
+                          }
+                          className={cn(
+                            "w-full h-7 gap-1.5 text-[11px] font-bold text-white transition-all shadow-sm",
+                            isNotified
+                              ? "bg-emerald-600 hover:bg-emerald-700"
+                              : "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500"
+                          )}
+                          aria-label={`Chamar ${action.leadName} no WhatsApp`}
+                        >
+                          {isNotified ? (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Mensagem Aberta</span>
+                            </>
+                          ) : (
+                            <>
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              <span>Chamar no WhatsApp</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

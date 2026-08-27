@@ -117,12 +117,15 @@ export function KanbanColumn({
         {column.leads.length === 0 && (
           <div
             className={cn(
-              "flex flex-col items-center justify-center h-32 rounded-2xl border border-dashed border-white/10 p-4 text-center text-xs text-zinc-500",
-              isDragOver && "border-orange-500/50 text-orange-400"
+              "flex flex-col items-center justify-center h-32 rounded-2xl border border-dashed border-slate-700/60 bg-slate-900/40 p-4 text-center transition-all",
+              isDragOver && "border-orange-500/50 bg-orange-500/10"
             )}
           >
-            <p className="font-medium">Nenhum lead nesta etapa</p>
-            <p className="text-[10px] text-zinc-600 mt-0.5">Arraste um card para cá</p>
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800/80 text-slate-400 mb-1.5 border border-slate-700/50">
+              <Plus className="h-3.5 w-3.5" />
+            </div>
+            <p className="font-semibold text-xs text-slate-300">Nenhum lead nesta etapa</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">Arraste um card para cá</p>
           </div>
         )}
       </div>

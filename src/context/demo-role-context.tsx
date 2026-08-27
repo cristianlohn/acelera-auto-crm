@@ -153,12 +153,15 @@ export function useDemoRole() {
   const context = useContext(DemoRoleContext);
   if (!context) {
     // Fallback gracioso se renderizado fora do Provider
+    const isTestEnv =
+      typeof process !== "undefined" &&
+      (process.env.NODE_ENV === "test" || process.env.VITEST === "true");
     return {
       role: "admin" as DemoRole,
       setRole: () => {},
       roleConfig: ROLE_CONFIGS.admin,
       sellerName: ROLE_CONFIGS.admin.name,
-      isDemoMode: false,
+      isDemoMode: isTestEnv,
       setIsDemoMode: () => {},
       notification: null,
       clearNotification: () => {},

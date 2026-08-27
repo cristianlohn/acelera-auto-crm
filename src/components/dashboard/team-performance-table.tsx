@@ -92,68 +92,88 @@ export function TeamPerformanceTable({
       </div>
 
       {/* Tabela de Vendedores */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-zinc-300">
-          <thead>
-            <tr className="border-b border-white/10 text-zinc-400 font-semibold uppercase tracking-wider">
-              <th className="py-3 px-3">Vendedor</th>
-              <th className="py-3 px-3">Leads Recebidos</th>
-              <th className="py-3 px-3">Quota Roleta (%)</th>
-              <th className="py-3 px-3">Negócios Ativos</th>
-              <th className="py-3 px-3">Vendas Ganhas</th>
-              <th className="py-3 px-3">Tempo Médio Resposta</th>
-              <th className="py-3 px-3">Status SLA</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {sellers.map((seller) => (
-              <tr key={seller.sellerName} className="hover:bg-white/[0.02] transition-colors">
-                <td className="py-3.5 px-3 font-semibold text-white flex items-center gap-2.5">
-                  <div className="h-7 w-7 rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-[11px] font-bold text-white flex items-center justify-center shrink-0">
-                    {seller.sellerName.slice(0, 2).toUpperCase()}
-                  </div>
-                  <span>{seller.sellerName}</span>
-                </td>
-                <td className="py-3.5 px-3 font-bold text-white">{seller.leadsCount}</td>
-                <td className="py-3.5 px-3 text-zinc-400">{seller.sharePercentage}%</td>
-                <td className="py-3.5 px-3 text-amber-300 font-semibold">{seller.activeDeals}</td>
-                <td className="py-3.5 px-3 text-emerald-400 font-bold">{seller.wonDeals}</td>
-                <td className="py-3.5 px-3 font-mono">
-                  {seller.avgResponseMinutes > 0 ? `${seller.avgResponseMinutes} min` : "Aguardando leads"}
-                </td>
-                <td className="py-3.5 px-3">
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border",
-                      seller.slaBadge === "verde"
-                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
-                        : seller.slaBadge === "amarelo"
-                        ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                        : "bg-red-500/10 border-red-500/30 text-red-400"
-                    )}
-                  >
+      {sellers.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/[0.01] p-8 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 mb-3">
+            <Users className="h-6 w-6" />
+          </div>
+          <h4 className="text-sm font-bold text-white">Nenhum vendedor cadastrado ainda</h4>
+          <p className="mt-1 max-w-sm text-xs text-zinc-400">
+            Cadastre os membros da sua equipe para ativar a distribuição automática de leads via Roleta e acompanhar a performance em tempo real.
+          </p>
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            size="sm"
+            className="mt-4 text-xs font-semibold bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/20 gap-1.5"
+          >
+            <UserPlus className="h-4 w-4" />
+            <span>+ Cadastrar Primeiro Vendedor</span>
+          </Button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-zinc-300">
+            <thead>
+              <tr className="border-b border-white/10 text-zinc-400 font-semibold uppercase tracking-wider">
+                <th className="py-3 px-3">Vendedor</th>
+                <th className="py-3 px-3">Leads Recebidos</th>
+                <th className="py-3 px-3">Quota Roleta (%)</th>
+                <th className="py-3 px-3">Negócios Ativos</th>
+                <th className="py-3 px-3">Vendas Ganhas</th>
+                <th className="py-3 px-3">Tempo Médio Resposta</th>
+                <th className="py-3 px-3">Status SLA</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {sellers.map((seller) => (
+                <tr key={seller.sellerName} className="hover:bg-white/[0.02] transition-colors">
+                  <td className="py-3.5 px-3 font-semibold text-white flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-[11px] font-bold text-white flex items-center justify-center shrink-0">
+                      {seller.sellerName.slice(0, 2).toUpperCase()}
+                    </div>
+                    <span>{seller.sellerName}</span>
+                  </td>
+                  <td className="py-3.5 px-3 font-bold text-white">{seller.leadsCount}</td>
+                  <td className="py-3.5 px-3 text-zinc-400">{seller.sharePercentage}%</td>
+                  <td className="py-3.5 px-3 text-amber-300 font-semibold">{seller.activeDeals}</td>
+                  <td className="py-3.5 px-3 text-emerald-400 font-bold">{seller.wonDeals}</td>
+                  <td className="py-3.5 px-3 font-mono">
+                    {seller.avgResponseMinutes > 0 ? `${seller.avgResponseMinutes} min` : "Aguardando leads"}
+                  </td>
+                  <td className="py-3.5 px-3">
                     <span
                       className={cn(
-                        "h-1.5 w-1.5 rounded-full",
+                        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold border",
                         seller.slaBadge === "verde"
-                          ? "bg-emerald-500"
+                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                           : seller.slaBadge === "amarelo"
-                          ? "bg-amber-500"
-                          : "bg-red-500 animate-pulse"
+                          ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                          : "bg-red-500/10 border-red-500/30 text-red-400"
                       )}
-                    />
-                    {seller.slaBadge === "verde"
-                      ? "Excelente (<10 min)"
-                      : seller.slaBadge === "amarelo"
-                      ? "Atenção (10-15 min)"
-                      : "Crítico (>15 min)"}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    >
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 rounded-full",
+                          seller.slaBadge === "verde"
+                            ? "bg-emerald-500"
+                            : seller.slaBadge === "amarelo"
+                            ? "bg-amber-500"
+                            : "bg-red-500 animate-pulse"
+                        )}
+                      />
+                      {seller.slaBadge === "verde"
+                        ? "Excelente (<10 min)"
+                        : seller.slaBadge === "amarelo"
+                        ? "Atenção (10-15 min)"
+                        : "Crítico (>15 min)"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Modal de Cadastro de Vendedor */}
       <SalespersonModal

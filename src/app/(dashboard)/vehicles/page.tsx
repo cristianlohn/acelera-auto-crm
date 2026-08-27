@@ -35,6 +35,8 @@ import {
 } from "@/app/actions/vehicles";
 import type { Vehicle, VehicleStatus } from "@/types/crm";
 import { cn } from "@/lib/utils";
+import { useDemoRole } from "@/context/demo-role-context";
+import { Button } from "@/components/ui/button";
 
 // ---------------------------------------------------------------------------
 // Tipos locais
@@ -98,24 +100,20 @@ function MetricCard({
   iconColor,
 }: MetricCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium text-muted-foreground">
-            {label}
-          </p>
-          <p className="mt-1 truncate text-xl font-bold text-foreground">
+    <div className="relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">{label}</p>
+          <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
             {value}
           </p>
           {sub && (
-            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-              {sub}
-            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>
           )}
         </div>
         <div
           className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm",
             iconBg
           )}
         >
@@ -157,9 +155,11 @@ export interface VehiclesPageProps {
 }
 
 export default function VehiclesPage({ initialVehicles }: VehiclesPageProps = {}) {
+  const { isDemoMode } = useDemoRole();
   const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
     if (initialVehicles !== undefined) return initialVehicles;
-    return mockVehicles;
+    if (isDemoMode) return mockVehicles;
+    return [];
   });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
@@ -330,17 +330,43 @@ export default function VehiclesPage({ initialVehicles }: VehiclesPageProps = {}
       {/* ------------------------------------------------------------------ */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {filtered.length === 0 ? (
-          /* Estado vazio */
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="mb-4 text-6xl opacity-20">🚗</div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Nenhum veículo encontrado
+          /* Estado vazio moderno */
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700/60 bg-slate-900/30 p-12 text-center my-8">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-2xl">
+              🚗
+            </div>
+            <h2 className="mt-4 text-base font-bold text-foreground">
+              {search ? "Nenhum veículo encontrado" : "Nenhum veículo cadastrado no estoque ainda"}
             </h2>
-            <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+            <p className="mt-1 max-w-sm text-xs text-muted-foreground">
               {search
                 ? `Nenhum resultado para "${search}". Tente outra busca.`
-                : 'Adicione o primeiro veículo ao estoque clicando em "+ Novo Veículo".'}
+                : "Cadastre os veículos do seu pátio para acompanhar status, preços e envio rápido para clientes no WhatsApp."}
             </p>
+            {search ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 text-xs"
+                onClick={() => setSearch("")}
+              >
+                Limpar Busca
+              </Button>
+            ) : (
+              <div className="mt-4">
+                <NewVehicleModal
+                  onAdd={handleAdd}
+                  trigger={
+                    <Button
+                      size="sm"
+                      className="text-xs font-semibold bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/20 gap-1.5"
+                    >
+                      <span>+ Adicionar Primeiro Veículo</span>
+                    </Button>
+                  }
+                />
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

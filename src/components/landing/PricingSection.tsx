@@ -117,19 +117,23 @@ export function PricingSection() {
               <ul className="mt-5 sm:mt-6 space-y-2.5 sm:space-y-3 text-xs text-zinc-300">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Funil Kanban com SLA em tempo real</span>
+                  <span>Motor de Ingestão de Leads (Meta Ads, Webmotors, iCarros via API Key)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Integração WhatsApp 1-clique</span>
+                  <span>Distribuição Fair Round-Robin por ordem de espera</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Catálogo até 50 veículos no estoque</span>
+                  <span>Funil Kanban com cronômetro de SLA e link WhatsApp 1-clique</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Suporte ágil via WhatsApp</span>
+                  <span>Gestão de Clientes e Estoque de Veículos</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-orange-400 shrink-0" />
+                  <span>Suporte via WhatsApp</span>
                 </li>
               </ul>
             </div>
@@ -193,19 +197,19 @@ export function PricingSection() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Catálogo ilimitado de veículos</span>
+                  <span>Roleta com Especialização por Segmento (Novos 0km, Seminovos e F&I)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Relatórios avançados de conversão por vendedor</span>
+                  <span>Cockpit do Gestor com Auditoria de Leads e Perda de Oportunidades</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Simulação de taxas e propostas comerciais</span>
+                  <span>Acompanhamento de Metas Comerciais e Pausa de Plantão em tempo real</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Suporte prioritário via WhatsApp</span>
+                  <span>Suporte Prioritário</span>
                 </li>
               </ul>
             </div>
@@ -251,19 +255,19 @@ export function PricingSection() {
               <ul className="mt-5 sm:mt-6 space-y-2.5 sm:space-y-3 text-xs text-zinc-300">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Multi-filiais e estoques integrados</span>
+                  <span className="font-medium text-white">Todos os recursos do Pro +</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Onboarding dedicado e personalizado</span>
+                  <span>Múltiplas Chaves de API para portais e campanhas</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>SLA de atendimento VIP</span>
+                  <span>Onboarding guiado com treinamento ao vivo da equipe</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Personalização de funis e regras de distribuição</span>
+                  <span>Atendimento VIP com SLA dedicado</span>
                 </li>
               </ul>
             </div>
@@ -302,8 +306,7 @@ export function PricingSection() {
                   <strong className="text-orange-400 font-semibold">
                     Taxa única de setup: R$ 997.
                   </strong>{" "}
-                  Inclui configuração inicial da loja, Importação assistida de estoque via planilha padrão (CSV/Excel), treinamento ao vivo da equipe de vendas e parametrização
-                  dos SLAs de atendimento.
+                  Configuração inicial da concessionária, importação do estoque via planilha (CSV/Excel) e treinamento ao vivo do time de vendas.
                 </p>
                 <p className="mt-2 text-xs text-emerald-400 font-medium flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />

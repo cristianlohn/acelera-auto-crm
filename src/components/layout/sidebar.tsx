@@ -194,6 +194,7 @@ export function NavLink({
     <Link
       href={item.href}
       onClick={onClick}
+      prefetch={item.target ? undefined : true}
       target={item.target}
       rel={item.rel}
       className={cn(
@@ -240,6 +241,7 @@ export function Sidebar({ className = "" }: { className?: string }) {
   }, [isDemoMode]);
 
   const activeRole = demoRole || realRole || "admin";
+  const isSuper = isSuperAdmin(activeRole);
   const visibleNavItems = getNavItemsForRole(activeRole);
 
   return (
@@ -253,6 +255,26 @@ export function Sidebar({ className = "" }: { className?: string }) {
       <div className="flex h-16 items-center border-b px-5">
         <Logo />
       </div>
+
+      {/* Destaque Exclusivo do Superadmin */}
+      {isSuper && (
+        <div className="px-3 pt-3">
+          <Link
+            href="/superadmin"
+            prefetch={true}
+            data-testid="btn-superadmin-highlight"
+            className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/15 border border-orange-500/30 p-2.5 text-xs font-bold text-orange-400 hover:text-orange-300 hover:border-orange-500/60 transition-all shadow-sm group"
+          >
+            <div className="flex items-center gap-2">
+              <Zap className="h-4 w-4 text-orange-400 fill-orange-400 group-hover:scale-110 transition-transform" />
+              <span>⚡ Painel Superadmin</span>
+            </div>
+            <span className="text-[10px] bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded border border-orange-500/30">
+              SaaS
+            </span>
+          </Link>
+        </div>
+      )}
 
       {/* Navegação Dinâmica RBAC */}
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3" data-testid="sidebar-nav">
