@@ -18,7 +18,8 @@ import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanFilters } from "./kanban-filters";
 import { LeadLostModal } from "./lead-lost-modal";
-import { updateLeadStageAction } from "@/app/actions/kanban-actions";
+import { LeadDetailsModal } from "./lead-details-modal";
+import { updateLeadStageAction, updateLeadNotesAction } from "@/app/actions/kanban-actions";
 
 interface KanbanBoardProps {
   initialLeads: KanbanLead[];
@@ -27,6 +28,9 @@ interface KanbanBoardProps {
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<KanbanLead[]>(initialLeads);
   const [, startTransition] = useTransition();
+
+  // Lead selecionado para visualização no modal de detalhes
+  const [selectedLead, setSelectedLead] = useState<KanbanLead | null>(null);
 
   // Lead aguardando preenchimento do modal de perda
   const [pendingLostLead, setPendingLostLead] = useState<KanbanLead | null>(null);
@@ -205,6 +209,27 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     return true;
   };
 
+  // Atualização de observações / notas do atendimento
+  const handleUpdateNotes = async (leadId: string, notes: string) => {
+    // 1. Atualização otimista
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? { ...l, notes } : l))
+    );
+    if (selectedLead && selectedLead.id === leadId) {
+      setSelectedLead((prev) => (prev ? { ...prev, notes } : null));
+    }
+
+    toast.success("Anotação salva com sucesso!");
+
+    // 2. Persistência no servidor
+    const res = await updateLeadNotesAction(leadId, notes);
+    if (!res.success) {
+      toast.error("Falha ao sincronizar anotação com o servidor", {
+        description: res.error,
+      });
+    }
+  };
+
   return (
     <div className="space-y-4" data-testid="kanban-board-container">
       {/* Barra de Filtros Executiva */}
@@ -225,9 +250,26 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
             column={col}
             onDropLead={handleDropLead}
             onMoveStage={handleDropLead}
+            onSelectLead={(lead) => setSelectedLead(lead)}
           />
         ))}
       </div>
+
+      {/* Modal Executivo de Detalhes do Lead */}
+      {selectedLead && (
+        <LeadDetailsModal
+          isOpen={!!selectedLead}
+          lead={selectedLead}
+          onClose={() => setSelectedLead(null)}
+          onUpdateStage={(leadId, newStage) => {
+            handleDropLead(leadId, newStage);
+            setSelectedLead((prev) =>
+              prev && prev.id === leadId ? { ...prev, stage: newStage } : prev
+            );
+          }}
+          onUpdateNotes={handleUpdateNotes}
+        />
+      )}
 
       {/* Modal Obrigatório de Motivo de Descarte */}
       {pendingLostLead && (

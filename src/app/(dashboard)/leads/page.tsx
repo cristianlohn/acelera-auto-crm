@@ -13,6 +13,7 @@
 
 import React, { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import {
   Users,
   CalendarCheck,
@@ -42,12 +43,75 @@ import {
 import { cn } from "@/lib/utils";
 import { mockLeads } from "@/lib/mock-data";
 import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
-import { createLead as persistLead, getLeads } from "@/app/actions/leads";
+import { createLead as persistLead, getLeads, updateLeadStatus } from "@/app/actions/leads";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
 import { useDemoRole } from "@/context/demo-role-context";
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
+import { LeadDetailsModal } from "@/components/leads/lead-details-modal";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
+import type { KanbanLead, LeadStage } from "@/types/kanban";
+
+function mapStatusToStage(status: LeadStatus): LeadStage {
+  switch (status) {
+    case "novo":
+      return "new";
+    case "atendimento":
+      return "in_contact";
+    case "visita":
+      return "test_drive";
+    case "proposta":
+      return "proposal";
+    case "fechado":
+      return "won";
+    default:
+      return "new";
+  }
+}
+
+function mapStageToStatus(stage: LeadStage): LeadStatus {
+  switch (stage) {
+    case "new":
+      return "novo";
+    case "in_contact":
+      return "atendimento";
+    case "test_drive":
+    case "visit_scheduled":
+      return "visita";
+    case "proposal":
+    case "proposal_fi":
+      return "proposta";
+    case "won":
+    case "lost":
+    default:
+      return "fechado";
+  }
+}
+
+function convertDomainLeadToKanban(lead: Lead): KanbanLead {
+  const elapsedMinutes = lead.lastContactAt
+    ? Math.max(0, Math.round((Date.now() - new Date(lead.lastContactAt).getTime()) / 60000))
+    : 5;
+  return {
+    id: lead.id,
+    organization_id: "demo-org",
+    name: lead.name,
+    phone: lead.phone,
+    email: lead.email,
+    source: lead.origin || "site",
+    vehicle_of_interest: lead.vehicleInterest,
+    assigned_to: lead.sellerName ? { id: lead.sellerName, name: lead.sellerName } : null,
+    assigned_to_name: lead.sellerName || "Vendedor Responsável",
+    stage: mapStatusToStage(lead.status),
+    sla_minutes: 15,
+    sla_minutes_elapsed: elapsedMinutes,
+    created_at: lead.lastContactAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    value: 150000,
+    segment: "used_cars",
+    notes: "",
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Configuração das colunas do Kanban
@@ -143,12 +207,25 @@ const ORIGIN_COLORS: Record<LeadOrigin, string> = {
 
 interface LeadCardProps {
   lead: Lead;
+  onSelectLead?: (lead: Lead) => void;
 }
 
-function LeadCard({ lead }: LeadCardProps) {
+function LeadCard({ lead, onSelectLead }: LeadCardProps) {
+  const handleDragStart = (e: React.DragEvent<HTMLElement>) => {
+    e.dataTransfer.setData("leadId", lead.id);
+    e.dataTransfer.setData("text/plain", lead.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
   return (
     <article
-      className="group relative rounded-xl border bg-card p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-border/80"
+      draggable={true}
+      onDragStart={handleDragStart}
+      onClick={() => onSelectLead?.(lead)}
+      data-testid="kanban-card"
+      data-card-id={lead.id}
+      id={`kanban-card-${lead.id}`}
+      className="group relative rounded-xl border bg-card p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:border-orange-500/40 cursor-grab active:cursor-grabbing"
       aria-label={`Lead: ${lead.name}`}
     >
       {/* Cabeçalho: nome + badge origem */}
@@ -163,7 +240,7 @@ function LeadCard({ lead }: LeadCardProps) {
               .toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">
+            <p className="truncate text-sm font-semibold text-foreground group-hover:text-orange-500 transition-colors">
               {lead.name}
             </p>
             <p className="truncate text-xs text-muted-foreground">
@@ -211,6 +288,7 @@ function LeadCard({ lead }: LeadCardProps) {
         href={whatsappUrl(lead)}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-3 py-2 text-xs font-semibold text-white shadow-sm shadow-green-500/20 transition-all duration-200 hover:from-green-600 hover:to-green-700 hover:shadow-md hover:shadow-green-500/30 active:scale-95"
         aria-label={`Abrir conversa WhatsApp com ${lead.name}`}
       >
@@ -229,12 +307,57 @@ function LeadCard({ lead }: LeadCardProps) {
 interface KanbanColumnProps {
   column: KanbanColumn;
   leads: Lead[];
+  onDropLead?: (leadId: string, targetStatus: LeadStatus) => void;
+  onSelectLead?: (lead: Lead) => void;
 }
 
-function KanbanColumnCard({ column, leads }: KanbanColumnProps) {
+function KanbanColumnCard({
+  column,
+  leads,
+  onDropLead,
+  onSelectLead,
+}: KanbanColumnProps) {
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (!isDragOver) setIsDragOver(true);
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLElement>) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLElement>) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const leadId = e.dataTransfer.getData("leadId") || e.dataTransfer.getData("text/plain");
+    if (leadId && onDropLead) {
+      onDropLead(leadId, column.id);
+    }
+  };
+
   return (
     <section
-      className="flex w-72 shrink-0 flex-col gap-3"
+      data-testid="kanban-column"
+      data-stage-id={column.id}
+      id={`kanban-column-${column.id}`}
+      onDragOver={handleDragOver}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={cn(
+        "flex w-72 shrink-0 flex-col gap-3 rounded-2xl p-2 transition-all duration-200 border border-transparent",
+        isDragOver && "border-amber-500/50 bg-amber-500/5 ring-2 ring-amber-500/30"
+      )}
       aria-label={`Coluna: ${column.label}`}
     >
       {/* Cabeçalho da coluna */}
@@ -252,6 +375,8 @@ function KanbanColumnCard({ column, leads }: KanbanColumnProps) {
           </h2>
         </div>
         <span
+          data-testid={`counter-${column.id}`}
+          id={`column-count-${column.id}`}
           className={cn(
             "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold",
             column.bgColor,
@@ -263,14 +388,26 @@ function KanbanColumnCard({ column, leads }: KanbanColumnProps) {
       </div>
 
       {/* Lista de cards */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 min-h-[140px]">
         {leads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-8 text-center">
+          <div
+            className={cn(
+              "flex flex-col items-center justify-center rounded-xl border border-dashed py-8 text-center transition-all",
+              isDragOver && "border-amber-500/50 bg-amber-500/10"
+            )}
+          >
             <div className="mb-2 text-2xl opacity-30">🚗</div>
             <p className="text-xs text-muted-foreground">Nenhum lead aqui</p>
+            <p className="text-[10px] text-muted-foreground/80 mt-0.5">Arraste um card para cá</p>
           </div>
         ) : (
-          leads.map((lead) => <LeadCard key={lead.id} lead={lead} />)
+          leads.map((lead) => (
+            <LeadCard
+              key={lead.id}
+              lead={lead}
+              onSelectLead={onSelectLead}
+            />
+          ))
         )}
       </div>
     </section>
@@ -648,6 +785,8 @@ export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
     ? leads.filter((l) => l.sellerName?.toLowerCase().includes("rafael") || l.sellerName === sellerName)
     : leads;
 
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+
   const handleAddLead = useCallback((lead: Lead) => {
     setLeads((prev) => [lead, ...prev]);
     persistLead({
@@ -660,6 +799,43 @@ export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
       origin: lead.origin,
     }).catch(() => {});
   }, []);
+
+  const handleMoveLead = useCallback(
+    async (leadId: string, newStatus: LeadStatus) => {
+      const targetLead = leads.find((l) => l.id === leadId);
+      if (!targetLead || targetLead.status === newStatus) return;
+
+      const previousStatus = targetLead.status;
+      const targetColumn = KANBAN_COLUMNS.find((c) => c.id === newStatus);
+
+      // 1. Atualização Otimista
+      setLeads((prev) =>
+        prev.map((l) => (l.id === leadId ? { ...l, status: newStatus } : l))
+      );
+
+      toast.success(`${targetLead.name} movido para "${targetColumn?.label || newStatus}"`, {
+        description: `Veículo: ${targetLead.vehicleInterest}`,
+      });
+
+      // 2. Persistência no Supabase / Server Action
+      try {
+        const res = await updateLeadStatus(leadId, newStatus);
+        if (!res.success) {
+          setLeads((prev) =>
+            prev.map((l) => (l.id === leadId ? { ...l, status: previousStatus } : l))
+          );
+          toast.error("Falha ao atualizar o lead no servidor", {
+            description: "Ação revertida automaticamente.",
+          });
+        }
+      } catch {
+        setLeads((prev) =>
+          prev.map((l) => (l.id === leadId ? { ...l, status: previousStatus } : l))
+        );
+      }
+    },
+    [leads]
+  );
 
   const { active, visits, proposals, avgHrs } = computeMetrics(visibleLeads);
 
@@ -780,11 +956,29 @@ export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
                 key={col.id}
                 column={col}
                 leads={visibleLeads.filter((l) => l.status === col.id)}
+                onDropLead={handleMoveLead}
+                onSelectLead={(lead) => setSelectedLead(lead)}
               />
             ))}
             <div className="w-4 shrink-0" aria-hidden />
           </div>
         </div>
+      )}
+
+      {/* Modal de Detalhes do Lead */}
+      {selectedLead && (
+        <LeadDetailsModal
+          isOpen={!!selectedLead}
+          lead={convertDomainLeadToKanban(selectedLead)}
+          onClose={() => setSelectedLead(null)}
+          onUpdateStage={(leadId, newStage) => {
+            const newStatus = mapStageToStatus(newStage);
+            handleMoveLead(leadId, newStatus);
+            setSelectedLead((prev) =>
+              prev && prev.id === leadId ? { ...prev, status: newStatus } : prev
+            );
+          }}
+        />
       )}
     </div>
   );

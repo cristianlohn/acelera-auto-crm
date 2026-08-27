@@ -119,13 +119,14 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
     : "#";
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.setData("leadId", lead.id);
     e.dataTransfer.setData("text/plain", lead.id);
     e.dataTransfer.effectAllowed = "move";
   };
 
   return (
     <div
-      draggable
+      draggable={true}
       onDragStart={handleDragStart}
       onClick={() => onSelectLead?.(lead)}
       data-testid="kanban-card"
@@ -133,7 +134,7 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
       id={`kanban-card-${lead.id}`}
       className={cn(
         "group relative rounded-2xl p-4 transition-all duration-200 cursor-grab active:cursor-grabbing",
-        "bg-zinc-900/90 hover:bg-zinc-900 border border-white/10 hover:border-orange-500/40 shadow-lg hover:shadow-orange-500/5",
+        "bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 hover:border-orange-500/40 shadow-md hover:shadow-orange-500/5",
         slaConfig.isCritical && "ring-1 ring-red-500/40 border-red-500/30"
       )}
     >
@@ -148,7 +149,7 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
       {/* Topo do Card: Nome e Badges */}
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-1 min-w-0">
-          <h4 className="text-sm font-bold text-white tracking-tight truncate group-hover:text-orange-400 transition-colors">
+          <h4 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight truncate group-hover:text-orange-500 transition-colors">
             {lead.name}
           </h4>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -175,33 +176,33 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
       </div>
 
       {/* Veículo de Interesse em Destaque */}
-      <div className="mt-3 rounded-xl bg-white/5 border border-white/5 p-2.5 space-y-1">
-        <div className="flex items-center gap-2 text-zinc-300">
-          <Car className="h-4 w-4 text-orange-400 shrink-0" />
+      <div className="mt-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-2.5 space-y-1">
+        <div className="flex items-center gap-2 text-slate-700 dark:text-zinc-300">
+          <Car className="h-4 w-4 text-orange-500 shrink-0" />
           <span
             data-testid="lead-vehicle"
-            className="text-xs font-semibold text-white truncate"
+            className="text-xs font-semibold text-slate-900 dark:text-white truncate"
           >
             {lead.vehicle_of_interest}
           </span>
         </div>
         {lead.value && (
-          <div className="text-[11px] font-medium text-emerald-400 pl-6">
+          <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 pl-6">
             {formatCurrencyBRL(lead.value)}
           </div>
         )}
       </div>
 
       {/* Rodapé do Card: Vendedor Responsável & Ações Rápidas */}
-      <div className="mt-3.5 pt-3 border-t border-white/10 flex items-center justify-between gap-2">
+      <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-white/10 flex items-center justify-between gap-2">
         {/* Vendedor Atribuído */}
         <div className="flex items-center gap-2 min-w-0">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-[10px] font-bold text-white">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-[10px] font-bold text-white shadow-sm">
             {lead.assigned_to_name.charAt(0).toUpperCase()}
           </div>
           <span
             data-testid="lead-seller-name"
-            className="text-xs text-zinc-300 truncate max-w-[95px]"
+            className="text-xs text-slate-600 dark:text-zinc-300 truncate max-w-[95px]"
           >
             {lead.assigned_to_name}
           </span>

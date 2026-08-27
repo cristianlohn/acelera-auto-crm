@@ -599,3 +599,49 @@ export async function updateLeadLostReasonAction(
 ): Promise<KanbanActionResult> {
   return updateLeadStageAction(leadId, "lost", reason);
 }
+
+/**
+ * Atualiza as observações/anotações de um lead no CRM.
+ */
+export async function updateLeadNotesAction(
+  leadId: string,
+  notes: string
+): Promise<KanbanActionResult> {
+  const tenantContext = await resolveUserTenantContext();
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  const memLead = memoryKanbanLeads.find((l) => l.id === leadId);
+  if (memLead && memLead.organization_id !== orgId && !tenantContext.isDemo) {
+    return {
+      success: false,
+      error: "Acesso negado: o lead não pertence à sua organização.",
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  if (memLead) {
+    memLead.notes = notes;
+    memLead.updated_at = nowIso;
+  }
+
+  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      await supabase
+        .from("leads")
+        .update({ notes, updated_at: nowIso })
+        .eq("id", leadId)
+        .eq("organization_id", orgId);
+    } catch (err) {
+      console.warn("[Kanban Notes Update Error]:", err);
+    }
+  }
+
+  try {
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard");
+    revalidatePath("/leads");
+  } catch {}
+
+  return { success: true, lead: memLead };
+}
