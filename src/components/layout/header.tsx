@@ -20,6 +20,8 @@ import { UserNav } from "@/components/layout/user-nav";
 import { useDemoRole } from "@/context/demo-role-context";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
 
+import { ThemeToggle } from "@/components/theme-toggle";
+
 export function MobileHeader() {
   const [open, setOpen] = useState(false);
   const { role: demoRole, isDemoMode } = useDemoRole();
@@ -77,10 +79,13 @@ export function MobileHeader() {
       {/* Logo centralizado no mobile */}
       <Logo />
 
-      {/* Ação rápida */}
-      <Button variant="ghost" size="icon-sm" aria-label="Ligar para lead">
-        <Phone className="h-4 w-4" />
-      </Button>
+      {/* Ações rápidas */}
+      <div className="flex items-center gap-1.5">
+        <ThemeToggle />
+        <Button variant="ghost" size="icon-sm" aria-label="Ligar para lead">
+          <Phone className="h-4 w-4" />
+        </Button>
+      </div>
     </header>
   );
 }

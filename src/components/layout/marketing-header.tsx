@@ -10,6 +10,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export interface MarketingHeaderProps {
   initialAuthenticated?: boolean;
@@ -99,6 +100,8 @@ export function MarketingHeader({ initialAuthenticated = false }: MarketingHeade
 
         {/* CTAs de Topo */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <ThemeToggle className="bg-white/5 border-white/10 text-white hover:bg-white/10 dark:bg-white/5 dark:border-white/10" />
+
           {isAuthenticated ? (
             <Link href="/leads">
               <Button

@@ -21,6 +21,7 @@ import {
   type UserProfileInfo,
 } from "@/app/actions/auth";
 import { isSuperAdmin } from "@/lib/permissions";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export interface UserNavProps {
   logoutButtonId?: string;
@@ -154,17 +155,21 @@ export function UserNav({
         <TrendingUp className="h-3.5 w-3.5 shrink-0 text-orange-500" />
       </div>
 
-      <button
-        id={logoutButtonId}
-        type="button"
-        disabled={isLoggingOut}
-        onClick={handleLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-800 dark:hover:text-red-200 hover:border-red-300 dark:hover:border-red-700/40 transition-all active:scale-[0.98] disabled:opacity-50"
-        aria-label="Sair da Conta"
-      >
-        <LogOut className="h-3.5 w-3.5 shrink-0" />
-        <span>{isLoggingOut ? "Saindo..." : "Sair da Conta"}</span>
-      </button>
+      <div className="flex items-center gap-2">
+        <ThemeToggle className="flex-1" showLabel={true} />
+        <button
+          id={logoutButtonId}
+          type="button"
+          disabled={isLoggingOut}
+          onClick={handleLogout}
+          className="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/40 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-800 dark:hover:text-red-200 hover:border-red-300 dark:hover:border-red-700/40 transition-all active:scale-[0.98] disabled:opacity-50"
+          aria-label="Sair da Conta"
+          title="Sair da Conta"
+        >
+          <LogOut className="h-3.5 w-3.5 shrink-0" />
+          <span className="font-semibold">{isLoggingOut ? "..." : "Sair"}</span>
+        </button>
+      </div>
     </div>
   );
 }

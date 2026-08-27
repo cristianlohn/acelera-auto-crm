@@ -238,7 +238,7 @@ export function Sidebar({ className = "" }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-card",
+        "hidden lg:flex lg:w-64 lg:flex-col border-r border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950",
         className
       )}
     >
