@@ -25,6 +25,21 @@ export async function createSubscriptionCheckoutAction(
 ): Promise<CreateSubscriptionResult> {
   const { planId, billingCycle } = input;
 
+  console.log(
+    "[Asaas Service] ASAAS_API_KEY presente:",
+    !!process.env.ASAAS_API_KEY,
+    "URL:",
+    process.env.ASAAS_API_URL
+  );
+
+  if (!process.env.ASAAS_API_KEY) {
+    return {
+      success: false,
+      error:
+        "Chave de API do Asaas não encontrada no servidor. Verifique o .env.local e reinicie o servidor.",
+    };
+  }
+
   if (!BILLING_PLANS_CONFIG[planId]) {
     return {
       success: false,
