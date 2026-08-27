@@ -71,11 +71,12 @@ test.describe("[E2E-TEAM-PAGE] Gestão de Equipe & Roleta Comercial (/dashboard/
       await closeTourBtn.click();
     }
 
+    // 1. Localiza o primeiro switch da Roleta na tabela
     const firstToggle = page.locator('[data-testid="toggle-roulette-status"]').first();
     await expect(firstToggle).toBeVisible({ timeout: 10000 });
-    await firstToggle.scrollIntoViewIfNeeded();
 
-    await firstToggle.click({ force: true });
+    // 2. Clica para alternar o status
+    await firstToggle.click();
 
     const toastMessage = page.locator('[data-sonner-toast]');
     await expect(toastMessage).toBeVisible({ timeout: 5000 });

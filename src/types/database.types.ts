@@ -273,6 +273,50 @@ export interface Database {
           },
         ];
       };
+
+      api_keys: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          key_prefix: string;
+          key_hash: string;
+          created_at: string;
+          last_used_at: string | null;
+          revoked_at: string | null;
+          expires_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          key_prefix: string;
+          key_hash: string;
+          created_at?: string;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          expires_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          name?: string;
+          key_prefix?: string;
+          key_hash?: string;
+          created_at?: string;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+          expires_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "api_keys_organization_id_fkey";
+            columns: ["organization_id"];
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {

@@ -361,16 +361,44 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
   const tenantContext = await resolveUserTenantContext();
 
   if (tenantContext.isDemo) {
+    let demoRole: "admin" | "gerente" | "vendedor" | "superadmin" = "admin";
+    let demoName = "Roberto Silva";
+    let demoEmail = "roberto.silva@autoprime.com.br";
+    let demoInitials = "RS";
+
+    try {
+      const cookieStore = await cookies();
+      const cookieRole = cookieStore.get("acelera_demo_role")?.value;
+      if (cookieRole === "vendedor" || cookieRole === "seller") {
+        demoRole = "vendedor";
+        demoName = "Rafael Alves";
+        demoEmail = "rafael.alves@autoprime.com.br";
+        demoInitials = "RA";
+      } else if (cookieRole === "gerente" || cookieRole === "manager") {
+        demoRole = "gerente";
+        demoName = "Juliana Costa";
+        demoEmail = "juliana.costa@autoprime.com.br";
+        demoInitials = "JC";
+      } else if (cookieRole === "superadmin") {
+        demoRole = "superadmin";
+        demoName = "Super Administrador";
+        demoEmail = "superadmin@aceleraautocrm.com.br";
+        demoInitials = "SA";
+      }
+    } catch {
+      //
+    }
+
     return {
       isDemo: true,
       userId: "demo-sandbox-user",
       organizationId: null,
-      fullName: "Gestor Demonstração",
-      email: "demo@aceleraautocrm.com.br",
+      fullName: demoName,
+      email: demoEmail,
       phone: "11988887777",
-      role: "admin",
+      role: demoRole as any,
       avatarUrl: null,
-      initials: "GD",
+      initials: demoInitials,
       organizationName: "Concessionária Demo",
       trialDaysRemaining: 14,
       subscriptionAccess: {

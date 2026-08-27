@@ -11,6 +11,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
@@ -40,16 +41,35 @@ function mapDbLeadToDomain(
   };
 }
 
+import { canViewAllLeads } from "@/lib/permissions";
+
 /**
- * Obtém a listagem completa de leads ordenados por data de criação.
+ * Obtém a listagem completa de leads ordenados por data de criação com RBAC.
  *
  * @returns Lista de leads da organização ou array vazio caso a loja não possua leads cadastrados.
  */
-export async function getLeads(): Promise<Lead[]> {
+export async function getLeads(overrideRole?: string): Promise<Lead[]> {
   const tenantContext = await resolveUserTenantContext();
+  let effectiveRole = overrideRole || tenantContext.profile?.role || "admin";
+  try {
+    const cookieStore = await cookies();
+    const demoRoleCookie = cookieStore.get("acelera_demo_role")?.value;
+    if (!overrideRole && tenantContext.isDemo && demoRoleCookie) {
+      effectiveRole = demoRoleCookie;
+    }
+  } catch {
+    //
+  }
 
-  // 1. Modo Demonstração explícito (sandbox)
-  if (tenantContext.isDemo) {
+  const allowAll = canViewAllLeads(effectiveRole);
+
+  // 1. Modo Demonstração explícito (sandbox) ou ambiente de testes offline
+  if (tenantContext.isDemo || (!tenantContext.organizationId && !isSupabaseServerConfigured())) {
+    if (!allowAll) {
+      return mockLeads.filter(
+        (l) => l.sellerName === "Rafael Alves" || l.sellerName?.toLowerCase().includes("vendedor")
+      );
+    }
     return mockLeads;
   }
 
@@ -61,11 +81,22 @@ export async function getLeads(): Promise<Lead[]> {
   // 3. Usuário Autenticado Real: consulta estritamente a organização do usuário logado
   try {
     const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase
+    let query = supabase
       .from("leads")
       .select("*")
-      .eq("organization_id", tenantContext.organizationId)
-      .order("created_at", { ascending: false });
+      .eq("organization_id", tenantContext.organizationId);
+
+    if (!allowAll) {
+      const userId = tenantContext.userId;
+      const userName = tenantContext.profile?.full_name;
+      if (userId && userName) {
+        query = query.or(`seller_id.eq.${userId},seller_name.eq.${userName}`);
+      } else if (userId) {
+        query = query.eq("seller_id", userId);
+      }
+    }
+
+    const { data, error } = await query.order("created_at", { ascending: false });
 
     if (error || !data) {
       return [];

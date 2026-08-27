@@ -12,7 +12,7 @@
 
 import React, { createContext, useContext, useState, useCallback } from "react";
 
-export type DemoRole = "vendedor" | "gerente" | "admin";
+export type DemoRole = "vendedor" | "gerente" | "admin" | "superadmin" | "seller" | "manager";
 
 export interface RoleConfig {
   role: DemoRole;
@@ -32,8 +32,24 @@ export const ROLE_CONFIGS: Record<DemoRole, RoleConfig> = {
     description: "Visão focada nos próprios leads com restrição a dados estratégicos e equipe.",
     feedbackMessage: "Visão de Vendedor ativada: exibindo apenas leads de Rafael Alves e perfil pessoal.",
   },
+  seller: {
+    role: "seller",
+    label: "👤 Vendedor (Rafael Alves)",
+    name: "Rafael Alves",
+    email: "rafael.alves@autoprime.com.br",
+    description: "Visão focada nos próprios leads com restrição a dados estratégicos e equipe.",
+    feedbackMessage: "Visão de Vendedor ativada: exibindo apenas leads de Rafael Alves e perfil pessoal.",
+  },
   gerente: {
     role: "gerente",
+    label: "👔 Gerente Comercial",
+    name: "Juliana Costa",
+    email: "juliana.costa@autoprime.com.br",
+    description: "Visão de gestão com acesso a todos os leads, funil, métricas de equipe e SLA.",
+    feedbackMessage: "Visão de Gerente Comercial ativada: métricas executivas, relatórios e funil completo liberados.",
+  },
+  manager: {
+    role: "manager",
     label: "👔 Gerente Comercial",
     name: "Juliana Costa",
     email: "juliana.costa@autoprime.com.br",
@@ -47,6 +63,14 @@ export const ROLE_CONFIGS: Record<DemoRole, RoleConfig> = {
     email: "roberto.silva@autoprime.com.br",
     description: "Controle total da concessionária, gestão de equipe, limites de plano e configurações.",
     feedbackMessage: "Visão de Administrador (Dono) ativada: controle total de equipe, quotas e configurações.",
+  },
+  superadmin: {
+    role: "superadmin",
+    label: "👑 Superadmin (SaaS Owner)",
+    name: "Super Administrador",
+    email: "superadmin@aceleraautocrm.com.br",
+    description: "Visão executiva global do SaaS, controle de todas as concessionárias, MRR e métricas.",
+    feedbackMessage: "Visão de Superadmin ativada: acesso ao Portal Executivo /superadmin liberado.",
   },
 };
 
@@ -72,7 +96,15 @@ export function DemoRoleProvider({
   initialRole?: DemoRole;
   initialDemoMode?: boolean;
 }) {
-  const [role, setRoleState] = useState<DemoRole>(initialRole);
+  const [role, setRoleState] = useState<DemoRole>(() => {
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(/acelera_demo_role=([^;]+)/);
+      if (match && match[1] && match[1] in ROLE_CONFIGS) {
+        return match[1] as DemoRole;
+      }
+    }
+    return initialRole;
+  });
   const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
     if (typeof initialDemoMode === "boolean") return initialDemoMode;
     if (typeof document !== "undefined") {
@@ -87,7 +119,10 @@ export function DemoRoleProvider({
 
   const setRole = useCallback((newRole: DemoRole) => {
     setRoleState(newRole);
-    setNotification(ROLE_CONFIGS[newRole].feedbackMessage);
+    if (typeof document !== "undefined") {
+      document.cookie = `acelera_demo_role=${newRole}; path=/; max-age=86400; SameSite=Lax`;
+    }
+    setNotification(ROLE_CONFIGS[newRole]?.feedbackMessage || `Papel alterado para ${newRole}`);
   }, []);
 
   const clearNotification = useCallback(() => {

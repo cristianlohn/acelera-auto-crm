@@ -13,20 +13,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { leadIngestSchema } from "@/lib/validations/lead";
 import { distributeLead, DEFAULT_DEMO_ORG_ID } from "@/lib/services/lead-roulette";
+import { validateApiKey } from "@/lib/services/api-key-service";
 import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import type { LeadOrigin } from "@/types/database.types";
-
-/** Chaves de API pré-configuradas para sandbox/testes */
-const VALID_STATIC_API_KEYS = new Set([
-  "acelera_api_key_live_123",
-  "test_api_key",
-  "demo_store_api_key",
-  "acelera_secret_token_live",
-  "acelera_lead_ingest_v1_key",
-]);
 
 /**
  * Extrai a chave de API dos headers da requisição.
@@ -46,33 +38,6 @@ function extractApiKey(request: NextRequest): string | null {
   }
 
   return null;
-}
-
-/**
- * Valida a autenticidade da chave de API fornecida.
- */
-function isApiKeyValid(apiKey: string | null): boolean {
-  if (!apiKey) return false;
-
-  const envKey = process.env.STORE_API_KEY || process.env.ACELERA_WEBHOOK_API_KEY;
-  if (envKey && apiKey === envKey) {
-    return true;
-  }
-
-  if (VALID_STATIC_API_KEYS.has(apiKey)) {
-    return true;
-  }
-
-  // Valida chaves que seguem o padrão de prefixo seguro
-  if (
-    apiKey.startsWith("acelera_") ||
-    apiKey.startsWith("ak_") ||
-    apiKey.startsWith("store_key_")
-  ) {
-    return true;
-  }
-
-  return false;
 }
 
 /**
@@ -115,13 +80,15 @@ function buildWhatsAppDirectUrl(
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Validação de Autenticação via Header (x-api-key ou Bearer)
+    // 1. Validação Criptográfica de Autenticação via SHA-256 e Status de Revogação
     const apiKey = extractApiKey(request);
-    if (!apiKey || !isApiKeyValid(apiKey)) {
+    const keyValidation = await validateApiKey(apiKey);
+
+    if (!keyValidation.valid) {
       return NextResponse.json(
         {
           success: false,
-          error: "Unauthorized: Chave de API inválida ou ausente no header (x-api-key ou Authorization: Bearer).",
+          error: `Unauthorized: ${keyValidation.error || "Chave de API inválida ou ausente no header (x-api-key ou Authorization: Bearer)."}`,
         },
         { status: 401 }
       );
@@ -154,7 +121,10 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = parseResult.data;
-    const organizationId = request.headers.get("x-organization-id") || DEFAULT_DEMO_ORG_ID;
+    const organizationId =
+      request.headers.get("x-organization-id") ||
+      keyValidation.organizationId ||
+      DEFAULT_DEMO_ORG_ID;
 
     // 3. Execução da Roleta Comercial (Fair Round-Robin)
     const assignedSeller = await distributeLead(organizationId, payload.segment);

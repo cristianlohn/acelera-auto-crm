@@ -1,13 +1,3 @@
-/**
- * @file layout.tsx
- * @description Layout responsivo para as páginas do dashboard do Acelera Auto CRM.
- *
- * Implementa:
- * - Sidebar de navegação lateral (desktop ≥ lg)
- * - Header com menu retrátil via Sheet (mobile)
- * - Banner de assinatura, simulador de papéis e tour guiado
- */
-
 "use client";
 
 import React, { Suspense } from "react";

@@ -10,7 +10,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -21,9 +21,19 @@ import {
   BarChart3,
   Settings,
   HelpCircle,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserNav } from "@/components/layout/user-nav";
+import { useDemoRole } from "@/context/demo-role-context";
+import { getCurrentUserProfileAction } from "@/app/actions/auth";
+import {
+  canManageTeam,
+  canViewExecutiveReports,
+  canManageIntegrationsAndBilling,
+  isSuperAdmin,
+  normalizeRole,
+} from "@/lib/permissions";
 
 export interface NavItem {
   href: string;
@@ -34,7 +44,8 @@ export interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { href: "/leads", label: "Funil de Vendas", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Cockpit Geral", icon: BarChart3 },
+  { href: "/dashboard/leads", label: "Funil de Vendas", icon: LayoutDashboard },
   { href: "/dashboard/team", label: "Equipe & Roleta", icon: Users },
   { href: "/clients", label: "Clientes", icon: Users },
   { href: "/vehicles", label: "Estoque", icon: Car },
@@ -48,6 +59,89 @@ export const navItems: NavItem[] = [
     rel: "noopener noreferrer",
   },
 ];
+
+/**
+ * Retorna a lista de itens de navegação filtrada estritamente pelo papel do usuário (RBAC).
+ */
+export function getNavItemsForRole(role?: string | null): NavItem[] {
+  const norm = normalizeRole(role);
+  const items: NavItem[] = [];
+
+  // Superadmin Exclusive Highlight Item
+  if (isSuperAdmin(norm)) {
+    items.push({
+      href: "/superadmin",
+      label: "⚡ Painel Superadmin",
+      icon: Zap,
+    });
+  }
+
+  // Cockpit
+  items.push({
+    href: "/dashboard",
+    label: norm === "seller" ? "Meu Cockpit" : "Cockpit Geral",
+    icon: BarChart3,
+  });
+
+  // Funil de Vendas / Leads
+  items.push({
+    href: "/dashboard/leads",
+    label: norm === "seller" ? "Meus Leads / Kanban" : "Funil de Vendas",
+    icon: LayoutDashboard,
+  });
+
+  // Equipe & Roleta (Manager, Admin, Superadmin)
+  if (canManageTeam(norm)) {
+    items.push({
+      href: "/dashboard/team",
+      label: "Equipe & Roleta",
+      icon: Users,
+    });
+  }
+
+  // Clientes
+  items.push({
+    href: "/clients",
+    label: "Clientes",
+    icon: Users,
+  });
+
+  // Estoque
+  items.push({
+    href: "/vehicles",
+    label: "Estoque",
+    icon: Car,
+  });
+
+  // Relatórios (Manager, Admin, Superadmin)
+  if (canViewExecutiveReports(norm)) {
+    items.push({
+      href: "/reports",
+      label: "Relatórios",
+      icon: BarChart3,
+    });
+  }
+
+  // Configurações & Integrações (Admin, Superadmin)
+  if (canManageIntegrationsAndBilling(norm)) {
+    items.push({
+      href: "/settings",
+      label: "Configurações",
+      icon: Settings,
+    });
+  }
+
+  // Central de Ajuda (Todos)
+  items.push({
+    href: "/ajuda",
+    label: "Central de Ajuda",
+    icon: HelpCircle,
+    target: "_blank",
+    rel: "noopener noreferrer",
+  });
+
+  return items;
+}
 
 export function Logo({ className }: { className?: string }) {
   return (
@@ -72,7 +166,11 @@ export function NavLink({
   onClick?: () => void;
 }) {
   const pathname = usePathname();
-  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+  const isActive =
+    pathname === item.href ||
+    pathname.startsWith(item.href + "/") ||
+    (item.href === "/dashboard/leads" && (pathname === "/leads" || pathname.startsWith("/leads/"))) ||
+    (item.href === "/leads" && (pathname === "/dashboard/leads" || pathname.startsWith("/dashboard/leads/")));
   const Icon = item.icon;
 
   return (
@@ -105,6 +203,28 @@ export function NavLink({
 }
 
 export function Sidebar({ className = "" }: { className?: string }) {
+  const { role: demoRole, isDemoMode } = useDemoRole();
+  const [realRole, setRealRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!isDemoMode) {
+      getCurrentUserProfileAction()
+        .then((profile) => {
+          if (isMounted && profile?.role) {
+            setRealRole(profile.role);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isDemoMode]);
+
+  const activeRole = demoRole || realRole || "admin";
+  const visibleNavItems = getNavItemsForRole(activeRole);
+
   return (
     <aside
       className={cn(
@@ -117,9 +237,9 @@ export function Sidebar({ className = "" }: { className?: string }) {
         <Logo />
       </div>
 
-      {/* Navegação */}
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3">
-        {navItems.map((item) => (
+      {/* Navegação Dinâmica RBAC */}
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3" data-testid="sidebar-nav">
+        {visibleNavItems.map((item) => (
           <NavLink key={item.href} item={item} />
         ))}
       </nav>

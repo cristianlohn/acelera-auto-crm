@@ -25,6 +25,16 @@ import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ReportsPage from "@/app/(dashboard)/reports/page";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+  usePathname: () => "/reports",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 // ---------------------------------------------------------------------------
 // [IT-08] Módulo de Relatórios e Indicadores Comerciais
 // ---------------------------------------------------------------------------

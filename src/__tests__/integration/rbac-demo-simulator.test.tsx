@@ -42,6 +42,10 @@ vi.mock("next/navigation", () => ({
 describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstração", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    if (typeof document !== "undefined") {
+      document.cookie = "acelera_demo_role=; path=/; max-age=0";
+      document.cookie = "acelera_demo_mode=; path=/; max-age=0";
+    }
   });
 
   it("[IT-16.1] Deve validar que o atalho 'Super Admin' NÃO é renderizado na navegação padrão", () => {

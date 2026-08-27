@@ -25,20 +25,33 @@ import userEvent from "@testing-library/user-event";
 import SuperAdminPage from "@/app/(dashboard)/superadmin/page";
 import * as superadminActions from "@/app/actions/superadmin";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+  }),
+  usePathname: () => "/superadmin",
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 describe("[IT-14] Painel Backoffice Super Admin e Gestão de Assinaturas B2B", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    if (typeof document !== "undefined") {
+      document.cookie = "acelera_demo_role=superadmin; path=/";
+    }
   });
 
   it("[IT-14.1] Deve renderizar os 4 cards de KPIs B2B com métricas calculadas", () => {
     // Arrange & Act (Dado que o painel Super Admin é renderizado)
     render(<SuperAdminPage />);
 
-    // Assert (Então os cards de MRR, Lojas Ativas, Trials e Alertas devem estar visíveis)
-    expect(screen.getByText(/mrr atual/i)).toBeInTheDocument();
-    expect(screen.getByText(/lojas pagantes/i)).toBeInTheDocument();
-    expect(screen.getByText(/lojas em trial/i)).toBeInTheDocument();
-    expect(screen.getByText(/trials expirando/i)).toBeInTheDocument();
+    // Assert (Então os 4 cards de KPIs B2B devem estar visíveis)
+    expect(screen.getByText(/total de concessionárias/i)).toBeInTheDocument();
+    expect(screen.getByText(/concessionárias ativas/i)).toBeInTheDocument();
+    expect(screen.getByText(/mrr estimado/i)).toBeInTheDocument();
+    expect(screen.getByText(/total de leads trafegados/i)).toBeInTheDocument();
   });
 
   it("[IT-14.2] Deve renderizar a listagem de concessionárias com nomes, gestores e badges de status", () => {

@@ -12,7 +12,9 @@
 
 "use client";
 
-import React, { useState, useMemo, useTransition } from "react";
+import React, { useState, useMemo, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ShieldCheck,
   DollarSign,
@@ -30,6 +32,7 @@ import {
   PlusCircle,
   Ban,
   Check,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +51,8 @@ import {
   extendDealershipTrial,
   toggleDealershipStatus,
 } from "@/app/actions/superadmin";
+import { useDemoRole } from "@/context/demo-role-context";
+import { isSuperAdmin } from "@/lib/permissions";
 
 // ---------------------------------------------------------------------------
 // Configurações de Abas
@@ -126,6 +131,7 @@ interface StatCardProps {
   iconBg: string;
   iconColor: string;
   alert?: boolean;
+  dataTestId?: string;
 }
 
 function StatCard({
@@ -136,9 +142,11 @@ function StatCard({
   iconBg,
   iconColor,
   alert,
+  dataTestId,
 }: StatCardProps) {
   return (
     <div
+      data-testid={dataTestId}
       className={cn(
         "relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm transition-all duration-200 hover:shadow-md",
         alert && "border-amber-500/50 bg-gradient-to-br from-amber-500/10 to-transparent"
@@ -170,25 +178,48 @@ function StatCard({
 // ---------------------------------------------------------------------------
 
 export default function SuperAdminPage() {
+  const router = useRouter();
+  const { role } = useDemoRole();
   const [dealerships, setDealerships] = useState<DealershipAccount[]>(mockDealerships);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const effectiveRole = (() => {
+    if (typeof document !== "undefined") {
+      const cookieMatch = document.cookie.match(/acelera_demo_role=([^;]+)/);
+      if (cookieMatch && cookieMatch[1]) return cookieMatch[1];
+    }
+    return role;
+  })();
+
+  useEffect(() => {
+    if (!isSuperAdmin(effectiveRole)) {
+      router.replace("/dashboard");
+    }
+  }, [effectiveRole, router]);
+
+  if (!isSuperAdmin(effectiveRole)) {
+    return null;
+  }
+
   // Métricas calculadas
   const metrics = useMemo(() => {
+    const totalStores = dealerships.length;
     const activeStores = dealerships.filter((d) => d.status === "active").length;
     const trialStores = dealerships.filter((d) => d.status === "trialing").length;
     const mrr = dealerships
       .filter((d) => d.status === "active")
       .reduce((acc, curr) => acc + curr.monthlyFee, 0);
 
+    const totalLeads = dealerships.reduce((acc, curr) => acc + (curr.leadsCount || 0), 0);
+
     const expiringTrialsCount = dealerships.filter(
       (d) => d.status === "trialing" && isExpiringSoon(d.trialEndsAt)
     ).length;
 
-    return { mrr, activeStores, trialStores, expiringTrialsCount };
+    return { totalStores, mrr, activeStores, trialStores, totalLeads, expiringTrialsCount };
   }, [dealerships]);
 
   // Filtro por termo de busca e aba de status
@@ -306,37 +337,40 @@ export default function SuperAdminPage() {
         {/* Grid de KPIs B2B */}
         <div className="mt-4 grid grid-cols-2 gap-3 pb-1 sm:grid-cols-4">
           <StatCard
-            label="MRR Atual"
-            value={formatCurrency(metrics.mrr)}
-            subtext={`${metrics.activeStores} assinaturas ativas`}
-            icon={DollarSign}
-            iconBg="bg-emerald-500/15"
-            iconColor="text-emerald-500"
-          />
-          <StatCard
-            label="Lojas Pagantes"
-            value={metrics.activeStores}
-            subtext="Concessionárias ativas"
+            label="Total de Concessionárias"
+            value={metrics.totalStores}
+            subtext="Lojas cadastradas no CRM"
             icon={Building2}
             iconBg="bg-blue-500/15"
             iconColor="text-blue-500"
+            dataTestId="kpi-total-dealerships"
           />
           <StatCard
-            label="Lojas em Trial"
-            value={metrics.trialStores}
-            subtext="Período de teste de 14 dias"
-            icon={Clock}
-            iconBg="bg-amber-500/15"
-            iconColor="text-amber-500"
+            label="Concessionárias Ativas"
+            value={metrics.activeStores}
+            subtext="Assinaturas ativas pagantes"
+            icon={CheckCircle2}
+            iconBg="bg-emerald-500/15"
+            iconColor="text-emerald-500"
+            dataTestId="kpi-active-dealerships"
           />
           <StatCard
-            label="Trials Expirando (≤ 48h)"
-            value={metrics.expiringTrialsCount}
-            subtext="Oportunidades quentes de conversão"
-            icon={AlertTriangle}
+            label="MRR Estimado"
+            value={formatCurrency(metrics.mrr)}
+            subtext="Receita recorrente mensal"
+            icon={DollarSign}
+            iconBg="bg-purple-500/15"
+            iconColor="text-purple-500"
+            dataTestId="kpi-mrr-dealerships"
+          />
+          <StatCard
+            label="Total de Leads Trafegados"
+            value={metrics.totalLeads.toLocaleString("pt-BR")}
+            subtext="Volume transacionado no CRM"
+            icon={Sparkles}
             iconBg="bg-orange-500/15"
             iconColor="text-orange-500"
-            alert={metrics.expiringTrialsCount > 0}
+            dataTestId="kpi-leads-dealerships"
           />
         </div>
       </div>
@@ -349,22 +383,18 @@ export default function SuperAdminPage() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
-            id="search-dealerships"
-            role="searchbox"
-            aria-label="Buscar concessionárias"
-            placeholder="Buscar por loja, CNPJ, cidade ou gestor..."
+            data-testid="input-search-dealerships"
+            type="search"
+            aria-label="Buscar concessionárias por nome, CNPJ ou gestor"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-8 text-xs h-8 bg-background"
+            placeholder="Buscar por loja, CNPJ, cidade ou gestor..."
+            className="pl-8 text-xs h-8 bg-background/80"
           />
         </div>
 
-        {/* Abas de Status */}
-        <div
-          role="tablist"
-          aria-label="Filtrar lojas por status"
-          className="inline-flex rounded-lg border bg-muted/60 p-1 text-xs overflow-x-auto max-w-full"
-        >
+        {/* Abas de Filtro de Status */}
+        <div className="flex flex-wrap items-center gap-1.5" role="tablist">
           {STATUS_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -372,10 +402,10 @@ export default function SuperAdminPage() {
               aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "rounded-md px-3 py-1 font-medium transition-all whitespace-nowrap",
+                "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
                 activeTab === tab.id
-                  ? "bg-background text-foreground shadow-sm font-semibold"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
               {tab.label}
@@ -405,7 +435,7 @@ export default function SuperAdminPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-4" data-testid="dealerships-list">
             {filteredDealerships.map((dealership) => {
               const statusCfg = STATUS_CONFIG[dealership.status];
               const planCfg = PLAN_BADGES[dealership.plan] || PLAN_BADGES.pro;
@@ -422,6 +452,7 @@ export default function SuperAdminPage() {
               return (
                 <div
                   key={dealership.id}
+                  data-testid="dealership-card"
                   className="group relative flex flex-col justify-between rounded-xl border bg-card p-4 shadow-sm transition-all duration-200 hover:border-orange-500/40 hover:shadow-md sm:p-5"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -456,9 +487,11 @@ export default function SuperAdminPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span>CNPJ: {dealership.document}</span>
+                        <span>CNPJ: <strong>{dealership.document}</strong></span>
                         <span>•</span>
                         <span>{dealership.city} - {dealership.state}</span>
+                        <span>•</span>
+                        <span>Criada em: <strong>{formatDate(dealership.createdAt)}</strong></span>
                         <span>•</span>
                         <span>Gestor: <strong className="text-foreground">{dealership.managerName}</strong> ({dealership.managerEmail})</span>
                       </div>
@@ -490,6 +523,18 @@ export default function SuperAdminPage() {
 
                     {/* Ações Administrativas */}
                     <div className="flex flex-wrap items-center gap-2 pt-2 lg:pt-0 shrink-0">
+                      {/* Visualizar Loja */}
+                      <Link href="/dashboard" data-testid="btn-view-store">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 text-xs h-8 hover:bg-orange-500/10 hover:border-orange-500/30 hover:text-orange-400"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          <span>Visualizar Loja</span>
+                        </Button>
+                      </Link>
+
                       {/* Ativar Assinatura Manual */}
                       <Button
                         id={`btn-activate-${dealership.id}`}
