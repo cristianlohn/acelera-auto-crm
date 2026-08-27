@@ -20,6 +20,7 @@ import {
   getCurrentUserProfileAction,
   type UserProfileInfo,
 } from "@/app/actions/auth";
+import { normalizeRole } from "@/lib/permissions";
 
 export interface UserNavProps {
   logoutButtonId?: string;
@@ -119,13 +120,23 @@ export function UserNav({
           {getInitials(displayName)}
         </div>
         <div className="min-w-0 flex-1">
-          <p
-            data-testid="user-display-name"
-            className="truncate text-xs font-semibold text-foreground"
-            title={displayName}
-          >
-            {displayName}
-          </p>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p
+              data-testid="user-display-name"
+              className="truncate text-xs font-semibold text-foreground"
+              title={displayName}
+            >
+              {displayName}
+            </p>
+            {normalizeRole(activeRole) === "superadmin" && (
+              <span
+                data-testid="badge-superadmin-user"
+                className="shrink-0 text-[9px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1.5 py-0.2 rounded uppercase tracking-wider"
+              >
+                SUPERADMIN
+              </span>
+            )}
+          </div>
           {displayEmail ? (
             <p
               data-testid="user-display-email"

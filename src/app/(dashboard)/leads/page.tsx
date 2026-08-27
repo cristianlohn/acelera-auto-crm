@@ -12,6 +12,7 @@
 "use client";
 
 import React, { useState, useCallback, useEffect } from "react";
+import Link from "next/link";
 import {
   Users,
   CalendarCheck,
@@ -663,64 +664,73 @@ export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
   const { active, visits, proposals, avgHrs } = computeMetrics(visibleLeads);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-4 py-3 sm:px-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-foreground sm:text-xl">
-                Funil de Vendas
-              </h1>
-              {isVendedorRole && (
-                <span
-                  id="badge-vendedor-filter"
-                  className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-950/60 dark:text-orange-300"
-                >
-                  <User className="h-3 w-3" />
-                  Meus Leads ({sellerName})
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {isVendedorRole
-                ? `${visibleLeads.length} leads atribuídos a você`
-                : `${visibleLeads.length} leads no total da loja`}
-            </p>
+    <div className="flex-1 space-y-6 p-6 md:p-8 pt-6">
+      {/* Cabeçalho e Breadcrumb */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
+        <div>
+          <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
+            <Link
+              href="/dashboard"
+              className="hover:text-foreground transition-colors"
+            >
+              Cockpit
+            </Link>
+            <ChevronRight className="h-3 w-3" />
+            <span className="text-orange-500 font-semibold">Funil de Vendas</span>
+          </nav>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-foreground sm:text-2xl">
+              Funil de Vendas
+            </h1>
+            {isVendedorRole && (
+              <span
+                id="badge-vendedor-filter"
+                className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-950/60 dark:text-orange-300"
+              >
+                <User className="h-3 w-3" />
+                Meus Leads ({sellerName})
+              </span>
+            )}
           </div>
-          <AddLeadModal onAdd={handleAddLead} />
+          <p className="text-xs text-muted-foreground mt-1">
+            {isVendedorRole
+              ? `${visibleLeads.length} leads atribuídos a você`
+              : `${visibleLeads.length} leads no total da loja`}
+          </p>
         </div>
+        <AddLeadModal onAdd={handleAddLead} />
+      </div>
 
-        <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4 sm:px-6">
-          <MetricCard
-            label="Leads Ativos"
-            value={active}
-            icon={Users}
-            trend={visibleLeads.length > 0 ? "+3 esta semana" : undefined}
-            color="text-blue-600"
-            bgGradient="bg-blue-100 dark:bg-blue-900/40"
-          />
-          <MetricCard
-            label="Visitas Agendadas"
-            value={visits}
-            icon={CalendarCheck}
-            color="text-amber-600"
-            bgGradient="bg-amber-100 dark:bg-amber-900/40"
-          />
-          <MetricCard
-            label="Propostas em Análise"
-            value={proposals}
-            icon={FileText}
-            color="text-orange-600"
-            bgGradient="bg-orange-100 dark:bg-orange-900/40"
-          />
-          <MetricCard
-            label="Tempo Médio de Resposta"
-            value={avgHrs > 0 ? `${avgHrs}h` : "—"}
-            icon={Clock}
-            color="text-violet-600"
-            bgGradient="bg-violet-100 dark:bg-violet-900/40"
-          />
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MetricCard
+          label="Leads Ativos"
+          value={active}
+          icon={Users}
+          trend={visibleLeads.length > 0 ? "+3 esta semana" : undefined}
+          color="text-blue-600"
+          bgGradient="bg-blue-100 dark:bg-blue-900/40"
+        />
+        <MetricCard
+          label="Visitas Agendadas"
+          value={visits}
+          icon={CalendarCheck}
+          color="text-amber-600"
+          bgGradient="bg-amber-100 dark:bg-amber-900/40"
+        />
+        <MetricCard
+          label="Propostas em Análise"
+          value={proposals}
+          icon={FileText}
+          color="text-orange-600"
+          bgGradient="bg-orange-100 dark:bg-orange-900/40"
+        />
+        <MetricCard
+          label="Tempo Médio de Resposta"
+          value={avgHrs > 0 ? `${avgHrs}h` : "—"}
+          icon={Clock}
+          color="text-violet-600"
+          bgGradient="bg-violet-100 dark:bg-violet-900/40"
+        />
       </div>
 
       {!isVendedorRole && visibleLeads.length > 0 && (

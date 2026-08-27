@@ -34,7 +34,7 @@ export default async function DashboardLeadsPage() {
     totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="flex-1 space-y-6 p-6 md:p-8 pt-6">
       {/* Cabeçalho Executivo e Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

@@ -240,8 +240,8 @@ export function Sidebar({ className = "" }: { className?: string }) {
     };
   }, [isDemoMode]);
 
-  const activeRole = demoRole || realRole || "admin";
-  const isSuper = isSuperAdmin(activeRole);
+  const activeRole = isDemoMode ? demoRole : realRole || "admin";
+  const isSuper = normalizeRole(activeRole) === "superadmin";
   const visibleNavItems = getNavItemsForRole(activeRole);
 
   return (
@@ -256,21 +256,22 @@ export function Sidebar({ className = "" }: { className?: string }) {
         <Logo />
       </div>
 
-      {/* Destaque Exclusivo do Superadmin */}
+      {/* Botão de Destaque Exclusivo do Superadmin */}
       {isSuper && (
         <div className="px-3 pt-3">
           <Link
             href="/superadmin"
             prefetch={true}
-            data-testid="btn-superadmin-highlight"
-            className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-red-500/15 border border-orange-500/30 p-2.5 text-xs font-bold text-orange-400 hover:text-orange-300 hover:border-orange-500/60 transition-all shadow-sm group"
+            data-testid="btn-superadmin-portal"
+            id="btn-superadmin-portal"
+            className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-900/10 to-yellow-500/15 border border-amber-500/40 p-2.5 text-xs font-bold text-amber-400 hover:text-amber-300 hover:border-amber-400 hover:shadow-amber-500/10 transition-all shadow-md group"
           >
             <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-orange-400 fill-orange-400 group-hover:scale-110 transition-transform" />
+              <Zap className="h-4 w-4 text-amber-400 fill-amber-400 group-hover:scale-110 transition-transform" />
               <span>⚡ Painel Superadmin</span>
             </div>
-            <span className="text-[10px] bg-orange-500/20 text-orange-300 px-1.5 py-0.5 rounded border border-orange-500/30">
-              SaaS
+            <span className="text-[10px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.5 rounded border border-amber-500/40 uppercase tracking-wider">
+              MASTER
             </span>
           </Link>
         </div>

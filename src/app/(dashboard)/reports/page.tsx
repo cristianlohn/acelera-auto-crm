@@ -263,6 +263,35 @@ const PERIOD_METRICS: Record<
   },
 };
 
+const EMPTY_METRICS: {
+  kpis: KPIStats;
+  funnel: FunnelStageData[];
+  channels: ChannelPerformance[];
+  sellers: SellerPerformance[];
+  topVehicles: TopVehicle[];
+} = {
+  kpis: {
+    revenue: 0,
+    revenueGrowth: 0,
+    conversionRate: 0,
+    conversionGrowth: 0,
+    averageTicket: 0,
+    ticketGrowth: 0,
+    avgResponseMinutes: 0,
+    responseDiffMinutes: 0,
+  },
+  funnel: [
+    { id: "novo", name: "Novo Lead", count: 0, percentage: 0, conversionFromPrev: 0 },
+    { id: "atendimento", name: "Em Atendimento", count: 0, percentage: 0, conversionFromPrev: 0 },
+    { id: "visita", name: "Visita / Test-Drive", count: 0, percentage: 0, conversionFromPrev: 0 },
+    { id: "proposta", name: "Proposta", count: 0, percentage: 0, conversionFromPrev: 0 },
+    { id: "fechado", name: "Venda Fechada", count: 0, percentage: 0, conversionFromPrev: 0 },
+  ],
+  channels: [],
+  sellers: [],
+  topVehicles: [],
+};
+
 // ---------------------------------------------------------------------------
 // Componente de Cartão de KPI
 // ---------------------------------------------------------------------------
@@ -334,10 +363,10 @@ export default function ReportsPage() {
   const [period, setPeriod] = useState<ReportPeriod>("month");
   const [isExporting, startExportTransition] = useTransition();
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
-  const { role, sellerName } = useDemoRole();
+  const { role, sellerName, isDemoMode } = useDemoRole();
 
   const isVendedorRole = role === "vendedor" || role === "seller";
-  const currentData = PERIOD_METRICS[period];
+  const currentData = isDemoMode ? PERIOD_METRICS[period] : EMPTY_METRICS;
   const { kpis, funnel, channels, sellers, topVehicles } = currentData;
 
   const handleExport = () => {
@@ -586,42 +615,56 @@ export default function ReportsPage() {
                 <Share2 className="h-4 w-4 text-muted-foreground" />
               </div>
 
-              <div className="space-y-3.5">
-                {channels.map((chan) => (
-                  <div key={chan.channel} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className={cn("h-2 w-2 rounded-full", chan.color)} />
-                        <span className="font-medium text-foreground">
-                          {chan.channel}
-                        </span>
+              {channels.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                  <Share2 className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                  <p className="text-xs font-semibold text-foreground">
+                    Nenhum dado registrado neste período
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5 max-w-xs">
+                    Origens de tráfego e canais de conversão aparecerão aqui à medida que novos leads forem recebidos.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3.5">
+                  {channels.map((chan) => (
+                    <div key={chan.channel} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className={cn("h-2 w-2 rounded-full", chan.color)} />
+                          <span className="font-medium text-foreground">
+                            {chan.channel}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground">
+                            {chan.leadsCount} leads ({chan.dealsCount} vendas)
+                          </span>
+                          <span className="font-bold text-foreground">
+                            {chan.conversionRate}%
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">
-                          {chan.leadsCount} leads ({chan.dealsCount} vendas)
-                        </span>
-                        <span className="font-bold text-foreground">
-                          {chan.conversionRate}%
-                        </span>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                        <div
+                          className={cn("h-full rounded-full", chan.color)}
+                          style={{ width: `${chan.share}%` }}
+                        />
                       </div>
                     </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className={cn("h-full rounded-full", chan.color)}
-                        style={{ width: `${chan.share}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="mt-4 rounded-lg bg-muted/50 p-2.5 text-[11px] text-muted-foreground flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-orange-500 shrink-0" />
-              <span>
-                <strong>WhatsApp</strong> é o canal com maior taxa de conversão direta.
-              </span>
-            </div>
+            {channels.length > 0 && (
+              <div className="mt-4 rounded-lg bg-muted/50 p-2.5 text-[11px] text-muted-foreground flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                <span>
+                  <strong>WhatsApp</strong> é o canal com maior taxa de conversão direta.
+                </span>
+              </div>
+            )}
           </section>
         </div>
 
@@ -644,67 +687,79 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <div className="divide-y">
-              {sellers.map((seller, index) => {
-                const isTop1 = index === 0;
-                return (
-                  <div
-                    key={seller.id}
-                    className={cn(
-                      "flex items-center justify-between py-3 transition-colors",
-                      isTop1 && "bg-amber-500/5 -mx-2 px-2 rounded-lg"
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <div
-                          className={cn(
-                            "flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm",
-                            isTop1
-                              ? "bg-gradient-to-br from-amber-400 to-orange-500 ring-2 ring-amber-400"
-                              : "bg-slate-500"
-                          )}
-                        >
-                          {seller.avatar}
-                        </div>
-                        {isTop1 && (
-                          <span
-                            title="Top 1 Campeão de Vendas"
-                            className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] shadow"
+            {sellers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground rounded-lg border border-dashed border-border/60 bg-muted/20">
+                <Users className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                <p className="text-xs font-semibold text-foreground">
+                  Nenhum vendedor com vendas concluídas no período
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 max-w-xs">
+                  Os consultores com negociações ganhas na esteira comercial serão ranqueados aqui.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {sellers.map((seller, index) => {
+                  const isTop1 = index === 0;
+                  return (
+                    <div
+                      key={seller.id}
+                      className={cn(
+                        "flex items-center justify-between py-3 transition-colors",
+                        isTop1 && "bg-amber-500/5 -mx-2 px-2 rounded-lg"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div
+                            className={cn(
+                              "flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm",
+                              isTop1
+                                ? "bg-gradient-to-br from-amber-400 to-orange-500 ring-2 ring-amber-400"
+                                : "bg-slate-500"
+                            )}
                           >
-                            👑
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm font-semibold text-foreground">
-                            {seller.name}
-                          </p>
+                            {seller.avatar}
+                          </div>
                           {isTop1 && (
-                            <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
-                              Top 1
+                            <span
+                              title="Top 1 Campeão de Vendas"
+                              className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[10px] shadow"
+                            >
+                              👑
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          {seller.dealsCount} vendas concluídas • SLA: {seller.avgResponseMinutes} min
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-semibold text-foreground">
+                              {seller.name}
+                            </p>
+                            {isTop1 && (
+                              <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[9px] font-bold text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
+                                Top 1
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {seller.dealsCount} vendas concluídas • SLA: {seller.avgResponseMinutes} min
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-foreground">
+                          {formatCurrency(seller.revenue)}
                         </p>
+                        <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                          {seller.conversionRate}% conv.
+                        </span>
                       </div>
                     </div>
-
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-foreground">
-                        {formatCurrency(seller.revenue)}
-                      </p>
-                      <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                        {seller.conversionRate}% conv.
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           {/* Veículos Mais Vendidos / Maior Giro */}
@@ -724,31 +779,43 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              {topVehicles.map((car) => (
-                <div
-                  key={`${car.make}-${car.model}`}
-                  className="flex items-center justify-between rounded-lg border bg-muted/30 p-2.5 transition-all hover:bg-muted/60"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-foreground truncate">
-                      {car.make} {car.model}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      {car.version} • Giro médio: {car.avgDaysToSell} dias
-                    </p>
+            {topVehicles.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground rounded-lg border border-dashed border-border/60 bg-muted/20">
+                <Layers className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                <p className="text-xs font-semibold text-foreground">
+                  Nenhum veículo vendido no período
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 max-w-xs">
+                  Os modelos com maior volume de faturamento e giro de estoque aparecerão aqui.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {topVehicles.map((car) => (
+                  <div
+                    key={`${car.make}-${car.model}`}
+                    className="flex items-center justify-between rounded-lg border bg-muted/30 p-2.5 transition-all hover:bg-muted/60"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-foreground truncate">
+                        {car.make} {car.model}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {car.version} • Giro médio: {car.avgDaysToSell} dias
+                      </p>
+                    </div>
+                    <div className="text-right ml-2 shrink-0">
+                      <p className="text-xs font-bold text-foreground">
+                        {car.unitsSold} {car.unitsSold === 1 ? "unidade" : "unidades"}
+                      </p>
+                      <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                        {formatCurrency(car.totalRevenue)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right ml-2 shrink-0">
-                    <p className="text-xs font-bold text-foreground">
-                      {car.unitsSold} {car.unitsSold === 1 ? "unidade" : "unidades"}
-                    </p>
-                    <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(car.totalRevenue)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>
