@@ -67,15 +67,6 @@ export function getNavItemsForRole(role?: string | null): NavItem[] {
   const norm = normalizeRole(role);
   const items: NavItem[] = [];
 
-  // Superadmin Exclusive Highlight Item
-  if (isSuperAdmin(norm)) {
-    items.push({
-      href: "/superadmin",
-      label: "⚡ Painel Superadmin",
-      icon: Zap,
-    });
-  }
-
   // Cockpit
   items.push({
     href: "/dashboard",
@@ -241,13 +232,13 @@ export function Sidebar({ className = "" }: { className?: string }) {
   }, [isDemoMode]);
 
   const activeRole = isDemoMode ? demoRole : realRole || "admin";
-  const isSuper = normalizeRole(activeRole) === "superadmin";
+  const isSuper = isSuperAdmin(activeRole);
   const visibleNavItems = getNavItemsForRole(activeRole);
 
   return (
     <aside
       className={cn(
-        "hidden lg:flex lg:w-60 lg:flex-col lg:border-r lg:bg-card",
+        "hidden lg:flex lg:w-64 lg:flex-col lg:border-r lg:bg-card",
         className
       )}
     >

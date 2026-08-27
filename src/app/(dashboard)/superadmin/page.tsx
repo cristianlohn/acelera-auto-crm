@@ -52,6 +52,7 @@ import {
 } from "@/app/actions/superadmin";
 import { useDemoRole } from "@/context/demo-role-context";
 import { isSuperAdmin } from "@/lib/permissions";
+import { getCurrentUserProfileAction } from "@/app/actions/auth";
 
 // ---------------------------------------------------------------------------
 // Configurações de Abas
@@ -178,26 +179,53 @@ function StatCard({
 
 export default function SuperAdminPage() {
   const router = useRouter();
-  const { role } = useDemoRole();
+  const { role, isDemoMode } = useDemoRole();
+  const [realRole, setRealRole] = useState<string | null>(null);
   const [dealerships, setDealerships] = useState<DealershipAccount[]>(mockDealerships);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const effectiveRole = useMemo(() => {
-    if (typeof document !== "undefined") {
-      const cookieMatch = document.cookie.match(/acelera_demo_role=([^;]+)/);
-      if (cookieMatch && cookieMatch[1]) return cookieMatch[1];
+  useEffect(() => {
+    let isMounted = true;
+    if (!isDemoMode) {
+      getCurrentUserProfileAction()
+        .then((profile) => {
+          if (isMounted && profile?.role) {
+            setRealRole(profile.role);
+          }
+        })
+        .catch(() => {});
     }
-    return role;
-  }, [role]);
+    return () => {
+      isMounted = false;
+    };
+  }, [isDemoMode]);
+
+  const effectiveRole = useMemo(() => {
+    if (isDemoMode) {
+      if (typeof document !== "undefined") {
+        const cookieMatch = document.cookie.match(/acelera_demo_role=([^;]+)/);
+        if (cookieMatch && cookieMatch[1]) return cookieMatch[1];
+      }
+      return role;
+    }
+    return realRole || role;
+  }, [role, isDemoMode, realRole]);
 
   useEffect(() => {
-    if (!isSuperAdmin(effectiveRole)) {
-      router.replace("/dashboard");
+    // Se estiver em modo demo e não for superadmin, ou se já recuperou realRole e não for superadmin
+    if (isDemoMode) {
+      if (!isSuperAdmin(effectiveRole)) {
+        router.replace("/dashboard");
+      }
+    } else if (realRole !== null) {
+      if (!isSuperAdmin(realRole)) {
+        router.replace("/dashboard");
+      }
     }
-  }, [effectiveRole, router]);
+  }, [effectiveRole, realRole, isDemoMode, router]);
 
   // Métricas calculadas
   const metrics = useMemo(() => {

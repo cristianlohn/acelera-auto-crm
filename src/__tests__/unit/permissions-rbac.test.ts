@@ -126,10 +126,17 @@ describe("[UNIT-RBAC] Matriz Central de Permissões (src/lib/permissions.ts)", (
       expect(hrefs).not.toContain("/superadmin");
     });
 
-    it("deve incluir '⚡ Painel Superadmin' no topo exclusivamente para Superadmin", () => {
+    it("deve retornar rotas administrativas completas para Superadmin sem duplicar superadmin na lista comum", () => {
       const items = getNavItemsForRole("superadmin");
-      expect(items[0].href).toBe("/superadmin");
-      expect(items[0].label).toContain("Painel Superadmin");
+      const hrefs = items.map((i) => i.href);
+      expect(hrefs).toContain("/dashboard");
+      expect(hrefs).toContain("/dashboard/leads");
+      expect(hrefs).toContain("/dashboard/team");
+      expect(hrefs).toContain("/clients");
+      expect(hrefs).toContain("/vehicles");
+      expect(hrefs).toContain("/reports");
+      expect(hrefs).toContain("/settings");
+      expect(hrefs).not.toContain("/superadmin");
     });
   });
 });

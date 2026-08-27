@@ -20,7 +20,7 @@ import {
   getCurrentUserProfileAction,
   type UserProfileInfo,
 } from "@/app/actions/auth";
-import { normalizeRole } from "@/lib/permissions";
+import { isSuperAdmin } from "@/lib/permissions";
 
 export interface UserNavProps {
   logoutButtonId?: string;
@@ -112,43 +112,43 @@ export function UserNav({
 
   return (
     <div className={`border-t p-3 space-y-2.5 bg-card/60 ${className}`}>
-      <div className="flex items-center gap-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/5 p-2.5 ring-1 ring-orange-500/20">
+      <div className="flex items-center gap-2.5 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/5 p-2.5 ring-1 ring-orange-500/20">
         <div
           data-testid="user-avatar-initials"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs font-bold text-white shadow"
         >
           {getInitials(displayName)}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center gap-1.5 min-w-0">
-            <p
+            <span
               data-testid="user-display-name"
-              className="truncate text-xs font-semibold text-foreground"
+              className="text-xs font-medium text-slate-200 truncate"
               title={displayName}
             >
               {displayName}
-            </p>
-            {normalizeRole(activeRole) === "superadmin" && (
+            </span>
+            {isSuperAdmin(activeRole) && (
               <span
                 data-testid="badge-superadmin-user"
-                className="shrink-0 text-[9px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1.5 py-0.2 rounded uppercase tracking-wider"
+                className="shrink-0 text-[8px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1 py-0.5 rounded uppercase tracking-wider leading-none"
               >
                 SUPERADMIN
               </span>
             )}
           </div>
           {displayEmail ? (
-            <p
+            <span
               data-testid="user-display-email"
-              className="truncate text-[10px] text-muted-foreground"
+              className="text-[10px] text-slate-400 truncate mt-0.5"
               title={displayEmail}
             >
               {displayEmail}
-            </p>
+            </span>
           ) : (
-            <p className="truncate text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-slate-400 truncate mt-0.5">
               {displayRole} • Ativo
-            </p>
+            </span>
           )}
         </div>
         <TrendingUp className="h-3.5 w-3.5 shrink-0 text-orange-500" />
