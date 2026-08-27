@@ -272,6 +272,7 @@ export function ManagerActionCockpit({
             variant="outline"
             size="sm"
             onClick={handleExportCSV}
+            data-testid="btn-export-csv"
             className="h-8 gap-1.5 border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-200 hover:text-white"
             aria-label="Exportar CSV"
           >
@@ -284,6 +285,7 @@ export function ManagerActionCockpit({
             variant="outline"
             size="sm"
             onClick={handleExportPDF}
+            data-testid="btn-export-pdf"
             className="h-8 gap-1.5 border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold text-zinc-200 hover:text-white"
             aria-label="Exportar PDF"
           >
@@ -313,7 +315,10 @@ export function ManagerActionCockpit({
           {/* 1. Grid dos 3 Cards Executivos de Topo */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {/* Card 1: Dinheiro na Mesa */}
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-4 flex flex-col justify-between">
+            <div
+              data-testid="card-dinheiro-na-mesa"
+              className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-4 flex flex-col justify-between"
+            >
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
@@ -334,7 +339,10 @@ export function ManagerActionCockpit({
             </div>
 
             {/* Card 2: SLA de Primeiro Atendimento */}
-            <div className="rounded-xl border border-orange-500/20 bg-orange-950/20 p-4 flex flex-col justify-between">
+            <div
+              data-testid="card-sla-atendimento"
+              className="rounded-xl border border-orange-500/20 bg-orange-950/20 p-4 flex flex-col justify-between"
+            >
               <div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-orange-400 flex items-center gap-1.5">
