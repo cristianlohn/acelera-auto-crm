@@ -12,6 +12,7 @@ import {
   canManageIntegrationsAndBilling,
   isSuperAdmin,
 } from "@/lib/permissions";
+import { getNavItemsForRole } from "@/components/layout/sidebar";
 import {
   getKanbanLeadsAction,
   getKanbanBoardAction,
@@ -108,6 +109,27 @@ describe("[UNIT-RBAC] Matriz Central de Permissões (src/lib/permissions.ts)", (
       expect(isSuperAdmin("admin")).toBe(false);
       expect(isSuperAdmin("manager")).toBe(false);
       expect(isSuperAdmin("seller")).toBe(false);
+    });
+  });
+
+  describe("getNavItemsForRole", () => {
+    it("deve retornar apenas rotas permitidas para Vendedor", () => {
+      const items = getNavItemsForRole("seller");
+      const hrefs = items.map((i) => i.href);
+      expect(hrefs).toContain("/dashboard");
+      expect(hrefs).toContain("/dashboard/leads");
+      expect(hrefs).toContain("/clients");
+      expect(hrefs).toContain("/vehicles");
+      expect(hrefs).not.toContain("/dashboard/team");
+      expect(hrefs).not.toContain("/reports");
+      expect(hrefs).not.toContain("/settings");
+      expect(hrefs).not.toContain("/superadmin");
+    });
+
+    it("deve incluir '⚡ Painel Superadmin' no topo exclusivamente para Superadmin", () => {
+      const items = getNavItemsForRole("superadmin");
+      expect(items[0].href).toBe("/superadmin");
+      expect(items[0].label).toContain("Painel Superadmin");
     });
   });
 });

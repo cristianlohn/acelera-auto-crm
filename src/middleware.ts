@@ -104,6 +104,7 @@ export async function middleware(request: NextRequest) {
       response.cookies.delete("sb-demo-auth");
       response.cookies.delete("demo_mode");
       response.cookies.delete("acelera_demo_session");
+      response.cookies.delete("acelera_demo_role");
 
       // Redireciona usuário autenticado que tenta acessar /login ou /register para /leads
       if (isAuthRoute) {

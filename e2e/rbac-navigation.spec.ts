@@ -90,7 +90,7 @@ test.describe("[E2E-RBAC] Camada de Permissões RBAC & Portal Superadmin", () =>
     await page.goto("/dashboard/team");
     await page.waitForURL("**/dashboard", { timeout: 10000 });
 
-    await page.goto("/reports");
+    await page.goto("/dashboard/settings/integrations");
     await page.waitForURL("**/dashboard", { timeout: 10000 });
   });
 

@@ -57,7 +57,32 @@ export async function getDealershipsList(): Promise<DealershipAccount[]> {
       return [...localDealerships];
     }
 
-    return [...localDealerships];
+    return data.map((org: any) => {
+      const owner =
+        (Array.isArray(org.profiles)
+          ? org.profiles.find((p: any) => p.role === "admin" || p.role === "gerente") || org.profiles[0]
+          : null);
+      return {
+        id: org.id,
+        name: org.name || "Concessionária",
+        slug: org.slug || org.name?.toLowerCase().replace(/[^a-z0-9]+/g, "-") || "loja",
+        document: org.document || "00.000.000/0001-00",
+        city: org.city || "São Paulo",
+        state: org.state || "SP",
+        plan: (org.plan as DealershipPlan) || "pro",
+        status: (org.subscription_status as SubscriptionStatus) || "active",
+        monthlyFee: org.plan === "enterprise" ? 1490 : org.plan === "starter" ? 490 : 890,
+        trialEndsAt: org.trial_ends_at || new Date(Date.now() + 14 * 86400000).toISOString(),
+        currentPeriodEnd: org.current_period_end || new Date(Date.now() + 30 * 86400000).toISOString(),
+        vehiclesCount: org.vehicles_count ?? 0,
+        leadsCount: org.leads_count ?? 0,
+        sellersCount: Array.isArray(org.profiles) ? org.profiles.length : 1,
+        managerName: owner?.full_name || "Gestor Titular",
+        managerPhone: owner?.phone || "11999998888",
+        managerEmail: owner?.email || "gestor@concessionaria.com.br",
+        createdAt: org.created_at || new Date().toISOString(),
+      };
+    });
   } catch {
     return [...localDealerships];
   }

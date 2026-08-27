@@ -226,9 +226,9 @@ export default function SettingsPage() {
     }
   };
 
-  const { role, sellerName, isDemoMode } = useDemoRole();
+  const { role, sellerName, isDemoMode, roleConfig } = useDemoRole();
 
-  // Carrega dinamicamente o perfil e a equipe do usuário autenticado
+  // Carrega dinamicamente o perfil e a equipe do usuário autenticado ou persona demo
   useEffect(() => {
     let isMounted = true;
     if (!isDemoMode) {
@@ -240,7 +240,7 @@ export default function SettingsPage() {
               fullName: userProfile.fullName || prev.fullName,
               email: userProfile.email || prev.email,
               phone: userProfile.phone || prev.phone,
-              role: userProfile.role || prev.role,
+              role: (userProfile.role as UserRole) || prev.role,
             }));
             if (userProfile.organizationName) {
               setStore((prev) => ({
@@ -259,11 +259,18 @@ export default function SettingsPage() {
           }
         })
         .catch(() => {});
+    } else if (roleConfig) {
+      setProfile((prev) => ({
+        ...prev,
+        fullName: roleConfig.name || sellerName || prev.fullName,
+        email: roleConfig.email || prev.email,
+        role: (roleConfig.role as UserRole) || prev.role,
+      }));
     }
     return () => {
       isMounted = false;
     };
-  }, [isDemoMode]);
+  }, [isDemoMode, roleConfig, sellerName]);
 
   const isVendedorRole = role === "vendedor";
 

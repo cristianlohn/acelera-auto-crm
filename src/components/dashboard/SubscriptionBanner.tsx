@@ -14,12 +14,15 @@ import Link from "next/link";
 import { Clock, AlertTriangle, ArrowRight, X } from "lucide-react";
 import type { OrganizationAccessStatus } from "@/lib/auth/subscription";
 import { getSubscriptionStatusAction } from "@/app/actions/auth";
+import { useDemoRole } from "@/context/demo-role-context";
+import { isSuperAdmin } from "@/lib/permissions";
 
 interface SubscriptionBannerProps {
   status?: OrganizationAccessStatus;
 }
 
 export function SubscriptionBanner({ status: initialStatus }: SubscriptionBannerProps) {
+  const { role } = useDemoRole();
   const [dismissed, setDismissed] = useState(false);
   const [accessStatus, setAccessStatus] = useState<OrganizationAccessStatus | undefined>(
     initialStatus
@@ -44,10 +47,10 @@ export function SubscriptionBanner({ status: initialStatus }: SubscriptionBanner
     };
   }, [initialStatus]);
 
-  if (dismissed) return null;
+  if (dismissed || isSuperAdmin(role)) return null;
 
   const currentStatus = initialStatus || accessStatus;
-  if (!currentStatus) return null;
+  if (!currentStatus || currentStatus.reason === "SUPERADMIN_BYPASS") return null;
 
   // Estado 1: Período de Testes Ativo (Trial)
   if (currentStatus.reason === "TRIAL_ACTIVE") {

@@ -166,11 +166,28 @@ export function NavLink({
   onClick?: () => void;
 }) {
   const pathname = usePathname();
-  const isActive =
-    pathname === item.href ||
-    pathname.startsWith(item.href + "/") ||
-    (item.href === "/dashboard/leads" && (pathname === "/leads" || pathname.startsWith("/leads/"))) ||
-    (item.href === "/leads" && (pathname === "/dashboard/leads" || pathname.startsWith("/dashboard/leads/")));
+  const isActive = (() => {
+    if (item.href === "/dashboard") {
+      return pathname === "/dashboard";
+    }
+    if (item.href === "/dashboard/leads" || item.href === "/leads") {
+      return (
+        pathname === "/dashboard/leads" ||
+        pathname.startsWith("/dashboard/leads/") ||
+        pathname === "/leads" ||
+        pathname.startsWith("/leads/")
+      );
+    }
+    if (item.href === "/clients" || item.href === "/clientes") {
+      return (
+        pathname === "/clients" ||
+        pathname.startsWith("/clients/") ||
+        pathname === "/clientes" ||
+        pathname.startsWith("/clientes/")
+      );
+    }
+    return pathname === item.href || pathname.startsWith(item.href + "/");
+  })();
   const Icon = item.icon;
 
   return (

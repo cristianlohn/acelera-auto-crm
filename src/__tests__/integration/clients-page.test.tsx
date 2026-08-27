@@ -24,6 +24,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ClientsPage, { buildClientWhatsAppUrl } from "@/app/(dashboard)/clients/page";
+import { DemoRoleProvider } from "@/context/demo-role-context";
 
 // ---------------------------------------------------------------------------
 // [IT-09] Gestão de Clientes e Carteira de Relacionamento
@@ -219,5 +220,27 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
     expect(url).toContain("https://wa.me/5511988776655");
     expect(url).toContain(encodeURIComponent("Olá Guilherme Santos!"));
     expect(url).toContain(encodeURIComponent("Acelera Auto"));
+  });
+
+  it("[IT-09.9] Deve filtrar a carteira estritamente para o vendedor ativo quando em perfil Vendedor", () => {
+    // Arrange & Act (Dado que a tela é aberta por um vendedor)
+    render(
+      <DemoRoleProvider initialDemoMode={true} initialRole="vendedor">
+        <ClientsPage />
+      </DemoRoleProvider>
+    );
+
+    // Assert (Apenas os clientes de Rafael Alves devem ser renderizados)
+    expect(screen.getByText("Mariana Souza")).toBeInTheDocument();
+    expect(screen.getByText("Carlos Mendonça")).toBeInTheDocument();
+    expect(screen.getByText("Patrícia Vieira")).toBeInTheDocument();
+
+    // Clientes de outros vendedores devem ser estritamente ocultados
+    expect(screen.queryByText("Roberto Silveira")).not.toBeInTheDocument();
+    expect(screen.queryByText("Aline Gomes")).not.toBeInTheDocument();
+    expect(screen.queryByText("Eduardo Castro")).not.toBeInTheDocument();
+
+    // Badge de carteira individual
+    expect(screen.getByText(/Minha Carteira \(Rafael Alves\)/i)).toBeInTheDocument();
   });
 });

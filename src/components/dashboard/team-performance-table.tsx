@@ -13,6 +13,8 @@ import type { SellerPerformanceMetric } from "@/lib/crm/analytics";
 import { SalespersonModal } from "@/components/team/salesperson-modal";
 import type { SalespersonMember } from "@/lib/team-schema";
 
+import { useDemoRole } from "@/context/demo-role-context";
+
 export interface TeamPerformanceTableProps {
   initialSellers: SellerPerformanceMetric[];
 }
@@ -20,8 +22,14 @@ export interface TeamPerformanceTableProps {
 export function TeamPerformanceTable({
   initialSellers,
 }: TeamPerformanceTableProps) {
+  const { role } = useDemoRole();
   const [sellers, setSellers] = useState<SellerPerformanceMetric[]>(initialSellers);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const isVendedor = role === "vendedor" || role === "seller";
+  if (isVendedor) {
+    return null;
+  }
 
   const handleSalespersonAdded = (newMember: SalespersonMember) => {
     // Adiciona o novo vendedor dinamicamente na visualização da tabela

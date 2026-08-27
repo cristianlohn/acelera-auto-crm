@@ -194,6 +194,9 @@ function formatBrl(val: number): string {
   }).format(val);
 }
 
+import { SellerActionCockpit } from "@/components/dashboard/SellerActionCockpit";
+import { useDemoRole } from "@/context/demo-role-context";
+
 export interface ManagerActionCockpitProps {
   className?: string;
   metrics?: ManagerCockpitMetrics;
@@ -205,8 +208,15 @@ export function ManagerActionCockpit({
   metrics,
   dealershipName = "Concessionária Acelera Auto",
 }: ManagerActionCockpitProps) {
+  const { role } = useDemoRole();
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [notifiedActions, setNotifiedActions] = useState<Set<string>>(new Set());
+
+  const isVendedor = role === "vendedor" || role === "seller";
+
+  if (isVendedor) {
+    return <SellerActionCockpit className={className} metrics={metrics} />;
+  }
 
   const activeMetrics = metrics || DEFAULT_METRICS;
 

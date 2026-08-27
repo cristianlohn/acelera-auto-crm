@@ -40,13 +40,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
 import {
   mockClients,
   createClient,
   formatCurrency,
 } from "@/lib/mock-data";
+import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/lead-utils";
+import { useDemoRole } from "@/context/demo-role-context";
+import { canViewAllLeads } from "@/lib/permissions";
 import type { Client, ClientStatus, ClientFormData } from "@/types/crm";
 
 // ---------------------------------------------------------------------------
@@ -117,13 +119,23 @@ const INITIAL_CLIENT_FORM: ClientFormData = {
 
 interface AddClientModalProps {
   onAdd: (client: Client) => void;
+  defaultSellerName?: string;
+  lockSeller?: boolean;
 }
 
-function AddClientModal({ onAdd }: AddClientModalProps) {
+function AddClientModal({
+  onAdd,
+  defaultSellerName = "Rafael Alves",
+  lockSeller = false,
+}: AddClientModalProps) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<ClientFormData>(INITIAL_CLIENT_FORM);
+  const [form, setForm] = useState<ClientFormData>(() => ({
+    ...INITIAL_CLIENT_FORM,
+    sellerName: defaultSellerName,
+  }));
 
-  const isFormValid = Boolean(form.name.trim() && form.phone.trim());
+  const isFormValid =
+    form.name.trim().length >= 2 && form.phone.trim().length >= 8;
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -140,7 +152,10 @@ function AddClientModal({ onAdd }: AddClientModalProps) {
 
     const newClient = createClient(form);
     onAdd(newClient);
-    setForm(INITIAL_CLIENT_FORM);
+    setForm({
+      ...INITIAL_CLIENT_FORM,
+      sellerName: defaultSellerName,
+    });
     setOpen(false);
   };
 
@@ -180,7 +195,6 @@ function AddClientModal({ onAdd }: AddClientModalProps) {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="mt-3 grid gap-4">
-          {/* Nome Completo */}
           <div className="grid gap-1.5">
             <label
               htmlFor="client-name"
@@ -199,7 +213,6 @@ function AddClientModal({ onAdd }: AddClientModalProps) {
             />
           </div>
 
-          {/* Grid 2 colunas: Telefone e E-mail */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <label
@@ -239,7 +252,6 @@ function AddClientModal({ onAdd }: AddClientModalProps) {
             </div>
           </div>
 
-          {/* Grid 2 colunas: CPF e Status */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <label
@@ -279,7 +291,6 @@ function AddClientModal({ onAdd }: AddClientModalProps) {
             </div>
           </div>
 
-          {/* Grid 2 colunas: Vendedor e Preferência */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <label
@@ -293,7 +304,8 @@ function AddClientModal({ onAdd }: AddClientModalProps) {
                 name="sellerName"
                 value={form.sellerName}
                 onChange={handleChange}
-                className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                disabled={lockSeller}
+                className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 <option value="Rafael Alves">Rafael Alves</option>
                 <option value="Camila Dias">Camila Dias</option>
@@ -320,7 +332,6 @@ function AddClientModal({ onAdd }: AddClientModalProps) {
             </div>
           </div>
 
-          {/* Observações */}
           <div className="grid gap-1.5">
             <label
               htmlFor="client-notes"
@@ -340,7 +351,6 @@ function AddClientModal({ onAdd }: AddClientModalProps) {
             />
           </div>
 
-          {/* Ações do Modal */}
           <div className="mt-2 flex justify-end gap-2 border-t pt-3">
             <Button
               type="button"
@@ -423,6 +433,10 @@ export interface ClientsPageProps {
 }
 
 export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
+  const { role, sellerName } = useDemoRole();
+  const isVendedor = !canViewAllLeads(role);
+  const [sellerFilter, setSellerFilter] = useState<string>("todos");
+
   const [clients, setClients] = useState<Client[]>(() => {
     if (initialClients !== undefined) return initialClients;
     return mockClients;
@@ -435,11 +449,23 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
     setClients((prev) => [newClient, ...prev]);
   }, []);
 
+  // Lista base filtrada estritamente por papel RBAC (Vendedor visualiza apenas seus próprios clientes)
+  const roleFilteredClients = useMemo(() => {
+    if (isVendedor) {
+      const activeSeller = sellerName || "Rafael Alves";
+      return clients.filter((c) => c.sellerName === activeSeller);
+    }
+    if (sellerFilter !== "todos") {
+      return clients.filter((c) => c.sellerName === sellerFilter);
+    }
+    return clients;
+  }, [clients, isVendedor, sellerName, sellerFilter]);
+
   // Cálculos das métricas executivas da carteira
   const metrics = useMemo(() => {
-    const total = clients.length;
-    const active = clients.filter((c) => c.status === "ativo").length;
-    const buyers = clients.filter((c) => c.purchasesCount > 0);
+    const total = roleFilteredClients.length;
+    const active = roleFilteredClients.filter((c) => c.status === "ativo").length;
+    const buyers = roleFilteredClients.filter((c) => c.purchasesCount > 0);
     const totalSalesCount = buyers.reduce((acc, c) => acc + c.purchasesCount, 0);
     const totalRevenue = buyers.reduce((acc, c) => acc + c.totalPurchased, 0);
     const averageTicket =
@@ -451,11 +477,11 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
       totalSalesCount,
       averageTicket,
     };
-  }, [clients]);
+  }, [roleFilteredClients]);
 
   // Filtragem combinada por busca textual e abas de status
   const filteredClients = useMemo(() => {
-    return clients.filter((c) => {
+    return roleFilteredClients.filter((c) => {
       const matchesTab = activeTab === "todos" ? true : c.status === activeTab;
       if (!matchesTab) return false;
 
@@ -471,7 +497,7 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
 
       return nameMatch || phoneMatch || emailMatch || vehicleMatch;
     });
-  }, [clients, activeTab, search]);
+  }, [roleFilteredClients, activeTab, search]);
 
   return (
     <div className="flex h-full flex-col">
@@ -489,13 +515,25 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
                 <Sparkles className="h-3 w-3" />
                 CRM
               </span>
+              {isVendedor && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                  <User className="h-3 w-3" />
+                  Minha Carteira ({sellerName || "Rafael Alves"})
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {clients.length} clientes cadastrados na sua base de relacionamento
+              {isVendedor
+                ? `Visualizando apenas os ${roleFilteredClients.length} clientes sob sua responsabilidade`
+                : `${roleFilteredClients.length} clientes cadastrados na sua base de relacionamento`}
             </p>
           </div>
 
-          <AddClientModal onAdd={handleAddClient} />
+          <AddClientModal
+            onAdd={handleAddClient}
+            defaultSellerName={sellerName || "Rafael Alves"}
+            lockSeller={isVendedor}
+          />
         </div>
 
         {/* KPIs da Carteira */}
@@ -536,17 +574,36 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
 
         {/* Barra de Busca e Filtros por Abas */}
         <div className="flex flex-col gap-3 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          {/* Busca Instantânea */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              role="searchbox"
-              aria-label="Buscar clientes"
-              placeholder="Buscar por nome, telefone ou e-mail..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 text-xs h-8"
-            />
+          <div className="flex flex-1 items-center gap-2.5 max-w-lg">
+            {/* Busca Instantânea */}
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                role="searchbox"
+                aria-label="Buscar clientes"
+                placeholder="Buscar por nome, telefone ou e-mail..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8 text-xs h-8"
+              />
+            </div>
+
+            {/* Filtro por Vendedor para Gestores / Admins */}
+            {!isVendedor && (
+              <select
+                id="filter-seller-select"
+                aria-label="Filtrar por vendedor"
+                value={sellerFilter}
+                onChange={(e) => setSellerFilter(e.target.value)}
+                className="h-8 rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="todos">Todos os Vendedores</option>
+                <option value="Rafael Alves">Rafael Alves</option>
+                <option value="Camila Dias">Camila Dias</option>
+                <option value="Lucas Santana">Lucas Santana</option>
+                <option value="Beatriz Rocha">Beatriz Rocha</option>
+              </select>
+            )}
           </div>
 
           {/* Abas de Status */}

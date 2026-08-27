@@ -37,6 +37,12 @@ export function RoleSimulatorBar() {
         "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
       document.cookie =
         "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      document.cookie =
+        "acelera_demo_role=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+    }
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.removeItem("acelera_demo_mode");
+      window.localStorage.removeItem("acelera_demo_role");
     }
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/login";
