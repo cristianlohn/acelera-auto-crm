@@ -52,7 +52,16 @@ test.describe("[E2E-TEAM] Gestão de Equipe Comercial & Cadastro de Vendedor", (
     await expect(submitBtn).toBeVisible();
     await submitBtn.click();
 
-    // 6. Valida que o modal fechou e o novo vendedor aparece imediatamente na tabela
+    // 6. Se o modal de contingência/sucesso for exibido, clica no botão Concluir
+    const finishBtn = page.locator('[data-testid="btn-finish-invite"], button:has-text("Concluir")');
+    try {
+      await finishBtn.waitFor({ state: "visible", timeout: 8000 });
+      await finishBtn.click();
+    } catch {
+      // Caso já tenha fechado automaticamente
+    }
+
+    // 7. Valida que o modal fechou e o novo vendedor aparece imediatamente na tabela
     await expect(modalTitle).not.toBeVisible({ timeout: 10000 });
     await expect(page.locator("table").getByText(testSalespersonName, { exact: true })).toBeVisible({ timeout: 10000 });
   });

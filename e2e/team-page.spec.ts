@@ -68,7 +68,16 @@ test.describe("[E2E-TEAM-PAGE] Gestão de Equipe & Roleta Comercial (/dashboard/
     await expect(saveBtn).toBeVisible();
     await saveBtn.click();
 
-    // 5. Valida que o modal fechou e o novo vendedor está na tabela
+    // 5. Se o modal de contingência/sucesso for exibido, clica no botão Concluir
+    const finishBtn = page.locator('[data-testid="btn-finish-invite"], button:has-text("Concluir")');
+    try {
+      await finishBtn.waitFor({ state: "visible", timeout: 8000 });
+      await finishBtn.click();
+    } catch {
+      // Caso já tenha fechado automaticamente
+    }
+
+    // 6. Valida que o modal fechou e o novo vendedor está na tabela
     await expect(modalTitle).not.toBeVisible({ timeout: 10000 });
     await expect(page.locator('[data-testid="team-table"]')).toContainText(sellerName, { timeout: 10000 });
   });
