@@ -210,10 +210,11 @@ export async function inviteTeamMemberAction(
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
-  const baseUrl =
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-  const redirectTo = `${baseUrl}/auth/update-password`;
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
+  const redirectTo = `${siteUrl}/auth/callback?next=/auth/update-password`;
 
   let emailSent = false;
   let fallbackInviteLink = "";
@@ -365,10 +366,11 @@ export async function resendInviteEmailAction(
   role?: string
 ): Promise<{ success: boolean; error?: string; emailSent?: boolean; fallbackInviteLink?: string }> {
   const tenantContext = await resolveUserTenantContext();
-  const baseUrl =
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-  const redirectTo = `${baseUrl}/auth/update-password`;
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
+  const redirectTo = `${siteUrl}/auth/callback?next=/auth/update-password`;
 
   if (tenantContext.isDemo) {
     return {

@@ -150,10 +150,11 @@ export async function inviteTeamMember(
 
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || "org-001";
-  const baseUrl =
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-  const redirectTo = `${baseUrl}/auth/update-password`;
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
+  const redirectTo = `${siteUrl}/auth/callback?next=/auth/update-password`;
 
   let emailSent = false;
   let fallbackInviteLink = "";
