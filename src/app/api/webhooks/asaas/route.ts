@@ -43,12 +43,21 @@ function extractAsaasToken(request: NextRequest): string | null {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Validação de Segurança do Token Asaas
-    const token = extractAsaasToken(request);
-    if (!verifyAsaasWebhookToken(token)) {
+    // 1. Obtenção e Validação de Segurança do Token Asaas
+    const receivedToken = extractAsaasToken(request);
+    const secretToken =
+      process.env.ASAAS_WEBHOOK_SECRET ||
+      process.env.ASAAS_WEBHOOK_ACCESS_TOKEN ||
+      process.env.ASAAS_API_KEY ||
+      "asaas_webhook_secret_live";
+
+    if (!verifyAsaasWebhookToken(receivedToken)) {
+      console.warn(
+        `[Webhook Asaas] Token inválido ou ausente: recebido '${receivedToken || ""}', esperado '${secretToken}'`
+      );
       return NextResponse.json(
         {
-          error: "Unauthorized: Invalid or missing asaas-access-token",
+          error: "Unauthorized",
           received: false,
         },
         { status: 401 }
@@ -60,6 +69,7 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch {
+      console.warn("[Webhook Asaas] Payload JSON inválido ou malformatado");
       return NextResponse.json(
         {
           error: "Bad Request: Invalid JSON payload",
@@ -70,6 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!body || !body.event) {
+      console.warn("[Webhook Asaas] Payload recebido sem a propriedade 'event'");
       return NextResponse.json(
         {
           error: "Bad Request: Missing 'event' in webhook payload",
@@ -79,10 +90,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Processamento Idempotente do Evento de Faturamento
+    // 3. Log de Diagnóstico Amigável
+    console.log(`[Webhook Asaas] Evento recebido: ${body.event}`, {
+      id: body.id,
+      dateCreated: body.dateCreated,
+      paymentId: body.payment?.id,
+      subscriptionId: body.subscription?.id,
+      customer: body.payment?.customer || body.subscription?.customer,
+    });
+
+    // 4. Processamento Idempotente do Evento de Faturamento
     const result = await processAsaasWebhookEvent(body);
 
-    // 4. Retorno HTTP 200 OK com confirmação de recebimento para o Asaas
+    console.log(
+      `[Webhook Asaas] Processamento concluído para '${body.event}': ação '${result.actionTaken}' (idempotente: ${result.alreadyProcessed || false})`
+    );
+
+    // 5. Retorno HTTP 200 OK com confirmação de recebimento para o Asaas
     return NextResponse.json(
       {
         received: true,
@@ -94,7 +118,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     );
   } catch (error) {
-    console.error("[Asaas Webhook Error] Falha interna no processamento:", error);
+    console.error("[Webhook Asaas Error] Falha interna no processamento:", error);
     // Retorna 200 com flag de erro para evitar loops infinitos de retentativas do gateway
     return NextResponse.json(
       {

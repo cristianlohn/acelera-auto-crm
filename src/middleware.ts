@@ -35,6 +35,15 @@ export async function middleware(request: NextRequest) {
   });
 
   const pathname = request.nextUrl.pathname;
+
+  // Bypass imediato para rotas públicas de webhooks e APIs externas
+  if (
+    pathname.startsWith("/api/webhooks") ||
+    pathname.startsWith("/api/v1/leads")
+  ) {
+    return NextResponse.next();
+  }
+
   const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix)
   );

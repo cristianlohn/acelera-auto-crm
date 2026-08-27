@@ -111,8 +111,12 @@ export function verifyAsaasWebhookToken(token: string | null): boolean {
   if (!token || !token.trim()) return false;
   const cleanToken = token.trim();
 
-  const configuredSecret = process.env.ASAAS_WEBHOOK_SECRET || process.env.ASAAS_API_KEY;
-  if (configuredSecret && cleanToken === configuredSecret) {
+  const configuredSecret =
+    process.env.ASAAS_WEBHOOK_SECRET ||
+    process.env.ASAAS_WEBHOOK_ACCESS_TOKEN ||
+    process.env.ASAAS_API_KEY;
+
+  if (configuredSecret && cleanToken === configuredSecret.trim()) {
     return true;
   }
 
