@@ -14,8 +14,10 @@ import {
   AlertTriangle,
   ThumbsDown,
   ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import type { KanbanLead, LeadStage } from "@/types/kanban";
+import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import { cn } from "@/lib/utils";
 
 interface KanbanCardProps {
@@ -23,6 +25,17 @@ interface KanbanCardProps {
   onMoveStage?: (leadId: string, targetStage: LeadStage) => void;
   onSelectLead?: (lead: KanbanLead) => void;
 }
+
+const PREV_STAGE_MAP: Record<LeadStage, LeadStage | null> = {
+  new: null,
+  in_contact: "new",
+  visit_scheduled: "in_contact",
+  test_drive: "in_contact",
+  proposal: "test_drive",
+  proposal_fi: "proposal",
+  won: "proposal",
+  lost: "new",
+};
 
 const NEXT_STAGE_MAP: Record<LeadStage, LeadStage | null> = {
   new: "in_contact",
@@ -109,6 +122,7 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
   const slaConfig = getSlaBadgeConfig(lead.sla_minutes_elapsed, lead.stage);
   const sourceConfig = getSourceBadge(lead.source);
   const cleanPhone = lead.phone ? lead.phone.replace(/\D/g, "") : "";
+  const prevStage = PREV_STAGE_MAP[lead.stage];
   const nextStage = NEXT_STAGE_MAP[lead.stage];
 
   const whatsappDirectMessage = encodeURIComponent(
@@ -133,7 +147,7 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
       data-card-id={lead.id}
       id={`kanban-card-${lead.id}`}
       className={cn(
-        "group relative rounded-2xl p-4 transition-all duration-200 cursor-grab active:cursor-grabbing",
+        "group relative rounded-2xl p-4 transition-all duration-200 cursor-grab active:cursor-grabbing touch-manipulation select-none",
         "bg-white dark:bg-zinc-900 border border-slate-200 dark:border-white/10 hover:border-orange-500/40 shadow-md hover:shadow-orange-500/5",
         slaConfig.isCritical && "ring-1 ring-red-500/40 border-red-500/30"
       )}
@@ -193,7 +207,7 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
         )}
       </div>
 
-      {/* Rodapé do Card: Vendedor Responsável & Ações Rápidas */}
+      {/* Rodapé do Card: Vendedor Responsável & Ações Rápidas (Desktop & Tablet) */}
       <div className="mt-3.5 pt-3 border-t border-slate-100 dark:border-white/10 flex items-center justify-between gap-2">
         {/* Vendedor Atribuído */}
         <div className="flex items-center gap-2 min-w-0">
@@ -226,7 +240,7 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
             </button>
           )}
 
-          {/* Botão de Avanço Rápido de Etapa */}
+          {/* Botão de Avanço Rápido de Etapa (Desktop) */}
           {nextStage && onMoveStage && (
             <button
               type="button"
@@ -236,7 +250,7 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
               }}
               data-testid="btn-advance-stage"
               title="Avançar para a próxima etapa"
-              className="flex h-7 items-center gap-0.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 px-1.5 text-[10px] font-semibold transition-all"
+              className="hidden md:flex h-7 items-center gap-0.5 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/20 px-1.5 text-[10px] font-semibold transition-all"
             >
               <span>Avançar</span>
               <ChevronRight className="h-3 w-3" />
@@ -256,6 +270,80 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
             <MessageCircle className="h-4 w-4" />
           </a>
         </div>
+      </div>
+
+      {/* Barra de Ações Rápidas de Etapa (Mobile Only: md:hidden) */}
+      <div
+        data-testid="kanban-card-mobile-actions"
+        className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex md:hidden items-center justify-between gap-1.5"
+      >
+        {/* Botão Recuar Etapa */}
+        <button
+          type="button"
+          disabled={!prevStage || !onMoveStage}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (prevStage && onMoveStage) {
+              onMoveStage(lead.id, prevStage);
+            }
+          }}
+          data-testid="btn-mobile-prev-stage"
+          aria-label="Recuar etapa"
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-xs font-semibold transition-all",
+            prevStage
+              ? "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700 active:scale-95"
+              : "opacity-40 cursor-not-allowed bg-slate-50 dark:bg-zinc-900 text-slate-400 dark:text-zinc-600 border-slate-200 dark:border-zinc-800"
+          )}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+
+        {/* Seletor Dropdown Compacto da Etapa Atual */}
+        <select
+          value={lead.stage}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation();
+            onMoveStage?.(lead.id, e.target.value as LeadStage);
+          }}
+          data-testid="select-mobile-stage"
+          aria-label="Mudar etapa"
+          className="h-8 flex-1 min-w-0 text-xs font-bold bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 text-center truncate focus:outline-none focus:ring-1 focus:ring-orange-500"
+        >
+          {KANBAN_STAGES_CONFIG.map((s) => (
+            <option
+              key={s.id}
+              value={s.id}
+              className="bg-white dark:bg-zinc-900 text-slate-900 dark:text-white"
+            >
+              {s.shortTitle || s.title}
+            </option>
+          ))}
+        </select>
+
+        {/* Botão Avançar Etapa */}
+        <button
+          type="button"
+          disabled={!nextStage || !onMoveStage}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (nextStage && onMoveStage) {
+              onMoveStage(lead.id, nextStage);
+            }
+          }}
+          data-testid="btn-mobile-next-stage"
+          aria-label="Avançar etapa"
+          className={cn(
+            "flex h-8 px-2.5 shrink-0 items-center gap-1 rounded-lg border text-xs font-bold transition-all shadow-sm",
+            nextStage
+              ? "bg-amber-500/15 dark:bg-orange-500/20 text-amber-700 dark:text-orange-400 border-amber-500/30 dark:border-orange-500/30 hover:bg-amber-500/25 active:scale-95"
+              : "opacity-40 cursor-not-allowed bg-slate-50 dark:bg-zinc-900 text-slate-400 dark:text-zinc-600 border-slate-200 dark:border-zinc-800"
+          )}
+        >
+          <span>Avançar</span>
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
     </div>
   );
