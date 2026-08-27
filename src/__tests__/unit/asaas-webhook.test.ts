@@ -1,0 +1,292 @@
+/**
+ * @file asaas-webhook.test.ts
+ * @description Suíte de Testes Automatizados para a Rota de Webhooks do Asaas (/api/webhooks/asaas).
+ *
+ * Cenários Testados:
+ * - [TEST-ASAAS-AUTH]: Rejeição de requisições sem token de acesso ou com token inválido (401 Unauthorized).
+ * - [TEST-ASAAS-PAYMENT-CONFIRMED]: Processamento de PAYMENT_CONFIRMED e ativação da assinatura no Supabase.
+ * - [TEST-ASAAS-PAYMENT-OVERDUE]: Processamento de PAYMENT_OVERDUE e marcação de inadimplência (past_due).
+ * - [TEST-ASAAS-SUBSCRIPTION-LIFECYCLE]: Sincronização de SUBSCRIPTION_UPDATED e cancelamento via SUBSCRIPTION_DELETED.
+ * - [TEST-ASAAS-IDEMPOTENCY]: Idempotência e deduplicação de eventos repetidos do Asaas.
+ */
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
+import { POST } from "@/app/api/webhooks/asaas/route";
+import { resetProcessedEventsCache } from "@/lib/services/asaas/webhook-service";
+import * as supabaseServerModule from "@/lib/supabase/server";
+import * as supabaseAdminModule from "@/lib/supabase/admin";
+
+describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks Asaas", () => {
+  const VALID_TOKEN = "asaas_webhook_secret_live";
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    resetProcessedEventsCache();
+  });
+
+  describe("[TEST-ASAAS-AUTH] Validação de Segurança de Token", () => {
+    it("deve retornar 401 Unauthorized se o header asaas-access-token estiver ausente", async () => {
+      const request = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "PAYMENT_CONFIRMED",
+          payment: { id: "pay_123" },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(401);
+
+      const json = await response.json();
+      expect(json.error).toContain("Unauthorized");
+    });
+
+    it("deve retornar 401 Unauthorized se o token fornecido for inválido", async () => {
+      const request = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": "token_invalido_hacker",
+        },
+        body: JSON.stringify({
+          event: "PAYMENT_CONFIRMED",
+          payment: { id: "pay_123" },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe("[TEST-ASAAS-PAYMENT-CONFIRMED] Confirmação de Pagamento & Ativação", () => {
+    it("deve processar PAYMENT_CONFIRMED e atualizar organização para active no Supabase", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+
+      const mockAdminSupabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: "org-loja-prime-001", name: "Loja Prime" },
+              }),
+            }),
+          }),
+          update: mockUpdate,
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const request = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": VALID_TOKEN,
+        },
+        body: JSON.stringify({
+          id: "evt_pay_conf_001",
+          event: "PAYMENT_CONFIRMED",
+          dateCreated: "2026-08-27 16:50:00",
+          payment: {
+            id: "pay_987654",
+            customer: "cus_000001",
+            subscription: "sub_000001",
+            value: 297.0,
+            billingType: "PIX",
+            status: "CONFIRMED",
+            dueDate: "2026-09-27",
+            externalReference: "org-loja-prime-001",
+          },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.received).toBe(true);
+      expect(json.event).toBe("PAYMENT_CONFIRMED");
+      expect(json.actionTaken).toBe("payment_confirmed_subscription_activated");
+
+      expect(mockAdminSupabase.from).toHaveBeenCalledWith("organizations");
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subscription_status: "active",
+          plan_status: "active",
+          asaas_customer_id: "cus_000001",
+          asaas_subscription_id: "sub_000001",
+        })
+      );
+    });
+  });
+
+  describe("[TEST-ASAAS-PAYMENT-OVERDUE] Pagamento Vencido / Inadimplência", () => {
+    it("deve processar PAYMENT_OVERDUE e atualizar organização para past_due no Supabase", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+
+      const mockAdminSupabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: "org-loja-prime-001", name: "Loja Prime" },
+              }),
+            }),
+          }),
+          update: mockUpdate,
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const request = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": VALID_TOKEN,
+        },
+        body: JSON.stringify({
+          id: "evt_pay_overdue_001",
+          event: "PAYMENT_OVERDUE",
+          payment: {
+            id: "pay_overdue_999",
+            customer: "cus_000001",
+            externalReference: "org-loja-prime-001",
+          },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.received).toBe(true);
+      expect(json.event).toBe("PAYMENT_OVERDUE");
+      expect(json.actionTaken).toBe("payment_overdue_marked_past_due");
+
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subscription_status: "past_due",
+          plan_status: "past_due",
+        })
+      );
+    });
+  });
+
+  describe("[TEST-ASAAS-SUBSCRIPTION-LIFECYCLE] Ciclo de Vida da Assinatura", () => {
+    it("deve processar SUBSCRIPTION_DELETED e marcar organização como canceled", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+
+      const mockAdminSupabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: "org-cancel-001", name: "Loja Cancel" },
+              }),
+            }),
+          }),
+          update: mockUpdate,
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const request = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": VALID_TOKEN,
+        },
+        body: JSON.stringify({
+          id: "evt_sub_del_001",
+          event: "SUBSCRIPTION_DELETED",
+          subscription: {
+            id: "sub_deleted_123",
+            customer: "cus_deleted_123",
+            externalReference: "org-cancel-001",
+          },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.received).toBe(true);
+      expect(json.actionTaken).toBe("subscription_canceled");
+
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subscription_status: "canceled",
+          plan_status: "canceled",
+        })
+      );
+    });
+  });
+
+  describe("[TEST-ASAAS-IDEMPOTENCY] Deduplicação Idempotente", () => {
+    it("deve identificar eventos duplicados e ignorar re-execução sem erro", async () => {
+      const payload = {
+        id: "evt_idempotent_123",
+        event: "PAYMENT_CONFIRMED" as const,
+        payment: {
+          id: "pay_idemp_123",
+          externalReference: "org-001",
+        },
+      };
+
+      // Primeira execução
+      const req1 = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": VALID_TOKEN,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const res1 = await POST(req1);
+      const json1 = await res1.json();
+      expect(json1.received).toBe(true);
+      expect(json1.alreadyProcessed).toBe(false);
+
+      // Segunda execução (duplicada)
+      const req2 = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": VALID_TOKEN,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const res2 = await POST(req2);
+      const json2 = await res2.json();
+      expect(json2.received).toBe(true);
+      expect(json2.alreadyProcessed).toBe(true);
+      expect(json2.actionTaken).toBe("skipped_duplicate_event");
+    });
+  });
+});

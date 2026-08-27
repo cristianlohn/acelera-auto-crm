@@ -62,6 +62,9 @@ export interface Database {
           trial_ends_at?: string | null;
           current_period_end?: string | null;
           plan_tier?: string | null;
+          plan_status?: string | null;
+          asaas_customer_id?: string | null;
+          asaas_subscription_id?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -75,6 +78,9 @@ export interface Database {
           trial_ends_at?: string | null;
           current_period_end?: string | null;
           plan_tier?: string | null;
+          plan_status?: string | null;
+          asaas_customer_id?: string | null;
+          asaas_subscription_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -88,6 +94,9 @@ export interface Database {
           trial_ends_at?: string | null;
           current_period_end?: string | null;
           plan_tier?: string | null;
+          plan_status?: string | null;
+          asaas_customer_id?: string | null;
+          asaas_subscription_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
