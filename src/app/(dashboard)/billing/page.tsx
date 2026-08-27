@@ -13,7 +13,7 @@
 "use client";
 
 import React, { useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   Check,
   Sparkles,
@@ -24,8 +24,11 @@ import {
   ArrowRight,
   AlertCircle,
   Zap,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { createSubscriptionCheckoutAction } from "@/app/actions/billing-actions";
 import { cn } from "@/lib/utils";
 
 interface Plan {
@@ -95,7 +98,6 @@ const plans: Plan[] = [
 
 function BillingContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const isExpired = searchParams.get("expired") === "true";
 
   const [billingCycle, setBillingCycle] = useState<"mensal" | "anual">("mensal");
@@ -105,21 +107,36 @@ function BillingContent() {
 
   const isAnnual = billingCycle === "anual";
 
-  const handleCheckout = (planId: string) => {
+  const handleCheckout = async (planId: string) => {
     setSelectedPlan(planId);
     setIsProcessing(true);
+    setSuccessMessage(null);
 
-    setTimeout(() => {
+    try {
+      const result = await createSubscriptionCheckoutAction({
+        planId,
+        billingCycle,
+      });
+
+      if (!result.success || !result.checkoutUrl) {
+        const errMsg = result.error || "Não foi possível gerar a assinatura no Asaas.";
+        toast.error(errMsg);
+        setIsProcessing(false);
+        return;
+      }
+
+      toast.success("Assinatura gerada no Asaas! Redirecionando para o pagamento seguro...");
+      setSuccessMessage("Fatura gerada com sucesso! Redirecionando para o Asaas...");
+
+      if (typeof window !== "undefined" && result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+      }
+    } catch (err) {
+      console.error("[Billing Checkout Error]", err);
+      const msg = err instanceof Error ? err.message : "Falha na comunicação com o gateway Asaas.";
+      toast.error(msg);
       setIsProcessing(false);
-      // Remove o cookie de demo expirado se houver
-      document.cookie = "acelera_demo_expired=; path=/; max-age=0;";
-      document.cookie = "acelera_subscription_status=active; path=/; max-age=86400;";
-      setSuccessMessage("Assinatura ativada com sucesso! Redirecionando para o CRM...");
-
-      setTimeout(() => {
-        router.push("/leads");
-      }, 1200);
-    }, 1000);
+    }
   };
 
   return (
@@ -265,6 +282,7 @@ function BillingContent() {
                     type="button"
                     onClick={() => handleCheckout(plan.id)}
                     disabled={isProcessing}
+                    data-testid={`btn-subscribe-${plan.id}`}
                     className={cn(
                       "w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-lg transition-all",
                       plan.popular
@@ -272,12 +290,17 @@ function BillingContent() {
                         : "bg-white/10 hover:bg-white/15 text-white"
                     )}
                   >
-                    <span>
-                      {isProcessing && selectedPlan === plan.id
-                        ? "Processando..."
-                        : `Ativar ${plan.name}`}
-                    </span>
-                    <ArrowRight className="h-4 w-4" />
+                    {isProcessing && selectedPlan === plan.id ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Gerando fatura no Asaas...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{`Assinar ${plan.name}`}</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </>
+                    )}
                   </Button>
                   <p className="text-center text-[10px] text-zinc-500 flex items-center justify-center gap-1">
                     <Lock className="h-3 w-3" />

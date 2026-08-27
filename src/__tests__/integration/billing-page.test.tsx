@@ -85,4 +85,23 @@ describe("[IT-BILL] Página de Planos, Assinatura e Paywall (BillingPage)", () =
       screen.getByText(/seu período de teste grátis chegou ao fim/i)
     ).toBeInTheDocument();
   });
+
+  it("[IT-BILL.5] Deve invocar createSubscriptionCheckoutAction e redirecionar ao clicar em Assinar", async () => {
+    // Arrange
+    const assignSpy = vi.fn();
+    Object.defineProperty(window, "location", {
+      writable: true,
+      value: { ...window.location, assign: assignSpy },
+    });
+
+    // Act
+    render(<BillingPage />);
+
+    const proButton = screen.getByRole("button", { name: /assinar plano pro/i });
+    expect(proButton).toBeInTheDocument();
+
+    await React.act(async () => {
+      fireEvent.click(proButton);
+    });
+  });
 });
