@@ -165,4 +165,62 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
       })
     );
   });
+
+  it("[TEST-ASAAS-SUB-4] deve retornar erro quando ASAAS_API_KEY não estiver definida", async () => {
+    process.env.ASAAS_API_KEY = "";
+
+    const result = await createAsaasSubscription({
+      organizationId: "org-no-key",
+      organizationName: "Sem Chave",
+      organizationEmail: "semchave@loja.com",
+      planId: "starter",
+      billingCycle: "mensal",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("ASAAS_API_KEY");
+  });
+
+  it("[TEST-ASAAS-SUB-5] deve falhar caso a URL da fatura não possa ser obtida do Asaas", async () => {
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      if (url.includes("/customers")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: "cus_no_inv" }),
+        } as Response);
+      }
+
+      if (url.endsWith("/subscriptions") && options?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: "sub_no_inv",
+            status: "PENDING",
+          }),
+        } as Response);
+      }
+
+      if (url.includes("/subscriptions/sub_no_inv/payments")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response);
+      }
+
+      return Promise.resolve({ ok: false } as Response);
+    });
+
+    globalThis.fetch = mockFetch;
+
+    const result = await createAsaasSubscription({
+      organizationId: "org-no-inv",
+      organizationName: "Sem Fatura",
+      organizationEmail: "semfatura@loja.com",
+      planId: "enterprise",
+      billingCycle: "anual",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain("Não foi possível obter a URL da fatura");
+  });
 });

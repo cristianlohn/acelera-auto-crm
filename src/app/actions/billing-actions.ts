@@ -5,7 +5,7 @@
 
 "use server";
 
-import { resolveUserTenantContext } from "@/lib/auth/tenant";
+import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import {
   createAsaasSubscription,
   BILLING_PLANS_CONFIG,
@@ -18,7 +18,7 @@ export interface CreateSubscriptionInput {
 }
 
 /**
- * Cria a sessão de assinatura no Asaas Sandbox/Produção e retorna a URL segura de checkout/fatura.
+ * Cria a sessão de assinatura real no Asaas Sandbox/Produção e retorna a URL segura de checkout/fatura.
  */
 export async function createSubscriptionCheckoutAction(
   input: CreateSubscriptionInput
@@ -32,37 +32,53 @@ export async function createSubscriptionCheckoutAction(
     };
   }
 
-  // 1. Resolve o contexto de organização do usuário
-  const tenantContext = await resolveUserTenantContext();
+  try {
+    // 1. Resolve o contexto de organização do usuário
+    const tenantContext = await resolveUserTenantContext();
 
-  // 2. Tratamento para Modo Demonstração (Sandbox de testes visuais)
-  if (tenantContext.isDemo || !tenantContext.organizationId) {
-    const plan = BILLING_PLANS_CONFIG[planId];
+    const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+    const org = tenantContext.organization;
+    const orgName = org?.name || "Concessionária Acelera Auto";
+    const orgEmail = tenantContext.userEmail || "contato@aceleraautocrm.com.br";
+    const orgPhone = (org as unknown as { phone?: string })?.phone || null;
+    const orgDoc = org?.document || null;
+    const currentAsaasCustomerId = org?.asaas_customer_id || null;
+
+    // 2. Dispara a criação real no Asaas (SEM MOCKS OU FALLBACKS FICTÍCIOS)
+    const result = await createAsaasSubscription({
+      organizationId: orgId,
+      organizationName: orgName,
+      organizationEmail: orgEmail,
+      organizationPhone: orgPhone,
+      organizationDocument: orgDoc,
+      currentAsaasCustomerId,
+      planId,
+      billingCycle,
+    });
+
+    if (!result.success || !result.checkoutUrl) {
+      console.error("[Asaas Billing Error] Falha na criação da assinatura:", result.error);
+      return {
+        success: false,
+        error: result.error || "Não foi possível gerar a fatura de assinatura no Asaas.",
+      };
+    }
+
     return {
       success: true,
-      checkoutUrl: `https://sandbox.asaas.com/i/sub_demo_${plan.id}`,
-      subscriptionId: `sub_demo_${Date.now()}`,
-      customerId: "cus_demo_preview",
+      checkoutUrl: result.checkoutUrl,
+      subscriptionId: result.subscriptionId,
+      customerId: result.customerId,
+    };
+  } catch (error) {
+    console.error("[Asaas Billing Error] Exceção capturada ao processar checkout:", error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Erro inesperado ao conectar com a API do Asaas.";
+    return {
+      success: false,
+      error: message,
     };
   }
-
-  // 3. Usuário Real: Recupera dados da Organização
-  const org = tenantContext.organization;
-  const orgName = org?.name || "Concessionária Acelera Auto";
-  const orgEmail = tenantContext.userEmail || "contato@aceleraautocrm.com.br";
-  const orgPhone = (org as unknown as { phone?: string })?.phone || null;
-  const orgDoc = org?.document || null;
-  const currentAsaasCustomerId = org?.asaas_customer_id || null;
-
-  // 4. Cria a assinatura no Asaas
-  return createAsaasSubscription({
-    organizationId: tenantContext.organizationId,
-    organizationName: orgName,
-    organizationEmail: orgEmail,
-    organizationPhone: orgPhone,
-    organizationDocument: orgDoc,
-    currentAsaasCustomerId,
-    planId,
-    billingCycle,
-  });
 }

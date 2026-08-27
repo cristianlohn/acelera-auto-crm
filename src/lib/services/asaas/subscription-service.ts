@@ -2,11 +2,12 @@
  * @file subscription-service.ts
  * @description Serviço de integração oficial com a API v3 do Asaas para criação e gestão de clientes e assinaturas.
  *
- * Funcionalidades:
- * - Criação ou consulta idempotente de Cliente (`Customer`) no Asaas.
- * - Criação de Assinatura (`Subscription`) no Asaas com ciclo Mensal / Anual e suporte a checkout direto (UNDEFINED).
- * - Obtenção da URL oficial da fatura / checkout do Asaas (`invoiceUrl`).
- * - Atualização segura do status relacional no Supabase via Supabase Admin (bypassing RLS).
+ * Regras estritas:
+ * - ZERO fallbacks fictícios (sem sub_demo_* ou URLs mockadas).
+ * - Validação rigorosa de credenciais (ASAAS_API_KEY e ASAAS_API_URL).
+ * - Criação / consulta real de clientes e assinaturas via endpoints oficiais da API v3 do Asaas.
+ * - Extração obrigatória do invoiceUrl / bankSlipUrl real da fatura gerada para a assinatura.
+ * - Registro relacional no Supabase com status 'pending' (aguardando confirmação do webhook).
  */
 
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
@@ -69,9 +70,9 @@ export interface CreateSubscriptionResult {
 }
 
 /**
- * Retorna as credenciais configuradas para a API do Asaas.
+ * Retorna as credenciais configuradas para a API do Asaas e valida se estão presentes.
  */
-function getAsaasConfig() {
+function getAsaasConfig(): { apiUrl: string; apiKey: string } {
   const apiUrl = (
     process.env.ASAAS_API_URL ||
     process.env.NEXT_PUBLIC_ASAAS_API_URL ||
@@ -83,11 +84,19 @@ function getAsaasConfig() {
     process.env.ASAAS_ACCESS_TOKEN ||
     "";
 
-  return { apiUrl, apiKey };
+  if (!apiKey || apiKey.trim() === "") {
+    throw new Error("Chave de API do Asaas (ASAAS_API_KEY) não configurada no ambiente.");
+  }
+
+  if (!apiUrl || apiUrl.trim() === "") {
+    throw new Error("URL da API do Asaas (ASAAS_API_URL) não configurada no ambiente.");
+  }
+
+  return { apiUrl: apiUrl.trim(), apiKey: apiKey.trim() };
 }
 
 /**
- * Cria ou recupera o ID de cliente no Asaas.
+ * Cria ou recupera o ID de cliente real no Asaas.
  */
 export async function createOrGetAsaasCustomer(
   input: AsaasCustomerInput
@@ -97,32 +106,26 @@ export async function createOrGetAsaasCustomer(
   // 1. Se já tiver customer ID salvo no banco, valida se ele existe no Asaas
   if (input.currentAsaasCustomerId && input.currentAsaasCustomerId.startsWith("cus_")) {
     try {
-      if (apiKey) {
-        const checkRes = await fetch(`${apiUrl}/customers/${input.currentAsaasCustomerId}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            access_token: apiKey,
-          },
-        });
-        if (checkRes.ok) {
-          return { customerId: input.currentAsaasCustomerId };
+      const checkRes = await fetch(`${apiUrl}/customers/${input.currentAsaasCustomerId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          access_token: apiKey,
+        },
+      });
+
+      if (checkRes.ok) {
+        const checkData = await checkRes.json();
+        if (checkData.id) {
+          return { customerId: checkData.id };
         }
-      } else {
-        return { customerId: input.currentAsaasCustomerId };
       }
-    } catch {
-      // Continua para tentativa de busca por externalReference ou criação
+    } catch (err) {
+      console.warn("[Asaas Customer Lookup] Falha ao verificar customer existente:", err);
     }
   }
 
-  // 2. Se não houver chave real (ambiente de teste/demo local sem chaves), retorna ID mock determinístico
-  if (!apiKey || apiKey.includes("sua_chave_aqui")) {
-    const mockCustomerId = `cus_${input.organizationId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 14)}`;
-    return { customerId: mockCustomerId };
-  }
-
-  // 3. Tenta localizar por externalReference no Asaas
+  // 2. Busca por externalReference no Asaas
   try {
     const searchRes = await fetch(
       `${apiUrl}/customers?externalReference=${encodeURIComponent(input.organizationId)}`,
@@ -145,13 +148,38 @@ export async function createOrGetAsaasCustomer(
     console.warn("[Asaas Customer Lookup] Falha ao buscar cliente por externalReference:", err);
   }
 
+  // 3. Busca por email no Asaas
+  if (input.email) {
+    try {
+      const emailSearchRes = await fetch(
+        `${apiUrl}/customers?email=${encodeURIComponent(input.email.trim())}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            access_token: apiKey,
+          },
+        }
+      );
+
+      if (emailSearchRes.ok) {
+        const emailData = await emailSearchRes.json();
+        if (emailData.data && emailData.data.length > 0) {
+          return { customerId: emailData.data[0].id };
+        }
+      }
+    } catch (err) {
+      console.warn("[Asaas Customer Lookup] Falha ao buscar cliente por email:", err);
+    }
+  }
+
   // 4. Criação de novo cliente no Asaas
   const cleanPhone = input.phone ? input.phone.replace(/\D/g, "") : undefined;
   const cleanDoc = input.document ? input.document.replace(/\D/g, "") : undefined;
 
   const payload = {
-    name: input.name,
-    email: input.email,
+    name: input.name || "Concessionária Acelera Auto",
+    email: input.email || "contato@aceleraautocrm.com.br",
     phone: cleanPhone || undefined,
     mobilePhone: cleanPhone || undefined,
     cpfCnpj: cleanDoc || undefined,
@@ -181,23 +209,23 @@ export async function createOrGetAsaasCustomer(
 }
 
 /**
- * Cria a assinatura no Asaas e obtém a URL de checkout/fatura gerada.
+ * Cria a assinatura no Asaas e obtém a URL de checkout/fatura oficial gerada.
  */
 export async function createAsaasSubscription(
   params: CreateSubscriptionParams
 ): Promise<CreateSubscriptionResult> {
-  const { apiUrl, apiKey } = getAsaasConfig();
-  const plan = BILLING_PLANS_CONFIG[params.planId] || BILLING_PLANS_CONFIG.pro;
-  const isAnnual = params.billingCycle === "anual";
-  const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
-  const cycle = isAnnual ? "ANNUALLY" : "MONTHLY";
-
-  // Data de vencimento: hoje + 1 dia
-  const nextDueDate = new Date(Date.now() + 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
-
   try {
+    const { apiUrl, apiKey } = getAsaasConfig();
+    const plan = BILLING_PLANS_CONFIG[params.planId] || BILLING_PLANS_CONFIG.pro;
+    const isAnnual = params.billingCycle === "anual";
+    const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
+    const cycle = isAnnual ? "ANNUALLY" : "MONTHLY";
+
+    // Data de vencimento: hoje + 1 dia (formato yyyy-MM-dd)
+    const nextDueDate = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
+
     // 1. Garante a existência do cliente no Asaas
     const { customerId } = await createOrGetAsaasCustomer({
       organizationId: params.organizationId,
@@ -208,48 +236,14 @@ export async function createAsaasSubscription(
       currentAsaasCustomerId: params.currentAsaasCustomerId,
     });
 
-    // 2. Se não houver API key real configurada, simula a URL do checkout Asaas Sandbox
-    if (!apiKey || apiKey.includes("sua_chave_aqui")) {
-      const mockSubId = `sub_mock_${Date.now()}`;
-      const mockInvoiceUrl = `https://sandbox.asaas.com/i/${mockSubId}`;
-
-      // Salva no banco com status 'pending' (NUNCA 'active')
-      if (isSupabaseServerConfigured()) {
-        try {
-          const supabaseAdmin = createAdminClient();
-          await supabaseAdmin
-            .from("organizations")
-            .update({
-              asaas_customer_id: customerId,
-              asaas_subscription_id: mockSubId,
-              plan: plan.id,
-              plan_tier: plan.id,
-              plan_status: "pending",
-              subscription_status: "pending",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", params.organizationId);
-        } catch (dbErr) {
-          console.warn("[Asaas Subscription] Falha ao registrar assinatura pendente no banco:", dbErr);
-        }
-      }
-
-      return {
-        success: true,
-        checkoutUrl: mockInvoiceUrl,
-        subscriptionId: mockSubId,
-        customerId,
-      };
-    }
-
-    // 3. Cria a Assinatura via POST /v3/subscriptions
+    // 2. Cria a Assinatura via POST /v3/subscriptions
     const subPayload = {
       customer: customerId,
       billingType: "UNDEFINED", // Permite ao cliente escolher Pix, Cartão ou Boleto
       value: price,
       nextDueDate,
       cycle,
-      description: `Assinatura Acelera Auto CRM - ${plan.name} (${params.billingCycle === "anual" ? "Anual" : "Mensal"})`,
+      description: `Assinatura Plano ${plan.name} (${params.billingCycle === "anual" ? "Anual" : "Mensal"})`,
       externalReference: params.organizationId,
     };
 
@@ -267,48 +261,44 @@ export async function createAsaasSubscription(
       const errMsg =
         errData?.errors?.[0]?.description ||
         `Erro ao criar assinatura no Asaas (HTTP ${subRes.status})`;
-      return { success: false, error: errMsg };
+      throw new Error(errMsg);
     }
 
     const subData = await subRes.json();
     const subscriptionId = subData.id;
 
-    // 4. Busca a primeira cobrança/fatura gerada para obter o invoiceUrl de pagamento
-    let checkoutUrl = subData.paymentLink || subData.invoiceUrl;
+    // 3. Consulta as cobranças geradas para obter o link real da fatura
+    let invoiceUrl: string | null = subData.paymentLink || subData.invoiceUrl || null;
 
-    if (!checkoutUrl) {
-      try {
-        const paymentsRes = await fetch(
-          `${apiUrl}/subscriptions/${subscriptionId}/payments`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              access_token: apiKey,
-            },
-          }
-        );
-
-        if (paymentsRes.ok) {
-          const paymentsData = await paymentsRes.json();
-          const firstPayment = paymentsData.data?.[0];
-          if (firstPayment) {
-            checkoutUrl =
-              firstPayment.invoiceUrl ||
-              firstPayment.bankSlipUrl ||
-              `https://sandbox.asaas.com/i/${firstPayment.id}`;
-          }
+    if (!invoiceUrl) {
+      const paymentsRes = await fetch(
+        `${apiUrl}/subscriptions/${subscriptionId}/payments`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            access_token: apiKey,
+          },
         }
-      } catch (payErr) {
-        console.warn("[Asaas Payments Lookup] Falha ao obter fatura da assinatura:", payErr);
+      );
+
+      if (paymentsRes.ok) {
+        const paymentsData = await paymentsRes.json();
+        const firstPayment = paymentsData.data?.[0];
+        if (firstPayment) {
+          invoiceUrl =
+            firstPayment.invoiceUrl ||
+            firstPayment.bankSlipUrl ||
+            (firstPayment.id ? `https://sandbox.asaas.com/i/${firstPayment.id}` : null);
+        }
       }
     }
 
-    if (!checkoutUrl) {
-      checkoutUrl = `https://sandbox.asaas.com/i/${subscriptionId}`;
+    if (!invoiceUrl) {
+      throw new Error("Não foi possível obter a URL da fatura gerada no Asaas");
     }
 
-    // 5. Atualiza a organização no banco de dados com status 'pending' (aguardando webhook)
+    // 4. Atualiza a organização no banco de dados com status 'pending' (NUNCA 'active')
     if (isSupabaseServerConfigured()) {
       try {
         const supabaseAdmin = createAdminClient();
@@ -331,12 +321,12 @@ export async function createAsaasSubscription(
 
     return {
       success: true,
-      checkoutUrl,
+      checkoutUrl: invoiceUrl,
       subscriptionId,
       customerId,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Erro desconhecido ao processar assinatura";
+    const message = error instanceof Error ? error.message : "Erro desconhecido ao processar assinatura no Asaas";
     return { success: false, error: message };
   }
 }
