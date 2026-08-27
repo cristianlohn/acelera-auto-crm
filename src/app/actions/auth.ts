@@ -346,7 +346,7 @@ export interface UserProfileInfo {
   fullName: string;
   email: string;
   phone: string | null;
-  role: "admin" | "gerente" | "vendedor";
+  role: "admin" | "gerente" | "vendedor" | "superadmin";
   avatarUrl: string | null;
   initials: string;
   organizationName: string;
@@ -396,7 +396,7 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
       fullName: demoName,
       email: demoEmail,
       phone: "11988887777",
-      role: demoRole as any,
+      role: demoRole,
       avatarUrl: null,
       initials: demoInitials,
       organizationName: "Concessionária Demo",
@@ -424,7 +424,7 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
     "";
 
   const phone = tenantContext.profile?.phone || null;
-  const role = (tenantContext.profile?.role as "admin" | "gerente" | "vendedor") || "admin";
+  const role = (tenantContext.profile?.role as "admin" | "gerente" | "vendedor" | "superadmin") || "admin";
 
   const initials =
     fullName

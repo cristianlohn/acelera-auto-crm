@@ -226,9 +226,9 @@ export default function SettingsPage() {
     }
   };
 
-  const { role, sellerName, isDemoMode, roleConfig } = useDemoRole();
+  const { role, sellerName, isDemoMode } = useDemoRole();
 
-  // Carrega dinamicamente o perfil e a equipe do usuário autenticado ou persona demo
+  // Carrega dinamicamente o perfil e a equipe do usuário autenticado
   useEffect(() => {
     let isMounted = true;
     if (!isDemoMode) {
@@ -259,18 +259,11 @@ export default function SettingsPage() {
           }
         })
         .catch(() => {});
-    } else if (roleConfig) {
-      setProfile((prev) => ({
-        ...prev,
-        fullName: roleConfig.name || sellerName || prev.fullName,
-        email: roleConfig.email || prev.email,
-        role: (roleConfig.role as UserRole) || prev.role,
-      }));
     }
     return () => {
       isMounted = false;
     };
-  }, [isDemoMode, roleConfig, sellerName]);
+  }, [isDemoMode]);
 
   const isVendedorRole = role === "vendedor";
 

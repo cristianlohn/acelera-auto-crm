@@ -38,6 +38,31 @@ const ONE_DAY_MS = 86_400_000;
 // Estado mutável em memória para simulação de ações no modo de demonstração
 const localDealerships: DealershipAccount[] = [...mockDealerships];
 
+interface OrganizationProfileRow {
+  id: string;
+  role?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+
+interface OrganizationWithProfilesRow {
+  id: string;
+  name?: string | null;
+  slug?: string | null;
+  document?: string | null;
+  city?: string | null;
+  state?: string | null;
+  plan?: DealershipPlan | null;
+  subscription_status?: SubscriptionStatus | null;
+  trial_ends_at?: string | null;
+  current_period_end?: string | null;
+  vehicles_count?: number | null;
+  leads_count?: number | null;
+  created_at?: string | null;
+  profiles?: OrganizationProfileRow[] | null;
+}
+
 /**
  * Obtém a lista completa de concessionárias gerenciadas.
  */
@@ -57,11 +82,11 @@ export async function getDealershipsList(): Promise<DealershipAccount[]> {
       return [...localDealerships];
     }
 
-    return data.map((org: any) => {
+    return (data as unknown as OrganizationWithProfilesRow[]).map((org) => {
+      const profilesList = Array.isArray(org.profiles) ? org.profiles : [];
       const owner =
-        (Array.isArray(org.profiles)
-          ? org.profiles.find((p: any) => p.role === "admin" || p.role === "gerente") || org.profiles[0]
-          : null);
+        profilesList.find((p) => p.role === "admin" || p.role === "gerente") ||
+        profilesList[0];
       return {
         id: org.id,
         name: org.name || "Concessionária",
@@ -76,7 +101,7 @@ export async function getDealershipsList(): Promise<DealershipAccount[]> {
         currentPeriodEnd: org.current_period_end || new Date(Date.now() + 30 * 86400000).toISOString(),
         vehiclesCount: org.vehicles_count ?? 0,
         leadsCount: org.leads_count ?? 0,
-        sellersCount: Array.isArray(org.profiles) ? org.profiles.length : 1,
+        sellersCount: profilesList.length > 0 ? profilesList.length : 1,
         managerName: owner?.full_name || "Gestor Titular",
         managerPhone: owner?.phone || "11999998888",
         managerEmail: owner?.email || "gestor@concessionaria.com.br",

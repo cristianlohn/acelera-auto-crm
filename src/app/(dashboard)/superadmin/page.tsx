@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   DollarSign,
   Building2,
-  Clock,
   AlertTriangle,
   Search,
   CheckCircle2,
@@ -186,13 +185,13 @@ export default function SuperAdminPage() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const effectiveRole = (() => {
+  const effectiveRole = useMemo(() => {
     if (typeof document !== "undefined") {
       const cookieMatch = document.cookie.match(/acelera_demo_role=([^;]+)/);
       if (cookieMatch && cookieMatch[1]) return cookieMatch[1];
     }
     return role;
-  })();
+  }, [role]);
 
   useEffect(() => {
     if (!isSuperAdmin(effectiveRole)) {
@@ -200,26 +199,17 @@ export default function SuperAdminPage() {
     }
   }, [effectiveRole, router]);
 
-  if (!isSuperAdmin(effectiveRole)) {
-    return null;
-  }
-
   // Métricas calculadas
   const metrics = useMemo(() => {
     const totalStores = dealerships.length;
     const activeStores = dealerships.filter((d) => d.status === "active").length;
-    const trialStores = dealerships.filter((d) => d.status === "trialing").length;
     const mrr = dealerships
       .filter((d) => d.status === "active")
       .reduce((acc, curr) => acc + curr.monthlyFee, 0);
 
     const totalLeads = dealerships.reduce((acc, curr) => acc + (curr.leadsCount || 0), 0);
 
-    const expiringTrialsCount = dealerships.filter(
-      (d) => d.status === "trialing" && isExpiringSoon(d.trialEndsAt)
-    ).length;
-
-    return { totalStores, mrr, activeStores, trialStores, totalLeads, expiringTrialsCount };
+    return { totalStores, mrr, activeStores, totalLeads };
   }, [dealerships]);
 
   // Filtro por termo de busca e aba de status
@@ -242,6 +232,10 @@ export default function SuperAdminPage() {
       return matchSearch && matchTab;
     });
   }, [dealerships, search, activeTab]);
+
+  if (!isSuperAdmin(effectiveRole)) {
+    return null;
+  }
 
   // Ação: Ativar assinatura manual
   const handleActivate = (orgId: string) => {

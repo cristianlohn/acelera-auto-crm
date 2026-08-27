@@ -272,7 +272,7 @@ function mapStageToDbStatus(stage: LeadStage): LeadStatus {
   }
 }
 
-import { canViewAllLeads, normalizeRole } from "@/lib/permissions";
+import { canViewAllLeads } from "@/lib/permissions";
 
 /**
  * Consulta os leads do funil Kanban com métricas de SLA, isolamento multi-tenant e RBAC.

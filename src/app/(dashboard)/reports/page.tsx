@@ -14,8 +14,7 @@
 
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import {
   TrendingUp,
   TrendingDown,
@@ -36,7 +35,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/mock-data";
 import { useDemoRole } from "@/context/demo-role-context";
-import { canViewExecutiveReports } from "@/lib/permissions";
 
 // ---------------------------------------------------------------------------
 // Tipos de Domínio do Módulo de Analytics
@@ -333,7 +331,6 @@ function KPIStatCard({
 // ---------------------------------------------------------------------------
 
 export default function ReportsPage() {
-  const router = useRouter();
   const [period, setPeriod] = useState<ReportPeriod>("month");
   const [isExporting, startExportTransition] = useTransition();
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
