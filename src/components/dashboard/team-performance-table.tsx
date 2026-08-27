@@ -59,15 +59,28 @@ export function TeamPerformanceTable({
           </div>
         </div>
 
-        {/* Botão [+ Adicionar Vendedor] */}
-        <Button
-          onClick={() => setIsModalOpen(true)}
-          data-testid="btn-open-add-salesperson"
-          className="h-8 px-3 text-xs font-bold bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-md shadow-orange-500/20 self-start sm:self-auto shrink-0 gap-1.5"
-        >
-          <UserPlus className="h-3.5 w-3.5" />
-          <span>Adicionar Vendedor</span>
-        </Button>
+        {/* Ações da Tabela */}
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          <Button
+            asChild
+            variant="ghost"
+            className="h-8 px-3 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10"
+          >
+            <a href="/dashboard/team" data-testid="btn-manage-full-team">
+              Gerenciar Equipe Completa
+            </a>
+          </Button>
+
+          {/* Botão [+ Adicionar Vendedor] */}
+          <Button
+            onClick={() => setIsModalOpen(true)}
+            data-testid="btn-open-add-salesperson"
+            className="h-8 px-3 text-xs font-bold bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-md shadow-orange-500/20 gap-1.5"
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            <span>Adicionar Vendedor</span>
+          </Button>
+        </div>
       </div>
 
       {/* Tabela de Vendedores */}

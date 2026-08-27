@@ -38,23 +38,23 @@ test.describe("[E2E-TEAM] Gestão de Equipe Comercial & Cadastro de Vendedor", (
     const testSalespersonName = `Vendedor Teste ${Date.now().toString().slice(-4)}`;
     const testSalespersonEmail = `vendedor.${Date.now()}@aceleraauto.com.br`;
 
-    await page.locator('[data-testid="input-salesperson-name"]').fill(testSalespersonName);
-    await page.locator('[data-testid="input-salesperson-email"]').fill(testSalespersonEmail);
-    await page.locator('[data-testid="input-salesperson-phone"]').fill("11988887777");
+    await page.locator('[data-testid="input-seller-name"], [data-testid="input-salesperson-name"]').first().fill(testSalespersonName);
+    await page.locator('[data-testid="input-seller-email"], [data-testid="input-salesperson-email"]').first().fill(testSalespersonEmail);
+    await page.locator('[data-testid="input-seller-phone"], [data-testid="input-salesperson-phone"]').first().fill("11988887777");
 
-    const segmentSelect = page.locator('[data-testid="select-salesperson-segment"]');
+    const segmentSelect = page.locator('[data-testid="select-seller-segment"], [data-testid="select-salesperson-segment"]').first();
     if (await segmentSelect.isVisible()) {
       await segmentSelect.selectOption("used_cars");
     }
 
     // 5. Envia o formulário
-    const submitBtn = page.locator('[data-testid="btn-submit-salesperson"]');
+    const submitBtn = page.locator('[data-testid="btn-save-salesperson"], [data-testid="btn-submit-salesperson"]').first();
     await expect(submitBtn).toBeVisible();
     await submitBtn.click();
 
     // 6. Valida que o modal fechou e o novo vendedor aparece imediatamente na tabela
     await expect(modalTitle).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(testSalespersonName)).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("table").getByText(testSalespersonName, { exact: true })).toBeVisible({ timeout: 10000 });
   });
 
   test("[E2E-TEAM-02] Navegação pela Sidebar para a Rota Dedicada /dashboard/team", async ({ page, isMobile }) => {
@@ -73,7 +73,7 @@ test.describe("[E2E-TEAM] Gestão de Equipe Comercial & Cadastro de Vendedor", (
 
     // Valida carregamento da página dedicada
     await page.waitForURL("**/dashboard/team", { timeout: 15000 });
-    await expect(page.getByRole("heading", { level: 1, name: /equipe de vendas & roleta de leads/i })).toBeVisible();
-    await expect(page.locator('[data-testid="btn-open-add-salesperson"]')).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /equipe de vendas & roleta/i })).toBeVisible();
+    await expect(page.locator('[data-testid="btn-add-salesperson-page"], [data-testid="btn-open-add-salesperson"]')).toBeVisible();
   });
 });

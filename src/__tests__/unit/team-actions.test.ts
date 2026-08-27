@@ -1,21 +1,30 @@
 /**
  * @file team-actions.test.ts
- * @description Suíte de Testes Unitários para o Cadastro e Gestão de Vendedores (Zod Validation & Multi-Tenant).
+ * @description Suíte de Testes Unitários para a Gestão de Equipe Comercial, Vendedores e Roleta (Zod Validation & Multi-Tenant).
  *
  * Cenários Testados:
  * - [TEST-TEAM-SCHEMA-VALIDATION]: Aceitação de payloads válidos e rejeição de dados incorretos (telefone, nome curto, email inválido).
  * - [TEST-TEAM-PHONE-E164-SANITIZATION]: Normalização e sanitização do telefone para padrão internacional E.164 (+55...).
  * - [TEST-TEAM-MULTI-TENANT-ISOLATION]: Garantia de herança estrita do organization_id do tenant logado.
  * - [TEST-TEAM-ACTION-EXECUTION]: Execução da Server Action createSalespersonAction com FormData e objeto tipado.
+ * - [TEST-TEAM-ROULETTE-TOGGLE]: Execução da Server Action toggleRouletteStatusAction com isolamento de tenant.
+ * - [TEST-TEAM-CRUD-ACTIONS]: Execução de updateSalespersonAction e deleteSalespersonAction.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { createSalespersonAction } from "@/app/actions/team-actions";
-import { salespersonSchema } from "@/lib/team-schema";
+import {
+  createSalespersonAction,
+  toggleRouletteStatusAction,
+  updateSalespersonAction,
+  deleteSalespersonAction,
+  getTeamMembersAction,
+  getTeamSummaryMetricsAction,
+} from "@/app/actions/team-actions";
+import { salespersonFormSchema } from "@/lib/validations/team";
 import * as tenantModule from "@/lib/auth/tenant";
 import * as supabaseServerModule from "@/lib/supabase/server";
 
-describe("[UNIT-TEAM] Cadastro e Gestão de Vendedores e Membros da Equipe", () => {
+describe("[UNIT-TEAM] Gestão Completa de Equipe, Vendedores e Roleta Comercial", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -32,7 +41,7 @@ describe("[UNIT-TEAM] Cadastro e Gestão de Vendedores e Membros da Equipe", () 
         monthly_goal_units: 15,
       };
 
-      const result = salespersonSchema.safeParse(validPayload);
+      const result = salespersonFormSchema.safeParse(validPayload);
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.name).toBe("Carlos Eduardo Silveira");
@@ -50,7 +59,7 @@ describe("[UNIT-TEAM] Cadastro e Gestão de Vendedores e Membros da Equipe", () 
         phone: "11988887777",
       };
 
-      const result = salespersonSchema.safeParse(invalidPayload);
+      const result = salespersonFormSchema.safeParse(invalidPayload);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].message).toContain("mínimo 3 caracteres");
@@ -64,7 +73,7 @@ describe("[UNIT-TEAM] Cadastro e Gestão de Vendedores e Membros da Equipe", () 
         phone: "11988887777",
       };
 
-      const result = salespersonSchema.safeParse(invalidPayload);
+      const result = salespersonFormSchema.safeParse(invalidPayload);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].message).toContain("e-mail inválido");
@@ -75,10 +84,10 @@ describe("[UNIT-TEAM] Cadastro e Gestão de Vendedores e Membros da Equipe", () 
       const invalidPayload = {
         name: "Roberto Silva",
         email: "roberto@email.com",
-        phone: "988887777", // Apenas 9 dígitos
+        phone: "988887777",
       };
 
-      const result = salespersonSchema.safeParse(invalidPayload);
+      const result = salespersonFormSchema.safeParse(invalidPayload);
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error.issues[0].message).toContain("telefone ou WhatsApp brasileiro inválido");
@@ -94,7 +103,7 @@ describe("[UNIT-TEAM] Cadastro e Gestão de Vendedores e Membros da Equipe", () 
         phone: "(48) 99123-4567",
       };
 
-      const result = salespersonSchema.safeParse(payload);
+      const result = salespersonFormSchema.safeParse(payload);
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.phone).toBe("+5548991234567");
@@ -157,7 +166,7 @@ describe("[UNIT-TEAM] Cadastro e Gestão de Vendedores e Membros da Equipe", () 
 
       expect(actionResult.success).toBe(true);
       expect(actionResult.member).toBeDefined();
-      expect(actionResult.member?.organizationId).toBe("org-loja-ouro-999");
+      expect(actionResult.member?.organization_id).toBe("org-loja-ouro-999");
       expect(actionResult.member?.name).toBe("Fernanda Lima");
       expect(mockSupabase.from).toHaveBeenCalledWith("profiles");
       expect(mockSupabaseQuery.insert).toHaveBeenCalledWith(
@@ -170,7 +179,17 @@ describe("[UNIT-TEAM] Cadastro e Gestão de Vendedores e Membros da Equipe", () 
     });
   });
 
-  describe("[TEST-TEAM-ACTION-EXECUTION] Entrada via FormData", () => {
+  describe("[TEST-TEAM-ROULETTE-TOGGLE] Toggle Otimista de Presença na Roleta", () => {
+    it("deve alternar status de presença na roleta com sucesso", async () => {
+      const toggleResult = await toggleRouletteStatusAction("sp-001", false);
+      expect(toggleResult.success).toBe(true);
+
+      const toggleBackResult = await toggleRouletteStatusAction("sp-001", true);
+      expect(toggleBackResult.success).toBe(true);
+    });
+  });
+
+  describe("[TEST-TEAM-ACTION-EXECUTION] Entrada via FormData e Métricas", () => {
     it("deve processar corretamente uma submissão via FormData nativo", async () => {
       const formData = new FormData();
       formData.set("name", "Bruno Henrique");
@@ -186,6 +205,29 @@ describe("[UNIT-TEAM] Cadastro e Gestão de Vendedores e Membros da Equipe", () 
       expect(result.member?.name).toBe("Bruno Henrique");
       expect(result.member?.role).toBe("sdr");
       expect(result.member?.segment).toBe("used_cars");
+    });
+
+    it("deve calcular métricas agregadas da equipe corretamente", async () => {
+      const metrics = await getTeamSummaryMetricsAction();
+      expect(metrics.totalMembers).toBeGreaterThan(0);
+      expect(metrics.totalMonthlyGoal).toBeGreaterThan(0);
+      expect(metrics.goalCompletionPercentage).toBeGreaterThanOrEqual(0);
+    });
+
+    it("deve consultar a lista de membros da equipe", async () => {
+      const members = await getTeamMembersAction();
+      expect(Array.isArray(members)).toBe(true);
+      expect(members.length).toBeGreaterThan(0);
+    });
+
+    it("deve atualizar e deletar vendedor com sucesso", async () => {
+      const updateResult = await updateSalespersonAction("sp-002", {
+        monthly_goal_units: 25,
+      });
+      expect(updateResult.success).toBe(true);
+
+      const deleteResult = await deleteSalespersonAction("sp-non-existent");
+      expect(deleteResult.success).toBe(true);
     });
   });
 });
