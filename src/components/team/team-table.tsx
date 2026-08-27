@@ -17,6 +17,7 @@ import {
   Edit2,
   Trash2,
   Filter,
+  Send,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import type { TeamMember, TeamSegment } from "@/types/team";
 import {
   toggleRouletteStatusAction,
   deleteSalespersonAction,
+  resendInviteEmailAction,
 } from "@/app/actions/team-actions";
 
 export interface TeamTableProps {
@@ -99,6 +101,30 @@ export function TeamTable({
         toast.error("Erro ao sincronizar status da roleta.");
       }
     });
+  };
+
+  // Reenvio de e-mail de convite
+  const handleResendInvite = async (email: string, name: string, role?: string) => {
+    toast.loading(`Reenviando e-mail de convite para ${email}...`, { id: `resend-${email}` });
+    try {
+      const res = await resendInviteEmailAction(email, name, role);
+      if (res.success && res.emailSent) {
+        toast.success(`E-mail de convite reenviado com sucesso para ${email}!`, {
+          id: `resend-${email}`,
+          description: "O vendedor já pode acessar sua caixa de entrada para criar a senha.",
+        });
+      } else if (res.success) {
+        toast.success(`Convite gerado com sucesso para ${email}!`, {
+          id: `resend-${email}`,
+        });
+      } else {
+        toast.error(`Falha ao reenviar e-mail: ${res.error || "Erro desconhecido"}`, {
+          id: `resend-${email}`,
+        });
+      }
+    } catch {
+      toast.error("Erro ao comunicar com o servidor.", { id: `resend-${email}` });
+    }
   };
 
   // Exclusão de membro
@@ -320,6 +346,14 @@ export function TeamTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-[#18181b] border-white/10 text-xs">
+                          <DropdownMenuItem
+                            data-testid={`btn-resend-invite-${member.id}`}
+                            onClick={() => handleResendInvite(member.email, member.name, member.role)}
+                            className="cursor-pointer hover:bg-white/10 gap-2 text-orange-400 hover:text-orange-300"
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            <span>Reenviar E-mail de Convite</span>
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => onEditMember?.(member)}
                             className="cursor-pointer hover:bg-white/10 gap-2"

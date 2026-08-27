@@ -34,6 +34,8 @@ export interface InviteMemberInput {
 
 export interface InviteResult {
   success: boolean;
+  emailSent?: boolean;
+  fallbackInviteLink?: string;
   error?: string;
   requiresUpgrade?: boolean;
   member?: TeamMember;

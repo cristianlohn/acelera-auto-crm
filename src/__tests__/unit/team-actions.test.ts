@@ -23,6 +23,7 @@ import {
 import { salespersonFormSchema } from "@/lib/validations/team";
 import * as tenantModule from "@/lib/auth/tenant";
 import * as supabaseServerModule from "@/lib/supabase/server";
+import * as supabaseAdminModule from "@/lib/supabase/admin";
 
 describe("[UNIT-TEAM] Gestão Completa de Equipe, Vendedores e Roleta Comercial", () => {
   beforeEach(() => {
@@ -112,7 +113,7 @@ describe("[UNIT-TEAM] Gestão Completa de Equipe, Vendedores e Roleta Comercial"
   });
 
   describe("[TEST-TEAM-MULTI-TENANT-ISOLATION] Isolamento de Tenant na Server Action", () => {
-    it("deve associar o novo vendedor ao organization_id do gestor autenticado", async () => {
+    it("deve associar o novo vendedor ao organization_id do gestor autenticado e disparar convite automático", async () => {
       vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
         isDemo: false,
         needsOnboarding: false,
@@ -142,16 +143,26 @@ describe("[UNIT-TEAM] Gestão Completa de Equipe, Vendedores e Roleta Comercial"
 
       vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
-      const mockSupabaseQuery = {
-        insert: vi.fn().mockResolvedValue({ error: null }),
+      const mockAdminSupabase = {
+        auth: {
+          admin: {
+            inviteUserByEmail: vi.fn().mockResolvedValue({
+              data: { user: { id: "auth-seller-123", email: "fernanda.lima@ouro.com.br" } },
+              error: null,
+            }),
+            generateLink: vi.fn().mockResolvedValue({
+              data: { properties: { action_link: "https://aceleraauto.com.br/auth/update-password?token=abc" } },
+              error: null,
+            }),
+          },
+        },
+        from: vi.fn().mockReturnValue({
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+        }),
       };
 
-      const mockSupabase = {
-        from: vi.fn().mockReturnValue(mockSupabaseQuery),
-      };
-
-      vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
-        mockSupabase as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
       );
 
       const actionResult = await createSalespersonAction({
@@ -165,17 +176,18 @@ describe("[UNIT-TEAM] Gestão Completa de Equipe, Vendedores e Roleta Comercial"
       });
 
       expect(actionResult.success).toBe(true);
+      expect(actionResult.emailSent).toBe(true);
+      expect(actionResult.fallbackInviteLink).toBe("https://aceleraauto.com.br/auth/update-password?token=abc");
       expect(actionResult.member).toBeDefined();
       expect(actionResult.member?.organization_id).toBe("org-loja-ouro-999");
       expect(actionResult.member?.name).toBe("Fernanda Lima");
-      expect(mockSupabase.from).toHaveBeenCalledWith("profiles");
-      expect(mockSupabaseQuery.insert).toHaveBeenCalledWith(
+      expect(mockAdminSupabase.auth.admin.inviteUserByEmail).toHaveBeenCalledWith(
+        "fernanda.lima@ouro.com.br",
         expect.objectContaining({
-          organization_id: "org-loja-ouro-999",
-          full_name: "Fernanda Lima",
-          email: "fernanda.lima@ouro.com.br",
+          data: expect.objectContaining({ full_name: "Fernanda Lima" }),
         })
       );
+      expect(mockAdminSupabase.from).toHaveBeenCalledWith("profiles");
     });
   });
 

@@ -14,7 +14,9 @@
 import { revalidatePath } from "next/cache";
 import {
   createServerSupabaseClient,
+  isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   INITIAL_TEAM_MEMBERS,
   INITIAL_CAPACITY,
@@ -25,12 +27,33 @@ import {
 } from "@/lib/team-data";
 import { resolveUserTenantContext } from "@/lib/auth/tenant";
 
+import {
+  inviteTeamMemberAction as _inviteTeamMemberAction,
+  resendInviteEmailAction as _resendInviteEmailAction,
+  type InviteTeamMemberInput,
+} from "./team-actions";
+
 export type {
   TeamMember,
   TeamCapacity,
   InviteMemberInput,
   InviteResult,
+  InviteTeamMemberInput,
 };
+
+/**
+ * Server Action unificada para convidar membros de equipe.
+ */
+export async function inviteTeamMemberAction(input: InviteTeamMemberInput) {
+  return _inviteTeamMemberAction(input);
+}
+
+/**
+ * Server Action unificada para reenviar convite por e-mail.
+ */
+export async function resendInviteEmailAction(email: string, name?: string, role?: string) {
+  return _resendInviteEmailAction(email, name, role);
+}
 
 // Estado local para ambiente de desenvolvimento/testes
 const localTeamMembers: TeamMember[] = [...INITIAL_TEAM_MEMBERS];
@@ -92,7 +115,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
 }
 
 /**
- * Convida um novo colaborador para a equipe respeitando a cota do plano.
+ * Convida um novo colaborador para a equipe respeitando a cota do plano com disparo automático de e-mail.
  */
 export async function inviteTeamMember(
   input: InviteMemberInput
@@ -125,10 +148,72 @@ export async function inviteTeamMember(
     };
   }
 
+  const tenantContext = await resolveUserTenantContext();
+  const orgId = tenantContext.organizationId || "org-001";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const redirectTo = `${baseUrl}/auth/update-password`;
+
+  let emailSent = false;
+  let fallbackInviteLink = "";
+  let memberId = `mem-${Date.now()}`;
+
+  // Disparo de e-mail via Supabase Auth Admin se configurado
+  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
+    try {
+      const supabaseAdmin = createAdminClient();
+      const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(input.email.trim(), {
+        redirectTo,
+        data: {
+          full_name: input.fullName.trim(),
+          role: input.role || "vendedor",
+        },
+      });
+
+      if (!inviteRes.error && inviteRes.data?.user) {
+        emailSent = true;
+        memberId = inviteRes.data.user.id;
+      }
+
+      const linkRes = await supabaseAdmin.auth.admin.generateLink({
+        type: "invite",
+        email: input.email.trim(),
+        options: { redirectTo },
+      });
+
+      if (!linkRes.error && linkRes.data?.properties?.action_link) {
+        fallbackInviteLink = linkRes.data.properties.action_link;
+      }
+
+      await supabaseAdmin.from("profiles").upsert(
+        {
+          id: memberId,
+          organization_id: orgId,
+          full_name: input.fullName.trim(),
+          email: input.email.trim(),
+          phone: input.phone.trim(),
+          role: input.role || "vendedor",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+    } catch (err) {
+      console.warn("[Team Invite Warning]:", err);
+    }
+  } else {
+    emailSent = true;
+    fallbackInviteLink = `${redirectTo}?token=demo_${Date.now()}&email=${encodeURIComponent(input.email.trim())}`;
+  }
+
+  if (!fallbackInviteLink) {
+    fallbackInviteLink = `${redirectTo}?email=${encodeURIComponent(input.email.trim())}`;
+  }
+
   // 4. Criação da nova entidade
   const newMember: TeamMember = {
-    id: `mem-${Date.now()}`,
-    organizationId: "org-001",
+    id: memberId,
+    organizationId: orgId,
     fullName: input.fullName.trim(),
     email: input.email.trim(),
     phone: input.phone.trim(),
@@ -139,10 +224,16 @@ export async function inviteTeamMember(
 
   localTeamMembers.push(newMember);
 
-  revalidatePath("/settings");
+  try {
+    revalidatePath("/settings");
+    revalidatePath("/dashboard/team");
+    revalidatePath("/team");
+  } catch {}
 
   return {
     success: true,
+    emailSent,
+    fallbackInviteLink,
     member: newMember,
   };
 }

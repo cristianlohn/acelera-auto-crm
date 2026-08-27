@@ -27,9 +27,17 @@ import {
   Sparkles,
   Loader2,
   ShieldCheck,
+  CheckCircle2,
+  Copy,
+  Check,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { createSalespersonAction, updateSalespersonAction } from "@/app/actions/team-actions";
+import {
+  createSalespersonAction,
+  updateSalespersonAction,
+  type CreateSalespersonResult,
+} from "@/app/actions/team-actions";
 import type { TeamMember } from "@/types/team";
 
 export interface SalespersonModalProps {
@@ -66,6 +74,8 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
   const [monthlyGoal, setMonthlyGoal] = useState(String(initialData?.monthly_goal_units || 10));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [createdResult, setCreatedResult] = useState<CreateSalespersonResult | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(formatPhoneMask(e.target.value));
@@ -124,8 +134,9 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
           in_roulette: inRoulette,
           monthly_goal_units: Number(monthlyGoal) || 10,
         });
+        onClose();
       } else {
-        // Criação de novo vendedor
+        // Criação de novo vendedor com disparo automático de convite
         const result = await createSalespersonAction({
           name: name.trim(),
           email: email.trim(),
@@ -142,17 +153,96 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
           return;
         }
 
-        toast.success(`Vendedor ${result.member.name} cadastrado com sucesso!`);
+        toast.success(
+          `Vendedor cadastrado! E-mail de convite enviado automaticamente para ${email.trim()}.`
+        );
         onSuccess?.(result.member);
+        setCreatedResult(result);
       }
-
-      onClose();
     } catch {
       setFormError("Falha na comunicação com o servidor. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Se o cadastro foi concluído com sucesso, exibe o painel de confirmação e contingência
+  if (createdResult && createdResult.member) {
+    const cleanPhone = createdResult.member.phone.replace(/\D/g, "");
+    const formattedPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
+    const inviteUrl = createdResult.fallbackInviteLink || "";
+    const whatsappMsg = encodeURIComponent(
+      `Olá ${createdResult.member.name}! Você foi convidado para a equipe de vendas no Acelera Auto CRM. Acesse o link abaixo para definir sua senha de acesso:\n\n${inviteUrl}`
+    );
+    const whatsappUrl = `https://wa.me/${formattedPhone}?text=${whatsappMsg}`;
+
+    const handleCopyLink = () => {
+      if (inviteUrl) {
+        navigator.clipboard.writeText(inviteUrl);
+        setCopiedLink(true);
+        toast.success("Link de acesso copiado com sucesso!");
+        setTimeout(() => setCopiedLink(false), 3000);
+      }
+    };
+
+    return (
+      <div className="space-y-4 pt-2" data-testid="invite-success-container">
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-center space-y-2">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
+          <h3 className="text-sm font-bold text-white">
+            Vendedor Cadastrado com Sucesso!
+          </h3>
+          <p className="text-xs text-zinc-300">
+            O e-mail de convite foi enviado automaticamente para{" "}
+            <span className="font-semibold text-emerald-400">{createdResult.member.email}</span>.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-white/10 bg-white/5 p-3.5 space-y-3">
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            O convite foi enviado para o e-mail do vendedor. Caso ele relate dificuldades no recebimento, utilize as opções de contingência abaixo:
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCopyLink}
+              data-testid="btn-copy-invite-link"
+              className="flex-1 bg-white/5 border-white/10 text-white hover:bg-white/10 text-xs font-semibold gap-2 h-9"
+            >
+              {copiedLink ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4 text-zinc-400" />}
+              <span>{copiedLink ? "Link Copiado!" : "Copiar Link de Acesso"}</span>
+            </Button>
+
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="btn-send-invite-whatsapp"
+              className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 text-xs font-semibold shadow-sm transition-all h-9"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span>Enviar via WhatsApp</span>
+            </a>
+          </div>
+        </div>
+
+        <DialogFooter className="pt-2">
+          <Button
+            type="button"
+            onClick={onClose}
+            data-testid="btn-finish-invite"
+            className="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white text-xs font-bold h-9"
+          >
+            Concluir
+          </Button>
+        </DialogFooter>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 pt-2">

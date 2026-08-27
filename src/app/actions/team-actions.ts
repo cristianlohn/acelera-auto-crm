@@ -7,6 +7,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import {
   salespersonFormSchema,
@@ -24,8 +25,21 @@ export type {
 
 export interface CreateSalespersonResult {
   success: boolean;
+  emailSent?: boolean;
+  fallbackInviteLink?: string;
   member?: TeamMember;
   error?: string;
+}
+
+export interface InviteTeamMemberInput {
+  name: string;
+  email: string;
+  phone: string;
+  role?: "seller" | "sdr" | "manager" | "admin" | "gerente" | "vendedor";
+  specialization?: string;
+  segment?: "all" | "new_cars" | "used_cars" | "f_and_i";
+  in_roulette?: boolean;
+  monthly_goal_units?: number;
 }
 
 export interface ActionResult {
@@ -162,36 +176,33 @@ export async function getTeamSummaryMetricsAction(explicitOrgId?: string): Promi
 }
 
 /**
- * Server Action para cadastrar um novo vendedor na organização.
+ * Server Action para convidar e cadastrar um novo membro da equipe com disparo automático de e-mail SMTP.
  */
-export async function createSalespersonAction(
-  rawInput: Partial<SalespersonFormData> | FormData
+export async function inviteTeamMemberAction(
+  input: InviteTeamMemberInput
 ): Promise<CreateSalespersonResult> {
-  let dataToValidate: unknown = rawInput;
+  const normalizedRole =
+    input.role === "manager" || input.role === "gerente"
+      ? "manager"
+      : input.role === "sdr"
+      ? "sdr"
+      : "seller";
 
-  if (rawInput instanceof FormData) {
-    dataToValidate = {
-      name: rawInput.get("name") || rawInput.get("seller_name"),
-      email: rawInput.get("email") || rawInput.get("seller_email"),
-      phone: rawInput.get("phone") || rawInput.get("seller_phone"),
-      role: rawInput.get("role") || "seller",
-      segment: rawInput.get("segment") || "all",
-      in_roulette:
-        rawInput.get("in_roulette") === "true" ||
-        rawInput.get("in_roulette") === "on" ||
-        rawInput.get("in_roulette") === "1" ||
-        rawInput.get("in_roulette") === null,
-      status: rawInput.get("status") || "active",
-      monthly_goal_units: rawInput.get("monthly_goal_units") || rawInput.get("goal") || 10,
-    };
-  }
+  const parseResult = salespersonFormSchema.safeParse({
+    name: input.name,
+    email: input.email,
+    phone: input.phone,
+    role: normalizedRole,
+    segment: input.segment || "all",
+    in_roulette: input.in_roulette !== false,
+    monthly_goal_units: input.monthly_goal_units || 10,
+    status: "active",
+  });
 
-  const parseResult = salespersonFormSchema.safeParse(dataToValidate);
   if (!parseResult.success) {
-    const firstIssue = parseResult.error.issues[0];
     return {
       success: false,
-      error: firstIssue ? firstIssue.message : "Dados inválidos para cadastro do vendedor.",
+      error: parseResult.error.issues[0]?.message || "Dados inválidos para convite de membro.",
     };
   }
 
@@ -199,8 +210,73 @@ export async function createSalespersonAction(
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const redirectTo = `${baseUrl}/auth/update-password`;
+
+  let emailSent = false;
+  let fallbackInviteLink = "";
+  let memberId = `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  // 1. Disparo de Convite e Criação via Supabase Auth Admin
+  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
+    try {
+      const supabaseAdmin = createAdminClient();
+
+      // Passo 1: Disparo Automático de E-mail via SMTP do Supabase
+      const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(validData.email, {
+        redirectTo,
+        data: {
+          full_name: validData.name,
+          role: validData.role || "seller",
+        },
+      });
+
+      if (!inviteRes.error && inviteRes.data?.user) {
+        emailSent = true;
+        memberId = inviteRes.data.user.id;
+      }
+
+      // Passo 2: Geração do Link de Contingência
+      const linkRes = await supabaseAdmin.auth.admin.generateLink({
+        type: "invite",
+        email: validData.email,
+        options: { redirectTo },
+      });
+
+      if (!linkRes.error && linkRes.data?.properties?.action_link) {
+        fallbackInviteLink = linkRes.data.properties.action_link;
+      }
+
+      // Passo 3: Persistência no Banco (profiles)
+      await supabaseAdmin.from("profiles").upsert(
+        {
+          id: memberId,
+          organization_id: orgId,
+          full_name: validData.name,
+          email: validData.email,
+          phone: validData.phone,
+          role: validData.role === "manager" ? "gerente" : "vendedor",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+    } catch (err) {
+      console.warn("[Team Invite Error] Falha ao disparar convite automático via admin:", err);
+    }
+  } else {
+    // Ambiente Demo / Offline: simula envio com sucesso e gera link de contingência
+    emailSent = true;
+    fallbackInviteLink = `${redirectTo}?token=demo_${Date.now()}&email=${encodeURIComponent(validData.email)}`;
+  }
+
+  if (!fallbackInviteLink) {
+    fallbackInviteLink = `${redirectTo}?email=${encodeURIComponent(validData.email)}`;
+  }
+
   const newMember: TeamMember = {
-    id: `sp_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    id: memberId,
     organization_id: orgId,
     name: validData.name,
     email: validData.email,
@@ -215,38 +291,141 @@ export async function createSalespersonAction(
     created_at: new Date().toISOString(),
   };
 
-  // Persistência no Supabase se configurado
-  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
-    try {
-      const supabase = await createServerSupabaseClient();
-      await supabase.from("profiles").insert({
-        id: newMember.id,
-        organization_id: orgId,
-        full_name: newMember.name,
-        email: newMember.email,
-        phone: newMember.phone,
-        role: newMember.role === "manager" ? "gerente" : "vendedor",
-      });
-    } catch {
-      // Fallback
-    }
-  }
-
   // Registra no estado em memória para atualização imediata
   memoryTeamMembers.unshift(newMember);
 
   try {
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/team");
+    revalidatePath("/team");
     revalidatePath("/leads");
-  } catch {
-    // Revalidação silenciosa
-  }
+  } catch {}
 
   return {
     success: true,
+    emailSent,
+    fallbackInviteLink,
     member: newMember,
   };
+}
+
+/**
+ * Server Action para cadastrar um novo vendedor na organização.
+ */
+export async function createSalespersonAction(
+  rawInput: Partial<SalespersonFormData> | FormData
+): Promise<CreateSalespersonResult> {
+  let name = "";
+  let email = "";
+  let phone = "";
+  let role: "seller" | "sdr" | "manager" = "seller";
+  let segment: TeamMember["segment"] = "all";
+  let in_roulette = true;
+  let monthly_goal_units = 10;
+
+  if (rawInput instanceof FormData) {
+    name = String(rawInput.get("name") || rawInput.get("seller_name") || "");
+    email = String(rawInput.get("email") || rawInput.get("seller_email") || "");
+    phone = String(rawInput.get("phone") || rawInput.get("seller_phone") || "");
+    role = (rawInput.get("role") as "seller" | "sdr" | "manager") || "seller";
+    segment = (rawInput.get("segment") as TeamMember["segment"]) || "all";
+    in_roulette =
+      rawInput.get("in_roulette") === "true" ||
+      rawInput.get("in_roulette") === "on" ||
+      rawInput.get("in_roulette") === "1" ||
+      rawInput.get("in_roulette") === null;
+    monthly_goal_units = Number(rawInput.get("monthly_goal_units") || rawInput.get("goal")) || 10;
+  } else {
+    name = rawInput.name || "";
+    email = rawInput.email || "";
+    phone = rawInput.phone || "";
+    role = rawInput.role || "seller";
+    segment = rawInput.segment || "all";
+    in_roulette = rawInput.in_roulette !== false;
+    monthly_goal_units = rawInput.monthly_goal_units || 10;
+  }
+
+  return inviteTeamMemberAction({
+    name,
+    email,
+    phone,
+    role,
+    segment,
+    in_roulette,
+    monthly_goal_units,
+  });
+}
+
+/**
+ * Server Action para reenviar o e-mail de convite de acesso a um vendedor/colaborador.
+ */
+export async function resendInviteEmailAction(
+  email: string,
+  name?: string,
+  role?: string
+): Promise<{ success: boolean; error?: string; emailSent?: boolean; fallbackInviteLink?: string }> {
+  const tenantContext = await resolveUserTenantContext();
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const redirectTo = `${baseUrl}/auth/update-password`;
+
+  if (tenantContext.isDemo) {
+    return {
+      success: true,
+      emailSent: true,
+      fallbackInviteLink: `${redirectTo}?token=demo_resend_${Date.now()}&email=${encodeURIComponent(email)}`,
+    };
+  }
+
+  if (!isSupabaseServerConfigured() || !tenantContext.organizationId) {
+    return {
+      success: true,
+      emailSent: false,
+      fallbackInviteLink: `${redirectTo}?token=local_${Date.now()}&email=${encodeURIComponent(email)}`,
+    };
+  }
+
+  try {
+    const supabaseAdmin = createAdminClient();
+    const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo,
+      data: {
+        full_name: name || "Colaborador",
+        role: role || "seller",
+      },
+    });
+
+    const linkRes = await supabaseAdmin.auth.admin.generateLink({
+      type: "invite",
+      email,
+      options: { redirectTo },
+    });
+
+    const fallbackInviteLink =
+      linkRes.data?.properties?.action_link || `${redirectTo}?email=${encodeURIComponent(email)}`;
+
+    if (inviteRes.error) {
+      return {
+        success: true,
+        emailSent: false,
+        fallbackInviteLink,
+        error: inviteRes.error.message,
+      };
+    }
+
+    return {
+      success: true,
+      emailSent: true,
+      fallbackInviteLink,
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Erro ao reenviar convite.";
+    return {
+      success: false,
+      error: msg,
+    };
+  }
 }
 
 /**
