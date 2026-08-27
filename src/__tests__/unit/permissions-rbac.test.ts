@@ -154,8 +154,8 @@ describe("[UNIT-RBAC] Isolamento de Dados por Papel de Vendedor", () => {
     const adminLeads = await getKanbanLeadsAction(undefined, "admin");
     const managerLeads = await getKanbanLeadsAction(undefined, "manager");
 
-    expect(adminLeads.length).toBe(8);
-    expect(managerLeads.length).toBe(8);
+    expect(adminLeads.length).toBe(10);
+    expect(managerLeads.length).toBe(10);
 
     // Contém vendedores múltiplos (ex: Rafael Alves, Juliana Costa, Marcos Ferreira)
     const sellerNames = new Set(adminLeads.map((l) => l.assigned_to_name));

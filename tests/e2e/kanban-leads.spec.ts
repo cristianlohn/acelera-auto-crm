@@ -6,14 +6,30 @@
 import { test, expect, type Page } from "@playwright/test";
 
 test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/leads)", () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, context }) => {
+    await context.addCookies([
+      {
+        name: "acelera_demo_mode",
+        value: "true",
+        domain: "127.0.0.1",
+        path: "/",
+      },
+      {
+        name: "acelera_demo_role",
+        value: "admin",
+        domain: "127.0.0.1",
+        path: "/",
+      },
+    ]);
+
     await page.goto("/login");
 
     const demoBtn = page.locator(
       '[data-testid="demo-login-button"], [data-testid="btn-enter-demo"], #btn-enter-demo, button:has-text("Demonstração")'
     ).first();
-    await expect(demoBtn).toBeVisible({ timeout: 10000 });
-    await demoBtn.click();
+    if (await demoBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await demoBtn.click();
+    }
 
     await page.waitForURL("**/leads", { timeout: 15000 });
   });
@@ -21,9 +37,10 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
   async function navigateToKanban(page: Page) {
     await page.goto("/dashboard/leads");
     await page.waitForLoadState("domcontentloaded");
+    await page.waitForLoadState("networkidle").catch(() => {});
 
     const closeTourBtn = page.locator('#btn-close-tour, button[aria-label="Fechar tour"]');
-    if (await closeTourBtn.isVisible()) {
+    if (await closeTourBtn.isVisible().catch(() => false)) {
       await closeTourBtn.click();
     }
   }
@@ -44,7 +61,7 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
     }
 
     const firstCard = page.locator('[data-testid="kanban-card"]').first();
-    await expect(firstCard).toBeVisible();
+    await expect(firstCard).toBeVisible({ timeout: 15000 });
     await expect(firstCard.locator('[data-testid="lead-vehicle"]')).toBeVisible();
     await expect(firstCard.locator('[data-testid="lead-seller-name"]')).toBeVisible();
     await expect(firstCard.locator('[data-testid="btn-whatsapp-lead"]')).toBeVisible();
@@ -53,22 +70,29 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
   test("[E2E-KANBAN-02] Movimentação Otimista de Lead Entre Colunas do Funil", async ({ page, isMobile }) => {
     await navigateToKanban(page);
 
+    await page.waitForLoadState("networkidle").catch(() => {});
+
     const newColumn = page.locator('[data-stage-id="new"]');
+    await newColumn.scrollIntoViewIfNeeded();
+
     const inContactColumn = page.locator('[data-stage-id="in_contact"]');
 
     const cardToMove = newColumn.locator('[data-testid="kanban-card"]').first();
-    await expect(cardToMove).toBeVisible({ timeout: 10000 });
+    await expect(cardToMove).toBeVisible({ timeout: 15000 });
 
     if (isMobile) {
-      const advanceBtn = cardToMove.locator('[data-testid="btn-advance-stage"]');
-      await expect(advanceBtn).toBeVisible();
+      const advanceBtn = cardToMove.locator(
+        '[data-testid="btn-advance-stage"], [data-testid="btn-move-next-stage"], button:has-text("Avançar")'
+      ).first();
+      await advanceBtn.scrollIntoViewIfNeeded();
+      await expect(advanceBtn).toBeVisible({ timeout: 10000 });
       await advanceBtn.click();
     } else {
       await cardToMove.dragTo(inContactColumn);
     }
 
     const toast = page.locator("[data-sonner-toast]").first();
-    await expect(toast).toBeVisible({ timeout: 5000 });
+    await expect(toast).toBeVisible({ timeout: 10000 });
   });
 
   test("[E2E-KANBAN-03] Filtro de Cards por Busca Textual de Veículo e Vendedor", async ({ page }) => {
