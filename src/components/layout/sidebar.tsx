@@ -255,13 +255,13 @@ export function Sidebar({ className = "" }: { className?: string }) {
             prefetch={true}
             data-testid="btn-superadmin-portal"
             id="btn-superadmin-portal"
-            className="flex items-center justify-between gap-2 rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-900/10 to-yellow-500/15 border border-amber-500/40 p-2.5 text-xs font-bold text-amber-400 hover:text-amber-300 hover:border-amber-400 hover:shadow-amber-500/10 transition-all shadow-md group"
+            className="flex items-center justify-between gap-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-600/30 p-2.5 text-xs font-bold text-amber-950 dark:text-amber-200 hover:text-amber-900 dark:hover:text-amber-100 hover:border-amber-600/50 hover:shadow-amber-500/10 transition-all shadow-sm group"
           >
             <div className="flex items-center gap-2">
-              <Zap className="h-4 w-4 text-amber-400 fill-amber-400 group-hover:scale-110 transition-transform" />
+              <Zap className="h-4 w-4 text-amber-600 dark:text-amber-400 fill-amber-600 dark:fill-amber-400 group-hover:scale-110 transition-transform" />
               <span>⚡ Painel Superadmin</span>
             </div>
-            <span className="text-[10px] bg-amber-500/20 text-amber-300 font-extrabold px-1.5 py-0.5 rounded border border-amber-500/40 uppercase tracking-wider">
+            <span className="text-[9px] bg-amber-200/80 dark:bg-amber-500/30 text-amber-900 dark:text-amber-200 font-extrabold px-1.5 py-0.5 rounded border border-amber-400 dark:border-amber-500/40 uppercase tracking-wider">
               MASTER
             </span>
           </Link>

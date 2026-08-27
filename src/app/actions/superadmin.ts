@@ -66,9 +66,13 @@ interface OrganizationWithProfilesRow {
 /**
  * Obtém a lista completa de concessionárias gerenciadas.
  */
-export async function getDealershipsList(): Promise<DealershipAccount[]> {
-  if (!isSupabaseServerConfigured()) {
+export async function getDealershipsList(isDemo: boolean = false): Promise<DealershipAccount[]> {
+  if (isDemo) {
     return [...localDealerships];
+  }
+
+  if (!isSupabaseServerConfigured()) {
+    return [];
   }
 
   try {
@@ -79,7 +83,7 @@ export async function getDealershipsList(): Promise<DealershipAccount[]> {
       .order("created_at", { ascending: false });
 
     if (error || !data || data.length === 0) {
-      return [...localDealerships];
+      return [];
     }
 
     return (data as unknown as OrganizationWithProfilesRow[]).map((org) => {
@@ -109,16 +113,14 @@ export async function getDealershipsList(): Promise<DealershipAccount[]> {
       };
     });
   } catch {
-    return [...localDealerships];
+    return [];
   }
 }
 
 /**
- * Obtém as métricas executivas consolidadas do SaaS.
+ * Calcula métricas a partir da lista de concessionárias.
  */
-export async function getDealershipsMetrics(): Promise<SuperAdminMetrics> {
-  const list = await getDealershipsList();
-
+function calculateMetricsFromList(list: DealershipAccount[]): SuperAdminMetrics {
   const activeStores = list.filter((d) => d.status === "active").length;
   const trialStores = list.filter((d) => d.status === "trialing").length;
   const mrr = list
@@ -146,6 +148,26 @@ export async function getDealershipsMetrics(): Promise<SuperAdminMetrics> {
     totalVehiclesManaged,
     totalLeadsManaged,
   };
+}
+
+/**
+ * Obtém as métricas executivas consolidadas do SaaS.
+ */
+export async function getDealershipsMetrics(isDemo: boolean = false): Promise<SuperAdminMetrics> {
+  const list = await getDealershipsList(isDemo);
+  return calculateMetricsFromList(list);
+}
+
+/**
+ * Server Action consolidada para carregar dashboard completo do Superadmin.
+ */
+export async function getSuperAdminDashboardDataAction(isDemo: boolean = false): Promise<{
+  dealerships: DealershipAccount[];
+  metrics: SuperAdminMetrics;
+}> {
+  const dealerships = await getDealershipsList(isDemo);
+  const metrics = calculateMetricsFromList(dealerships);
+  return { dealerships, metrics };
 }
 
 /**

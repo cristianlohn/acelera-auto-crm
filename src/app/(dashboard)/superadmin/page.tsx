@@ -49,6 +49,7 @@ import {
   activateSubscription,
   extendDealershipTrial,
   toggleDealershipStatus,
+  getDealershipsList,
 } from "@/app/actions/superadmin";
 import { useDemoRole } from "@/context/demo-role-context";
 import { isSuperAdmin } from "@/lib/permissions";
@@ -181,11 +182,33 @@ export default function SuperAdminPage() {
   const router = useRouter();
   const { role, isDemoMode } = useDemoRole();
   const [realRole, setRealRole] = useState<string | null>(null);
-  const [dealerships, setDealerships] = useState<DealershipAccount[]>(mockDealerships);
+  const [dealerships, setDealerships] = useState<DealershipAccount[]>(() =>
+    isDemoMode ? mockDealerships : []
+  );
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<TabFilter>("all");
   const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!isDemoMode) {
+      getDealershipsList(false)
+        .then((data) => {
+          if (isMounted) {
+            setDealerships(data);
+          }
+        })
+        .catch(() => {
+          if (isMounted) {
+            setDealerships([]);
+          }
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isDemoMode]);
 
   useEffect(() => {
     let isMounted = true;
@@ -446,7 +469,31 @@ export default function SuperAdminPage() {
           </p>
         </div>
 
-        {filteredDealerships.length === 0 ? (
+        {dealerships.length === 0 ? (
+          <div
+            data-testid="superadmin-empty-state"
+            className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-muted/20 p-12 text-center my-4"
+          >
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-500 mb-4 shadow-sm">
+              <Building2 className="h-8 w-8" />
+            </div>
+            <h3 className="text-base font-bold text-foreground sm:text-lg">
+              Nenhuma concessionária cadastrada ainda
+            </h3>
+            <p className="mt-1.5 max-w-md text-xs sm:text-sm text-muted-foreground">
+              As lojas criadas via cadastro público ou adicionadas manualmente aparecerão aqui.
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Link
+                href="/cadastro"
+                className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-red-600 px-4 py-2 text-xs font-semibold text-white shadow-md hover:from-orange-600 hover:to-red-700 transition-all active:scale-[0.98]"
+              >
+                <PlusCircle className="h-4 w-4" />
+                Cadastrar Primeira Concessionária
+              </Link>
+            </div>
+          </div>
+        ) : filteredDealerships.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed p-12 text-center">
             <Building2 className="h-10 w-10 text-muted-foreground/50" />
             <h3 className="mt-3 text-sm font-semibold text-foreground">

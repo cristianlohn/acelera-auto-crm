@@ -24,6 +24,8 @@ import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SuperAdminPage from "@/app/(dashboard)/superadmin/page";
 import * as superadminActions from "@/app/actions/superadmin";
+import * as demoRoleModule from "@/context/demo-role-context";
+import * as authActions from "@/app/actions/auth";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -192,5 +194,50 @@ describe("[IT-14] Painel Backoffice Super Admin e Gestão de Assinaturas B2B", (
     expect(firstLink.getAttribute("href")).toContain("https://wa.me/55");
     expect(firstLink.getAttribute("href")).toContain("text=");
     expect(firstLink).toHaveAttribute("target", "_blank");
+  });
+
+  it("[IT-14.8] Deve exibir Empty State limpo quando não houver concessionárias cadastradas na base real", async () => {
+    // Arrange (Simula conta real autenticada sem organizações cadastradas)
+    vi.spyOn(demoRoleModule, "useDemoRole").mockReturnValue({
+      role: "superadmin",
+      sellerName: "Rafael Alves",
+      roleConfig: demoRoleModule.ROLE_CONFIGS.admin,
+      isDemoMode: false,
+      setIsDemoMode: vi.fn(),
+      notification: null,
+      clearNotification: vi.fn(),
+      setRole: vi.fn(),
+    });
+    vi.spyOn(authActions, "getCurrentUserProfileAction").mockResolvedValue({
+      isDemo: false,
+      userId: "superadmin-usr-01",
+      email: "super@acelera.com",
+      fullName: "Cristian Superadmin",
+      phone: "11999998888",
+      role: "superadmin",
+      avatarUrl: null,
+      initials: "CS",
+      organizationId: null,
+      organizationName: "Acelera Backoffice",
+      trialDaysRemaining: 14,
+      subscriptionAccess: {
+        hasAccess: true,
+        reason: "SUPERADMIN_BYPASS",
+      },
+    });
+    vi.spyOn(superadminActions, "getDealershipsList").mockResolvedValueOnce([]);
+
+    // Act
+    render(<SuperAdminPage />);
+
+    // Assert (Verifica empty state, KPIs zerados e botão de cadastrar)
+    const emptyState = await screen.findByTestId("superadmin-empty-state");
+    expect(emptyState).toBeInTheDocument();
+    expect(screen.getByText(/nenhuma concessionária cadastrada ainda/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /cadastrar primeira concessionária/i })).toHaveAttribute("href", "/cadastro");
+    expect(screen.getByTestId("kpi-total-dealerships")).toHaveTextContent("0");
+    expect(screen.getByTestId("kpi-active-dealerships")).toHaveTextContent("0");
+    expect(screen.getByTestId("kpi-mrr-dealerships")).toHaveTextContent("R$ 0");
+    expect(screen.getByTestId("kpi-leads-dealerships")).toHaveTextContent("0");
   });
 });

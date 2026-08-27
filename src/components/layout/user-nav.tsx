@@ -123,7 +123,7 @@ export function UserNav({
           <div className="flex items-center gap-1.5 min-w-0">
             <span
               data-testid="user-display-name"
-              className="text-xs font-medium text-slate-200 truncate"
+              className="text-slate-900 dark:text-slate-100 font-semibold text-xs truncate max-w-[130px]"
               title={displayName}
             >
               {displayName}
@@ -131,7 +131,7 @@ export function UserNav({
             {isSuperAdmin(activeRole) && (
               <span
                 data-testid="badge-superadmin-user"
-                className="shrink-0 text-[8px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/40 px-1 py-0.5 rounded uppercase tracking-wider leading-none"
+                className="shrink-0 text-[8px] font-black bg-amber-100 dark:bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-300 dark:border-amber-500/40 px-1 py-0.5 rounded uppercase tracking-wider leading-none"
               >
                 SUPERADMIN
               </span>
@@ -140,13 +140,13 @@ export function UserNav({
           {displayEmail ? (
             <span
               data-testid="user-display-email"
-              className="text-[10px] text-slate-400 truncate mt-0.5"
+              className="text-slate-600 dark:text-slate-400 text-[10px] truncate max-w-[150px] mt-0.5"
               title={displayEmail}
             >
               {displayEmail}
             </span>
           ) : (
-            <span className="text-[10px] text-slate-400 truncate mt-0.5">
+            <span className="text-slate-600 dark:text-slate-400 text-[10px] truncate max-w-[150px] mt-0.5">
               {displayRole} • Ativo
             </span>
           )}
@@ -159,7 +159,7 @@ export function UserNav({
         type="button"
         disabled={isLoggingOut}
         onClick={handleLogout}
-        className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/40 transition-all active:scale-[0.98] disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-800 dark:hover:text-red-200 hover:border-red-300 dark:hover:border-red-700/40 transition-all active:scale-[0.98] disabled:opacity-50"
         aria-label="Sair da Conta"
       >
         <LogOut className="h-3.5 w-3.5 shrink-0" />
