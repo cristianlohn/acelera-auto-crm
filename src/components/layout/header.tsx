@@ -5,7 +5,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Menu, Phone } from "lucide-react";
 import {
   Sheet,
@@ -19,10 +19,12 @@ import { Logo, NavLink, navItems } from "@/components/layout/sidebar";
 import { UserNav } from "@/components/layout/user-nav";
 
 export function MobileHeader() {
+  const [open, setOpen] = useState(false);
+
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card/80 px-4 backdrop-blur-sm lg:hidden">
       {/* Menu sheet retrátil */}
-      <Sheet>
+      <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button
             variant="ghost"
@@ -41,7 +43,7 @@ export function MobileHeader() {
             </SheetHeader>
             <nav className="flex flex-col gap-1 p-3">
               {navItems.map((item) => (
-                <NavLink key={item.href} item={item} />
+                <NavLink key={item.href} item={item} onClick={() => setOpen(false)} />
               ))}
             </nav>
           </div>

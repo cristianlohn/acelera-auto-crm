@@ -35,6 +35,7 @@ export interface NavItem {
 
 export const navItems: NavItem[] = [
   { href: "/leads", label: "Funil de Vendas", icon: LayoutDashboard },
+  { href: "/dashboard/team", label: "Equipe & Roleta", icon: Users },
   { href: "/clients", label: "Clientes", icon: Users },
   { href: "/vehicles", label: "Estoque", icon: Car },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
