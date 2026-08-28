@@ -481,8 +481,6 @@ export async function removeTeamMember(
           return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
         }
 
-        targetUserId = dbMember.user_id;
-
         if (dbMember.user_id) {
           await supabaseAdmin
             .from("roleta_sellers")
