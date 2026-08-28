@@ -1155,18 +1155,25 @@ export async function removeTeamMemberAction(
         await supabaseAdmin
           .from("profiles")
           ?.update?.({ organization_id: null as unknown as string, updated_at: new Date().toISOString() })
-          ?.eq?.("id", resolvedUserId)
-          ?.eq?.("organization_id", activeOrgId);
+          ?.eq?.("id", resolvedUserId);
+
+        if (resolvedUserId.startsWith("mem-") || resolvedUserId.startsWith("inv-")) {
+          await supabaseAdmin
+            .from("profiles")
+            ?.delete?.()
+            ?.eq?.("id", resolvedUserId);
+        }
       }
 
       if (cleanEmail) {
         await supabaseAdmin
           .from("profiles")
           ?.update?.({ organization_id: null as unknown as string, updated_at: new Date().toISOString() })
-          ?.eq?.("email", cleanEmail)
-          ?.eq?.("organization_id", activeOrgId);
+          ?.eq?.("email", cleanEmail);
       }
-    } catch {}
+    } catch (err) {
+      console.error("[REMOVE_TEAM_MEMBER] Erro ao desvincular profile:", err);
+    }
 
     // 5. Sincroniza memória
     const index = memoryTeamMembers.findIndex(
@@ -1181,6 +1188,7 @@ export async function removeTeamMemberAction(
     // 6. Revalidação completa de cache
     try {
       revalidatePath("/settings");
+      revalidatePath("/configuracoes");
       revalidatePath("/team");
       revalidatePath("/dashboard/team");
       revalidatePath("/dashboard");

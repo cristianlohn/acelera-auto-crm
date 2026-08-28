@@ -242,6 +242,13 @@ export function SettingsForm({
     if (isDemoMode) return INITIAL_TEAM_MEMBERS;
     return [];
   });
+
+  // Sincroniza estado de equipe quando as props do servidor mudarem (ex: após exclusão / revalidação)
+  const [prevInitialTeamMembers, setPrevInitialTeamMembers] = useState(initialTeamMembers);
+  if (initialTeamMembers !== prevInitialTeamMembers) {
+    setPrevInitialTeamMembers(initialTeamMembers);
+    setTeamMembers(initialTeamMembers || []);
+  }
   const [teamCapacity] = useState<TeamCapacity>(initialCapacity);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);

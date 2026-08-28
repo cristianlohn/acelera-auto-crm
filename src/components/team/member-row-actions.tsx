@@ -54,7 +54,7 @@ export function MemberRowActions({ member, onDeleted }: MemberRowActionsProps) {
   const handleConfirmDelete = () => {
     startTransition(async () => {
       console.log("[DEBUG REMOVE] Disparando exclusão para:", member.id, member.email);
-      const result = await removeTeamMember(member.id);
+      const result = await removeTeamMember(member.id, member.email);
 
       if (result && result.success) {
         toast.success(result.message || "Colaborador removido com sucesso!");

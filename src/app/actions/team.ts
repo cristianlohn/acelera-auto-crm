@@ -384,10 +384,16 @@ export async function inviteTeamMember(
  * Em modo demo/offline atua sobre o array em memória para garantir compatibilidade com testes.
  */
 export async function removeTeamMember(
-  memberId: string
+  memberId: string,
+  memberEmail?: string
 ): Promise<{ success: boolean; error?: string; message?: string }> {
   const cleanId = memberId.startsWith("inv-") ? memberId.replace(/^inv-/, "") : memberId;
-  const localIdx = localTeamMembers.findIndex((m) => m.id === memberId || m.id === cleanId);
+  const localIdx = localTeamMembers.findIndex(
+    (m) =>
+      m.id === memberId ||
+      m.id === cleanId ||
+      (memberEmail && m.email?.toLowerCase() === memberEmail.toLowerCase())
+  );
   if (localIdx !== -1) {
     if (localTeamMembers[localIdx].role === "admin") {
       return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
@@ -395,7 +401,7 @@ export async function removeTeamMember(
     localTeamMembers.splice(localIdx, 1);
   }
 
-  const result = await removeTeamMemberAction(memberId);
+  const result = await removeTeamMemberAction(memberId, memberEmail);
   return {
     success: result.success,
     error: result.error,
