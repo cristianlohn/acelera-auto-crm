@@ -13,6 +13,7 @@ import { resolveUserTenantContext } from "@/lib/auth/tenant";
 import { getTeamMembersAction } from "@/app/actions/team-actions";
 import { getApiKeysAction } from "@/app/actions/api-key-actions";
 import { SettingsForm } from "@/components/settings/settings-form";
+import type { ApiKey } from "@/types/api-key";
 
 export const metadata: Metadata = {
   title: "Configurações & Gestão de Equipe | Acelera Auto CRM",
@@ -69,12 +70,12 @@ export default async function SettingsPage() {
       }
     : null;
 
-  let members: any[] = [];
+  let members: Awaited<ReturnType<typeof getTeamMembersAction>> = [];
   try {
     members = await getTeamMembersAction(tenantContext.organizationId || undefined);
   } catch {}
 
-  let apiKeys: any[] = [];
+  let apiKeys: ApiKey[] = [];
   try {
     if (!isDemo && tenantContext.organizationId) {
       apiKeys = await getApiKeysAction();
@@ -86,7 +87,7 @@ export default async function SettingsPage() {
       <SettingsForm
         initialProfile={profile}
         initialOrganization={organization}
-        initialTeamMembers={members}
+        initialTeamMembers={members as unknown as Parameters<typeof SettingsForm>[0]["initialTeamMembers"]}
         initialApiKeys={apiKeys}
       />
     </div>

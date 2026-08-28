@@ -55,6 +55,7 @@ import {
   updateOrganizationSettingsAction,
 } from "@/app/actions/auth";
 import { formatDocument, formatPhone } from "@/lib/validations/document";
+import type { ApiKey } from "@/types/api-key";
 
 // ---------------------------------------------------------------------------
 // Tipos das Abas e Configurações
@@ -104,7 +105,7 @@ export interface SettingsFormProps {
   initialPreferences?: PreferencesState | null;
   initialTeamMembers?: TeamMember[];
   initialCapacity?: TeamCapacity;
-  initialApiKeys?: any[];
+  initialApiKeys?: ApiKey[];
 }
 
 const TAB_ITEMS: {
