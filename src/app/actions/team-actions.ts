@@ -818,8 +818,8 @@ export async function resendInviteEmailAction(
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
-  const redirectTo = `${siteUrl}/auth/callback?next=/auth/update-password`;
   const cleanEmail = email.trim().toLowerCase();
+  const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(`/auth/update-password?email=${encodeURIComponent(cleanEmail)}`)}`;
 
   if (tenantContext.isDemo) {
     return {

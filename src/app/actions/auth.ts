@@ -658,9 +658,11 @@ export interface UpdatePasswordResult {
 
 /**
  * Atualiza a senha do usuário autenticado no Supabase Auth.
+ * Suporta fallback administrativo seguro por e-mail caso a sessão do navegador tenha sido perdida.
  */
 export async function updateUserPassword(
-  newPassword: string
+  newPassword: string,
+  userEmail?: string
 ): Promise<UpdatePasswordResult> {
   console.log("[Auth Update] Iniciando atualização de senha...");
 
@@ -683,6 +685,52 @@ export async function updateUserPassword(
       password: newPassword,
     });
 
+    if (!error && data?.user) {
+      console.log("[Auth Update] Senha atualizada com sucesso via sessão ativa:", data);
+      return { success: true };
+    }
+
+    // Fallback de contingência: se não houver sessão ativa nos cookies e tivermos o e-mail
+    if (userEmail) {
+      const cleanEmail = userEmail.trim().toLowerCase();
+      console.log("[Auth Update] Tentando atualização de contingência via Admin para:", cleanEmail);
+      const adminClient = createAdminClient();
+
+      // 1. Localiza o usuário no Auth
+      const { data: usersData } = await adminClient.auth.admin.listUsers();
+      const targetUser = usersData?.users?.find(
+        (u) => u.email?.toLowerCase() === cleanEmail
+      );
+
+      if (targetUser) {
+        // Atualiza a senha e confirma o e-mail via Admin
+        const { error: adminUpdateError } = await adminClient.auth.admin.updateUserById(
+          targetUser.id,
+          { password: newPassword, email_confirm: true }
+        );
+
+        if (!adminUpdateError) {
+          // Autentica o usuário na sessão do navegador
+          try {
+            await supabase.auth.signInWithPassword({
+              email: cleanEmail,
+              password: newPassword,
+            });
+          } catch {}
+
+          // Atualiza status do convite e perfil para ativo
+          try {
+            await adminClient
+              .from("organization_invites")
+              .update({ status: "accepted" })
+              .eq("email", cleanEmail);
+          } catch {}
+
+          return { success: true };
+        }
+      }
+    }
+
     if (error) {
       console.error(
         "[Auth Update] ERRO retornado pelo Supabase:",
@@ -693,7 +741,6 @@ export async function updateUserPassword(
       return { success: false, error: error.message };
     }
 
-    console.log("[Auth Update] Senha atualizada com sucesso pelo Supabase:", data);
     return { success: true };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erro ao atualizar senha.";

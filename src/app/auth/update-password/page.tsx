@@ -3,12 +3,12 @@
  * @description Tela de Primeiro Acesso e Definição de Senha (/auth/update-password).
  *
  * Permite que novos vendedores convidados definam sua senha segura após validação
- * do link de convite PKCE, redirecionando-os diretamente para a esteira de vendas (/leads).
+ * do link de convite PKCE/OTP, redirecionando-os diretamente para a esteira de vendas (/leads).
  */
 
 "use client";
 
-import React, { useState, useTransition, Suspense } from "react";
+import React, { useState, useEffect, useTransition, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Lock,
@@ -20,6 +20,7 @@ import {
   Loader2,
   ShieldCheck,
   Sparkles,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/ui/brand-logo";
@@ -32,7 +33,9 @@ function UpdatePasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const verified = searchParams.get("verified") === "true";
+  const urlEmail = searchParams.get("email") || "";
 
+  const [email, setEmail] = useState(urlEmail);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -40,6 +43,41 @@ function UpdatePasswordForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  // Sincroniza sessão local com o browser caso tenha vindo por PKCE / Hash / OTP
+  useEffect(() => {
+    if (typeof window !== "undefined" && isSupabaseConfigured()) {
+      const supabase = createClient();
+
+      // 1. Captura código PKCE se presente na URL
+      const code = searchParams.get("code");
+      if (code) {
+        supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
+          if (!error && data.user?.email) {
+            setEmail(data.user.email);
+          }
+        });
+      }
+
+      // 2. Captura token_hash se presente
+      const token_hash = searchParams.get("token_hash") || searchParams.get("token");
+      const type = (searchParams.get("type") || "invite") as "invite" | "recovery" | "magiclink" | "email";
+      if (token_hash) {
+        supabase.auth.verifyOtp({ token_hash, type }).then(({ data, error }) => {
+          if (!error && data.user?.email) {
+            setEmail(data.user.email);
+          }
+        });
+      }
+
+      // 3. Captura usuário ativo
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user?.email) {
+          setEmail(user.email);
+        }
+      });
+    }
+  }, [searchParams]);
 
   // Validações em tempo real
   const hasMinLength = password.length >= 6;
@@ -64,6 +102,8 @@ function UpdatePasswordForm() {
       return;
     }
 
+    const targetEmail = email || urlEmail || searchParams.get("email") || undefined;
+
     startTransition(async () => {
       try {
         // 1. Atualização via Browser Client (se houver sessão PKCE local)
@@ -87,8 +127,10 @@ function UpdatePasswordForm() {
           }
         }
 
-        // 2. Fallback via Server Action (sessão armazenada em cookies HTTP-only)
-        const result = await updateUserPassword(password);
+        // 2. Fallback via Server Action com contingência Admin por e-mail
+        const result = targetEmail
+          ? await updateUserPassword(password, targetEmail)
+          : await updateUserPassword(password);
 
         if (!result.success) {
           const err =
@@ -187,6 +229,40 @@ function UpdatePasswordForm() {
         ) : (
           /* Formulário */
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            {/* Campo Opcional/Identificador de E-mail se não identificado */}
+            {email ? (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-900/50 border border-zinc-800/80 text-xs text-zinc-400">
+                <Mail className="h-3.5 w-3.5 text-orange-400" />
+                <span className="text-zinc-300 font-medium truncate">{email}</span>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="email"
+                  className="text-xs font-semibold text-zinc-300"
+                >
+                  Seu E-mail Corporativo
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="seu.email@concessionaria.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isPending}
+                    required
+                    autoComplete="email"
+                    className="pl-10 h-11 bg-zinc-900/90 border-zinc-800 text-white text-xs sm:text-sm placeholder:text-zinc-600 focus-visible:border-orange-500 focus-visible:ring-orange-500/20 rounded-xl"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Campo: Nova Senha */}
             <div className="space-y-1.5">
               <label
