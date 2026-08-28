@@ -99,9 +99,9 @@ describe("[IT-15] Gestão de Equipe & Controle de Capacidade Multi-Tenant", () =
     ).toBeInTheDocument();
 
     // Act 2 (Preenche campos)
-    await user.type(screen.getByPlaceholderText(/ex: lucas ferreira/i), "Camila Fernandes");
-    await user.type(screen.getByPlaceholderText(/lucas@concessionaria.com.br/i), "camila@autoprime.com.br");
-    await user.type(screen.getByPlaceholderText(/\(11\) 98888-7777/i), "11988889999");
+    await user.type(screen.getByLabelText(/nome completo \*/i), "Camila Fernandes");
+    await user.type(screen.getByLabelText(/e-mail corporativo \*/i), "camila@autoprime.com.br");
+    await user.type(screen.getByLabelText(/whatsapp \/ celular \*/i), "11988889999");
 
     // Act 3 (Submete formulário)
     await act(async () => {
@@ -130,9 +130,9 @@ describe("[IT-15] Gestão de Equipe & Controle de Capacidade Multi-Tenant", () =
     await user.click(screen.getByRole("button", { name: /convidar vendedor/i }));
 
     // Preenche dados
-    await user.type(screen.getByPlaceholderText(/ex: lucas ferreira/i), "Novo Vendedor Extra");
-    await user.type(screen.getByPlaceholderText(/lucas@concessionaria.com.br/i), "extra@autoprime.com.br");
-    await user.type(screen.getByPlaceholderText(/\(11\) 98888-7777/i), "11911112222");
+    await user.type(screen.getByLabelText(/nome completo \*/i), "Novo Vendedor Extra");
+    await user.type(screen.getByLabelText(/e-mail corporativo \*/i), "extra@autoprime.com.br");
+    await user.type(screen.getByLabelText(/whatsapp \/ celular \*/i), "11911112222");
 
     // Act 2 (Submete)
     await act(async () => {
@@ -201,9 +201,9 @@ describe("[IT-15] Gestão de Equipe & Controle de Capacidade Multi-Tenant", () =
     });
 
     await user.click(screen.getByRole("button", { name: /convidar vendedor/i }));
-    await user.type(screen.getByPlaceholderText(/ex: lucas ferreira/i), "Teste");
-    await user.type(screen.getByPlaceholderText(/lucas@concessionaria.com.br/i), "t@t.com");
-    await user.type(screen.getByPlaceholderText(/\(11\) 98888-7777/i), "11999");
+    await user.type(screen.getByLabelText(/nome completo \*/i), "Teste");
+    await user.type(screen.getByLabelText(/e-mail corporativo \*/i), "t@t.com");
+    await user.type(screen.getByLabelText(/whatsapp \/ celular \*/i), "11999998888");
 
     await act(async () => {
       await user.click(screen.getByRole("button", { name: /enviar convite/i }));

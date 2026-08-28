@@ -38,6 +38,7 @@ import {
   updateSalespersonAction,
   type CreateSalespersonResult,
 } from "@/app/actions/team-actions";
+import { formatPhone } from "@/lib/validations/document";
 import type { TeamMember } from "@/types/team";
 
 export interface SalespersonModalProps {
@@ -45,17 +46,6 @@ export interface SalespersonModalProps {
   onClose: () => void;
   onSuccess?: (member: TeamMember) => void;
   initialData?: TeamMember | null;
-}
-
-// Máscara brasileira de telefone (XX) XXXXX-XXXX ou (XX) XXXX-XXXX
-function formatPhoneMask(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  if (digits.length <= 10) {
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-  }
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
 }
 
 interface FormInnerProps {
@@ -67,7 +57,7 @@ interface FormInnerProps {
 function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProps) {
   const [name, setName] = useState(initialData?.name || "");
   const [email, setEmail] = useState(initialData?.email || "");
-  const [phone, setPhone] = useState(initialData ? formatPhoneMask(initialData.phone || "") : "");
+  const [phone, setPhone] = useState(initialData ? formatPhone(initialData.phone || "") : "");
   const [role, setRole] = useState<TeamMember["role"]>(initialData?.role || "seller");
   const [segment, setSegment] = useState<TeamMember["segment"]>(initialData?.segment || "all");
   const [inRoulette, setInRoulette] = useState(initialData?.in_roulette !== false);
@@ -78,7 +68,7 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
   const [copiedLink, setCopiedLink] = useState(false);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPhone(formatPhoneMask(e.target.value));
+    setPhone(formatPhone(e.target.value));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -96,9 +86,9 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
       return;
     }
 
-    const rawDigits = phone.replace(/\D/g, "");
-    if (rawDigits.length < 10) {
-      setFormError("Informe um número de telefone com DDD válido (ex: 11988887777).");
+    const cleanPhone = phone.replace(/\D/g, "");
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+      setFormError("Informe um número de WhatsApp/celular com DDD válido (10 ou 11 dígitos, ex: (11) 98888-8888).");
       return;
     }
 
@@ -254,17 +244,18 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
 
       {/* Nome Completo */}
       <div className="space-y-1.5">
-        <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+        <label htmlFor="name" className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
           <span>Nome Completo do Vendedor</span>
           <span className="text-orange-500">*</span>
         </label>
         <div>
           <Input
             data-testid="input-seller-name"
+            id="name"
             name="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ex: Carlos Eduardo Silveira"
+            placeholder="Ex: João da Silva"
             className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus-visible:ring-orange-500 h-9 text-xs"
             required
           />
@@ -275,7 +266,7 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* E-mail */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+          <label htmlFor="email" className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
             <Mail className="h-3.5 w-3.5 text-zinc-400" />
             <span>E-mail Corporativo</span>
             <span className="text-orange-500">*</span>
@@ -283,6 +274,7 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
           <div>
             <Input
               data-testid="input-seller-email"
+              id="email"
               name="email"
               type="email"
               value={email}
@@ -296,7 +288,7 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
 
         {/* Telefone / WhatsApp */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
+          <label htmlFor="phone" className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
             <Phone className="h-3.5 w-3.5 text-emerald-400" />
             <span>WhatsApp (com DDD)</span>
             <span className="text-orange-500">*</span>
@@ -304,10 +296,13 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
           <div>
             <Input
               data-testid="input-seller-phone"
+              id="phone"
               name="phone"
+              type="tel"
               value={phone}
               onChange={handlePhoneChange}
-              placeholder="(11) 98888-7777"
+              placeholder="(11) 98888-8888"
+              maxLength={15}
               className="bg-white/5 border-white/10 text-white placeholder:text-zinc-500 focus-visible:ring-orange-500 h-9 text-xs font-mono"
               required
             />

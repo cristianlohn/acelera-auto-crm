@@ -323,8 +323,17 @@ export default function SettingsPage() {
     e.preventDefault();
     setInviteError(null);
 
+    const cleanPhone = inviteForm.phone.replace(/\D/g, "");
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+      setInviteError("Informe um número de WhatsApp/celular com DDD válido (10 ou 11 dígitos).");
+      return;
+    }
+
     startTeamTransition(async () => {
-      const res = await inviteTeamMember(inviteForm);
+      const res = await inviteTeamMember({
+        ...inviteForm,
+        phone: cleanPhone,
+      });
 
       if (!res.success) {
         if (res.requiresUpgrade) {
@@ -549,11 +558,15 @@ export default function SettingsPage() {
                     </label>
                     <Input
                       id="profile-phone"
+                      name="phone"
+                      type="tel"
+                      maxLength={15}
+                      placeholder="(11) 98888-8888"
                       value={profile.phone}
                       onChange={(e) =>
                         setProfile((prev) => ({
                           ...prev,
-                          phone: e.target.value,
+                          phone: formatPhone(e.target.value),
                         }))
                       }
                       className="text-xs h-8"
@@ -1361,8 +1374,9 @@ export default function SettingsPage() {
                 </label>
                 <Input
                   id="input-member-name"
+                  name="fullName"
                   required
-                  placeholder="Ex: Lucas Ferreira"
+                  placeholder="Ex: João da Silva"
                   value={inviteForm.fullName}
                   onChange={(e) =>
                     setInviteForm((prev) => ({
@@ -1383,9 +1397,10 @@ export default function SettingsPage() {
                 </label>
                 <Input
                   id="input-member-email"
+                  name="email"
                   type="email"
                   required
-                  placeholder="lucas@concessionaria.com.br"
+                  placeholder="vendedor@concessionaria.com.br"
                   value={inviteForm.email}
                   onChange={(e) =>
                     setInviteForm((prev) => ({
@@ -1406,13 +1421,16 @@ export default function SettingsPage() {
                 </label>
                 <Input
                   id="input-member-phone"
+                  name="phone"
+                  type="tel"
                   required
-                  placeholder="(11) 98888-7777"
+                  maxLength={15}
+                  placeholder="(11) 98888-8888"
                   value={inviteForm.phone}
                   onChange={(e) =>
                     setInviteForm((prev) => ({
                       ...prev,
-                      phone: e.target.value,
+                      phone: formatPhone(e.target.value),
                     }))
                   }
                   className="text-xs h-8"
