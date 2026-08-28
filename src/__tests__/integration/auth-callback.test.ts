@@ -124,4 +124,34 @@ describe("[IT-CB] Callback de Autenticação PKCE (GET /auth/callback)", () => {
       "https://aceleraautocrm.com.br/login?error=auth_callback_error"
     );
   });
+
+  it("[IT-CB.6] Deve validar token_hash com verifyOtp e redirecionar para /auth/update-password?verified=true", async () => {
+    // Arrange
+    const mockVerifyOtp = vi.fn().mockResolvedValue({
+      data: { session: { access_token: "otp_token" }, user: { id: "user_invite_123" } },
+      error: null,
+    });
+
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
+      auth: { verifyOtp: mockVerifyOtp },
+    } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
+
+    const req = createCallbackRequest(
+      "https://aceleraautocrm.com.br/auth/callback?token_hash=valid_token_hash&type=invite&next=/auth/update-password"
+    );
+
+    // Act
+    const res = await GET(req);
+
+    // Assert
+    expect(res.status).toBe(307);
+    expect(mockVerifyOtp).toHaveBeenCalledWith({
+      token_hash: "valid_token_hash",
+      type: "invite",
+    });
+    expect(res.headers.get("location")).toBe(
+      "https://aceleraautocrm.com.br/auth/update-password?verified=true"
+    );
+  });
 });
