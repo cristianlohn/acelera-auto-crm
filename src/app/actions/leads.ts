@@ -201,6 +201,12 @@ export async function updateLeadStatus(
   id: string,
   status: LeadStatus
 ): Promise<{ success: boolean; id: string; status: LeadStatus }> {
+  // Modo Demonstração: leads são mock data — não existem no banco real
+  const tenantContext = await resolveUserTenantContext();
+  if (tenantContext.isDemo) {
+    return { success: true, id, status };
+  }
+
   if (!isSupabaseServerConfigured()) {
     return { success: true, id, status };
   }
