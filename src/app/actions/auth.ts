@@ -658,11 +658,14 @@ export interface UpdatePasswordResult {
 
 /**
  * Atualiza a senha do usuário autenticado no Supabase Auth.
- * Por segurança estrita (Zero-Trust), exige sessão autenticada ativa ou token criptográfico de convite pendente.
+ * Por segurança estrita (Zero-Trust), exige:
+ * 1. Sessão autenticada ativa nos cookies, OU
+ * 2. Token JWT criptográfico assinado (`accessToken`), OU
+ * 3. Token criptográfico de convite pendente (`organization_invites.token`).
  */
 export async function updateUserPassword(
   newPassword: string,
-  inviteToken?: string
+  authProof?: string | { inviteToken?: string; accessToken?: string }
 ): Promise<UpdatePasswordResult> {
   console.log("[Auth Update] Iniciando atualização de senha segura...");
 
@@ -678,23 +681,64 @@ export async function updateUserPassword(
     return { success: true };
   }
 
+  const inviteToken =
+    typeof authProof === "string" ? authProof : authProof?.inviteToken;
+  const accessToken =
+    typeof authProof === "object" ? authProof?.accessToken : undefined;
+
   try {
     const supabase = await createServerSupabaseClient();
-    console.log("[Auth Update] Disparando supabase.auth.updateUser com sessão ativa...");
-    const { data, error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
+    const adminClient = createAdminClient();
 
-    if (!error && data?.user) {
-      console.log("[Auth Update] Senha atualizada com sucesso via sessão ativa:", data.user.id);
-      return { success: true };
+    // 1. Tenta atualizar a senha via sessão ativa nos cookies
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (!error && data?.user) {
+        console.log("[Auth Update] Senha atualizada com sucesso via sessão ativa:", data.user.id);
+        return { success: true };
+      }
+    } catch {}
+
+    // 2. Validação criptográfica do JWT (Access Token vindo da verificação do e-mail)
+    if (accessToken) {
+      console.log("[Auth Update] Validando token JWT criptográfico...");
+      const { data: userData, error: userError } = await adminClient.auth.getUser(accessToken);
+      if (!userError && userData?.user?.id) {
+        console.log("[Auth Update] Usuário autenticado validado via JWT com sucesso:", userData.user.email);
+        const { error: adminUpdateError } = await adminClient.auth.admin.updateUserById(
+          userData.user.id,
+          { password: newPassword, email_confirm: true }
+        );
+
+        if (!adminUpdateError) {
+          if (userData.user.email) {
+            try {
+              await supabase.auth.signInWithPassword({
+                email: userData.user.email,
+                password: newPassword,
+              });
+            } catch {}
+
+            try {
+              await adminClient
+                .from("organization_invites")
+                .update({ status: "accepted" })
+                .eq("email", userData.user.email);
+            } catch {}
+          }
+
+          return { success: true };
+        }
+      }
     }
 
-    // Validação estrita por Token de Convite (sem brechas para e-mails arbitrários)
+    // 3. Validação por Token de Convite na tabela organization_invites
     if (inviteToken) {
       const cleanToken = inviteToken.trim();
-      console.log("[Auth Update] Validando token de convite criptográfico...");
-      const adminClient = createAdminClient();
+      console.log("[Auth Update] Validando token de convite criptográfico:", cleanToken);
 
       const { data: invite } = await adminClient
         .from("organization_invites")
@@ -743,22 +787,9 @@ export async function updateUserPassword(
       }
     }
 
-    if (error) {
-      console.error(
-        "[Auth Update] ERRO retornado pelo Supabase:",
-        error.message,
-        error.status,
-        error
-      );
-      return {
-        success: false,
-        error: "Não foi possível validar sua sessão. Acesse novamente através do link enviado por e-mail.",
-      };
-    }
-
     return {
       success: false,
-      error: "Link de convite inválido ou expirado. Solicite um novo convite ao administrador.",
+      error: "Não foi possível validar sua sessão. Acesse novamente através do link enviado por e-mail.",
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erro ao atualizar senha.";

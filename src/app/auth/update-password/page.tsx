@@ -123,6 +123,8 @@ function UpdatePasswordForm() {
 
     startTransition(async () => {
       try {
+        let currentAccessToken: string | undefined = undefined;
+
         // 0. Garante sessão do hash fragment se presente
         if (typeof window !== "undefined" && window.location.hash && isSupabaseConfigured()) {
           try {
@@ -130,8 +132,20 @@ function UpdatePasswordForm() {
             const access_token = hashParams.get("access_token");
             const refresh_token = hashParams.get("refresh_token");
             if (access_token && refresh_token) {
+              currentAccessToken = access_token;
               const supabase = createClient();
               await supabase.auth.setSession({ access_token, refresh_token });
+            }
+          } catch {}
+        }
+
+        // Se ainda não capturou access_token, busca na sessão ativa do cliente
+        if (!currentAccessToken && isSupabaseConfigured()) {
+          try {
+            const supabase = createClient();
+            const { data } = await supabase.auth.getSession();
+            if (data?.session?.access_token) {
+              currentAccessToken = data.session.access_token;
             }
           } catch {}
         }
@@ -157,9 +171,14 @@ function UpdatePasswordForm() {
           }
         }
 
-        // 2. Fallback via Server Action com validação estrita de token de convite
-        const result = inviteToken
-          ? await updateUserPassword(password, inviteToken)
+        // 2. Fallback via Server Action com validação criptográfica (JWT ou Token de Convite)
+        const authProof =
+          inviteToken || currentAccessToken
+            ? { inviteToken: inviteToken || undefined, accessToken: currentAccessToken }
+            : undefined;
+
+        const result = authProof
+          ? await updateUserPassword(password, authProof)
           : await updateUserPassword(password);
 
         if (!result.success) {
