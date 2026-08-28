@@ -1120,18 +1120,20 @@ export async function removeTeamMemberAction(
       await supabaseAdmin
         .from("roleta_sellers")
         ?.delete?.()
-        ?.eq?.("organization_id", activeOrgId)
         ?.or?.(`user_id.eq.${resolvedUserId},seller_id.eq.${resolvedUserId}`);
-    } catch {}
+    } catch (err) {
+      console.warn("[REMOVE_TEAM_MEMBER] roleta_sellers delete:", err);
+    }
 
     // B. Remove da tabela organization_members
     try {
       await supabaseAdmin
         .from("organization_members")
         ?.delete?.()
-        ?.eq?.("organization_id", activeOrgId)
         ?.or?.(`id.eq.${cleanId},user_id.eq.${resolvedUserId}`);
-    } catch {}
+    } catch (err) {
+      console.warn("[REMOVE_TEAM_MEMBER] organization_members delete:", err);
+    }
 
     // C. Remove de convites pendentes (organization_invites)
     try {
@@ -1139,50 +1141,70 @@ export async function removeTeamMemberAction(
         await supabaseAdmin
           .from("organization_invites")
           ?.delete?.()
-          ?.eq?.("organization_id", activeOrgId)
           ?.eq?.("email", cleanEmail);
       }
       await supabaseAdmin
         .from("organization_invites")
         ?.delete?.()
-        ?.eq?.("organization_id", activeOrgId)
         ?.or?.(`id.eq.${targetId},id.eq.${cleanId}`);
-    } catch {}
+    } catch (err) {
+      console.warn("[REMOVE_TEAM_MEMBER] organization_invites delete:", err);
+    }
 
-    // D. Desvincula o organization_id do perfil se ainda estiver associado
+    // D. Desvincula e remove de profiles
     try {
       if (resolvedUserId) {
         await supabaseAdmin
           .from("profiles")
-          ?.update?.({ organization_id: null as unknown as string, updated_at: new Date().toISOString() })
+          ?.update?.({ organization_id: null as unknown as string })
           ?.eq?.("id", resolvedUserId);
 
-        if (resolvedUserId.startsWith("mem-") || resolvedUserId.startsWith("inv-")) {
-          await supabaseAdmin
-            .from("profiles")
-            ?.delete?.()
-            ?.eq?.("id", resolvedUserId);
-        }
+        await supabaseAdmin
+          .from("profiles")
+          ?.delete?.()
+          ?.eq?.("id", resolvedUserId)
+          ?.neq?.("role", "admin");
       }
 
       if (cleanEmail) {
         await supabaseAdmin
           .from("profiles")
-          ?.update?.({ organization_id: null as unknown as string, updated_at: new Date().toISOString() })
+          ?.update?.({ organization_id: null as unknown as string })
           ?.eq?.("email", cleanEmail);
+
+        await supabaseAdmin
+          .from("profiles")
+          ?.delete?.()
+          ?.eq?.("email", cleanEmail)
+          ?.neq?.("role", "admin");
       }
     } catch (err) {
-      console.error("[REMOVE_TEAM_MEMBER] Erro ao desvincular profile:", err);
+      console.warn("[REMOVE_TEAM_MEMBER] profiles cleanup:", err);
     }
 
-    // 5. Sincroniza memória
-    const index = memoryTeamMembers.findIndex(
-      (m) =>
-        (m.id === targetId || m.id === cleanId || (cleanEmail && m.email?.toLowerCase() === cleanEmail)) &&
-        m.organization_id === activeOrgId
-    );
-    if (index !== -1) {
-      memoryTeamMembers.splice(index, 1);
+    // E. Remove de auth.users se for um usuário do Supabase Auth (e não admin)
+    try {
+      if (
+        resolvedUserId &&
+        !resolvedUserId.startsWith("mem-") &&
+        !resolvedUserId.startsWith("inv-") &&
+        !resolvedUserId.startsWith("sp-") &&
+        !resolvedUserId.startsWith("demo-")
+      ) {
+        await supabaseAdmin.auth.admin.deleteUser(resolvedUserId);
+      }
+    } catch {}
+
+    // 5. Sincroniza memória (remove todas as ocorrências)
+    for (let i = memoryTeamMembers.length - 1; i >= 0; i--) {
+      const m = memoryTeamMembers[i];
+      if (
+        m.id === targetId ||
+        m.id === cleanId ||
+        (cleanEmail && m.email?.toLowerCase() === cleanEmail)
+      ) {
+        memoryTeamMembers.splice(i, 1);
+      }
     }
 
     // 6. Revalidação completa de cache

@@ -388,20 +388,33 @@ export async function removeTeamMember(
   memberEmail?: string
 ): Promise<{ success: boolean; error?: string; message?: string }> {
   const cleanId = memberId.startsWith("inv-") ? memberId.replace(/^inv-/, "") : memberId;
-  const localIdx = localTeamMembers.findIndex(
-    (m) =>
+  const cleanEmail = memberEmail?.trim().toLowerCase();
+
+  for (let i = localTeamMembers.length - 1; i >= 0; i--) {
+    const m = localTeamMembers[i];
+    if (
       m.id === memberId ||
       m.id === cleanId ||
-      (memberEmail && m.email?.toLowerCase() === memberEmail.toLowerCase())
-  );
-  if (localIdx !== -1) {
-    if (localTeamMembers[localIdx].role === "admin") {
-      return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
+      (cleanEmail && m.email?.toLowerCase() === cleanEmail)
+    ) {
+      if (m.role === "admin") {
+        return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
+      }
+      localTeamMembers.splice(i, 1);
     }
-    localTeamMembers.splice(localIdx, 1);
   }
 
   const result = await removeTeamMemberAction(memberId, memberEmail);
+
+  try {
+    revalidatePath("/settings");
+    revalidatePath("/configuracoes");
+    revalidatePath("/team");
+    revalidatePath("/dashboard/team");
+    revalidatePath("/dashboard");
+    revalidatePath("/", "layout");
+  } catch {}
+
   return {
     success: result.success,
     error: result.error,
