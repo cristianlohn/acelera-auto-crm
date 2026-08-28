@@ -35,13 +35,12 @@ import {
   deleteSalespersonAction as _deleteSalespersonAction,
   removeMemberAction as _removeMemberAction,
   deleteSellerAction as _deleteSellerAction,
-  removeTeamMemberAction as _removeTeamMemberAction,
   removeTeamMemberAction,
   acceptOrganizationInviteAction as _acceptOrganizationInviteAction,
   type InviteTeamMemberInput,
 } from "./team-actions";
 
-export const removeTeamMemberAction = _removeTeamMemberAction;
+export { removeTeamMemberAction };
 
 export type {
   TeamMember,
