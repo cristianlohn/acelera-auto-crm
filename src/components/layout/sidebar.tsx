@@ -231,7 +231,7 @@ export function Sidebar({ className = "" }: { className?: string }) {
     };
   }, [isDemoMode]);
 
-  const activeRole = isDemoMode ? demoRole : realRole || "admin";
+  const activeRole = isDemoMode ? demoRole : realRole || "seller";
   const isSuper = isSuperAdmin(activeRole);
   const visibleNavItems = getNavItemsForRole(activeRole);
 

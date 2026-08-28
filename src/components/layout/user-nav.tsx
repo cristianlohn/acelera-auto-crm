@@ -20,7 +20,7 @@ import {
   getCurrentUserProfileAction,
   type UserProfileInfo,
 } from "@/app/actions/auth";
-import { isSuperAdmin } from "@/lib/permissions";
+import { isSuperAdmin, normalizeRole } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export interface UserNavProps {
@@ -96,20 +96,21 @@ export function UserNav({
   // Se for Usuário Real -> usa os dados retornados do Supabase / sessão real (NUNCA nomes mockados)
   const displayName = isDemoMode
     ? sellerName || "Gestor Demonstração"
-    : realProfile?.fullName || "Gestor";
+    : realProfile?.fullName || "Colaborador";
 
   const displayEmail = isDemoMode
     ? "demo@aceleraautocrm.com.br"
     : realProfile?.email || "";
 
-  const activeRole = isDemoMode ? role : realProfile?.role || "admin";
+  const activeRole = isDemoMode ? role : realProfile?.role || "seller";
+  const normalized = normalizeRole(activeRole);
 
   const displayRole =
-    activeRole === "admin"
+    normalized === "admin" || normalized === "superadmin"
       ? "Administrador"
-      : activeRole === "gerente"
-        ? "Gerente Comercial"
-        : "Vendedor";
+      : normalized === "manager"
+      ? "Gerente Comercial"
+      : "Vendedor";
 
   return (
     <div className={`border-t p-3 space-y-2.5 bg-card/60 ${className}`}>

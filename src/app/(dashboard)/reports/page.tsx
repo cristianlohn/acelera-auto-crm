@@ -15,6 +15,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import {
   TrendingUp,
   TrendingDown,
@@ -35,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/mock-data";
 import { useDemoRole } from "@/context/demo-role-context";
+import { normalizeRole, canViewExecutiveReports } from "@/lib/permissions";
 
 // ---------------------------------------------------------------------------
 // Tipos de Domínio do Módulo de Analytics
@@ -364,8 +366,29 @@ export default function ReportsPage() {
   const [isExporting, startExportTransition] = useTransition();
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
   const { role, sellerName, isDemoMode } = useDemoRole();
+  const effectiveRole = normalizeRole(role);
+  const isVendedorRole = effectiveRole === "seller";
+  const canViewReports = canViewExecutiveReports(effectiveRole);
 
-  const isVendedorRole = role === "vendedor" || role === "seller";
+  if (!isDemoMode && !canViewReports) {
+    return (
+      <div className="flex h-[calc(100vh-80px)] flex-col items-center justify-center p-6 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 mb-4">
+          <Lock className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-bold text-foreground">Acesso Restrito</h2>
+        <p className="mt-2 max-w-md text-sm text-muted-foreground">
+          Os relatórios executivos e indicadores consolidados de faturamento são exclusivos para Gerentes e Administradores da concessionária.
+        </p>
+        <div className="mt-6 flex gap-3">
+          <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Link href="/leads">Voltar para o Funil de Leads</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const currentData = isDemoMode ? PERIOD_METRICS[period] : EMPTY_METRICS;
   const { kpis, funnel, channels, sellers, topVehicles } = currentData;
 

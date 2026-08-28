@@ -429,7 +429,9 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
     tenantContext.profile?.full_name?.trim() ||
     (tenantContext.userEmail
       ? tenantContext.userEmail.split("@")[0].replace(/[._-]/g, " ")
-      : "Gestor");
+      : tenantContext.isDemo
+      ? "Gestor"
+      : "Colaborador");
 
   const email =
     tenantContext.userEmail ||
@@ -437,7 +439,9 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
     "";
 
   const phone = tenantContext.profile?.phone || null;
-  const role = (tenantContext.profile?.role as "admin" | "gerente" | "vendedor" | "superadmin") || "admin";
+  const role =
+    (tenantContext.profile?.role as "admin" | "gerente" | "vendedor" | "superadmin") ||
+    (tenantContext.isDemo ? "gerente" : "vendedor");
 
   const initials =
     fullName
@@ -489,6 +493,53 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
     trialDaysRemaining,
     subscriptionAccess,
   };
+}
+
+export interface UpdateCurrentUserProfileInput {
+  fullName?: string;
+  phone?: string;
+}
+
+/**
+ * Atualiza o perfil pessoal do usuário atualmente autenticado.
+ */
+export async function updateCurrentUserProfileAction(
+  input: UpdateCurrentUserProfileInput
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    if (tenantContext.isDemo) {
+      return { success: true };
+    }
+
+    if (!tenantContext.userId) {
+      return { success: false, error: "Usuário não autenticado." };
+    }
+
+    if (isSupabaseServerConfigured()) {
+      const adminClient = createAdminClient();
+      const updateData: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (input.fullName !== undefined) updateData.full_name = input.fullName.trim();
+      if (input.phone !== undefined) updateData.phone = input.phone.trim();
+
+      await (adminClient.from("profiles") as unknown as { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } })
+        .update(updateData)
+        .eq("id", tenantContext.userId);
+    }
+
+    try {
+      revalidatePath("/settings");
+      revalidatePath("/dashboard");
+      revalidatePath("/", "layout");
+    } catch {}
+
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao atualizar perfil.";
+    return { success: false, error: message };
+  }
 }
 
 export interface UpdateOrganizationSettingsInput {

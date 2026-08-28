@@ -8,7 +8,7 @@ import { canManageTeam } from "@/lib/permissions";
 
 export default async function TeamPage() {
   const tenantContext = await resolveUserTenantContext();
-  let userRole: string = (tenantContext.profile?.role as string) || "admin";
+  let userRole: string = (tenantContext.profile?.role as string) || (tenantContext.isDemo ? "gerente" : "seller");
 
   try {
     const cookieStore = await cookies();

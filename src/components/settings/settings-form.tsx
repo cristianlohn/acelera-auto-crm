@@ -50,11 +50,17 @@ import {
 } from "@/app/actions/team";
 import {
   getCurrentUserProfileAction,
+  updateCurrentUserProfileAction,
   updateOrganizationSettingsAction,
 } from "@/app/actions/auth";
 import { formatDocument, formatPhone } from "@/lib/validations/document";
 import type { ApiKey } from "@/types/api-key";
 import { MemberRowActions } from "@/components/team/member-row-actions";
+import {
+  normalizeRole,
+  canManageTeam,
+  canManageIntegrationsAndBilling,
+} from "@/lib/permissions";
 
 // ---------------------------------------------------------------------------
 // Tipos das Abas e Configurações
@@ -343,22 +349,57 @@ export function SettingsForm({
     };
   }, [isDemoMode, initialProfile, initialOrganization, initialTeamMembers]);
 
-  const isVendedorRole = role === "vendedor";
+  // Cálculo canônico e normalizado do papel do usuário (RBAC)
+  const effectiveRole = normalizeRole(
+    isDemoMode ? role : profile.role || initialProfile?.role || role
+  );
+  const isVendedorRole = effectiveRole === "seller";
+  const isManagerRole = effectiveRole === "manager";
+  const isAdminRole = effectiveRole === "admin" || effectiveRole === "superadmin";
+
+  const availableTabs = TAB_ITEMS.filter((tab) => {
+    switch (tab.id) {
+      case "perfil":
+      case "preferencias":
+        return true;
+      case "sla":
+      case "equipe":
+        return canManageTeam(effectiveRole);
+      case "loja":
+      case "integracoes":
+        return canManageIntegrationsAndBilling(effectiveRole);
+      default:
+        return false;
+    }
+  });
+
+  const isTabAllowed = (tabId: SettingsTab) => availableTabs.some((t) => t.id === tabId);
+  const currentTab = isTabAllowed(activeTab) ? activeTab : "perfil";
 
   // Disparo de salvamento das configurações gerais
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     startSavingTransition(() => {
       if (!isDemoMode) {
-        updateOrganizationSettingsAction({
-          name: store.tradeName,
-          legalName: store.legalName,
-          document: store.cnpj,
-          phone: store.phone,
-          address: store.address,
-          businessHours: store.businessHours,
+        // 1. Atualização do perfil pessoal do usuário
+        updateCurrentUserProfileAction({
+          fullName: profile.fullName,
+          phone: profile.phone,
         }).catch(() => {});
+
+        // 2. Apenas administradores e superadmins podem persistir dados cadastrais da loja
+        if (canManageIntegrationsAndBilling(effectiveRole)) {
+          updateOrganizationSettingsAction({
+            name: store.tradeName,
+            legalName: store.legalName,
+            document: store.cnpj,
+            phone: store.phone,
+            address: store.address,
+            businessHours: store.businessHours,
+          }).catch(() => {});
+        }
       }
+
       setTimeout(() => {
         setSaveFeedback("Configurações Salvas com Sucesso!");
         setTimeout(() => setSaveFeedback(null), 3000);
@@ -439,15 +480,15 @@ export function SettingsForm({
                 Ajustes
               </span>
               {isVendedorRole && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-                  <Lock className="h-3 w-3" />
-                  Perfil Vendedor ({sellerName})
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
+                  <User className="h-3 w-3" />
+                  Perfil Vendedor
                 </span>
               )}
             </div>
             <p className="text-xs text-muted-foreground">
               {isVendedorRole
-                ? "Edição restrita aos seus dados de perfil de usuário"
+                ? "Edição restrita aos seus dados de perfil de usuário e preferências de alertas"
                 : "Gerencie dados da loja, equipe, metas comerciais e preferências"}
             </p>
           </div>
@@ -464,42 +505,31 @@ export function SettingsForm({
           )}
         </div>
 
-        {/* Abas Organizacionais */}
+        {/* Abas Organizacionais (Filtradas estritamente por RBAC) */}
         <div
           role="tablist"
           aria-label="Abas de Configuração"
           className="mt-4 flex gap-1 overflow-x-auto border-b border-border/40 pb-px"
         >
-          {TAB_ITEMS.map((tab) => {
+          {availableTabs.map((tab) => {
             const Icon = tab.icon;
-            const isRestricted = isVendedorRole && tab.id !== "perfil";
-            const isActive = activeTab === tab.id;
+            const isActive = currentTab === tab.id;
             return (
               <button
                 key={tab.id}
                 id={`tab-${tab.id}`}
                 role="tab"
                 aria-selected={isActive}
-                aria-disabled={isRestricted}
-                disabled={isRestricted}
-                title={isRestricted ? "Acesso Restrito: Apenas Gestores e Administradores" : tab.label}
-                onClick={() => {
-                  if (!isRestricted) {
-                    setActiveTab(tab.id);
-                  }
-                }}
+                onClick={() => setActiveTab(tab.id)}
                 className={cn(
                   "inline-flex items-center gap-2 border-b-2 px-3 py-2 text-xs font-medium transition-all whitespace-nowrap",
-                  isRestricted
-                    ? "opacity-40 cursor-not-allowed border-transparent text-muted-foreground"
-                    : isActive
+                  isActive
                     ? "border-orange-500 text-orange-600 dark:text-orange-400 font-semibold"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
                 <Icon className="h-4 w-4" />
                 <span>{tab.label}</span>
-                {isRestricted && <Lock className="h-3 w-3 ml-0.5 text-muted-foreground" />}
               </button>
             );
           })}
@@ -514,11 +544,11 @@ export function SettingsForm({
         {isVendedorRole && (
           <div
             id="banner-rbac-settings"
-            className="mb-4 rounded-xl border border-amber-300/80 bg-amber-50/90 dark:border-amber-900/60 dark:bg-amber-950/40 p-3.5 text-amber-900 dark:text-amber-200 shadow-sm flex items-center gap-2.5"
+            className="mb-4 rounded-xl border border-blue-300/80 bg-blue-50/90 dark:border-blue-900/60 dark:bg-blue-950/40 p-3.5 text-blue-900 dark:text-blue-200 shadow-sm flex items-center gap-2.5"
           >
-            <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <Lock className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
             <span className="text-xs font-medium">
-              Modo Vendedor ({sellerName}): Apenas a edição do seu Perfil de Usuário está liberada. As abas Loja, SLA e Equipe estão bloqueadas para o seu nível de acesso.
+              Painel do Vendedor: Você tem acesso à edição do seu perfil e notificações. Abas administrativas (Dados da Loja, Metas, Equipe e Integrações) são restritas a Gerentes e Administradores.
             </span>
           </div>
         )}
@@ -526,7 +556,7 @@ export function SettingsForm({
           {/* ================================================================ */}
           {/* ABA 1: Perfil do Usuário                                         */}
           {/* ================================================================ */}
-          {activeTab === "perfil" && (
+          {currentTab === "perfil" && (
             <section aria-label="Perfil do Usuário" className="space-y-4">
               <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
                 <div className="flex items-center gap-3 border-b pb-4">
@@ -626,13 +656,17 @@ export function SettingsForm({
                     <select
                       id="profile-role"
                       value={profile.role}
+                      disabled={!canManageIntegrationsAndBilling(effectiveRole)}
                       onChange={(e) =>
                         setProfile((prev) => ({
                           ...prev,
                           role: e.target.value as UserProfileState["role"],
                         }))
                       }
-                      className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className={cn(
+                        "h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
+                        !canManageIntegrationsAndBilling(effectiveRole) && "opacity-75 cursor-not-allowed bg-muted/40"
+                      )}
                     >
                       <option value="admin">Administrador (Master)</option>
                       <option value="gerente">Gerente Comercial</option>
@@ -647,7 +681,7 @@ export function SettingsForm({
           {/* ================================================================ */}
           {/* ABA 2: Concessionária & Loja                                     */}
           {/* ================================================================ */}
-          {activeTab === "loja" && (
+          {currentTab === "loja" && canManageIntegrationsAndBilling(effectiveRole) && (
             <section aria-label="Dados da Concessionária" className="space-y-4">
               <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
                 <h2 className="text-sm font-bold text-foreground border-b pb-2">
@@ -788,7 +822,7 @@ export function SettingsForm({
           {/* ================================================================ */}
           {/* ABA 3: Parâmetros do CRM & SLA                                   */}
           {/* ================================================================ */}
-          {activeTab === "sla" && (
+          {currentTab === "sla" && canManageTeam(effectiveRole) && (
             <section aria-label="Parâmetros do CRM e SLA" className="space-y-4">
               <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
                 <h2 className="text-sm font-bold text-foreground border-b pb-2">
@@ -865,7 +899,7 @@ export function SettingsForm({
           {/* ================================================================ */}
           {/* ABA 4: Preferências & Notificações                               */}
           {/* ================================================================ */}
-          {activeTab === "preferencias" && (
+          {currentTab === "preferencias" && (
             <section aria-label="Preferências do Sistema" className="space-y-4">
               <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
                 <h2 className="text-sm font-bold text-foreground border-b pb-2">
@@ -951,7 +985,7 @@ export function SettingsForm({
           {/* ================================================================ */}
           {/* ABA 5: Equipe & Vendedores                                       */}
           {/* ================================================================ */}
-          {activeTab === "equipe" && (
+          {currentTab === "equipe" && canManageTeam(effectiveRole) && (
             <section aria-label="Gestão de Equipe e Vendedores" className="space-y-4">
               {/* Card de Resumo de Capacidade */}
               <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
@@ -1109,7 +1143,7 @@ export function SettingsForm({
           {/* ============================================================== */}
           {/* ABA 6: Integrações & Webhooks de Leads                         */}
           {/* ============================================================== */}
-          {activeTab === "integracoes" && (
+          {currentTab === "integracoes" && canManageIntegrationsAndBilling(effectiveRole) && (
             <section id="tab-integracoes" className="space-y-6 animate-in fade-in duration-200">
               {/* Header da Aba */}
               <div>

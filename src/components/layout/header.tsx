@@ -43,7 +43,7 @@ export function MobileHeader() {
     };
   }, [isDemoMode]);
 
-  const activeRole = demoRole || realRole || "admin";
+  const activeRole = isDemoMode ? demoRole : realRole || "seller";
   const visibleNavItems = getNavItemsForRole(activeRole);
 
   return (

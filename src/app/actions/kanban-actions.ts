@@ -338,7 +338,8 @@ export async function getKanbanLeadsAction(
   const tenantContext = await resolveUserTenantContext();
   const orgId = explicitOrgId || tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
-  let effectiveRole = overrideRole || tenantContext.profile?.role || "admin";
+  let effectiveRole =
+    overrideRole || tenantContext.profile?.role || (tenantContext.isDemo ? "gerente" : "seller");
   try {
     const cookieStore = await cookies();
     const demoRoleCookie = cookieStore.get("acelera_demo_role")?.value;

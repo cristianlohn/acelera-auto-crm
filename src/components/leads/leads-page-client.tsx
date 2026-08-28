@@ -40,7 +40,11 @@ import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
 import { createLead as persistLead, getLeads, updateLeadStatus } from "@/app/actions/leads";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
 import { useDemoRole } from "@/context/demo-role-context";
-import { canViewAllLeads } from "@/lib/permissions";
+import {
+  canViewAllLeads,
+  normalizeRole,
+  canManageIntegrationsAndBilling,
+} from "@/lib/permissions";
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import { LeadDetailsModal } from "@/components/leads/lead-details-modal";
@@ -721,13 +725,19 @@ function computeMetrics(leads: Lead[]) {
 export interface LeadsPageClientProps {
   initialLeads?: Lead[];
   initialOrganizationId?: string | null;
+  userRole?: string;
 }
 
 export function LeadsPageClient({
   initialLeads,
   initialOrganizationId,
+  userRole,
 }: LeadsPageClientProps = {}) {
   const { role, sellerName, isDemoMode } = useDemoRole();
+  const effectiveRole = normalizeRole(isDemoMode ? role : (userRole || role));
+  const isVendedorRole = effectiveRole === "seller";
+  const canConfigureIntegrations = canManageIntegrationsAndBilling(effectiveRole);
+
   const [organizationId, setOrganizationId] = useState<string | null>(
     initialOrganizationId || null
   );
@@ -803,8 +813,8 @@ export function LeadsPageClient({
     }, []),
   });
 
-  const isVendedorRole = !canViewAllLeads(role);
-  const visibleLeads = isVendedorRole
+  const allowAllLeads = canViewAllLeads(effectiveRole);
+  const visibleLeads = !allowAllLeads
     ? leads.filter(
         (l) =>
           l.sellerName === sellerName ||
@@ -990,13 +1000,15 @@ export function LeadsPageClient({
               triggerLabel="Cadastrar Primeiro Lead"
               triggerId="btn-empty-add-lead"
             />
-            <a
-              href="/settings"
-              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted hover:border-orange-500/40 transition-all shadow-sm"
-            >
-              <Zap className="h-4 w-4 text-orange-500" />
-              Configurar Integrações / Webhooks
-            </a>
+            {canConfigureIntegrations && (
+              <a
+                href="/settings"
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted hover:border-orange-500/40 transition-all shadow-sm"
+              >
+                <Zap className="h-4 w-4 text-orange-500" />
+                Configurar Integrações / Webhooks
+              </a>
+            )}
           </div>
         </div>
       ) : (

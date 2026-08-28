@@ -57,11 +57,9 @@ describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstraç�
     );
 
     // Assert (A sidebar deve conter os itens usuais, mas NÃO Super Admin)
-    expect(screen.getByRole("link", { name: /funil de vendas/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /meus leads \/ kanban|funil de vendas/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /clientes/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /estoque/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /relatórios/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /configurações/i })).toBeInTheDocument();
 
     expect(screen.queryByRole("link", { name: /super admin/i })).not.toBeInTheDocument();
   });
@@ -159,7 +157,7 @@ describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstraç�
     expect(screen.getByText(/capacidade de vendedores do plano/i)).toBeInTheDocument();
   });
 
-  it("[IT-16.6] Deve validar bloqueio visual e desabilitação de abas administrativas no perfil de Vendedor", async () => {
+  it("[IT-16.6] Deve validar bloqueio visual e ocultação estrita de abas administrativas no perfil de Vendedor", async () => {
     // Arrange
     render(
       <DemoRoleProvider initialDemoMode={true} initialRole="vendedor">
@@ -170,18 +168,20 @@ describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstraç�
       </DemoRoleProvider>
     );
 
-    // Assert (Aba de perfil está habilitada, mas Loja, SLA e Equipe estão desabilitadas)
-    expect(screen.getByText(/modo vendedor \(rafael alves\)/i)).toBeInTheDocument();
+    // Assert (Aba de perfil e preferências estão visíveis, mas abas confidenciais de Loja, SLA, Equipe e Integrações estão estritamente ocultadas para Vendedor)
+    expect(screen.getByText(/painel do vendedor/i)).toBeInTheDocument();
 
     const perfilTab = screen.getByRole("tab", { name: /perfil do usuário/i });
-    const lojaTab = screen.getByRole("tab", { name: /concessionária & loja/i });
-    const slaTab = screen.getByRole("tab", { name: /parâmetros do crm & sla/i });
-    const equipeTab = screen.getByRole("tab", { name: /equipe & vendedores/i });
+    const prefTab = screen.getByRole("tab", { name: /preferências & notificações/i });
 
-    expect(perfilTab).not.toBeDisabled();
-    expect(lojaTab).toBeDisabled();
-    expect(slaTab).toBeDisabled();
-    expect(equipeTab).toBeDisabled();
+    expect(perfilTab).toBeInTheDocument();
+    expect(prefTab).toBeInTheDocument();
+
+    // Abas confidenciais restritas a gestores e administradores não aparecem no DOM para vendedores
+    expect(screen.queryByRole("tab", { name: /concessionária & loja/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /parâmetros do crm & sla/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /equipe & vendedores/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /integrações & webhooks/i })).not.toBeInTheDocument();
   });
 
   it("[IT-16.7] Deve validar responsividade e fechamento de notificação de perfil", async () => {

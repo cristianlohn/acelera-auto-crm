@@ -15,7 +15,7 @@ import { Clock, AlertTriangle, ArrowRight, X } from "lucide-react";
 import type { OrganizationAccessStatus } from "@/lib/auth/subscription";
 import { getSubscriptionStatusAction } from "@/app/actions/auth";
 import { useDemoRole } from "@/context/demo-role-context";
-import { isSuperAdmin } from "@/lib/permissions";
+import { isSuperAdmin, normalizeRole, canManageIntegrationsAndBilling } from "@/lib/permissions";
 
 interface SubscriptionBannerProps {
   status?: OrganizationAccessStatus;
@@ -47,7 +47,12 @@ export function SubscriptionBanner({ status: initialStatus }: SubscriptionBanner
     };
   }, [initialStatus]);
 
-  if (dismissed || isSuperAdmin(role)) return null;
+  const effectiveRole = normalizeRole(role);
+
+  // Vendedores e Gerentes não gerenciam a assinatura/faturamento da loja
+  if (dismissed || isSuperAdmin(role) || !canManageIntegrationsAndBilling(effectiveRole)) {
+    return null;
+  }
 
   const currentStatus = initialStatus || accessStatus;
   if (

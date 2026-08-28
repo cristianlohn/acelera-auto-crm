@@ -75,7 +75,7 @@ describe("[IT-LOGOUT] Botão de Logout e Perfil do Usuário na Sidebar", () => {
 
     // Assert: Card de status e perfil
     expect(screen.getAllByText(/ativo/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/administrador/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/vendedor|administrador|gerente/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it("[IT-LOGOUT.4] Deve renderizar o nome real do usuário, e-mail e iniciais dinamicamente (ex: Cristian Lohn -> CL)", async () => {

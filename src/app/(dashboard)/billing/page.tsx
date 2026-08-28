@@ -13,6 +13,7 @@
 "use client";
 
 import React, { useState, Suspense } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Check,
@@ -28,6 +29,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { BillingCheckoutDialog } from "@/components/billing/billing-checkout-dialog";
 import { cn } from "@/lib/utils";
+import { useDemoRole } from "@/context/demo-role-context";
+import { normalizeRole, canManageIntegrationsAndBilling } from "@/lib/permissions";
 
 interface Plan {
   id: string;
@@ -98,6 +101,9 @@ const plans: Plan[] = [
 function BillingContent() {
   const searchParams = useSearchParams();
   const isExpired = searchParams.get("expired") === "true";
+  const { role, isDemoMode } = useDemoRole();
+  const effectiveRole = normalizeRole(role);
+  const canManageBilling = canManageIntegrationsAndBilling(effectiveRole);
 
   const [billingCycle, setBillingCycle] = useState<"mensal" | "anual">("mensal");
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
@@ -108,6 +114,25 @@ function BillingContent() {
   } | null>(null);
 
   const isAnnual = billingCycle === "anual";
+
+  if (!isDemoMode && !canManageBilling) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-[#09090b] p-6 text-center text-[#f4f4f5]">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500 mb-4">
+          <Lock className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-bold text-white">Acesso Restrito</h2>
+        <p className="mt-2 max-w-md text-sm text-zinc-400">
+          A gestão de planos, faturamento e assinaturas é exclusiva para Administradores da concessionária.
+        </p>
+        <div className="mt-6 flex gap-3">
+          <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Link href="/leads">Voltar para o Funil de Leads</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const handleOpenCheckout = (planId: string) => {
     const plan = plans.find((p) => p.id === planId) || plans[1];

@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
 export default async function IntegrationsSettingsPage() {
   const tenantContext = await resolveUserTenantContext();
-  let userRole: string = (tenantContext.profile?.role as string) || "admin";
+  let userRole: string = (tenantContext.profile?.role as string) || (tenantContext.isDemo ? "admin" : "seller");
 
   try {
     const cookieStore = await cookies();
@@ -39,7 +39,7 @@ export default async function IntegrationsSettingsPage() {
   }
 
   if (!canManageIntegrationsAndBilling(userRole)) {
-    redirect("/dashboard");
+    redirect("/leads");
   }
 
   const apiKeys = await getApiKeysAction();

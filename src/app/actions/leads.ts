@@ -50,7 +50,8 @@ import { canViewAllLeads } from "@/lib/permissions";
  */
 export async function getLeads(overrideRole?: string): Promise<Lead[]> {
   const tenantContext = await resolveUserTenantContext();
-  let effectiveRole = overrideRole || tenantContext.profile?.role || "admin";
+  let effectiveRole =
+    overrideRole || tenantContext.profile?.role || (tenantContext.isDemo ? "gerente" : "seller");
   try {
     const cookieStore = await cookies();
     const demoRoleCookie = cookieStore.get("acelera_demo_role")?.value;

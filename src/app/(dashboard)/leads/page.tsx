@@ -28,6 +28,7 @@ export default async function LeadsPage() {
     <LeadsPageClient
       initialLeads={leads}
       initialOrganizationId={tenantContext.organizationId || null}
+      userRole={tenantContext.profile?.role || (tenantContext.isDemo ? undefined : "seller")}
     />
   );
 }

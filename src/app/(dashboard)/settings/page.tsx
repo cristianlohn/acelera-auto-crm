@@ -35,7 +35,7 @@ export default async function SettingsPage() {
         fullName: tenantContext.profile.full_name || "",
         email: tenantContext.profile.email || "",
         phone: tenantContext.profile.phone || "",
-        role: (tenantContext.profile.role as "admin" | "gerente" | "vendedor") || "admin",
+        role: (tenantContext.profile.role as "admin" | "gerente" | "vendedor") || "vendedor",
       }
     : isDemo
     ? {
