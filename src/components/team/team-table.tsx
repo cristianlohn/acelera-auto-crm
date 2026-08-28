@@ -17,6 +17,7 @@ import {
   Trash2,
   Filter,
   Send,
+  Loader2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,12 +28,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { TeamMember, TeamSegment } from "@/types/team";
 import {
   toggleRouletteStatusAction,
-  deleteSalespersonAction,
+  removeTeamMemberAction,
   resendInviteEmailAction,
 } from "@/app/actions/team-actions";
 
@@ -50,6 +61,8 @@ export function TeamTable({
   const [localOverrides, setLocalOverrides] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [segmentFilter, setSegmentFilter] = useState<TeamSegment | "all">("all");
+  const [memberToDelete, setMemberToDelete] = useState<TeamMember | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [, startTransition] = useTransition();
 
   // Aplica overrides otimistas
@@ -126,17 +139,22 @@ export function TeamTable({
     }
   };
 
-  // Exclusão de membro
-  const handleDelete = async (memberId: string, memberName: string) => {
-    if (!confirm(`Deseja realmente remover o vendedor ${memberName}?`)) return;
-
-    toast.success(`${memberName} foi removido com sucesso.`);
-    onMemberDeleted?.(memberId);
-
+  // Confirmação e Exclusão segura de membro
+  const handleConfirmDelete = async (member: TeamMember) => {
+    setIsDeleting(true);
     try {
-      await deleteSalespersonAction(memberId);
+      const res = await removeTeamMemberAction(member.id, member.email);
+      if (res.success) {
+        toast.success(res.message || `${member.name || member.email} foi removido com sucesso.`);
+        onMemberDeleted?.(member.id);
+        setMemberToDelete(null);
+      } else {
+        toast.error(res.error || "Erro ao remover vendedor do servidor.");
+      }
     } catch {
-      toast.error("Erro ao remover vendedor do servidor.");
+      toast.error("Erro ao comunicar com o servidor para remoção do colaborador.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -372,7 +390,8 @@ export function TeamTable({
                             <span>Editar Vendedor</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => handleDelete(member.id, member.name)}
+                            data-testid={`btn-delete-member-${member.id}`}
+                            onClick={() => setMemberToDelete(member)}
                             className="cursor-pointer text-red-400 hover:bg-red-500/10 hover:text-red-300 gap-2"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -388,6 +407,41 @@ export function TeamTable({
           </tbody>
         </table>
       </div>
+
+      {/* Diálogo de Confirmação Shadcn UI AlertDialog */}
+      <AlertDialog
+        open={!!memberToDelete}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) setMemberToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover Colaborador?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover{" "}
+              <strong className="text-white">
+                {memberToDelete?.name || memberToDelete?.email}
+              </strong>{" "}
+              da concessionária? O colaborador perderá o acesso imediato ao CRM e à roleta de distribuição de leads.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeleting}
+              onClick={(e) => {
+                e.preventDefault();
+                if (memberToDelete) handleConfirmDelete(memberToDelete);
+              }}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Sim, Remover Colaborador
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

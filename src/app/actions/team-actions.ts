@@ -46,6 +46,7 @@ export interface InviteTeamMemberInput {
 export interface ActionResult {
   success: boolean;
   error?: string;
+  message?: string;
 }
 
 // Armazenamento em memória com dados ricos para o ambiente demo e offline
@@ -960,156 +961,241 @@ export async function updateSalespersonAction(
 }
 
 /**
- * Remove ou desativa um membro da equipe comercial.
+ * Remove ou desativa um membro da equipe comercial de forma resiliente em cascata.
  * Bloqueia categoricamente a exclusão de Dono ('owner') ou Administrador ('admin').
  */
-export async function deleteSalespersonAction(memberId: string): Promise<ActionResult> {
-  const cleanId = memberId.startsWith("inv-") ? memberId.replace(/^inv-/, "") : memberId;
-  const tenantContext = await resolveUserTenantContext();
-  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+export async function removeTeamMemberAction(
+  targetId: string,
+  targetEmail?: string
+): Promise<ActionResult> {
+  try {
+    const cleanId = targetId.startsWith("inv-") ? targetId.replace(/^inv-/, "") : targetId;
+    const tenantContext = await resolveUserTenantContext();
+    const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
-  // 1. Checagem em memória
-  const memoryMember = memoryTeamMembers.find(
-    (m) => (m.id === memberId || m.id === cleanId) && m.organization_id === orgId
-  );
-  if (memoryMember && (String(memoryMember.role) === "admin" || String(memoryMember.role) === "owner")) {
-    return {
-      success: false,
-      error: "O proprietário da loja não pode ser desvinculado.",
-    };
-  }
+    // Modo demo / offline
+    const isDemoId =
+      targetId.startsWith("sp-") ||
+      targetId.startsWith("demo-") ||
+      cleanId.startsWith("sp-") ||
+      cleanId.startsWith("demo-");
+    const memIdx = memoryTeamMembers.findIndex(
+      (m) =>
+        (m.id === targetId || m.id === cleanId || (targetEmail && m.email?.toLowerCase() === targetEmail.trim().toLowerCase())) &&
+        m.organization_id === orgId
+    );
 
-  let targetEmail: string | null = memoryMember?.email || null;
-
-  // 2. Checagem e remoção no Supabase se configurado
-  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
-    try {
-      const supabaseAdmin = createAdminClient();
-
-      // Deleta convite pendente se existir por id
-      try {
-        const { data: invite } = await supabaseAdmin
-          .from("organization_invites")
-          .select("id, organization_id, email")
-          .eq("organization_id", orgId)
-          .eq("id", cleanId)
-          .maybeSingle();
-
-        if (invite) {
-          targetEmail = targetEmail || invite.email;
-          await supabaseAdmin.from("organization_invites").delete().eq("id", invite.id);
+    if (tenantContext.isDemo || isDemoId || (!isSupabaseServerConfigured() && memIdx !== -1)) {
+      if (memIdx !== -1) {
+        const memMember = memoryTeamMembers[memIdx];
+        if (String(memMember.role) === "admin" || String(memMember.role) === "owner") {
+          return {
+            success: false,
+            error: "O proprietário da loja não pode ser desvinculado.",
+          };
         }
+        memoryTeamMembers.splice(memIdx, 1);
+      }
+      try {
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/team");
+        revalidatePath("/team");
+        revalidatePath("/settings");
+        revalidatePath("/", "layout");
       } catch {}
+      return { success: true, message: "Colaborador removido com sucesso." };
+    }
 
-      // Checa se o membro alvo tem papel de owner ou admin em profiles por id
-      let targetProfile = null;
+    // Modo produção (Supabase)
+    const supabaseAdmin = createAdminClient();
+
+    // 1. Validação do usuário autenticado
+    let userId = tenantContext.userId;
+    try {
+      const supabaseUser = await createServerSupabaseClient();
+      const userRes = await supabaseUser.auth.getUser();
+      if (userRes.data?.user?.id) {
+        userId = userRes.data.user.id;
+      }
+    } catch {
+      // Usa tenantContext.userId se executado fora do request scope
+    }
+
+    if (!userId && !tenantContext.isDemo) {
+      return { success: false, error: "Acesso não autorizado." };
+    }
+
+    // 2. Localiza a organização ativa do solicitante
+    let activeOrgId = orgId;
+    try {
+      if (userId) {
+        const { data: callerProfile } = (await supabaseAdmin
+          .from("profiles")
+          .select("organization_id, role")
+          .eq("id", userId)
+          .maybeSingle()) || { data: null };
+        if (callerProfile?.organization_id) {
+          activeOrgId = callerProfile.organization_id;
+        }
+      }
+    } catch {}
+
+    if (!activeOrgId) {
+      return { success: false, error: "Organização não identificada." };
+    }
+
+    const cleanEmail = targetEmail?.trim().toLowerCase();
+
+    // 3. Blindagem de segurança: nunca permitir remover o dono ou administrador
+    let targetProfile = null;
+    try {
+      const { data: pByIdAndOrg } = (await supabaseAdmin
+        .from("profiles")
+        ?.select?.("id, role, organization_id, email")
+        ?.eq?.("id", cleanId)
+        ?.eq?.("organization_id", activeOrgId)
+        ?.maybeSingle?.()) || { data: null };
+
+      if (pByIdAndOrg) {
+        targetProfile = pByIdAndOrg;
+      }
+    } catch {}
+
+    if (!targetProfile) {
       try {
         const { data: pById } = (await supabaseAdmin
           .from("profiles")
           ?.select?.("id, role, organization_id, email")
           ?.eq?.("id", cleanId)
-          ?.eq?.("organization_id", orgId)
           ?.maybeSingle?.()) || { data: null };
 
         if (pById) {
           targetProfile = pById;
-          targetEmail = targetEmail || pById.email;
         }
       } catch {}
+    }
 
-      // Se ainda não achou profile mas temos targetEmail, busca profile por email
-      if (!targetProfile && targetEmail) {
-        try {
-          const { data: pByEmail } = (await supabaseAdmin
-            .from("profiles")
-            ?.select?.("id, role, organization_id, email")
-            ?.eq?.("email", targetEmail.toLowerCase())
-            ?.eq?.("organization_id", orgId)
-            ?.maybeSingle?.()) || { data: null };
-
-          if (pByEmail) {
-            targetProfile = pByEmail;
-          }
-        } catch {}
-      }
-
-      if (targetProfile && (targetProfile.role === "admin" || (targetProfile.role as string) === "owner")) {
-        return {
-          success: false,
-          error: "O proprietário da loja não pode ser desvinculado.",
-        };
-      }
-
-      // Desvincula em profiles por id
-      if (targetProfile) {
-        await supabaseAdmin
+    if (!targetProfile && cleanEmail) {
+      try {
+        const { data: pByEmail } = (await supabaseAdmin
           .from("profiles")
-          .update({ organization_id: null as unknown as string })
-          .eq("id", targetProfile.id);
-      }
+          ?.select?.("id, role, organization_id, email")
+          ?.eq?.("email", cleanEmail)
+          ?.eq?.("organization_id", activeOrgId)
+          ?.maybeSingle?.()) || { data: null };
+        if (pByEmail) {
+          targetProfile = pByEmail;
+        }
+      } catch {}
+    }
 
-      // Desvincula em profiles por cleanId
-      await supabaseAdmin
-        .from("profiles")
-        .update({ organization_id: null as unknown as string })
-        .eq("id", cleanId)
-        .eq("organization_id", orgId);
-
-      // Desvincula em profiles e organization_invites por email se disponível
-      if (targetEmail) {
-        await supabaseAdmin
+    if (!targetProfile) {
+      try {
+        const { data: pOr } = (await supabaseAdmin
           .from("profiles")
-          .update({ organization_id: null as unknown as string })
-          .eq("email", targetEmail.toLowerCase())
-          .eq("organization_id", orgId);
+          ?.select?.("id, role, organization_id, email")
+          ?.or?.(`id.eq.${cleanId}${cleanEmail ? `,email.eq.${cleanEmail}` : ""}`)
+          ?.maybeSingle?.()) || { data: null };
+        if (pOr) {
+          targetProfile = pOr;
+        }
+      } catch {}
+    }
 
-        await supabaseAdmin
-          .from("organization_invites")
-          .delete()
-          .eq("organization_id", orgId)
-          .eq("email", targetEmail.toLowerCase());
-      }
+    if (
+      (targetProfile?.role as string) === "owner" ||
+      (targetProfile?.role as string) === "admin"
+    ) {
+      return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
+    }
 
-      // Desativa vínculo em organization_members
-      await supabaseAdmin
-        .from("organization_members")
-        ?.delete?.()
-        ?.eq?.("organization_id", orgId)
-        ?.or(`id.eq.${cleanId},user_id.eq.${cleanId}${targetProfile ? `,user_id.eq.${targetProfile.id}` : ""}`);
+    const resolvedUserId = targetProfile?.id || cleanId;
 
-      // Remove da roleta de vendedores
+    // =========================================================================
+    // 4. Limpeza em cascata usando Service Role (Admin)
+    // =========================================================================
+
+    // A. Remove da Roleta de Distribuição
+    try {
       await supabaseAdmin
         .from("roleta_sellers")
         ?.delete?.()
-        ?.eq?.("organization_id", orgId)
-        ?.or(`user_id.eq.${cleanId}${targetProfile ? `,user_id.eq.${targetProfile.id}` : ""}`);
-    } catch (err) {
-      console.error("[DELETE_SELLER_ERROR]:", err);
+        ?.eq?.("organization_id", activeOrgId)
+        ?.or?.(`user_id.eq.${resolvedUserId},seller_id.eq.${resolvedUserId}`);
+    } catch {}
+
+    // B. Remove da tabela organization_members
+    try {
+      await supabaseAdmin
+        .from("organization_members")
+        ?.delete?.()
+        ?.eq?.("organization_id", activeOrgId)
+        ?.or?.(`id.eq.${cleanId},user_id.eq.${resolvedUserId}`);
+    } catch {}
+
+    // C. Remove de convites pendentes (organization_invites)
+    try {
+      if (cleanEmail) {
+        await supabaseAdmin
+          .from("organization_invites")
+          ?.delete?.()
+          ?.eq?.("organization_id", activeOrgId)
+          ?.eq?.("email", cleanEmail);
+      }
+      await supabaseAdmin
+        .from("organization_invites")
+        ?.delete?.()
+        ?.eq?.("organization_id", activeOrgId)
+        ?.or?.(`id.eq.${targetId},id.eq.${cleanId}`);
+    } catch {}
+
+    // D. Desvincula o organization_id do perfil se ainda estiver associado
+    try {
+      if (resolvedUserId) {
+        await supabaseAdmin
+          .from("profiles")
+          ?.update?.({ organization_id: null as unknown as string, updated_at: new Date().toISOString() })
+          ?.eq?.("id", resolvedUserId)
+          ?.eq?.("organization_id", activeOrgId);
+      }
+
+      if (cleanEmail) {
+        await supabaseAdmin
+          .from("profiles")
+          ?.update?.({ organization_id: null as unknown as string, updated_at: new Date().toISOString() })
+          ?.eq?.("email", cleanEmail)
+          ?.eq?.("organization_id", activeOrgId);
+      }
+    } catch {}
+
+    // 5. Sincroniza memória
+    const index = memoryTeamMembers.findIndex(
+      (m) =>
+        (m.id === targetId || m.id === cleanId || (cleanEmail && m.email?.toLowerCase() === cleanEmail)) &&
+        m.organization_id === activeOrgId
+    );
+    if (index !== -1) {
+      memoryTeamMembers.splice(index, 1);
     }
-  }
 
-  // Remove da memória por id, cleanId ou email
-  const index = memoryTeamMembers.findIndex(
-    (m) =>
-      ((m.id === memberId || m.id === cleanId) || (targetEmail && m.email?.toLowerCase() === targetEmail.toLowerCase())) &&
-      m.organization_id === orgId
-  );
-  if (index !== -1) {
-    memoryTeamMembers.splice(index, 1);
-  }
+    // 6. Revalidação completa de cache
+    try {
+      revalidatePath("/settings");
+      revalidatePath("/team");
+      revalidatePath("/dashboard/team");
+      revalidatePath("/dashboard");
+      revalidatePath("/", "layout");
+    } catch {}
 
-  try {
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/team");
-    revalidatePath("/team");
-    revalidatePath("/settings");
-  } catch {
-    // Silencioso
+    return { success: true, message: "Colaborador removido com sucesso." };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Erro inesperado ao remover colaborador.";
+    console.error("[REMOVE_TEAM_MEMBER_ERROR]:", error);
+    return { success: false, error: message };
   }
-
-  return { success: true };
 }
 
-export const removeMemberAction = deleteSalespersonAction;
-export const deleteSellerAction = deleteSalespersonAction;
+export const deleteSalespersonAction = removeTeamMemberAction;
+export const deleteSellerAction = removeTeamMemberAction;
+export const removeMemberAction = removeTeamMemberAction;
 export const acceptOrganizationInviteAction = acceptInviteAction;
