@@ -22,7 +22,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import VehiclesPage from "@/app/(dashboard)/vehicles/page";
+import { VehiclesPageClient as VehiclesPage } from "@/components/vehicles/vehicles-page-client";
 
 // ---------------------------------------------------------------------------
 // Mocks de Componentes Externos

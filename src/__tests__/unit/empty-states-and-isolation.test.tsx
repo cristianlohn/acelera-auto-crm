@@ -17,7 +17,7 @@ import { getTeamMembers } from "@/app/actions/team";
 import * as tenantAuthModule from "@/lib/auth/tenant";
 import * as supabaseServerModule from "@/lib/supabase/server";
 import { render, screen } from "@testing-library/react";
-import LeadsPage from "@/app/(dashboard)/leads/page";
+import { LeadsPageClient as LeadsPage } from "@/components/leads/leads-page-client";
 import { DemoRoleProvider } from "@/context/demo-role-context";
 
 // Mock de navegação

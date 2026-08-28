@@ -20,7 +20,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { render, screen } from "@testing-library/react";
-import VehiclesPage from "@/app/(dashboard)/vehicles/page";
+import { VehiclesPageClient as VehiclesPage } from "@/components/vehicles/vehicles-page-client";
 
 describe("[IT-18] Modelo de Planilha Padrão para Importação de Estoque (CSV)", () => {
   const templatePath = path.join(

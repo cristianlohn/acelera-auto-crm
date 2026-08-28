@@ -22,7 +22,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import SettingsPage from "@/app/(dashboard)/settings/page";
+import { SettingsForm as SettingsPage } from "@/components/settings/settings-form";
 import * as teamActions from "@/app/actions/team";
 
 describe("[IT-15] Gestão de Equipe & Controle de Capacidade Multi-Tenant", () => {

@@ -23,9 +23,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import DashboardLayout from "@/app/(dashboard)/layout";
-import LeadsPage from "@/app/(dashboard)/leads/page";
+import { LeadsPageClient as LeadsPage } from "@/components/leads/leads-page-client";
 import ReportsPage from "@/app/(dashboard)/reports/page";
-import SettingsPage from "@/app/(dashboard)/settings/page";
+import { SettingsForm as SettingsPage } from "@/components/settings/settings-form";
 import { DemoRoleProvider } from "@/context/demo-role-context";
 import { RoleSimulatorBar } from "@/components/demo/RoleSimulatorBar";
 

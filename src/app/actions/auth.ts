@@ -9,6 +9,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
 import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
@@ -532,6 +533,12 @@ export async function updateOrganizationSettingsAction(
         .update(updateData)
         .eq("id", tenantContext.organizationId);
     }
+
+    try {
+      revalidatePath("/settings");
+      revalidatePath("/dashboard");
+      revalidatePath("/", "layout");
+    } catch {}
 
     return { success: true };
   } catch (error) {

@@ -18,16 +18,19 @@
  * ============================================================================
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import SettingsPage from "@/app/(dashboard)/settings/page";
+import { SettingsForm as SettingsPage } from "@/components/settings/settings-form";
 
 // ---------------------------------------------------------------------------
 // [IT-10] Configurações, Parâmetros do CRM e Perfil
 // ---------------------------------------------------------------------------
 
 describe("[IT-10] Configurações e Parâmetros (SettingsPage)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   it("[IT-10.1] Deve renderizar as 4 abas de navegação de configurações no DOM", () => {
     // Arrange & Act (Dado que a tela de Configurações é montada)
     render(<SettingsPage />);
