@@ -611,49 +611,86 @@ export async function inviteTeamMemberAction(
       // Passo 0: Validação de usuário já existente
       const { data: existingUser } = (await supabaseAdmin
         .from("profiles")
-        ?.select?.("id, full_name")
+        ?.select?.("id, full_name, organization_id")
         ?.eq?.("email", cleanEmail)
         ?.maybeSingle?.()) || { data: null };
 
+      if (existingUser && existingUser.organization_id === orgId) {
+        return {
+          success: false,
+          error: `O e-mail ${cleanEmail} já faz parte da equipe da sua loja.`,
+        };
+      }
+
       if (existingUser) {
-        return {
-          success: false,
-          error: `O e-mail ${cleanEmail} já possui cadastro no sistema.`,
-        };
-      }
+        memberId = existingUser.id;
+        try {
+          const linkRes = await supabaseAdmin.auth.admin.generateLink({
+            type: "magiclink",
+            email: cleanEmail,
+            options: { redirectTo },
+          });
+          if (!linkRes.error && linkRes.data?.properties?.action_link) {
+            fallbackInviteLink = linkRes.data.properties.action_link;
+            emailSent = true;
+          }
+        } catch {}
+      } else {
+        // Passo 1: Disparo Automático de E-mail via SMTP do Supabase
+        const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
+          redirectTo,
+          data: {
+            full_name: validData.name,
+            phone: validData.phone.replace(/\D/g, ""),
+            role: validData.role || "seller",
+          },
+        });
 
-      // Passo 1: Disparo Automático de E-mail via SMTP do Supabase
-      const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
-        redirectTo,
-        data: {
-          full_name: validData.name,
-          phone: validData.phone.replace(/\D/g, ""),
-          role: validData.role || "seller",
-        },
-      });
+        if (inviteRes.error) {
+          if (
+            inviteRes.error.message?.includes("already been registered") ||
+            inviteRes.error.message?.includes("already exists") ||
+            (inviteRes.error as { status?: number }).status === 422
+          ) {
+            try {
+              const linkRes = await supabaseAdmin.auth.admin.generateLink({
+                type: "magiclink",
+                email: cleanEmail,
+                options: { redirectTo },
+              });
+              if (!linkRes.error && linkRes.data?.properties?.action_link) {
+                fallbackInviteLink = linkRes.data.properties.action_link;
+                emailSent = true;
+                if (linkRes.data?.user?.id) {
+                  memberId = linkRes.data.user.id;
+                }
+              }
+            } catch {}
+          } else {
+            console.error("[SUPABASE_INVITE_ERROR]:", inviteRes.error);
+            return {
+              success: false,
+              error: inviteRes.error.message || "Erro ao disparar e-mail de convite.",
+            };
+          }
+        } else if (inviteRes.data?.user) {
+          emailSent = true;
+          memberId = inviteRes.data.user.id;
+        }
 
-      if (inviteRes.error) {
-        console.error("[SUPABASE_INVITE_ERROR]:", inviteRes.error);
-        return {
-          success: false,
-          error: inviteRes.error.message || "Erro ao disparar e-mail de convite.",
-        };
-      }
-
-      if (inviteRes.data?.user) {
-        emailSent = true;
-        memberId = inviteRes.data.user.id;
-      }
-
-      // Passo 2: Geração do Link de Contingência
-      const linkRes = await supabaseAdmin.auth.admin.generateLink({
-        type: "invite",
-        email: cleanEmail,
-        options: { redirectTo },
-      });
-
-      if (!linkRes.error && linkRes.data?.properties?.action_link) {
-        fallbackInviteLink = linkRes.data.properties.action_link;
+        // Passo 2: Geração do Link de Contingência
+        if (!fallbackInviteLink) {
+          try {
+            const linkRes = await supabaseAdmin.auth.admin.generateLink({
+              type: "invite",
+              email: cleanEmail,
+              options: { redirectTo },
+            });
+            if (!linkRes.error && linkRes.data?.properties?.action_link) {
+              fallbackInviteLink = linkRes.data.properties.action_link;
+            }
+          } catch {}
+        }
       }
 
       // Passo 3: Persistência no Banco (profiles)
@@ -927,11 +964,14 @@ export async function updateSalespersonAction(
  * Bloqueia categoricamente a exclusão de Dono ('owner') ou Administrador ('admin').
  */
 export async function deleteSalespersonAction(memberId: string): Promise<ActionResult> {
+  const cleanId = memberId.startsWith("inv-") ? memberId.replace(/^inv-/, "") : memberId;
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
   // 1. Checagem em memória
-  const memoryMember = memoryTeamMembers.find((m) => m.id === memberId && m.organization_id === orgId);
+  const memoryMember = memoryTeamMembers.find(
+    (m) => (m.id === memberId || m.id === cleanId) && m.organization_id === orgId
+  );
   if (memoryMember && (String(memoryMember.role) === "admin" || String(memoryMember.role) === "owner")) {
     return {
       success: false,
@@ -944,11 +984,32 @@ export async function deleteSalespersonAction(memberId: string): Promise<ActionR
     try {
       const supabaseAdmin = createAdminClient();
 
+      // Deleta convite pendente se existir
+      try {
+        const { data: invite } = await supabaseAdmin
+          .from("organization_invites")
+          .select("id, organization_id, email")
+          .eq("organization_id", orgId)
+          .eq("id", cleanId)
+          .maybeSingle();
+
+        if (invite) {
+          await supabaseAdmin.from("organization_invites").delete().eq("id", invite.id);
+          if (invite.email) {
+            await supabaseAdmin
+              .from("profiles")
+              .update({ organization_id: null as unknown as string })
+              .eq("email", invite.email.toLowerCase())
+              .eq("organization_id", orgId);
+          }
+        }
+      } catch {}
+
       // Checa se o membro alvo tem papel de owner ou admin em profiles
       const { data: targetProfile } = (await supabaseAdmin
         .from("profiles")
-        ?.select?.("id, role, organization_id")
-        ?.eq?.("id", memberId)
+        ?.select?.("id, role, organization_id, email")
+        ?.eq?.("id", cleanId)
         ?.eq?.("organization_id", orgId)
         ?.maybeSingle?.()) || { data: null };
 
@@ -963,7 +1024,7 @@ export async function deleteSalespersonAction(memberId: string): Promise<ActionR
       const { data: targetMember } = (await supabaseAdmin
         .from("organization_members")
         ?.select?.("id, role, status")
-        ?.eq?.("user_id", memberId)
+        ?.eq?.("user_id", cleanId)
         ?.eq?.("organization_id", orgId)
         ?.maybeSingle?.()) || { data: null };
 
@@ -974,18 +1035,43 @@ export async function deleteSalespersonAction(memberId: string): Promise<ActionR
         };
       }
 
+      // Desvincula em profiles
+      if (targetProfile) {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ organization_id: null as unknown as string })
+          .eq("id", cleanId);
+
+        if (targetProfile.email) {
+          await supabaseAdmin
+            .from("organization_invites")
+            .delete()
+            .eq("organization_id", orgId)
+            .eq("email", targetProfile.email.toLowerCase());
+        }
+      }
+
       // Desativa vínculo em organization_members
       await supabaseAdmin
         .from("organization_members")
-        ?.update?.({ status: "revoked", updated_at: new Date().toISOString() })
-        ?.eq?.("user_id", memberId)
+        ?.delete?.()
+        ?.eq?.("user_id", cleanId)
         ?.eq?.("organization_id", orgId);
+
+      // Remove da roleta de vendedores
+      await supabaseAdmin
+        .from("roleta_sellers")
+        ?.delete?.()
+        ?.eq?.("organization_id", orgId)
+        ?.eq?.("user_id", cleanId);
     } catch (err) {
       console.error("[DELETE_SELLER_ERROR]:", err);
     }
   }
 
-  const index = memoryTeamMembers.findIndex((m) => m.id === memberId && m.organization_id === orgId);
+  const index = memoryTeamMembers.findIndex(
+    (m) => (m.id === memberId || m.id === cleanId) && m.organization_id === orgId
+  );
   if (index !== -1) {
     memoryTeamMembers.splice(index, 1);
   }

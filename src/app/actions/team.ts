@@ -185,12 +185,14 @@ export async function inviteTeamMember(
   input: InviteMemberInput
 ): Promise<InviteResult> {
   // 1. Validação de campos obrigatórios
-  if (!input.fullName.trim() || !input.email.trim() || !input.phone.trim()) {
+  if (!input.fullName?.trim() || !input.email?.trim() || !input.phone?.trim()) {
     return {
       success: false,
       error: "Preencha todos os campos obrigatórios (Nome, E-mail e Telefone).",
     };
   }
+
+  const cleanEmail = input.email.trim().toLowerCase();
 
   // 2. Validação da capacidade máxima do plano
   if (localTeamMembers.length >= localCapacity.maxSellers) {
@@ -198,17 +200,6 @@ export async function inviteTeamMember(
       success: false,
       error: `Limite de vagas do plano atingido (${localTeamMembers.length}/${localCapacity.maxSellers}). Faça upgrade para o Plano Pro para adicionar até 8 vendedores.`,
       requiresUpgrade: true,
-    };
-  }
-
-  // 3. Verifica duplicidade de e-mail na equipe
-  const emailExists = localTeamMembers.some(
-    (m) => m.email.toLowerCase() === input.email.trim().toLowerCase()
-  );
-  if (emailExists) {
-    return {
-      success: false,
-      error: "Já existe um colaborador cadastrado com este endereço de e-mail.",
     };
   }
 
@@ -228,52 +219,88 @@ export async function inviteTeamMember(
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
     try {
       const supabaseAdmin = createAdminClient();
-      const cleanEmail = input.email.trim().toLowerCase();
 
-      // 1. Verifica se o usuário já tem registro
+      // 1. Verifica se o usuário já tem registro e se já pertence à MESMA loja
       const { data: existingUser } = (await supabaseAdmin
         .from("profiles")
-        ?.select?.("id, full_name")
+        ?.select?.("id, full_name, organization_id")
         ?.eq?.("email", cleanEmail)
         ?.maybeSingle?.()) || { data: null };
 
+      if (existingUser && existingUser.organization_id === orgId) {
+        return {
+          success: false,
+          error: `O e-mail ${cleanEmail} já faz parte da equipe da sua loja.`,
+        };
+      }
+
       if (existingUser) {
-        return {
-          success: false,
-          error: `O e-mail ${cleanEmail} já possui cadastro no sistema.`,
-        };
-      }
+        memberId = existingUser.id;
+        try {
+          const linkRes = await supabaseAdmin.auth.admin.generateLink({
+            type: "magiclink",
+            email: cleanEmail,
+            options: { redirectTo },
+          });
+          if (!linkRes.error && linkRes.data?.properties?.action_link) {
+            fallbackInviteLink = linkRes.data.properties.action_link;
+            emailSent = true;
+          }
+        } catch {}
+      } else {
+        const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
+          redirectTo,
+          data: {
+            full_name: input.fullName.trim(),
+            phone: input.phone.replace(/\D/g, ""),
+            role: input.role || "vendedor",
+          },
+        });
 
-      const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
-        redirectTo,
-        data: {
-          full_name: input.fullName.trim(),
-          phone: input.phone.replace(/\D/g, ""),
-          role: input.role || "vendedor",
-        },
-      });
+        if (inviteRes.error) {
+          if (
+            inviteRes.error.message?.includes("already been registered") ||
+            inviteRes.error.message?.includes("already exists") ||
+            (inviteRes.error as { status?: number }).status === 422
+          ) {
+            try {
+              const linkRes = await supabaseAdmin.auth.admin.generateLink({
+                type: "magiclink",
+                email: cleanEmail,
+                options: { redirectTo },
+              });
+              if (!linkRes.error && linkRes.data?.properties?.action_link) {
+                fallbackInviteLink = linkRes.data.properties.action_link;
+                emailSent = true;
+                if (linkRes.data?.user?.id) {
+                  memberId = linkRes.data.user.id;
+                }
+              }
+            } catch {}
+          } else {
+            console.error("[SUPABASE_INVITE_ERROR]:", inviteRes.error);
+            return {
+              success: false,
+              error: inviteRes.error.message || "Erro ao disparar e-mail de convite.",
+            };
+          }
+        } else if (inviteRes.data?.user) {
+          emailSent = true;
+          memberId = inviteRes.data.user.id;
+        }
 
-      if (inviteRes.error) {
-        console.error("[SUPABASE_INVITE_ERROR]:", inviteRes.error);
-        return {
-          success: false,
-          error: inviteRes.error.message || "Erro ao disparar e-mail de convite.",
-        };
-      }
-
-      if (inviteRes.data?.user) {
-        emailSent = true;
-        memberId = inviteRes.data.user.id;
-      }
-
-      const linkRes = await supabaseAdmin.auth.admin.generateLink({
-        type: "invite",
-        email: cleanEmail,
-        options: { redirectTo },
-      });
-
-      if (!linkRes.error && linkRes.data?.properties?.action_link) {
-        fallbackInviteLink = linkRes.data.properties.action_link;
+        if (!fallbackInviteLink) {
+          try {
+            const linkRes = await supabaseAdmin.auth.admin.generateLink({
+              type: "invite",
+              email: cleanEmail,
+              options: { redirectTo },
+            });
+            if (!linkRes.error && linkRes.data?.properties?.action_link) {
+              fallbackInviteLink = linkRes.data.properties.action_link;
+            }
+          } catch {}
+        }
       }
 
       await supabaseAdmin.from("profiles").upsert(
@@ -296,12 +323,23 @@ export async function inviteTeamMember(
       };
     }
   } else {
+    // 3. Verifica duplicidade de e-mail na equipe local (em modo demo/offline)
+    const emailExists = localTeamMembers.some(
+      (m) => m.email.toLowerCase() === cleanEmail
+    );
+    if (emailExists) {
+      return {
+        success: false,
+        error: "Já existe um colaborador cadastrado com este endereço de e-mail.",
+      };
+    }
+
     emailSent = true;
-    fallbackInviteLink = `${redirectTo}?token=demo_${Date.now()}&email=${encodeURIComponent(input.email.trim())}`;
+    fallbackInviteLink = `${redirectTo}?token=demo_${Date.now()}&email=${encodeURIComponent(cleanEmail)}`;
   }
 
   if (!fallbackInviteLink) {
-    fallbackInviteLink = `${redirectTo}?email=${encodeURIComponent(input.email.trim())}`;
+    fallbackInviteLink = `${redirectTo}?email=${encodeURIComponent(cleanEmail)}`;
   }
 
   // 4. Criação da nova entidade
@@ -309,7 +347,7 @@ export async function inviteTeamMember(
     id: memberId,
     organizationId: orgId,
     fullName: input.fullName.trim(),
-    email: input.email.trim(),
+    email: cleanEmail,
     phone: input.phone.trim(),
     role: input.role || "vendedor",
     status: "active",
@@ -336,8 +374,8 @@ export async function inviteTeamMember(
  * Remove um colaborador da equipe de forma resiliente.
  *
  * Estratégia em 3 etapas:
- *  A) Busca em `organization_members` por `id` ou `user_id` (membros confirmados).
- *  B) Busca em `organization_invites` por `id` (convites ainda pendentes).
+ *  A) Busca em `organization_invites` por `id` ou `cleanId` (convites ainda pendentes).
+ *  B) Busca em `organization_members` por `id` ou `user_id` (membros confirmados).
  *  C) Fallback em `profiles` por `id` com mesmo `organization_id` (vínculo direto via perfil).
  *
  * Em modo demo/offline atua sobre o array em memória para garantir compatibilidade com testes.
@@ -345,9 +383,15 @@ export async function inviteTeamMember(
 export async function removeTeamMember(
   memberId: string
 ): Promise<{ success: boolean; error?: string; message?: string }> {
+  const cleanId = memberId.startsWith("inv-") ? memberId.replace(/^inv-/, "") : memberId;
+
   // ── Modo demo / offline ────────────────────────────────────────────────────
-  const isDemoId = memberId.startsWith("sp-") || memberId.startsWith("demo-");
-  const memIdx = localTeamMembers.findIndex((m) => m.id === memberId);
+  const isDemoId =
+    memberId.startsWith("sp-") ||
+    memberId.startsWith("demo-") ||
+    cleanId.startsWith("sp-") ||
+    cleanId.startsWith("demo-");
+  const memIdx = localTeamMembers.findIndex((m) => m.id === memberId || m.id === cleanId);
 
   if (isDemoId || (!isSupabaseServerConfigured() && memIdx !== -1)) {
     if (memIdx === -1) {
@@ -389,105 +433,122 @@ export async function removeTeamMember(
       return { success: false, error: "Organização não encontrada." };
     }
 
-    // =========================================================================
-    // ETAPA A: Tenta localizar em organization_members (por id ou user_id)
-    // =========================================================================
-    const { data: dbMember } = await supabaseAdmin
-      .from("organization_members")
-      .select("id, organization_id, role, user_id")
-      .eq("organization_id", organizationId)
-      .or(`id.eq.${memberId},user_id.eq.${memberId}`)
-      .maybeSingle();
+    let removed = false;
 
-    if (dbMember) {
-      if ((dbMember.role as string) === "owner") {
-        return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
+    // =========================================================================
+    // ETAPA A: organization_invites (convites pendentes com cleanId ou memberId)
+    // =========================================================================
+    try {
+      const { data: invite } = await supabaseAdmin
+        .from("organization_invites")
+        .select("id, organization_id, email")
+        .eq("organization_id", organizationId)
+        .eq("id", cleanId)
+        .maybeSingle();
+
+      if (invite) {
+        await supabaseAdmin
+          .from("organization_invites")
+          .delete()
+          .eq("id", invite.id);
+
+        if (invite.email) {
+          await supabaseAdmin
+            .from("profiles")
+            .update({ organization_id: null as unknown as string })
+            .eq("email", invite.email.toLowerCase())
+            .eq("organization_id", organizationId);
+        }
+        removed = true;
       }
+    } catch {}
 
-      // Remove da roleta de vendedores se aplicável
-      if (dbMember.user_id) {
+    // =========================================================================
+    // ETAPA B: organization_members
+    // =========================================================================
+    try {
+      const { data: dbMember } = await supabaseAdmin
+        .from("organization_members")
+        .select("id, organization_id, role, user_id")
+        .eq("organization_id", organizationId)
+        .or(`id.eq.${cleanId},user_id.eq.${cleanId}`)
+        .maybeSingle();
+
+      if (dbMember) {
+        if ((dbMember.role as string) === "owner" || (dbMember.role as string) === "admin") {
+          return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
+        }
+
+        if (dbMember.user_id) {
+          await supabaseAdmin
+            .from("roleta_sellers")
+            .delete()
+            .eq("organization_id", organizationId)
+            .eq("user_id", dbMember.user_id);
+
+          await supabaseAdmin
+            .from("profiles")
+            .update({ organization_id: null as unknown as string })
+            .eq("id", dbMember.user_id)
+            .eq("organization_id", organizationId);
+        }
+
+        await supabaseAdmin
+          .from("organization_members")
+          .delete()
+          .eq("id", dbMember.id);
+
+        removed = true;
+      }
+    } catch {}
+
+    // =========================================================================
+    // ETAPA C: profiles (vínculo direto via organization_id)
+    // =========================================================================
+    try {
+      const { data: targetProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id, organization_id, role, email")
+        .eq("organization_id", organizationId)
+        .eq("id", cleanId)
+        .maybeSingle();
+
+      if (targetProfile) {
+        if ((targetProfile.role as string) === "owner" || (targetProfile.role as string) === "admin") {
+          return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
+        }
+
+        await supabaseAdmin
+          .from("profiles")
+          .update({ organization_id: null as unknown as string })
+          .eq("id", targetProfile.id);
+
         await supabaseAdmin
           .from("roleta_sellers")
           .delete()
           .eq("organization_id", organizationId)
-          .eq("user_id", dbMember.user_id);
+          .eq("user_id", targetProfile.id);
+
+        if (targetProfile.email) {
+          await supabaseAdmin
+            .from("organization_invites")
+            .delete()
+            .eq("organization_id", organizationId)
+            .eq("email", targetProfile.email.toLowerCase());
+        }
+
+        removed = true;
       }
+    } catch {}
 
-      const { error: delMemberErr } = await supabaseAdmin
-        .from("organization_members")
-        .delete()
-        .eq("id", dbMember.id);
+    // Sincroniza localTeamMembers
+    const localIdx = localTeamMembers.findIndex((m) => m.id === memberId || m.id === cleanId);
+    if (localIdx !== -1) localTeamMembers.splice(localIdx, 1);
 
-      if (delMemberErr) {
-        console.error("[DEL_MEMBER_ERROR]:", delMemberErr);
-        return { success: false, error: "Erro ao remover membro da organização." };
-      }
-
-      // Sincroniza o array em memória (compatibilidade com modo misto)
-      const localIdx = localTeamMembers.findIndex((m) => m.id === memberId);
-      if (localIdx !== -1) localTeamMembers.splice(localIdx, 1);
-
+    if (removed) {
       revalidatePath("/settings");
       revalidatePath("/team");
-      revalidatePath("/", "layout");
-      return { success: true, message: "Colaborador removido com sucesso." };
-    }
-
-    // =========================================================================
-    // ETAPA B: Tenta localizar em organization_invites (convites pendentes)
-    // =========================================================================
-    const { data: invite } = await supabaseAdmin
-      .from("organization_invites")
-      .select("id, organization_id")
-      .eq("organization_id", organizationId)
-      .eq("id", memberId)
-      .maybeSingle();
-
-    if (invite) {
-      const { error: delInviteErr } = await supabaseAdmin
-        .from("organization_invites")
-        .delete()
-        .eq("id", invite.id);
-
-      if (delInviteErr) {
-        console.error("[DEL_INVITE_ERROR]:", delInviteErr);
-        return { success: false, error: "Erro ao cancelar convite pendente." };
-      }
-
-      revalidatePath("/settings");
-      revalidatePath("/team");
-      revalidatePath("/", "layout");
-      return { success: true, message: "Convite cancelado com sucesso." };
-    }
-
-    // =========================================================================
-    // ETAPA C: Fallback para profiles (vínculo direto via organization_id)
-    // =========================================================================
-    const { data: targetProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("id, organization_id, role")
-      .eq("id", memberId)
-      .eq("organization_id", organizationId)
-      .maybeSingle();
-
-    if (targetProfile) {
-      if ((targetProfile.role as string) === "owner") {
-        return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
-      }
-
-      await supabaseAdmin
-        .from("profiles")
-        .update({ organization_id: null as unknown as string })
-        .eq("id", targetProfile.id);
-
-      await supabaseAdmin
-        .from("roleta_sellers")
-        .delete()
-        .eq("organization_id", organizationId)
-        .eq("user_id", targetProfile.id);
-
-      revalidatePath("/settings");
-      revalidatePath("/team");
+      revalidatePath("/dashboard/team");
       revalidatePath("/", "layout");
       return { success: true, message: "Colaborador desvinculado com sucesso." };
     }
