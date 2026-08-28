@@ -39,7 +39,7 @@ export default async function IntegrationsSettingsPage() {
   }
 
   if (!canManageIntegrationsAndBilling(userRole)) {
-    redirect("/leads");
+    redirect("/dashboard");
   }
 
   const apiKeys = await getApiKeysAction();
