@@ -148,12 +148,24 @@ export default function SettingsPage() {
   const [isSaving, startSavingTransition] = useTransition();
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
 
+  const { role, sellerName, isDemoMode } = useDemoRole();
+
   // Estados dos formulários das abas existentes
-  const [profile, setProfile] = useState<UserProfileState>({
-    fullName: "Rafael Alves",
-    email: "rafael.alves@aceleraauto.com.br",
-    phone: "11987654321",
-    role: "gerente",
+  const [profile, setProfile] = useState<UserProfileState>(() => {
+    if (isDemoMode) {
+      return {
+        fullName: "Rafael Alves",
+        email: "rafael.alves@aceleraauto.com.br",
+        phone: "11987654321",
+        role: "gerente",
+      };
+    }
+    return {
+      fullName: "",
+      email: "",
+      phone: "",
+      role: "admin",
+    };
   });
 
   const [store, setStore] = useState<StoreState>({
@@ -179,7 +191,9 @@ export default function SettingsPage() {
   });
 
   // Estados do Módulo de Equipe & Capacidade
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM_MEMBERS);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() =>
+    isDemoMode ? INITIAL_TEAM_MEMBERS : []
+  );
   const [teamCapacity] = useState<TeamCapacity>(INITIAL_CAPACITY);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -230,8 +244,6 @@ export default function SettingsPage() {
     }
   };
 
-  const { role, sellerName, isDemoMode } = useDemoRole();
-
   // Carrega dinamicamente o perfil e a equipe do usuário autenticado
   useEffect(() => {
     let isMounted = true;
@@ -261,8 +273,8 @@ export default function SettingsPage() {
 
       getTeamMembers()
         .then((members) => {
-          if (isMounted && members && members.length > 0) {
-            setTeamMembers(members);
+          if (isMounted) {
+            setTeamMembers(members || []);
           }
         })
         .catch(() => {});

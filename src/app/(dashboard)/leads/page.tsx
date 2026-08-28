@@ -49,6 +49,7 @@ import { useDemoRole } from "@/context/demo-role-context";
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import { LeadDetailsModal } from "@/components/leads/lead-details-modal";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 import type { KanbanLead, LeadStage } from "@/types/kanban";
 
@@ -721,6 +722,9 @@ export interface LeadsPageProps {
 export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
   const { role, sellerName, isDemoMode } = useDemoRole();
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(
+    initialLeads === undefined && !isDemoMode
+  );
   const [leads, setLeads] = useState<Lead[]>(() => {
     if (initialLeads !== undefined) return initialLeads;
     if (!isDemoMode) return [];
@@ -728,34 +732,36 @@ export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
   });
 
   useEffect(() => {
-    if (initialLeads !== undefined) return;
-    if (!isDemoMode) {
-      let isMounted = true;
+    if (initialLeads !== undefined || isDemoMode) return;
 
-      // Busca organização do usuário para isolamento de canais realtime
-      getCurrentUserProfileAction()
-        .then((profile) => {
-          if (isMounted && profile.organizationId) {
-            setOrganizationId(profile.organizationId);
-          }
-        })
-        .catch(() => {});
+    let isMounted = true;
+    getCurrentUserProfileAction()
+      .then((profile) => {
+        if (isMounted && profile.organizationId) {
+          setOrganizationId(profile.organizationId);
+        }
+      })
+      .catch(() => {});
 
-      getLeads()
-        .then((fetchedLeads) => {
-          if (isMounted) {
-            setLeads(fetchedLeads);
-          }
-        })
-        .catch(() => {
-          if (isMounted) {
-            setLeads([]);
-          }
-        });
-      return () => {
-        isMounted = false;
-      };
-    }
+    getLeads()
+      .then((fetchedLeads) => {
+        if (isMounted) {
+          setLeads(fetchedLeads);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setLeads([]);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [isDemoMode, initialLeads]);
 
   // Sincronização e reconciliação reativa via Supabase Realtime
@@ -915,7 +921,34 @@ export default function LeadsPage({ initialLeads }: LeadsPageProps = {}) {
         </div>
       )}
 
-      {visibleLeads.length === 0 ? (
+      {isLoading ? (
+        <div className="flex-1 overflow-x-auto">
+          <div
+            className="flex min-h-full gap-4 p-4 sm:p-6"
+            role="region"
+            aria-label="Carregando Funil Kanban"
+          >
+            {KANBAN_COLUMNS.map((col) => (
+              <div
+                key={col.id}
+                className="flex w-72 shrink-0 flex-col rounded-2xl border border-border/40 bg-card/50 p-3 space-y-3 shadow-sm"
+              >
+                <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-2.5 w-2.5 rounded-full" />
+                    <Skeleton className="h-4 w-24 rounded" />
+                  </div>
+                  <Skeleton className="h-5 w-6 rounded-full" />
+                </div>
+                <div className="space-y-3">
+                  <Skeleton className="h-32 w-full rounded-xl" />
+                  <Skeleton className="h-32 w-full rounded-xl" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : visibleLeads.length === 0 ? (
         <div
           data-testid="leads-empty-state"
           className="flex flex-1 flex-col items-center justify-center p-8 text-center"

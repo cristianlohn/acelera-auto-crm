@@ -11,7 +11,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Car,
   CircleDollarSign,
@@ -24,12 +24,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { VehicleCard } from "@/components/vehicles/vehicle-card";
 import { NewVehicleModal } from "@/components/vehicles/new-vehicle-modal";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   mockVehicles,
   updateVehicleStatus,
   formatCurrency,
 } from "@/lib/mock-data";
 import {
+  getVehicles,
   createVehicle as persistVehicle,
   updateVehicleStatus as persistVehicleStatus,
 } from "@/app/actions/vehicles";
@@ -156,6 +158,9 @@ export interface VehiclesPageProps {
 
 export default function VehiclesPage({ initialVehicles }: VehiclesPageProps = {}) {
   const { isDemoMode } = useDemoRole();
+  const [isLoading, setIsLoading] = useState<boolean>(
+    initialVehicles === undefined && !isDemoMode
+  );
   const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
     if (initialVehicles !== undefined) return initialVehicles;
     if (isDemoMode) return mockVehicles;
@@ -163,6 +168,25 @@ export default function VehiclesPage({ initialVehicles }: VehiclesPageProps = {}
   });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
+
+  useEffect(() => {
+    if (initialVehicles !== undefined || isDemoMode) return;
+
+    let isMounted = true;
+    getVehicles()
+      .then((data) => {
+        if (isMounted) setVehicles(data);
+      })
+      .catch(() => {
+        if (isMounted) setVehicles([]);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [isDemoMode, initialVehicles]);
 
   // Adiciona novo veículo ao topo da lista
   const handleAdd = useCallback((vehicle: Vehicle) => {
@@ -246,36 +270,53 @@ export default function VehiclesPage({ initialVehicles }: VehiclesPageProps = {}
 
         {/* Métricas */}
         <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4 sm:px-6">
-          <MetricCard
-            label="Total em Estoque"
-            value={metrics.total}
-            icon={Car}
-            sub={`${vehicles.filter((v) => v.status === "disponivel").length} disponíveis`}
-            iconBg="bg-blue-100 dark:bg-blue-900/40"
-            iconColor="text-blue-600"
-          />
-          <MetricCard
-            label="Valor Total do Pátio"
-            value={formatCurrency(metrics.valorTotal)}
-            icon={CircleDollarSign}
-            iconBg="bg-green-100 dark:bg-green-900/40"
-            iconColor="text-green-600"
-          />
-          <MetricCard
-            label="Veículos Reservados"
-            value={metrics.reservados}
-            icon={Clock}
-            iconBg="bg-amber-100 dark:bg-amber-900/40"
-            iconColor="text-amber-600"
-          />
-          <MetricCard
-            label="Ticket Médio"
-            value={formatCurrency(metrics.ticketMedio)}
-            icon={TrendingUp}
-            sub="veículos disponíveis"
-            iconBg="bg-violet-100 dark:bg-violet-900/40"
-            iconColor="text-violet-600"
-          />
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm"
+              >
+                <Skeleton className="h-10 w-10 rounded-lg" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-3 w-16 rounded" />
+                  <Skeleton className="h-5 w-24 rounded" />
+                </div>
+              </div>
+            ))
+          ) : (
+            <>
+              <MetricCard
+                label="Total em Estoque"
+                value={metrics.total}
+                icon={Car}
+                sub={`${vehicles.filter((v) => v.status === "disponivel").length} disponíveis`}
+                iconBg="bg-blue-100 dark:bg-blue-900/40"
+                iconColor="text-blue-600"
+              />
+              <MetricCard
+                label="Valor Total do Pátio"
+                value={formatCurrency(metrics.valorTotal)}
+                icon={CircleDollarSign}
+                iconBg="bg-green-100 dark:bg-green-900/40"
+                iconColor="text-green-600"
+              />
+              <MetricCard
+                label="Veículos Reservados"
+                value={metrics.reservados}
+                icon={Clock}
+                iconBg="bg-amber-100 dark:bg-amber-900/40"
+                iconColor="text-amber-600"
+              />
+              <MetricCard
+                label="Ticket Médio"
+                value={formatCurrency(metrics.ticketMedio)}
+                icon={TrendingUp}
+                sub="veículos disponíveis"
+                iconBg="bg-violet-100 dark:bg-violet-900/40"
+                iconColor="text-violet-600"
+              />
+            </>
+          )}
         </div>
 
         {/* Barra de ferramentas: busca + filtros */}
@@ -329,7 +370,26 @@ export default function VehiclesPage({ initialVehicles }: VehiclesPageProps = {}
       {/* Grid de cards                                                        */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        {filtered.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-border/40 bg-card/60 p-3 space-y-3 shadow-sm"
+              >
+                <Skeleton className="h-44 w-full rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-3/4 rounded" />
+                  <Skeleton className="h-3 w-1/2 rounded" />
+                  <div className="flex justify-between items-center pt-2">
+                    <Skeleton className="h-5 w-24 rounded" />
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           /* Estado vazio moderno */
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700/60 bg-slate-900/30 p-12 text-center my-8">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-2xl">

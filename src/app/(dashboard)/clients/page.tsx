@@ -13,7 +13,7 @@
 
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   Users,
   UserCheck,
@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -430,6 +431,9 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
   const { role, sellerName, isDemoMode } = useDemoRole();
   const isVendedor = !canViewAllLeads(role);
   const [sellerFilter, setSellerFilter] = useState<string>("todos");
+  const [isLoading, setIsLoading] = useState<boolean>(
+    initialClients === undefined && !isDemoMode
+  );
 
   const [clients, setClients] = useState<Client[]>(() => {
     if (initialClients !== undefined) return initialClients;
@@ -438,6 +442,21 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
   });
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("todos");
+
+  useEffect(() => {
+    if (initialClients !== undefined || isDemoMode) return;
+
+    let isMounted = true;
+    setTimeout(() => {
+      if (isMounted) {
+        setClients([]);
+        setIsLoading(false);
+      }
+    }, 0);
+    return () => {
+      isMounted = false;
+    };
+  }, [isDemoMode, initialClients]);
 
   // Adição de cliente reativo no topo da carteira
   const handleAddClient = useCallback((newClient: Client) => {
@@ -491,7 +510,7 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
         (c.document && c.document.includes(q))
       );
     });
-  }, [roleFilteredClients, activeTab, search]);
+  }, [roleFilteredClients, search, activeTab]);
 
   return (
     <div className="flex h-full flex-col">
@@ -551,34 +570,51 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
         {/* Cartões de Métricas no Topo                                        */}
         {/* ------------------------------------------------------------------ */}
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <ClientMetricCard
-            label={isVendedor ? "Meus Clientes" : "Total de Clientes"}
-            value={metrics.total}
-            icon={Users}
-            iconBg="bg-blue-500/10"
-            iconColor="text-blue-500"
-          />
-          <ClientMetricCard
-            label="Clientes Ativos"
-            value={metrics.active}
-            icon={UserCheck}
-            iconBg="bg-emerald-500/10"
-            iconColor="text-emerald-500"
-          />
-          <ClientMetricCard
-            label="Vendas na Carteira"
-            value={metrics.totalSalesCount}
-            icon={Car}
-            iconBg="bg-orange-500/10"
-            iconColor="text-orange-500"
-          />
-          <ClientMetricCard
-            label="Ticket Médio da Base"
-            value={formatCurrency(metrics.averageTicket)}
-            icon={CircleDollarSign}
-            iconBg="bg-purple-500/10"
-            iconColor="text-purple-500"
-          />
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm"
+              >
+                <Skeleton className="h-10 w-10 rounded-lg" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-3 w-16 rounded" />
+                  <Skeleton className="h-5 w-24 rounded" />
+                </div>
+              </div>
+            ))
+          ) : (
+            <>
+              <ClientMetricCard
+                label={isVendedor ? "Meus Clientes" : "Total de Clientes"}
+                value={metrics.total}
+                icon={Users}
+                iconBg="bg-blue-500/10"
+                iconColor="text-blue-500"
+              />
+              <ClientMetricCard
+                label="Clientes Ativos"
+                value={metrics.active}
+                icon={UserCheck}
+                iconBg="bg-emerald-500/10"
+                iconColor="text-emerald-500"
+              />
+              <ClientMetricCard
+                label="Vendas na Carteira"
+                value={metrics.totalSalesCount}
+                icon={Car}
+                iconBg="bg-orange-500/10"
+                iconColor="text-orange-500"
+              />
+              <ClientMetricCard
+                label="Ticket Médio da Base"
+                value={formatCurrency(metrics.averageTicket)}
+                icon={CircleDollarSign}
+                iconBg="bg-purple-500/10"
+                iconColor="text-purple-500"
+              />
+            </>
+          )}
         </div>
 
         {/* ------------------------------------------------------------------ */}
@@ -627,7 +663,28 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
       {/* Listagem / Tabela de Clientes                                      */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex-1 p-4 sm:p-6">
-        {filteredClients.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-border/40 bg-card/60 p-4 space-y-3 shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-full" />
+                  <div className="space-y-1.5 flex-1">
+                    <Skeleton className="h-4 w-32 rounded" />
+                    <Skeleton className="h-3 w-24 rounded" />
+                  </div>
+                </div>
+                <div className="space-y-2 pt-2">
+                  <Skeleton className="h-3 w-full rounded" />
+                  <Skeleton className="h-3 w-2/3 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredClients.length === 0 ? (
           /* Empty State */
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700/60 bg-slate-900/30 p-12 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-2xl">
