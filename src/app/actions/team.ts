@@ -333,38 +333,174 @@ export async function inviteTeamMember(
 }
 
 /**
- * Remove um colaborador da equipe, protegendo o admin proprietário.
+ * Remove um colaborador da equipe de forma resiliente.
+ *
+ * Estratégia em 3 etapas:
+ *  A) Busca em `organization_members` por `id` ou `user_id` (membros confirmados).
+ *  B) Busca em `organization_invites` por `id` (convites ainda pendentes).
+ *  C) Fallback em `profiles` por `id` com mesmo `organization_id` (vínculo direto via perfil).
+ *
+ * Em modo demo/offline atua sobre o array em memória para garantir compatibilidade com testes.
  */
 export async function removeTeamMember(
   memberId: string
-): Promise<{ success: boolean; error?: string }> {
-  const member = localTeamMembers.find((m) => m.id === memberId);
+): Promise<{ success: boolean; error?: string; message?: string }> {
+  // ── Modo demo / offline ────────────────────────────────────────────────────
+  const isDemoId = memberId.startsWith("sp-") || memberId.startsWith("demo-");
+  const memIdx = localTeamMembers.findIndex((m) => m.id === memberId);
 
-  if (!member) {
+  if (isDemoId || (!isSupabaseServerConfigured() && memIdx !== -1)) {
+    if (memIdx === -1) {
+      return { success: false, error: "Colaborador não encontrado." };
+    }
+    const memMember = localTeamMembers[memIdx];
+    // Protege o admin/proprietário (UserRole = "admin" | "gerente" | "vendedor")
+    if (memMember.role === "admin") {
+      return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
+    }
+    localTeamMembers.splice(memIdx, 1);
+    revalidatePath("/settings");
+    revalidatePath("/team");
+    return { success: true, message: "Colaborador removido com sucesso." };
+  }
+
+  // ── Modo produção (Supabase) ──────────────────────────────────────────────
+  try {
+    const supabaseUserClient = await createServerSupabaseClient();
+    const supabaseAdmin = createAdminClient();
+
+    // 1. Valida autenticação do usuário logado
+    const {
+      data: { user },
+    } = await supabaseUserClient.auth.getUser();
+    if (!user) {
+      return { success: false, error: "Não autorizado." };
+    }
+
+    // 2. Obtém a organização ativa do usuário logado
+    const { data: callerProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("organization_id, role")
+      .eq("id", user.id)
+      .single();
+
+    const organizationId = callerProfile?.organization_id;
+    if (!organizationId) {
+      return { success: false, error: "Organização não encontrada." };
+    }
+
+    // =========================================================================
+    // ETAPA A: Tenta localizar em organization_members (por id ou user_id)
+    // =========================================================================
+    const { data: dbMember } = await supabaseAdmin
+      .from("organization_members")
+      .select("id, organization_id, role, user_id")
+      .eq("organization_id", organizationId)
+      .or(`id.eq.${memberId},user_id.eq.${memberId}`)
+      .maybeSingle();
+
+    if (dbMember) {
+      if ((dbMember.role as string) === "owner") {
+        return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
+      }
+
+      // Remove da roleta de vendedores se aplicável
+      if (dbMember.user_id) {
+        await supabaseAdmin
+          .from("roleta_sellers")
+          .delete()
+          .eq("organization_id", organizationId)
+          .eq("user_id", dbMember.user_id);
+      }
+
+      const { error: delMemberErr } = await supabaseAdmin
+        .from("organization_members")
+        .delete()
+        .eq("id", dbMember.id);
+
+      if (delMemberErr) {
+        console.error("[DEL_MEMBER_ERROR]:", delMemberErr);
+        return { success: false, error: "Erro ao remover membro da organização." };
+      }
+
+      // Sincroniza o array em memória (compatibilidade com modo misto)
+      const localIdx = localTeamMembers.findIndex((m) => m.id === memberId);
+      if (localIdx !== -1) localTeamMembers.splice(localIdx, 1);
+
+      revalidatePath("/settings");
+      revalidatePath("/team");
+      revalidatePath("/", "layout");
+      return { success: true, message: "Colaborador removido com sucesso." };
+    }
+
+    // =========================================================================
+    // ETAPA B: Tenta localizar em organization_invites (convites pendentes)
+    // =========================================================================
+    const { data: invite } = await supabaseAdmin
+      .from("organization_invites")
+      .select("id, organization_id")
+      .eq("organization_id", organizationId)
+      .eq("id", memberId)
+      .maybeSingle();
+
+    if (invite) {
+      const { error: delInviteErr } = await supabaseAdmin
+        .from("organization_invites")
+        .delete()
+        .eq("id", invite.id);
+
+      if (delInviteErr) {
+        console.error("[DEL_INVITE_ERROR]:", delInviteErr);
+        return { success: false, error: "Erro ao cancelar convite pendente." };
+      }
+
+      revalidatePath("/settings");
+      revalidatePath("/team");
+      revalidatePath("/", "layout");
+      return { success: true, message: "Convite cancelado com sucesso." };
+    }
+
+    // =========================================================================
+    // ETAPA C: Fallback para profiles (vínculo direto via organization_id)
+    // =========================================================================
+    const { data: targetProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, organization_id, role")
+      .eq("id", memberId)
+      .eq("organization_id", organizationId)
+      .maybeSingle();
+
+    if (targetProfile) {
+      if ((targetProfile.role as string) === "owner") {
+        return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
+      }
+
+      await supabaseAdmin
+        .from("profiles")
+        .update({ organization_id: null as unknown as string })
+        .eq("id", targetProfile.id);
+
+      await supabaseAdmin
+        .from("roleta_sellers")
+        .delete()
+        .eq("organization_id", organizationId)
+        .eq("user_id", targetProfile.id);
+
+      revalidatePath("/settings");
+      revalidatePath("/team");
+      revalidatePath("/", "layout");
+      return { success: true, message: "Colaborador desvinculado com sucesso." };
+    }
+
     return {
       success: false,
-      error: "Colaborador não encontrado.",
+      error: "Registro de colaborador ou convite não encontrado nesta loja.",
     };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Erro inesperado ao remover colaborador.";
+    console.error("[REMOVE_MEMBER_EXCEPTION]:", err);
+    return { success: false, error: message };
   }
-
-  // Proteção de segurança: o admin/owner não pode ser removido
-  if (member.role === "admin" || (member.role as unknown as { role: string }).role === "owner") {
-    return {
-      success: false,
-      error: "O proprietário da loja não pode ser desvinculado.",
-    };
-  }
-
-  const index = localTeamMembers.findIndex((m) => m.id === memberId);
-  if (index !== -1) {
-    localTeamMembers.splice(index, 1);
-  }
-
-  revalidatePath("/settings");
-
-  return {
-    success: true,
-  };
 }
 
 /**
