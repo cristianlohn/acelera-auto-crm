@@ -162,7 +162,7 @@ export function SettingsForm({
   const [isSaving, startSavingTransition] = useTransition();
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
 
-  const { role, sellerName, isDemoMode } = useDemoRole();
+  const { role, isDemoMode } = useDemoRole();
 
   // Estados dos formulários inicializados diretamente com as props recebidas do servidor
   const [profile, setProfile] = useState<UserProfileState>(() => {
@@ -354,8 +354,6 @@ export function SettingsForm({
     isDemoMode ? role : profile.role || initialProfile?.role || role
   );
   const isVendedorRole = effectiveRole === "seller";
-  const isManagerRole = effectiveRole === "manager";
-  const isAdminRole = effectiveRole === "admin" || effectiveRole === "superadmin";
 
   const availableTabs = TAB_ITEMS.filter((tab) => {
     switch (tab.id) {

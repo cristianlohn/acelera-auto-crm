@@ -802,15 +802,15 @@ export function LeadsPageClient({
         }
         return [newLead, ...prev];
       });
-    }, []),
+    }, [setLeads]),
     onLeadUpdated: useCallback((updatedLead: Lead) => {
       setLeads((prev) =>
         prev.map((l) => (l.id === updatedLead.id ? { ...l, ...updatedLead } : l))
       );
-    }, []),
+    }, [setLeads]),
     onLeadDeleted: useCallback((deletedLeadId: string) => {
       setLeads((prev) => prev.filter((l) => l.id !== deletedLeadId));
-    }, []),
+    }, [setLeads]),
   });
 
   const allowAllLeads = canViewAllLeads(effectiveRole);
@@ -836,7 +836,7 @@ export function LeadsPageClient({
       sellerName: lead.sellerName,
       origin: lead.origin,
     }).catch(() => {});
-  }, []);
+  }, [setLeads]);
 
   const handleMoveLead = useCallback(
     async (leadId: string, newStatus: LeadStatus) => {
@@ -872,7 +872,7 @@ export function LeadsPageClient({
         );
       }
     },
-    [leads]
+    [leads, setLeads]
   );
 
   const { active, visits, proposals, avgHrs } = computeMetrics(visibleLeads);
