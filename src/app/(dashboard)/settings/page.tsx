@@ -1019,9 +1019,16 @@ export default function SettingsPage() {
                               >
                                 {roleCfg.label}
                               </span>
-                              <span className="inline-flex items-center rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                                Ativo
-                              </span>
+                              {member.status === "pending" ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                  Pendente (Aguardando Aceite)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                                  Ativo
+                                </span>
+                              )}
                             </div>
                             <p className="text-[11px] text-muted-foreground">
                               {member.email} • {member.phone}

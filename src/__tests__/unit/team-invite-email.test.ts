@@ -10,8 +10,10 @@ import {
   resendInviteEmailAction,
   createSalespersonAction,
   inviteSellerAction,
+  acceptInviteAction,
 } from "@/app/actions/team-actions";
 import { inviteTeamMember } from "@/app/actions/team";
+import { sendInviteEmailViaResend } from "@/lib/services/email/resend-service";
 import * as tenantModule from "@/lib/auth/tenant";
 import * as supabaseServerModule from "@/lib/supabase/server";
 import * as supabaseAdminModule from "@/lib/supabase/admin";
@@ -223,14 +225,26 @@ describe("[UNIT-TEAM-INVITE-EMAIL] Disparo Automático de Convite SMTP & Conting
     expect(invalidResult.error).toBeDefined();
   });
 
-  describe("inviteSellerAction", () => {
-    it("[UT-INV.6] Deve verificar se o usuário já existe e disparar convite com sucesso", async () => {
+  describe("inviteSellerAction - Ciclo Inteligente de Convite", () => {
+    it("[UT-INV.6] Deve criar convite pendente e disparar inviteUserByEmail para novo usuário", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: false,
+        needsOnboarding: false,
+        organizationId: "org-123",
+        userId: "manager-id",
+        userEmail: "manager@loja.com.br",
+        profile: null,
+        organization: { id: "org-123", name: "Auto Prime Motors", slug: "auto-prime", document: null, created_at: "", updated_at: "" },
+      });
+
       vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
       const mockInviteUserByEmail = vi.fn().mockResolvedValue({
-        data: { user: { id: "seller-new-123", email: "vendedor@loja.com.br" } },
+        data: { user: { id: "seller-new-123", email: "novo.vendedor@loja.com.br" } },
         error: null,
       });
+
+      const mockUpsert = vi.fn().mockResolvedValue({ error: null });
 
       const mockAdminSupabase = {
         auth: {
@@ -238,12 +252,22 @@ describe("[UNIT-TEAM-INVITE-EMAIL] Disparo Automático de Convite SMTP & Conting
             inviteUserByEmail: mockInviteUserByEmail,
           },
         },
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-            }),
-          }),
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "profiles") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+                }),
+              }),
+            };
+          }
+          if (table === "organization_invites") {
+            return {
+              upsert: mockUpsert,
+            };
+          }
+          return {};
         }),
       };
 
@@ -253,17 +277,27 @@ describe("[UNIT-TEAM-INVITE-EMAIL] Disparo Automático de Convite SMTP & Conting
 
       const result = await inviteSellerAction({
         fullName: "Novo Vendedor",
-        email: "vendedor@loja.com.br",
+        email: "novo.vendedor@loja.com.br",
         phone: "(11) 98888-7777",
         role: "seller",
       });
 
       expect(result.success).toBe(true);
+      expect(result.isExistingUser).toBe(false);
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organization_id: "org-123",
+          email: "novo.vendedor@loja.com.br",
+          status: "pending",
+        }),
+        { onConflict: "token" }
+      );
       expect(mockInviteUserByEmail).toHaveBeenCalledWith(
-        "vendedor@loja.com.br",
+        "novo.vendedor@loja.com.br",
         expect.objectContaining({
           data: expect.objectContaining({
             full_name: "Novo Vendedor",
+            organization_id: "org-123",
             phone: "11988887777",
             role: "seller",
           }),
@@ -271,8 +305,20 @@ describe("[UNIT-TEAM-INVITE-EMAIL] Disparo Automático de Convite SMTP & Conting
       );
     });
 
-    it("[UT-INV.7] Deve rejeitar convite se o usuário já existir no banco", async () => {
+    it("[UT-INV.7] Deve disparar e-mail via Resend para usuário já existente no sistema (outra loja)", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: false,
+        needsOnboarding: false,
+        organizationId: "org-loja-b",
+        userId: "manager-b",
+        userEmail: "manager@lojab.com.br",
+        profile: null,
+        organization: { id: "org-loja-b", name: "Loja B Veículos", slug: "loja-b", document: null, created_at: "", updated_at: "" },
+      });
+
       vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockUpsert = vi.fn().mockResolvedValue({ error: null });
 
       const mockAdminSupabase = {
         auth: {
@@ -280,15 +326,36 @@ describe("[UNIT-TEAM-INVITE-EMAIL] Disparo Automático de Convite SMTP & Conting
             inviteUserByEmail: vi.fn(),
           },
         },
-        from: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: { id: "existing-user-1", full_name: "Existente" },
-                error: null,
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "profiles") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { id: "user-outra-loja", email: "vendedor.transferencia@gmail.com", organization_id: "org-loja-a" },
+                    error: null,
+                  }),
+                }),
               }),
-            }),
-          }),
+            };
+          }
+          if (table === "organization_members") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "organization_invites") {
+            return {
+              upsert: mockUpsert,
+            };
+          }
+          return {};
         }),
       };
 
@@ -297,51 +364,201 @@ describe("[UNIT-TEAM-INVITE-EMAIL] Disparo Automático de Convite SMTP & Conting
       );
 
       const result = await inviteSellerAction({
-        fullName: "Usuário Duplicado",
-        email: "duplicado@loja.com.br",
+        fullName: "Vendedor Transferência",
+        email: "vendedor.transferencia@gmail.com",
+        phone: "(11) 99999-1111",
+        role: "seller",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.isExistingUser).toBe(true);
+      expect(result.message).toContain("transferência/admissão");
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organization_id: "org-loja-b",
+          email: "vendedor.transferencia@gmail.com",
+          status: "pending",
+        }),
+        { onConflict: "token" }
+      );
+    });
+
+    it("[UT-INV.8] Deve rejeitar convite se o usuário já pertencer à mesma organização", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: false,
+        needsOnboarding: false,
+        organizationId: "org-mesma",
+        userId: "manager-id",
+        userEmail: "manager@mesma.com.br",
+        profile: null,
+        organization: null,
+      });
+
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockAdminSupabase = {
+        auth: { admin: { inviteUserByEmail: vi.fn() } },
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "profiles") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { id: "user-1", email: "existente@mesma.com.br", organization_id: "org-mesma" },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          return {};
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const result = await inviteSellerAction({
+        fullName: "Vendedor Já Cadastrado",
+        email: "existente@mesma.com.br",
         phone: "(11) 98888-7777",
         role: "seller",
       });
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain("duplicado@loja.com.br");
-      expect(result.error).toContain("já possui cadastro");
+      expect(result.error).toContain("já faz parte da sua equipe");
+    });
+  });
+
+  describe("acceptInviteAction", () => {
+    it("[UT-INV.9] Deve aceitar convite válido, vincular usuário e atualizar status para accepted", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: false,
+        needsOnboarding: false,
+        organizationId: "org-antiga",
+        userId: "user-vendedor-999",
+        userEmail: "vendedor@email.com",
+        profile: null,
+        organization: null,
+      });
+
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockUpdateInvite = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+      const mockUpdateProfile = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+      const mockUpsertMember = vi.fn().mockResolvedValue({ error: null });
+
+      const mockAdminSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "organization_invites") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: {
+                      id: "inv-uuid-1",
+                      organization_id: "org-nova-loja",
+                      role: "seller",
+                      status: "pending",
+                      expires_at: new Date(Date.now() + 86400000).toISOString(),
+                      organizations: { name: "Nova Concessionária Top" },
+                    },
+                    error: null,
+                  }),
+                }),
+              }),
+              update: mockUpdateInvite,
+            };
+          }
+          if (table === "organization_members") {
+            return {
+              upsert: mockUpsertMember,
+            };
+          }
+          if (table === "profiles") {
+            return {
+              update: mockUpdateProfile,
+            };
+          }
+          return {};
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const result = await acceptInviteAction("token-valido-123");
+
+      expect(result.success).toBe(true);
+      expect(result.organizationId).toBe("org-nova-loja");
+      expect(result.storeName).toBe("Nova Concessionária Top");
+      expect(mockUpsertMember).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organization_id: "org-nova-loja",
+          user_id: "user-vendedor-999",
+          status: "active",
+        }),
+        { onConflict: "organization_id,user_id" }
+      );
+      expect(mockUpdateProfile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organization_id: "org-nova-loja",
+        })
+      );
     });
 
-    it("[UT-INV.8] Deve capturar erro retornado pelo Supabase inviteUserByEmail", async () => {
+    it("[UT-INV.10] Deve rejeitar convite com token inexistente ou expirado", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: false,
+        needsOnboarding: false,
+        organizationId: null,
+        userId: "user-1",
+        userEmail: "user@test.com",
+        profile: null,
+        organization: null,
+      });
+
       vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
       const mockAdminSupabase = {
-        auth: {
-          admin: {
-            inviteUserByEmail: vi.fn().mockResolvedValue({
-              data: null,
-              error: { message: "SMTP rate limit exceeded" },
-            }),
-          },
-        },
-        from: vi.fn().mockReturnValue({
+        from: vi.fn().mockImplementation(() => ({
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
             }),
           }),
-        }),
+        })),
       };
 
       vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
         mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
       );
 
-      const result = await inviteSellerAction({
-        fullName: "Teste Falha SMTP",
-        email: "smtp.falha@loja.com.br",
-        phone: "(11) 98888-7777",
-        role: "seller",
+      const result = await acceptInviteAction("token-invalido");
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("não encontrado");
+    });
+  });
+
+  describe("sendInviteEmailViaResend", () => {
+    it("[UT-INV.11] Deve executar em modo de simulação gracioso quando RESEND_API_KEY não estiver configurada", async () => {
+      const res = await sendInviteEmailViaResend({
+        to: "vendedor@teste.com",
+        recipientName: "Carlos Vendedor",
+        storeName: "Loja Teste",
+        acceptUrl: "https://aceleraautocrm.com.br/invite/accept?token=123",
+        isExistingUser: true,
       });
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBe("SMTP rate limit exceeded");
+      expect(res.success).toBe(true);
+      expect(res.simulated).toBe(true);
+      expect(res.messageId).toBeDefined();
     });
   });
 });

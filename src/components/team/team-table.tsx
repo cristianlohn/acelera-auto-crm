@@ -11,7 +11,6 @@ import {
   Sparkles,
   Phone,
   Mail,
-  UserCheck,
   UserX,
   MoreVertical,
   Edit2,
@@ -220,12 +219,23 @@ export function TeamTable({
                           {member.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <div className="font-bold text-white flex items-center gap-1.5">
+                          <div className="font-bold text-white flex items-center gap-2">
                             <span>{member.name}</span>
                             {member.status === "active" ? (
-                              <span title="Ativo"><UserCheck className="h-3 w-3 text-emerald-400" /></span>
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                                <span>Ativo</span>
+                              </span>
+                            ) : member.status === "pending" ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-semibold">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                <span>Pendente (Aguardando Aceite)</span>
+                              </span>
                             ) : (
-                              <span title="Pausado"><UserX className="h-3 w-3 text-zinc-500" /></span>
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-zinc-500/15 text-zinc-400 border border-zinc-500/30 px-2 py-0.5 rounded-full font-semibold">
+                                <UserX className="h-2.5 w-2.5" />
+                                <span>Pausado</span>
+                              </span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">

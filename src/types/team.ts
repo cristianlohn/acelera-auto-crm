@@ -7,7 +7,7 @@ export type TeamRole = "seller" | "sdr" | "manager";
 
 export type TeamSegment = "new_cars" | "used_cars" | "f_and_i" | "all";
 
-export type TeamMemberStatus = "active" | "paused" | "vacation";
+export type TeamMemberStatus = "active" | "paused" | "vacation" | "pending";
 
 export interface TeamMember {
   id: string;

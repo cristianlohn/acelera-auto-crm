@@ -9,6 +9,7 @@ import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import { sendInviteEmailViaResend } from "@/lib/services/email/resend-service";
 import {
   salespersonFormSchema,
   updateSalespersonSchema,
@@ -116,22 +117,53 @@ export async function getTeamMembersAction(explicitOrgId?: string): Promise<Team
         .eq("organization_id", orgId)
         .order("created_at", { ascending: true });
 
-      if (!error && data && data.length > 0) {
-        return data.map((p) => ({
-          id: p.id,
-          organization_id: p.organization_id,
-          name: p.full_name,
-          email: p.email,
-          phone: p.phone || "",
-          role: (p.role === "gerente" || p.role === "admin" ? "manager" : "seller") as TeamMember["role"],
-          segment: "all",
-          in_roulette: true,
-          status: "active",
-          monthly_goal_units: 15,
-          current_sales_units: 8,
-          avg_sla_minutes: 5.5,
-          created_at: p.created_at,
-        }));
+      const members: TeamMember[] = (!error && data) ? data.map((p) => ({
+        id: p.id,
+        organization_id: p.organization_id,
+        name: p.full_name,
+        email: p.email,
+        phone: p.phone || "",
+        role: (p.role === "gerente" || p.role === "admin" ? "manager" : "seller") as TeamMember["role"],
+        segment: "all",
+        in_roulette: true,
+        status: "active",
+        monthly_goal_units: 15,
+        current_sales_units: 8,
+        avg_sla_minutes: 5.5,
+        created_at: p.created_at,
+      })) : [];
+
+      // Consulta convites pendentes
+      const { data: invites } = (await supabase
+        .from("organization_invites")
+        ?.select?.("*")
+        ?.eq?.("organization_id", orgId)
+        ?.eq?.("status", "pending")) || { data: null };
+
+      if (invites && invites.length > 0) {
+        invites.forEach((inv) => {
+          if (!members.some((m) => m.email.toLowerCase() === inv.email.toLowerCase())) {
+            members.push({
+              id: `inv-${inv.id}`,
+              organization_id: inv.organization_id,
+              name: inv.full_name,
+              email: inv.email,
+              phone: inv.phone || "",
+              role: (inv.role === "gerente" || inv.role === "manager" ? "manager" : "seller") as TeamMember["role"],
+              segment: "all",
+              in_roulette: false,
+              status: "pending",
+              monthly_goal_units: 10,
+              current_sales_units: 0,
+              avg_sla_minutes: 0,
+              created_at: inv.created_at,
+            });
+          }
+        });
+      }
+
+      if (members.length > 0) {
+        return members;
       }
     } catch {
       // Fallback para memória
@@ -176,16 +208,24 @@ export async function getTeamSummaryMetricsAction(explicitOrgId?: string): Promi
 }
 
 /**
- * Server Action para convidar vendedores com validação individual, logs e retorno claro para a UI.
+ * Server Action para convidar vendedores com ciclo inteligente (usuário novo vs existente via Resend).
  */
 export async function inviteSellerAction(formData: {
   fullName: string;
   email: string;
   phone: string;
   role: string;
-}): Promise<{ success: boolean; error?: string; data?: unknown }> {
+}): Promise<{
+  success: boolean;
+  error?: string;
+  message?: string;
+  data?: unknown;
+  inviteToken?: string;
+  isExistingUser?: boolean;
+}> {
   try {
     const cleanEmail = (formData.email || "").trim().toLowerCase();
+    const cleanPhone = (formData.phone || "").replace(/\D/g, "");
 
     if (!cleanEmail || !cleanEmail.includes("@")) {
       return {
@@ -194,59 +234,257 @@ export async function inviteSellerAction(formData: {
       };
     }
 
-    if (isSupabaseServerConfigured()) {
+    const tenantContext = await resolveUserTenantContext();
+    const currentOrgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+    const currentOrgName = tenantContext.organization?.name || "Acelera Auto Concessionária";
+
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
+
+    if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
       const supabaseAdmin = createAdminClient();
 
-      // 1. Verifica se o usuário já tem registro
+      // 1. Verifica se o usuário já existe no Auth / Profiles
       const { data: existingUser } = (await supabaseAdmin
         .from("profiles")
-        ?.select?.("id, full_name")
+        ?.select?.("id, email, full_name, organization_id")
         ?.eq?.("email", cleanEmail)
         ?.maybeSingle?.()) || { data: null };
 
       if (existingUser) {
+        // 2A. USUÁRIO JÁ EXISTE:
+        // Verifica se já é membro ativo desta mesma organização
+        const { data: existingMember } = (await supabaseAdmin
+          .from("organization_members")
+          ?.select?.("id, status")
+          ?.eq?.("organization_id", currentOrgId)
+          ?.eq?.("user_id", existingUser.id)
+          ?.maybeSingle?.()) || { data: null };
+
+        if ((existingMember && existingMember.status === "active") || existingUser.organization_id === currentOrgId) {
+          return { success: false, error: "Este vendedor já faz parte da sua equipe." };
+        }
+
+        // Cria/atualiza convite pendente
+        const inviteToken = crypto.randomUUID();
+        await supabaseAdmin.from("organization_invites").upsert(
+          {
+            organization_id: currentOrgId,
+            email: cleanEmail,
+            full_name: formData.fullName,
+            phone: cleanPhone,
+            role: formData.role || "seller",
+            token: inviteToken,
+            status: "pending",
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "token" }
+        );
+
+        // Dispara e-mail de convite via Resend com o link de aceite
+        const acceptUrl = `${appUrl}/invite/accept?token=${inviteToken}`;
+        await sendInviteEmailViaResend({
+          to: cleanEmail,
+          recipientName: formData.fullName,
+          storeName: currentOrgName,
+          acceptUrl,
+          isExistingUser: true,
+        });
+
+        try {
+          revalidatePath("/team");
+          revalidatePath("/dashboard/team");
+          revalidatePath("/settings");
+        } catch {}
+
         return {
-          success: false,
-          error: `O e-mail ${cleanEmail} já possui cadastro no sistema.`,
+          success: true,
+          message: "Convite de transferência/admissão enviado por e-mail.",
+          inviteToken,
+          isExistingUser: true,
         };
-      }
+      } else {
+        // 2B. NOVO USUÁRIO:
+        // Cria convite pendente no banco
+        const inviteToken = crypto.randomUUID();
+        await supabaseAdmin.from("organization_invites").upsert(
+          {
+            organization_id: currentOrgId,
+            email: cleanEmail,
+            full_name: formData.fullName,
+            phone: cleanPhone,
+            role: formData.role || "seller",
+            token: inviteToken,
+            status: "pending",
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "token" }
+        );
 
-      const appUrl =
-        process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
-
-      // 2. Dispara o convite oficial
-      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        cleanEmail,
-        {
+        // Dispara convite oficial do Supabase Auth para definição de senha
+        const { error: authError } = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
           data: {
             full_name: formData.fullName,
-            phone: formData.phone.replace(/\D/g, ""),
-            role: formData.role,
+            organization_id: currentOrgId,
+            role: formData.role || "seller",
+            phone: cleanPhone,
           },
           redirectTo: `${appUrl}/auth/callback?next=/reset-password`,
-        }
-      );
+        });
 
-      if (error) {
-        console.error("[SUPABASE_INVITE_ERROR]:", error);
+        if (authError) {
+          console.error("[SUPABASE_INVITE_ERROR]:", authError);
+          return { success: false, error: `Erro no envio: ${authError.message}` };
+        }
+
+        try {
+          revalidatePath("/team");
+          revalidatePath("/dashboard/team");
+          revalidatePath("/settings");
+        } catch {}
+
         return {
-          success: false,
-          error: error.message || "Erro ao disparar e-mail de convite.",
+          success: true,
+          message: "Convite para novo usuário enviado com sucesso.",
+          inviteToken,
+          isExistingUser: false,
         };
       }
-
-      return { success: true, data };
     }
 
-    // Ambiente offline ou demo
-    return { success: true };
+    // Ambiente Demo / Offline:
+    return {
+      success: true,
+      message: "Convite para novo usuário enviado com sucesso.",
+      isExistingUser: false,
+    };
   } catch (err: unknown) {
     console.error("[SUPABASE_INVITE_ERROR]:", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : "Erro ao disparar e-mail de convite.",
+    };
+  }
+}
+
+/**
+ * Server Action para aceitar convite de organização via token.
+ */
+export async function acceptInviteAction(token: string): Promise<{
+  success: boolean;
+  error?: string;
+  organizationId?: string;
+  storeName?: string;
+}> {
+  try {
+    if (!token) {
+      return { success: false, error: "Token de convite não fornecido." };
+    }
+
+    const tenantContext = await resolveUserTenantContext();
+    if (tenantContext.isDemo) {
+      return {
+        success: true,
+        organizationId: "demo-org",
+        storeName: "Acelera Auto Demonstração",
+      };
+    }
+
+    if (!isSupabaseServerConfigured()) {
+      return {
+        success: true,
+        organizationId: "local-org",
+        storeName: "Loja Local",
+      };
+    }
+
+    const supabaseAdmin = createAdminClient();
+
+    // 1. Busca convite pelo token
+    const { data: invite, error: inviteErr } = (await supabaseAdmin
+      .from("organization_invites")
+      ?.select?.("*, organizations(name)")
+      ?.eq?.("token", token)
+      ?.maybeSingle?.()) || { data: null };
+
+    if (inviteErr || !invite) {
+      return { success: false, error: "Convite não encontrado ou token inválido." };
+    }
+
+    const typedInvite = invite as {
+      id: string;
+      organization_id: string;
+      role: string;
+      status: string;
+      expires_at: string;
+      organizations?: { name?: string } | null;
+    };
+
+    if (typedInvite.status === "accepted") {
+      return {
+        success: true,
+        organizationId: typedInvite.organization_id,
+        storeName: typedInvite.organizations?.name || "Loja",
+      };
+    }
+
+    if (typedInvite.status === "revoked" || typedInvite.status === "expired") {
+      return { success: false, error: "Este convite foi revogado ou expirou." };
+    }
+
+    if (typedInvite.expires_at && new Date(typedInvite.expires_at).getTime() < Date.now()) {
+      await supabaseAdmin
+        .from("organization_invites")
+        ?.update?.({ status: "expired" })
+        ?.eq?.("id", typedInvite.id);
+      return { success: false, error: "Este convite expirou (validade de 7 dias)." };
+    }
+
+    // 2. Se o usuário estiver autenticado, vincula imediatamente
+    if (tenantContext.userId) {
+      // Atualiza organization_members
+      await supabaseAdmin.from("organization_members")?.upsert?.(
+        {
+          organization_id: typedInvite.organization_id,
+          user_id: tenantContext.userId,
+          role: typedInvite.role || "seller",
+          status: "active",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "organization_id,user_id" }
+      );
+
+      // Atualiza perfil ativo
+      await supabaseAdmin
+        .from("profiles")
+        ?.update?.({
+          organization_id: typedInvite.organization_id,
+          role: typedInvite.role === "manager" ? "gerente" : "vendedor",
+          updated_at: new Date().toISOString(),
+        })
+        ?.eq?.("id", tenantContext.userId);
+
+      // Marca convite como accepted
+      await supabaseAdmin
+        .from("organization_invites")
+        ?.update?.({ status: "accepted", updated_at: new Date().toISOString() })
+        ?.eq?.("id", typedInvite.id);
+    }
+
+    return {
+      success: true,
+      organizationId: typedInvite.organization_id,
+      storeName: typedInvite.organizations?.name || "Loja",
+    };
+  } catch (err: unknown) {
+    console.error("[ACCEPT_INVITE_ERROR]:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Erro ao processar aceite do convite.",
     };
   }
 }

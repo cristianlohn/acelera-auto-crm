@@ -31,6 +31,7 @@ import {
   inviteTeamMemberAction as _inviteTeamMemberAction,
   resendInviteEmailAction as _resendInviteEmailAction,
   inviteSellerAction as _inviteSellerAction,
+  acceptInviteAction as _acceptInviteAction,
   type InviteTeamMemberInput,
 } from "./team-actions";
 
@@ -62,6 +63,13 @@ export async function inviteSellerAction(formData: {
 }
 
 /**
+ * Server Action para aceitar convite de organização.
+ */
+export async function acceptInviteAction(token: string) {
+  return _acceptInviteAction(token);
+}
+
+/**
  * Server Action unificada para reenviar convite por e-mail.
  */
 export async function resendInviteEmailAction(email: string, name?: string, role?: string) {
@@ -73,9 +81,21 @@ const localTeamMembers: TeamMember[] = [...INITIAL_TEAM_MEMBERS];
 let localCapacity: TeamCapacity = { ...INITIAL_CAPACITY };
 
 /**
- * Consulta a capacidade e limites de vagas da equipe da concessionária.
+ * Retorna o status de ocupação da equipe vs capacidade do plano da organização atual.
  */
 export async function getTeamCapacity(): Promise<TeamCapacity> {
+  const tenantContext = await resolveUserTenantContext();
+  const members = await getTeamMembers();
+
+  if (!tenantContext.isDemo && tenantContext.organizationId) {
+    return {
+      currentCount: members.length,
+      maxSellers: 10,
+      plan: "pro",
+      planName: "Plano Pro Acelera",
+    };
+  }
+
   return {
     ...localCapacity,
     currentCount: localTeamMembers.length,
@@ -107,11 +127,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
       .eq("organization_id", tenantContext.organizationId)
       .order("created_at", { ascending: true });
 
-    if (error || !data) {
-      return [];
-    }
-
-    return data.map((p) => ({
+    const members: TeamMember[] = (!error && data) ? data.map((p) => ({
       id: p.id,
       organizationId: p.organization_id,
       fullName: p.full_name,
@@ -121,7 +137,33 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
       status: "active",
       avatarUrl: p.avatar_url,
       createdAt: p.created_at,
-    }));
+    })) : [];
+
+    // Convites pendentes
+    const { data: pendingInvites } = (await supabase
+      .from("organization_invites")
+      ?.select?.("*")
+      ?.eq?.("organization_id", tenantContext.organizationId)
+      ?.eq?.("status", "pending")) || { data: null };
+
+    if (pendingInvites && pendingInvites.length > 0) {
+      pendingInvites.forEach((inv) => {
+        if (!members.some((m) => m.email.toLowerCase() === inv.email.toLowerCase())) {
+          members.push({
+            id: `inv-${inv.id}`,
+            organizationId: inv.organization_id,
+            fullName: inv.full_name,
+            email: inv.email,
+            phone: inv.phone || "",
+            role: (inv.role === "manager" || inv.role === "gerente" ? "gerente" : "vendedor") as "admin" | "gerente" | "vendedor",
+            status: "pending",
+            createdAt: inv.created_at,
+          });
+        }
+      });
+    }
+
+    return members;
   } catch {
     return [];
   }
