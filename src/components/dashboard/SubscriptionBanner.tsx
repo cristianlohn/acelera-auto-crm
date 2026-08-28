@@ -50,7 +50,13 @@ export function SubscriptionBanner({ status: initialStatus }: SubscriptionBanner
   if (dismissed || isSuperAdmin(role)) return null;
 
   const currentStatus = initialStatus || accessStatus;
-  if (!currentStatus || currentStatus.reason === "SUPERADMIN_BYPASS") return null;
+  if (
+    !currentStatus ||
+    currentStatus.reason === "SUPERADMIN_BYPASS" ||
+    currentStatus.reason === "ACTIVE_SUBSCRIPTION"
+  ) {
+    return null;
+  }
 
   // Estado 1: Período de Testes Ativo (Trial)
   if (currentStatus.reason === "TRIAL_ACTIVE") {

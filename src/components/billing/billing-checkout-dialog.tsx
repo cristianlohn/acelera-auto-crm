@@ -144,19 +144,21 @@ function BillingCheckoutFormContent({
         billingPhone: billingPhone.trim(),
       });
 
-      if (!result.success || !result.checkoutUrl) {
-        const errorText = result.error || "Não foi possível gerar a assinatura no Asaas.";
+      const invoiceUrl = result.invoiceUrl || result.checkoutUrl;
+
+      if (result.success && invoiceUrl) {
+        if (typeof window !== "undefined") {
+          window.open(invoiceUrl, "_blank", "noopener,noreferrer");
+        }
+        if (onCancel) {
+          onCancel();
+        }
+        toast.success("Fatura gerada com sucesso! Conclua o pagamento na nova aba.");
+      } else if (!result.success) {
+        const errorText = result.error || "Não foi possível gerar a fatura de pagamento.";
         setErrorMessage(errorText);
         toast.error(errorText);
         setIsSubmitting(false);
-        return;
-      }
-
-      toast.success("Fatura gerada com sucesso! Redirecionando para o Asaas...");
-
-      const redirectUrl = result.invoiceUrl || result.checkoutUrl;
-      if (typeof window !== "undefined" && redirectUrl) {
-        window.location.assign(redirectUrl);
       }
     } catch (err) {
       console.error("[Billing Checkout Dialog Error]", err);

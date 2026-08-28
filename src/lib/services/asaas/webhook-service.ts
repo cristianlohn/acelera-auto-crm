@@ -256,16 +256,21 @@ export async function processAsaasWebhookEvent(
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
           const supabaseAdmin = createAdminClient();
-          await supabaseAdmin
-            .from("organizations")
-            .update({
-              subscription_status: "active",
-              plan_status: "active",
-              current_period_end: periodEnd,
-              asaas_customer_id: customerId || null,
-              asaas_subscription_id: subscriptionId || null,
-              updated_at: new Date().toISOString(),
-            })
+          const updateData: Record<string, unknown> = {
+            subscription_status: "active",
+            plan_status: "active",
+            plan: "pro",
+            current_period_end: periodEnd,
+            updated_at: new Date().toISOString(),
+          };
+          if (customerId) updateData.asaas_customer_id = customerId;
+          if (subscriptionId) updateData.asaas_subscription_id = subscriptionId;
+          if (payment?.billingType) {
+            updateData.payment_method = payment.billingType.toLowerCase();
+          }
+
+          await (supabaseAdmin.from("organizations") as unknown as { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } })
+            .update(updateData)
             .eq("id", targetOrgId);
         } catch (err) {
           console.warn("[Asaas Webhook] Falha ao atualizar organization no Supabase:", err);

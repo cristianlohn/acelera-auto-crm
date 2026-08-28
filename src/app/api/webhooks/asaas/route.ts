@@ -11,6 +11,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import {
   verifyAsaasWebhookToken,
   processAsaasWebhookEvent,
@@ -105,6 +106,14 @@ export async function POST(request: NextRequest) {
     console.log(
       `[Webhook Asaas] Processamento concluído para '${body.event}': ação '${result.actionTaken}' (idempotente: ${result.alreadyProcessed || false})`
     );
+
+    if (result.success) {
+      try {
+        revalidatePath("/", "layout");
+      } catch {
+        // Ignora em ambientes de teste sem static generation store
+      }
+    }
 
     // 5. Retorno HTTP 200 OK com confirmação de recebimento para o Asaas
     return NextResponse.json(
