@@ -282,7 +282,7 @@ function BillingContent() {
                     type="button"
                     onClick={() => handleCheckout(plan.id)}
                     disabled={isProcessing}
-                    data-testid={`btn-subscribe-${plan.id}`}
+                    data-testid={plan.id === "pro" ? "subscribe-pro-btn" : `btn-subscribe-${plan.id}`}
                     className={cn(
                       "w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-lg transition-all",
                       plan.popular

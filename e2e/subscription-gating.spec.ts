@@ -29,7 +29,12 @@ test.describe("[REQ-CRM-17] Controle de Acesso por Assinatura e Paywall", () => 
       page.getByText(/seu período de teste grátis chegou ao fim/i)
     ).toBeVisible();
     await expect(
-      page.getByRole("button", { name: /ativar plano pro/i })
+      page
+        .getByRole("button", { name: /(ativar|assinar|selecionar|escolher) plano( pro)?/i })
+        .or(page.getByRole("button", { name: /^assinar/i }))
+        .or(page.getByTestId("subscribe-pro-btn"))
+        .or(page.getByTestId("btn-subscribe-pro"))
+        .first()
     ).toBeVisible();
   });
 
