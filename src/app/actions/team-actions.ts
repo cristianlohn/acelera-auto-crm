@@ -176,6 +176,82 @@ export async function getTeamSummaryMetricsAction(explicitOrgId?: string): Promi
 }
 
 /**
+ * Server Action para convidar vendedores com validação individual, logs e retorno claro para a UI.
+ */
+export async function inviteSellerAction(formData: {
+  fullName: string;
+  email: string;
+  phone: string;
+  role: string;
+}): Promise<{ success: boolean; error?: string; data?: unknown }> {
+  try {
+    const cleanEmail = (formData.email || "").trim().toLowerCase();
+
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return {
+        success: false,
+        error: "Informe um endereço de e-mail corporativo válido.",
+      };
+    }
+
+    if (isSupabaseServerConfigured()) {
+      const supabaseAdmin = createAdminClient();
+
+      // 1. Verifica se o usuário já tem registro
+      const { data: existingUser } = (await supabaseAdmin
+        .from("profiles")
+        ?.select?.("id, full_name")
+        ?.eq?.("email", cleanEmail)
+        ?.maybeSingle?.()) || { data: null };
+
+      if (existingUser) {
+        return {
+          success: false,
+          error: `O e-mail ${cleanEmail} já possui cadastro no sistema.`,
+        };
+      }
+
+      const appUrl =
+        process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
+
+      // 2. Dispara o convite oficial
+      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+        cleanEmail,
+        {
+          data: {
+            full_name: formData.fullName,
+            phone: formData.phone.replace(/\D/g, ""),
+            role: formData.role,
+          },
+          redirectTo: `${appUrl}/auth/callback?next=/reset-password`,
+        }
+      );
+
+      if (error) {
+        console.error("[SUPABASE_INVITE_ERROR]:", error);
+        return {
+          success: false,
+          error: error.message || "Erro ao disparar e-mail de convite.",
+        };
+      }
+
+      return { success: true, data };
+    }
+
+    // Ambiente offline ou demo
+    return { success: true };
+  } catch (err: unknown) {
+    console.error("[SUPABASE_INVITE_ERROR]:", err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Erro ao disparar e-mail de convite.",
+    };
+  }
+}
+
+/**
  * Server Action para convidar e cadastrar um novo membro da equipe com disparo automático de e-mail SMTP.
  */
 export async function inviteTeamMemberAction(
@@ -207,6 +283,7 @@ export async function inviteTeamMemberAction(
   }
 
   const validData = parseResult.data;
+  const cleanEmail = validData.email.trim().toLowerCase();
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
@@ -225,16 +302,39 @@ export async function inviteTeamMemberAction(
     try {
       const supabaseAdmin = createAdminClient();
 
+      // Passo 0: Validação de usuário já existente
+      const { data: existingUser } = (await supabaseAdmin
+        .from("profiles")
+        ?.select?.("id, full_name")
+        ?.eq?.("email", cleanEmail)
+        ?.maybeSingle?.()) || { data: null };
+
+      if (existingUser) {
+        return {
+          success: false,
+          error: `O e-mail ${cleanEmail} já possui cadastro no sistema.`,
+        };
+      }
+
       // Passo 1: Disparo Automático de E-mail via SMTP do Supabase
-      const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(validData.email, {
+      const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
         redirectTo,
         data: {
           full_name: validData.name,
+          phone: validData.phone.replace(/\D/g, ""),
           role: validData.role || "seller",
         },
       });
 
-      if (!inviteRes.error && inviteRes.data?.user) {
+      if (inviteRes.error) {
+        console.error("[SUPABASE_INVITE_ERROR]:", inviteRes.error);
+        return {
+          success: false,
+          error: inviteRes.error.message || "Erro ao disparar e-mail de convite.",
+        };
+      }
+
+      if (inviteRes.data?.user) {
         emailSent = true;
         memberId = inviteRes.data.user.id;
       }
@@ -242,7 +342,7 @@ export async function inviteTeamMemberAction(
       // Passo 2: Geração do Link de Contingência
       const linkRes = await supabaseAdmin.auth.admin.generateLink({
         type: "invite",
-        email: validData.email,
+        email: cleanEmail,
         options: { redirectTo },
       });
 
@@ -256,7 +356,7 @@ export async function inviteTeamMemberAction(
           id: memberId,
           organization_id: orgId,
           full_name: validData.name,
-          email: validData.email,
+          email: cleanEmail,
           phone: validData.phone,
           role: validData.role === "manager" ? "gerente" : "vendedor",
           updated_at: new Date().toISOString(),
@@ -264,16 +364,20 @@ export async function inviteTeamMemberAction(
         { onConflict: "id" }
       );
     } catch (err) {
-      console.warn("[Team Invite Error] Falha ao disparar convite automático via admin:", err);
+      console.error("[SUPABASE_INVITE_ERROR]:", err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Erro ao disparar e-mail de convite.",
+      };
     }
   } else {
     // Ambiente Demo / Offline: simula envio com sucesso e gera link de contingência
     emailSent = true;
-    fallbackInviteLink = `${redirectTo}?token=demo_${Date.now()}&email=${encodeURIComponent(validData.email)}`;
+    fallbackInviteLink = `${redirectTo}?token=demo_${Date.now()}&email=${encodeURIComponent(cleanEmail)}`;
   }
 
   if (!fallbackInviteLink) {
-    fallbackInviteLink = `${redirectTo}?email=${encodeURIComponent(validData.email)}`;
+    fallbackInviteLink = `${redirectTo}?email=${encodeURIComponent(cleanEmail)}`;
   }
 
   const newMember: TeamMember = {

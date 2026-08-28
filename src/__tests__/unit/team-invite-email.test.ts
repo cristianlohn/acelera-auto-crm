@@ -9,6 +9,7 @@ import {
   inviteTeamMemberAction,
   resendInviteEmailAction,
   createSalespersonAction,
+  inviteSellerAction,
 } from "@/app/actions/team-actions";
 import { inviteTeamMember } from "@/app/actions/team";
 import * as tenantModule from "@/lib/auth/tenant";
@@ -220,5 +221,127 @@ describe("[UNIT-TEAM-INVITE-EMAIL] Disparo Automático de Convite SMTP & Conting
 
     expect(invalidResult.success).toBe(false);
     expect(invalidResult.error).toBeDefined();
+  });
+
+  describe("inviteSellerAction", () => {
+    it("[UT-INV.6] Deve verificar se o usuário já existe e disparar convite com sucesso", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockInviteUserByEmail = vi.fn().mockResolvedValue({
+        data: { user: { id: "seller-new-123", email: "vendedor@loja.com.br" } },
+        error: null,
+      });
+
+      const mockAdminSupabase = {
+        auth: {
+          admin: {
+            inviteUserByEmail: mockInviteUserByEmail,
+          },
+        },
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const result = await inviteSellerAction({
+        fullName: "Novo Vendedor",
+        email: "vendedor@loja.com.br",
+        phone: "(11) 98888-7777",
+        role: "seller",
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockInviteUserByEmail).toHaveBeenCalledWith(
+        "vendedor@loja.com.br",
+        expect.objectContaining({
+          data: expect.objectContaining({
+            full_name: "Novo Vendedor",
+            phone: "11988887777",
+            role: "seller",
+          }),
+        })
+      );
+    });
+
+    it("[UT-INV.7] Deve rejeitar convite se o usuário já existir no banco", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockAdminSupabase = {
+        auth: {
+          admin: {
+            inviteUserByEmail: vi.fn(),
+          },
+        },
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: "existing-user-1", full_name: "Existente" },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const result = await inviteSellerAction({
+        fullName: "Usuário Duplicado",
+        email: "duplicado@loja.com.br",
+        phone: "(11) 98888-7777",
+        role: "seller",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("duplicado@loja.com.br");
+      expect(result.error).toContain("já possui cadastro");
+    });
+
+    it("[UT-INV.8] Deve capturar erro retornado pelo Supabase inviteUserByEmail", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockAdminSupabase = {
+        auth: {
+          admin: {
+            inviteUserByEmail: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: "SMTP rate limit exceeded" },
+            }),
+          },
+        },
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            }),
+          }),
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const result = await inviteSellerAction({
+        fullName: "Teste Falha SMTP",
+        email: "smtp.falha@loja.com.br",
+        phone: "(11) 98888-7777",
+        role: "seller",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("SMTP rate limit exceeded");
+    });
   });
 });

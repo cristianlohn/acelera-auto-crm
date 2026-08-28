@@ -30,6 +30,7 @@ import { resolveUserTenantContext } from "@/lib/auth/tenant";
 import {
   inviteTeamMemberAction as _inviteTeamMemberAction,
   resendInviteEmailAction as _resendInviteEmailAction,
+  inviteSellerAction as _inviteSellerAction,
   type InviteTeamMemberInput,
 } from "./team-actions";
 
@@ -46,6 +47,18 @@ export type {
  */
 export async function inviteTeamMemberAction(input: InviteTeamMemberInput) {
   return _inviteTeamMemberAction(input);
+}
+
+/**
+ * Server Action para convidar vendedores.
+ */
+export async function inviteSellerAction(formData: {
+  fullName: string;
+  email: string;
+  phone: string;
+  role: string;
+}) {
+  return _inviteSellerAction(formData);
 }
 
 /**
@@ -164,22 +177,47 @@ export async function inviteTeamMember(
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
     try {
       const supabaseAdmin = createAdminClient();
-      const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(input.email.trim(), {
+      const cleanEmail = input.email.trim().toLowerCase();
+
+      // 1. Verifica se o usuário já tem registro
+      const { data: existingUser } = (await supabaseAdmin
+        .from("profiles")
+        ?.select?.("id, full_name")
+        ?.eq?.("email", cleanEmail)
+        ?.maybeSingle?.()) || { data: null };
+
+      if (existingUser) {
+        return {
+          success: false,
+          error: `O e-mail ${cleanEmail} já possui cadastro no sistema.`,
+        };
+      }
+
+      const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
         redirectTo,
         data: {
           full_name: input.fullName.trim(),
+          phone: input.phone.replace(/\D/g, ""),
           role: input.role || "vendedor",
         },
       });
 
-      if (!inviteRes.error && inviteRes.data?.user) {
+      if (inviteRes.error) {
+        console.error("[SUPABASE_INVITE_ERROR]:", inviteRes.error);
+        return {
+          success: false,
+          error: inviteRes.error.message || "Erro ao disparar e-mail de convite.",
+        };
+      }
+
+      if (inviteRes.data?.user) {
         emailSent = true;
         memberId = inviteRes.data.user.id;
       }
 
       const linkRes = await supabaseAdmin.auth.admin.generateLink({
         type: "invite",
-        email: input.email.trim(),
+        email: cleanEmail,
         options: { redirectTo },
       });
 
@@ -192,7 +230,7 @@ export async function inviteTeamMember(
           id: memberId,
           organization_id: orgId,
           full_name: input.fullName.trim(),
-          email: input.email.trim(),
+          email: cleanEmail,
           phone: input.phone.trim(),
           role: input.role || "vendedor",
           updated_at: new Date().toISOString(),
@@ -200,7 +238,11 @@ export async function inviteTeamMember(
         { onConflict: "id" }
       );
     } catch (err) {
-      console.warn("[Team Invite Warning]:", err);
+      console.error("[SUPABASE_INVITE_ERROR]:", err);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : "Erro ao disparar e-mail de convite.",
+      };
     }
   } else {
     emailSent = true;
