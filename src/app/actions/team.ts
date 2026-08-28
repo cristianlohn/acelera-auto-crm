@@ -434,6 +434,7 @@ export async function removeTeamMember(
     }
 
     let removed = false;
+    let targetEmail: string | null = null;
 
     // =========================================================================
     // ETAPA A: organization_invites (convites pendentes com cleanId ou memberId)
@@ -447,6 +448,7 @@ export async function removeTeamMember(
         .maybeSingle();
 
       if (invite) {
+        targetEmail = invite.email;
         await supabaseAdmin
           .from("organization_invites")
           .delete()
@@ -479,6 +481,8 @@ export async function removeTeamMember(
           return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
         }
 
+        targetUserId = dbMember.user_id;
+
         if (dbMember.user_id) {
           await supabaseAdmin
             .from("roleta_sellers")
@@ -503,15 +507,33 @@ export async function removeTeamMember(
     } catch {}
 
     // =========================================================================
-    // ETAPA C: profiles (vínculo direto via organization_id)
+    // ETAPA C: profiles (vínculo direto via organization_id por id ou email)
     // =========================================================================
     try {
-      const { data: targetProfile } = await supabaseAdmin
+      let targetProfile = null;
+      const { data: pById } = await supabaseAdmin
         .from("profiles")
         .select("id, organization_id, role, email")
         .eq("organization_id", organizationId)
         .eq("id", cleanId)
         .maybeSingle();
+
+      if (pById) {
+        targetProfile = pById;
+        targetEmail = targetEmail || pById.email;
+      }
+
+      if (!targetProfile && targetEmail) {
+        const { data: pByEmail } = await supabaseAdmin
+          .from("profiles")
+          .select("id, organization_id, role, email")
+          .eq("organization_id", organizationId)
+          .eq("email", targetEmail.toLowerCase())
+          .maybeSingle();
+        if (pByEmail) {
+          targetProfile = pByEmail;
+        }
+      }
 
       if (targetProfile) {
         if ((targetProfile.role as string) === "owner" || (targetProfile.role as string) === "admin") {
@@ -535,14 +557,35 @@ export async function removeTeamMember(
             .delete()
             .eq("organization_id", organizationId)
             .eq("email", targetProfile.email.toLowerCase());
+
+          await supabaseAdmin
+            .from("profiles")
+            .update({ organization_id: null as unknown as string })
+            .eq("organization_id", organizationId)
+            .eq("email", targetProfile.email.toLowerCase());
         }
 
         removed = true;
       }
     } catch {}
 
+    // Fallback: se nenhum registro formal foi localizado mas o ID pertencia à loja
+    if (!removed) {
+      await supabaseAdmin
+        .from("profiles")
+        .update({ organization_id: null as unknown as string })
+        .eq("id", cleanId)
+        .eq("organization_id", organizationId);
+      removed = true;
+    }
+
     // Sincroniza localTeamMembers
-    const localIdx = localTeamMembers.findIndex((m) => m.id === memberId || m.id === cleanId);
+    const localIdx = localTeamMembers.findIndex(
+      (m) =>
+        m.id === memberId ||
+        m.id === cleanId ||
+        (targetEmail && m.email?.toLowerCase() === targetEmail.toLowerCase())
+    );
     if (localIdx !== -1) localTeamMembers.splice(localIdx, 1);
 
     if (removed) {

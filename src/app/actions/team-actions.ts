@@ -162,11 +162,11 @@ export async function getTeamMembersAction(explicitOrgId?: string): Promise<Team
         });
       }
 
-      if (members.length > 0) {
+      if (!error && Array.isArray(data)) {
         return members;
       }
     } catch {
-      // Fallback para memória
+      // Fallback para memória apenas se ocorrer exceção de rede/configuração
     }
   }
 
@@ -979,12 +979,14 @@ export async function deleteSalespersonAction(memberId: string): Promise<ActionR
     };
   }
 
+  let targetEmail: string | null = memoryMember?.email || null;
+
   // 2. Checagem e remoção no Supabase se configurado
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
     try {
       const supabaseAdmin = createAdminClient();
 
-      // Deleta convite pendente se existir
+      // Deleta convite pendente se existir por id
       try {
         const { data: invite } = await supabaseAdmin
           .from("organization_invites")
@@ -994,24 +996,42 @@ export async function deleteSalespersonAction(memberId: string): Promise<ActionR
           .maybeSingle();
 
         if (invite) {
+          targetEmail = targetEmail || invite.email;
           await supabaseAdmin.from("organization_invites").delete().eq("id", invite.id);
-          if (invite.email) {
-            await supabaseAdmin
-              .from("profiles")
-              .update({ organization_id: null as unknown as string })
-              .eq("email", invite.email.toLowerCase())
-              .eq("organization_id", orgId);
-          }
         }
       } catch {}
 
-      // Checa se o membro alvo tem papel de owner ou admin em profiles
-      const { data: targetProfile } = (await supabaseAdmin
-        .from("profiles")
-        ?.select?.("id, role, organization_id, email")
-        ?.eq?.("id", cleanId)
-        ?.eq?.("organization_id", orgId)
-        ?.maybeSingle?.()) || { data: null };
+      // Checa se o membro alvo tem papel de owner ou admin em profiles por id
+      let targetProfile = null;
+      try {
+        const { data: pById } = (await supabaseAdmin
+          .from("profiles")
+          ?.select?.("id, role, organization_id, email")
+          ?.eq?.("id", cleanId)
+          ?.eq?.("organization_id", orgId)
+          ?.maybeSingle?.()) || { data: null };
+
+        if (pById) {
+          targetProfile = pById;
+          targetEmail = targetEmail || pById.email;
+        }
+      } catch {}
+
+      // Se ainda não achou profile mas temos targetEmail, busca profile por email
+      if (!targetProfile && targetEmail) {
+        try {
+          const { data: pByEmail } = (await supabaseAdmin
+            .from("profiles")
+            ?.select?.("id, role, organization_id, email")
+            ?.eq?.("email", targetEmail.toLowerCase())
+            ?.eq?.("organization_id", orgId)
+            ?.maybeSingle?.()) || { data: null };
+
+          if (pByEmail) {
+            targetProfile = pByEmail;
+          }
+        } catch {}
+      }
 
       if (targetProfile && (targetProfile.role === "admin" || (targetProfile.role as string) === "owner")) {
         return {
@@ -1020,57 +1040,59 @@ export async function deleteSalespersonAction(memberId: string): Promise<ActionR
         };
       }
 
-      // Checa se o membro alvo tem papel de owner ou admin em organization_members
-      const { data: targetMember } = (await supabaseAdmin
-        .from("organization_members")
-        ?.select?.("id, role, status")
-        ?.eq?.("user_id", cleanId)
-        ?.eq?.("organization_id", orgId)
-        ?.maybeSingle?.()) || { data: null };
-
-      if (targetMember && (targetMember.role === "owner" || targetMember.role === "admin")) {
-        return {
-          success: false,
-          error: "O proprietário da loja não pode ser desvinculado.",
-        };
-      }
-
-      // Desvincula em profiles
+      // Desvincula em profiles por id
       if (targetProfile) {
         await supabaseAdmin
           .from("profiles")
           .update({ organization_id: null as unknown as string })
-          .eq("id", cleanId);
+          .eq("id", targetProfile.id);
+      }
 
-        if (targetProfile.email) {
-          await supabaseAdmin
-            .from("organization_invites")
-            .delete()
-            .eq("organization_id", orgId)
-            .eq("email", targetProfile.email.toLowerCase());
-        }
+      // Desvincula em profiles por cleanId
+      await supabaseAdmin
+        .from("profiles")
+        .update({ organization_id: null as unknown as string })
+        .eq("id", cleanId)
+        .eq("organization_id", orgId);
+
+      // Desvincula em profiles e organization_invites por email se disponível
+      if (targetEmail) {
+        await supabaseAdmin
+          .from("profiles")
+          .update({ organization_id: null as unknown as string })
+          .eq("email", targetEmail.toLowerCase())
+          .eq("organization_id", orgId);
+
+        await supabaseAdmin
+          .from("organization_invites")
+          .delete()
+          .eq("organization_id", orgId)
+          .eq("email", targetEmail.toLowerCase());
       }
 
       // Desativa vínculo em organization_members
       await supabaseAdmin
         .from("organization_members")
         ?.delete?.()
-        ?.eq?.("user_id", cleanId)
-        ?.eq?.("organization_id", orgId);
+        ?.eq?.("organization_id", orgId)
+        ?.or(`id.eq.${cleanId},user_id.eq.${cleanId}${targetProfile ? `,user_id.eq.${targetProfile.id}` : ""}`);
 
       // Remove da roleta de vendedores
       await supabaseAdmin
         .from("roleta_sellers")
         ?.delete?.()
         ?.eq?.("organization_id", orgId)
-        ?.eq?.("user_id", cleanId);
+        ?.or(`user_id.eq.${cleanId}${targetProfile ? `,user_id.eq.${targetProfile.id}` : ""}`);
     } catch (err) {
       console.error("[DELETE_SELLER_ERROR]:", err);
     }
   }
 
+  // Remove da memória por id, cleanId ou email
   const index = memoryTeamMembers.findIndex(
-    (m) => (m.id === memberId || m.id === cleanId) && m.organization_id === orgId
+    (m) =>
+      ((m.id === memberId || m.id === cleanId) || (targetEmail && m.email?.toLowerCase() === targetEmail.toLowerCase())) &&
+      m.organization_id === orgId
   );
   if (index !== -1) {
     memoryTeamMembers.splice(index, 1);
