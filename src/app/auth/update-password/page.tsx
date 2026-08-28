@@ -3,13 +3,14 @@
  * @description Tela de Primeiro Acesso e Definição de Senha (/auth/update-password).
  *
  * Permite que novos vendedores convidados definam sua senha segura após validação
- * do link de convite PKCE/OTP, redirecionando-os diretamente para a esteira de vendas (/leads).
+ * estrita de token de convite ou sessão autenticada PKCE, protegendo contra Account Takeover.
  */
 
 "use client";
 
 import React, { useState, useEffect, useTransition, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   Lock,
   Eye,
@@ -21,6 +22,7 @@ import {
   ShieldCheck,
   Sparkles,
   Mail,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/ui/brand-logo";
@@ -34,6 +36,7 @@ function UpdatePasswordForm() {
   const searchParams = useSearchParams();
   const verified = searchParams.get("verified") === "true";
   const urlEmail = searchParams.get("email") || "";
+  const inviteToken = searchParams.get("token") || "";
 
   const [email, setEmail] = useState(urlEmail);
   const [password, setPassword] = useState("");
@@ -62,7 +65,7 @@ function UpdatePasswordForm() {
       // 2. Captura token_hash se presente
       const token_hash = searchParams.get("token_hash") || searchParams.get("token");
       const type = (searchParams.get("type") || "invite") as "invite" | "recovery" | "magiclink" | "email";
-      if (token_hash) {
+      if (token_hash && searchParams.get("token_hash")) {
         supabase.auth.verifyOtp({ token_hash, type }).then(({ data, error }) => {
           if (!error && data.user?.email) {
             setEmail(data.user.email);
@@ -102,8 +105,6 @@ function UpdatePasswordForm() {
       return;
     }
 
-    const targetEmail = email || urlEmail || searchParams.get("email") || undefined;
-
     startTransition(async () => {
       try {
         // 1. Atualização via Browser Client (se houver sessão PKCE local)
@@ -127,9 +128,9 @@ function UpdatePasswordForm() {
           }
         }
 
-        // 2. Fallback via Server Action com contingência Admin por e-mail
-        const result = targetEmail
-          ? await updateUserPassword(password, targetEmail)
+        // 2. Fallback via Server Action com validação estrita de token de convite
+        const result = inviteToken
+          ? await updateUserPassword(password, inviteToken)
           : await updateUserPassword(password);
 
         if (!result.success) {
@@ -184,6 +185,17 @@ function UpdatePasswordForm() {
           </div>
         </div>
 
+        {/* Identificação Segura do E-mail Vinculado (Apenas Leitura) */}
+        {email && (
+          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80 text-xs text-zinc-300">
+            <Mail className="h-4 w-4 text-orange-400 shrink-0" />
+            <div className="flex flex-col min-w-0">
+              <span className="text-[10px] text-zinc-500 font-medium">Conta associada:</span>
+              <span className="font-semibold text-zinc-200 truncate">{email}</span>
+            </div>
+          </div>
+        )}
+
         {/* Banner de Verificação Positiva */}
         {verified && (
           <div
@@ -229,40 +241,6 @@ function UpdatePasswordForm() {
         ) : (
           /* Formulário */
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {/* Campo Opcional/Identificador de E-mail se não identificado */}
-            {email ? (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-900/50 border border-zinc-800/80 text-xs text-zinc-400">
-                <Mail className="h-3.5 w-3.5 text-orange-400" />
-                <span className="text-zinc-300 font-medium truncate">{email}</span>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="email"
-                  className="text-xs font-semibold text-zinc-300"
-                >
-                  Seu E-mail Corporativo
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-500">
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="seu.email@concessionaria.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={isPending}
-                    required
-                    autoComplete="email"
-                    className="pl-10 h-11 bg-zinc-900/90 border-zinc-800 text-white text-xs sm:text-sm placeholder:text-zinc-600 focus-visible:border-orange-500 focus-visible:ring-orange-500/20 rounded-xl"
-                  />
-                </div>
-              </div>
-            )}
-
             {/* Campo: Nova Senha */}
             <div className="space-y-1.5">
               <label
@@ -394,10 +372,19 @@ function UpdatePasswordForm() {
         )}
       </div>
 
-      {/* Rodapé / Informação de Segurança */}
-      <div className="text-center text-xs text-zinc-500 flex items-center justify-center gap-1.5">
-        <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
-        <span>Ambiente seguro protegido por criptografia de ponta a ponta</span>
+      {/* Rodapé / Link de Retorno */}
+      <div className="text-center space-y-2">
+        <Link
+          href="/login"
+          className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          <span>Voltar para a tela de login</span>
+        </Link>
+        <div className="text-xs text-zinc-500 flex items-center justify-center gap-1.5">
+          <ShieldCheck className="h-3.5 w-3.5 text-zinc-400" />
+          <span>Ambiente seguro protegido por autenticação criptográfica</span>
+        </div>
       </div>
     </div>
   );

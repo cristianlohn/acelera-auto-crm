@@ -658,13 +658,13 @@ export interface UpdatePasswordResult {
 
 /**
  * Atualiza a senha do usuário autenticado no Supabase Auth.
- * Suporta fallback administrativo seguro por e-mail caso a sessão do navegador tenha sido perdida.
+ * Por segurança estrita (Zero-Trust), exige sessão autenticada ativa ou token criptográfico de convite pendente.
  */
 export async function updateUserPassword(
   newPassword: string,
-  userEmail?: string
+  inviteToken?: string
 ): Promise<UpdatePasswordResult> {
-  console.log("[Auth Update] Iniciando atualização de senha...");
+  console.log("[Auth Update] Iniciando atualização de senha segura...");
 
   if (!newPassword || newPassword.length < 6) {
     console.warn("[Auth Update] Validação falhou: senha com menos de 6 caracteres");
@@ -680,53 +680,65 @@ export async function updateUserPassword(
 
   try {
     const supabase = await createServerSupabaseClient();
-    console.log("[Auth Update] Disparando supabase.auth.updateUser...");
+    console.log("[Auth Update] Disparando supabase.auth.updateUser com sessão ativa...");
     const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
     });
 
     if (!error && data?.user) {
-      console.log("[Auth Update] Senha atualizada com sucesso via sessão ativa:", data);
+      console.log("[Auth Update] Senha atualizada com sucesso via sessão ativa:", data.user.id);
       return { success: true };
     }
 
-    // Fallback de contingência: se não houver sessão ativa nos cookies e tivermos o e-mail
-    if (userEmail) {
-      const cleanEmail = userEmail.trim().toLowerCase();
-      console.log("[Auth Update] Tentando atualização de contingência via Admin para:", cleanEmail);
+    // Validação estrita por Token de Convite (sem brechas para e-mails arbitrários)
+    if (inviteToken) {
+      const cleanToken = inviteToken.trim();
+      console.log("[Auth Update] Validando token de convite criptográfico...");
       const adminClient = createAdminClient();
 
-      // 1. Localiza o usuário no Auth
-      const { data: usersData } = await adminClient.auth.admin.listUsers();
-      const targetUser = usersData?.users?.find(
-        (u) => u.email?.toLowerCase() === cleanEmail
-      );
+      const { data: invite } = await adminClient
+        .from("organization_invites")
+        .select("id, email, organization_id, status, expires_at")
+        .eq("token", cleanToken)
+        .eq("status", "pending")
+        .maybeSingle();
 
-      if (targetUser) {
-        // Atualiza a senha e confirma o e-mail via Admin
-        const { error: adminUpdateError } = await adminClient.auth.admin.updateUserById(
-          targetUser.id,
-          { password: newPassword, email_confirm: true }
+      if (invite && invite.email) {
+        if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+          return {
+            success: false,
+            error: "Este link de convite expirou. Solicite ao administrador o reenvio do convite.",
+          };
+        }
+
+        const { data: usersData } = await adminClient.auth.admin.listUsers();
+        const targetUser = usersData?.users?.find(
+          (u) => u.email?.toLowerCase() === invite.email.toLowerCase()
         );
 
-        if (!adminUpdateError) {
-          // Autentica o usuário na sessão do navegador
-          try {
-            await supabase.auth.signInWithPassword({
-              email: cleanEmail,
-              password: newPassword,
-            });
-          } catch {}
+        if (targetUser) {
+          const { error: adminUpdateError } = await adminClient.auth.admin.updateUserById(
+            targetUser.id,
+            { password: newPassword, email_confirm: true }
+          );
 
-          // Atualiza status do convite e perfil para ativo
-          try {
-            await adminClient
-              .from("organization_invites")
-              .update({ status: "accepted" })
-              .eq("email", cleanEmail);
-          } catch {}
+          if (!adminUpdateError) {
+            try {
+              await supabase.auth.signInWithPassword({
+                email: invite.email,
+                password: newPassword,
+              });
+            } catch {}
 
-          return { success: true };
+            try {
+              await adminClient
+                .from("organization_invites")
+                .update({ status: "accepted" })
+                .eq("id", invite.id);
+            } catch {}
+
+            return { success: true };
+          }
         }
       }
     }
@@ -738,10 +750,16 @@ export async function updateUserPassword(
         error.status,
         error
       );
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: "Não foi possível validar sua sessão. Acesse novamente através do link enviado por e-mail.",
+      };
     }
 
-    return { success: true };
+    return {
+      success: false,
+      error: "Link de convite inválido ou expirado. Solicite um novo convite ao administrador.",
+    };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Erro ao atualizar senha.";
     console.error("[Auth Update] Exceção capturada durante updateUser:", err);
