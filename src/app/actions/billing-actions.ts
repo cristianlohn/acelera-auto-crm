@@ -11,10 +11,18 @@ import {
   BILLING_PLANS_CONFIG,
   type CreateSubscriptionResult,
 } from "@/lib/services/asaas/subscription-service";
+import { isValidDocument, sanitizeDigits } from "@/lib/validations/document";
+import { isSupabaseServerConfigured } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface CreateSubscriptionInput {
   planId: string;
-  billingCycle: "mensal" | "anual";
+  billingCycle?: "mensal" | "anual";
+  documentType?: "CPF" | "CNPJ";
+  document?: string;
+  billingName?: string;
+  billingEmail?: string;
+  billingPhone?: string;
 }
 
 /**
@@ -23,7 +31,7 @@ export interface CreateSubscriptionInput {
 export async function createSubscriptionCheckoutAction(
   input: CreateSubscriptionInput
 ): Promise<CreateSubscriptionResult> {
-  const { planId, billingCycle } = input;
+  const { planId, billingCycle = "mensal" } = input;
 
   console.log(
     "[Asaas Service] ASAAS_API_KEY presente:",
@@ -65,7 +73,20 @@ export async function createSubscriptionCheckoutAction(
       process.env.NODE_ENV === "test" ||
       apiUrl.includes("sandbox.asaas.com");
 
-    if (!orgDoc && !isSandboxOrDev) {
+    const docType =
+      input.documentType ||
+      (input.document && sanitizeDigits(input.document).length > 11 ? "CNPJ" : "CPF");
+    const cleanDoc = sanitizeDigits(input.document);
+
+    // Valida o documento fiscal fornecido no input
+    if (input.document && !isValidDocument(input.document, docType)) {
+      return {
+        success: false,
+        error: `Documento fiscal (${docType}) inválido. Verifique os dígitos informados.`,
+      };
+    }
+
+    if (!cleanDoc && !orgDoc && !isSandboxOrDev) {
       return {
         success: false,
         error:
@@ -73,13 +94,38 @@ export async function createSubscriptionCheckoutAction(
       };
     }
 
-    // 2. Dispara a criação real no Asaas (SEM MOCKS OU FALLBACKS FICTÍCIOS)
+    // 2. Atualiza os dados fiscais e de faturamento na organização no Supabase
+    const effectiveDoc = cleanDoc || orgDoc;
+    if (isSupabaseServerConfigured() && orgId) {
+      try {
+        const supabaseAdmin = createAdminClient();
+        const updateData: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (cleanDoc) updateData.document = cleanDoc;
+        if (input.billingName) updateData.billing_name = input.billingName.trim();
+        if (input.billingEmail) updateData.billing_email = input.billingEmail.trim();
+        if (input.billingPhone) updateData.billing_phone = input.billingPhone.trim();
+
+        await (supabaseAdmin.from("organizations") as unknown as { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } })
+          .update(updateData)
+          .eq("id", orgId);
+      } catch (dbErr) {
+        console.warn("[Billing Org Update Warning]", dbErr);
+      }
+    }
+
+    // 3. Dispara a criação real no Asaas (SEM MOCKS OU FALLBACKS FICTÍCIOS)
     const result = await createAsaasSubscription({
       organizationId: orgId,
       organizationName: orgName,
       organizationEmail: orgEmail,
       organizationPhone: orgPhone,
-      organizationDocument: orgDoc,
+      organizationDocument: effectiveDoc,
+      documentType: docType,
+      billingName: input.billingName || orgName,
+      billingEmail: input.billingEmail || orgEmail,
+      billingPhone: input.billingPhone || orgPhone,
       currentAsaasCustomerId,
       planId,
       billingCycle,
@@ -96,6 +142,7 @@ export async function createSubscriptionCheckoutAction(
     return {
       success: true,
       checkoutUrl: result.checkoutUrl,
+      invoiceUrl: result.checkoutUrl,
       subscriptionId: result.subscriptionId,
       customerId: result.customerId,
     };

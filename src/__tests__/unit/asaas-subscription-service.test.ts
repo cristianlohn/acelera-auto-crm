@@ -270,6 +270,63 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
       ((postCall?.[1] as RequestInit | undefined)?.body as string) || "{}"
     ) as AsaasCustomerPayload;
 
-    expect(requestBody.cpfCnpj).toBe("24991428000188");
+    expect(requestBody.cpfCnpj).toBe("00000000000191");
+  });
+
+  it("[TEST-ASAAS-SUB-7] deve enviar dados fiscais e de faturamento customizados para o Asaas", async () => {
+    interface AsaasCustomerPayload {
+      name?: string;
+      email?: string;
+      cpfCnpj?: string;
+      phone?: string;
+      mobilePhone?: string;
+      externalReference?: string;
+      notificationDisabled?: boolean;
+    }
+
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      if (url.includes("/customers?") && options?.method === "GET") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ data: [] }),
+        } as Response);
+      }
+
+      if (url.endsWith("/customers") && options?.method === "POST") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: "cus_custom_billing", name: "Auto Prime LTDA" }),
+        } as Response);
+      }
+
+      return Promise.resolve({ ok: false } as Response);
+    });
+
+    globalThis.fetch = mockFetch;
+
+    const result = await createOrGetAsaasCustomer({
+      organizationId: "org-custom-123",
+      name: "Nome Antigo",
+      email: "antigo@loja.com",
+      billingName: "Auto Prime Veículos LTDA",
+      billingEmail: "financeiro@autoprime.com.br",
+      billingPhone: "(11) 98888-9999",
+      document: "33.000.167/0001-01",
+      documentType: "CNPJ",
+    });
+
+    expect(result.customerId).toBe("cus_custom_billing");
+
+    const postCall = mockFetch.mock.calls.find(
+      (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).endsWith("/customers")
+    );
+    const requestBody = JSON.parse(
+      ((postCall?.[1] as RequestInit | undefined)?.body as string) || "{}"
+    ) as AsaasCustomerPayload;
+
+    expect(requestBody.name).toBe("Auto Prime Veículos LTDA");
+    expect(requestBody.email).toBe("financeiro@autoprime.com.br");
+    expect(requestBody.cpfCnpj).toBe("33000167000101");
+    expect(requestBody.phone).toBe("11988889999");
   });
 });

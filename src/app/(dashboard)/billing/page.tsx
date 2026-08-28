@@ -5,8 +5,8 @@
  * Funcionalidades:
  * - Paywall estrito quando o período de teste expirou (`expired=true`).
  * - Escolha de ciclo de faturamento (Mensal / Anual com 2 meses grátis).
- * - Seleção de plano (Starter R$ 297, Pro R$ 497, Enterprise R$ 997).
- * - Checkout direto simulado com suporte a Cartão de Crédito e Pix.
+ * - Seleção de plano (Starter R$ 297, Pro R$ 597, Enterprise R$ 1297).
+ * - Modal de Checkout seguro com seleção fiscal (CPF/CNPJ) e emissão via Asaas.
  * - Ambiente seguro e ativação imediata via gateway Asaas.
  */
 
@@ -24,11 +24,9 @@ import {
   ArrowRight,
   AlertCircle,
   Zap,
-  Loader2,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { createSubscriptionCheckoutAction } from "@/app/actions/billing-actions";
+import { BillingCheckoutDialog } from "@/components/billing/billing-checkout-dialog";
 import { cn } from "@/lib/utils";
 
 interface Plan {
@@ -88,10 +86,11 @@ const plans: Plan[] = [
     sellersLimit: "Vendedores ilimitados",
     features: [
       "Todos os recursos do Plano Pro +",
-      "Vendedores ilimitados na roleta e na esteira de atendimento",
-      "Ingestão de leads de alto volume",
-      "Onboarding guiado com configuração inicial e treino da equipe",
-      "Atendimento dedicado com gerente de contas",
+      "Vendedores e usuários ilimitados na roleta",
+      "Distribuição avançada por múltiplos pátios e filiais",
+      "Gerente de conta dedicado e SLA garantido",
+      "Integração customizada via Webhook & REST API",
+      "Treinamento individual para toda a equipe comercial",
     ],
   },
 ];
@@ -101,46 +100,37 @@ function BillingContent() {
   const isExpired = searchParams.get("expired") === "true";
 
   const [billingCycle, setBillingCycle] = useState<"mensal" | "anual">("mensal");
-  const [selectedPlan, setSelectedPlan] = useState<string>("pro");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
+  const [selectedPlanDetails, setSelectedPlanDetails] = useState<{
+    id: string;
+    name: string;
+    price: number;
+  } | null>(null);
 
   const isAnnual = billingCycle === "anual";
 
-  const handleCheckout = async (planId: string) => {
-    setSelectedPlan(planId);
-    setIsProcessing(true);
-    setSuccessMessage(null);
-
-    try {
-      const result = await createSubscriptionCheckoutAction({
-        planId,
-        billingCycle,
-      });
-
-      if (!result.success || !result.checkoutUrl) {
-        const errMsg = result.error || "Não foi possível gerar a assinatura no Asaas.";
-        toast.error(errMsg);
-        setIsProcessing(false);
-        return;
-      }
-
-      toast.success("Assinatura gerada no Asaas! Redirecionando para o pagamento seguro...");
-      setSuccessMessage("Fatura gerada com sucesso! Redirecionando para o Asaas...");
-
-      if (typeof window !== "undefined" && result.checkoutUrl) {
-        window.location.assign(result.checkoutUrl);
-      }
-    } catch (err) {
-      console.error("[Billing Checkout Error]", err);
-      const msg = err instanceof Error ? err.message : "Falha na comunicação com o gateway Asaas.";
-      toast.error(msg);
-      setIsProcessing(false);
-    }
+  const handleOpenCheckout = (planId: string) => {
+    const plan = plans.find((p) => p.id === planId) || plans[1];
+    setSelectedPlanDetails({
+      id: plan.id,
+      name: plan.name,
+      price: isAnnual ? plan.annualPrice : plan.monthlyPrice,
+    });
+    setIsCheckoutDialogOpen(true);
   };
 
   return (
     <div className="min-h-screen bg-[#09090b] text-[#f4f4f5] p-4 sm:p-8 lg:p-12">
+      {selectedPlanDetails && (
+        <BillingCheckoutDialog
+          open={isCheckoutDialogOpen}
+          onOpenChange={setIsCheckoutDialogOpen}
+          planId={selectedPlanDetails.id}
+          planName={selectedPlanDetails.name}
+          planPrice={selectedPlanDetails.price}
+          billingCycle={billingCycle}
+        />
+      )}
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Cabeçalho Condicional: Paywall Expirado vs Gestão de Faturamento */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
@@ -206,17 +196,6 @@ function BillingContent() {
           </div>
         </div>
 
-        {/* Feedback de Sucesso */}
-        {successMessage && (
-          <div
-            role="status"
-            className="flex items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-950/50 p-4 text-sm font-semibold text-emerald-300 shadow-xl"
-          >
-            <Zap className="h-5 w-5 text-emerald-400 animate-bounce" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-
         {/* Grade de Planos */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
           {plans.map((plan) => {
@@ -280,8 +259,7 @@ function BillingContent() {
                 <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
                   <Button
                     type="button"
-                    onClick={() => handleCheckout(plan.id)}
-                    disabled={isProcessing}
+                    onClick={() => handleOpenCheckout(plan.id)}
                     data-testid={plan.id === "pro" ? "subscribe-pro-btn" : `btn-subscribe-${plan.id}`}
                     className={cn(
                       "w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-lg transition-all",
@@ -290,17 +268,8 @@ function BillingContent() {
                         : "bg-white/10 hover:bg-white/15 text-white"
                     )}
                   >
-                    {isProcessing && selectedPlan === plan.id ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Gerando fatura no Asaas...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{`Assinar ${plan.name}`}</span>
-                        <ArrowRight className="h-4 w-4" />
-                      </>
-                    )}
+                    <span>{`Assinar ${plan.name}`}</span>
+                    <ArrowRight className="h-4 w-4" />
                   </Button>
                   <p className="text-center text-[10px] text-zinc-500 flex items-center justify-center gap-1">
                     <Lock className="h-3 w-3" />

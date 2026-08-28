@@ -43,27 +43,36 @@ export const BILLING_PLANS_CONFIG: Record<string, PlanConfig> = {
 
 export interface AsaasCustomerInput {
   organizationId: string;
-  name: string;
-  email: string;
+  name?: string;
+  email?: string;
   phone?: string | null;
   document?: string | null;
+  documentType?: "CPF" | "CNPJ";
+  billingName?: string;
+  billingEmail?: string;
+  billingPhone?: string | null;
   currentAsaasCustomerId?: string | null;
 }
 
 export interface CreateSubscriptionParams {
   organizationId: string;
-  organizationName: string;
-  organizationEmail: string;
+  organizationName?: string;
+  organizationEmail?: string;
   organizationPhone?: string | null;
   organizationDocument?: string | null;
+  documentType?: "CPF" | "CNPJ";
+  billingName?: string;
+  billingEmail?: string;
+  billingPhone?: string | null;
   currentAsaasCustomerId?: string | null;
   planId: string;
-  billingCycle: "mensal" | "anual";
+  billingCycle?: "mensal" | "anual";
 }
 
 export interface CreateSubscriptionResult {
   success: boolean;
   checkoutUrl?: string;
+  invoiceUrl?: string;
   subscriptionId?: string;
   customerId?: string;
   error?: string;
@@ -174,7 +183,10 @@ export async function createOrGetAsaasCustomer(
   }
 
   // 4. Criação de novo cliente no Asaas
-  const cleanPhone = input.phone ? input.phone.replace(/\D/g, "") : undefined;
+  const rawName = input.billingName || input.name || "Concessionária Acelera Auto";
+  const rawEmail = input.billingEmail || input.email || "contato@aceleraautocrm.com.br";
+  const rawPhone = input.billingPhone || input.phone;
+  const cleanPhone = rawPhone ? rawPhone.replace(/\D/g, "") : undefined;
   const rawDoc = input.document ? input.document.replace(/\D/g, "") : "";
   const isSandboxOrDev =
     process.env.NODE_ENV === "development" ||
@@ -184,7 +196,7 @@ export async function createOrGetAsaasCustomer(
   let cpfCnpj: string | undefined = rawDoc || undefined;
   if (!cpfCnpj) {
     if (isSandboxOrDev) {
-      cpfCnpj = "24991428000188"; // CNPJ válido para testes em Sandbox
+      cpfCnpj = "00000000000191"; // CNPJ válido para testes em Sandbox
     } else {
       throw new Error(
         "Cadastre o CNPJ ou CPF da concessionária nas Configurações da Loja antes de assinar um plano."
@@ -193,8 +205,8 @@ export async function createOrGetAsaasCustomer(
   }
 
   const payload = {
-    name: input.name || "Concessionária Acelera Auto",
-    email: input.email || "contato@aceleraautocrm.com.br",
+    name: rawName,
+    email: rawEmail,
     phone: cleanPhone || undefined,
     mobilePhone: cleanPhone || undefined,
     cpfCnpj,
@@ -244,10 +256,14 @@ export async function createAsaasSubscription(
     // 1. Garante a existência do cliente no Asaas
     const { customerId } = await createOrGetAsaasCustomer({
       organizationId: params.organizationId,
-      name: params.organizationName,
-      email: params.organizationEmail,
-      phone: params.organizationPhone,
+      name: params.billingName || params.organizationName,
+      email: params.billingEmail || params.organizationEmail,
+      phone: params.billingPhone || params.organizationPhone,
       document: params.organizationDocument,
+      documentType: params.documentType,
+      billingName: params.billingName,
+      billingEmail: params.billingEmail,
+      billingPhone: params.billingPhone,
       currentAsaasCustomerId: params.currentAsaasCustomerId,
     });
 
@@ -337,6 +353,7 @@ export async function createAsaasSubscription(
     return {
       success: true,
       checkoutUrl: invoiceUrl,
+      invoiceUrl,
       subscriptionId,
       customerId,
     };
