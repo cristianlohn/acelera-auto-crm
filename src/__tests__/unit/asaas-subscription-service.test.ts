@@ -225,7 +225,16 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
   });
 
   it("[TEST-ASAAS-SUB-6] deve utilizar CNPJ de teste em sandbox/dev quando a loja não tiver documento cadastrado", async () => {
-    let capturedBody: Record<string, unknown> | null = null;
+    interface AsaasCustomerPayload {
+      name?: string;
+      email?: string;
+      cpfCnpj?: string;
+      phone?: string;
+      mobilePhone?: string;
+      externalReference?: string;
+      notificationDisabled?: boolean;
+    }
+
     const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
       if (url.includes("/customers?") && options?.method === "GET") {
         return Promise.resolve({
@@ -235,7 +244,6 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
       }
 
       if (url.endsWith("/customers") && options?.method === "POST") {
-        capturedBody = JSON.parse(options?.body as string);
         return Promise.resolve({
           ok: true,
           json: async () => ({ id: "cus_sandbox_doc", name: "Loja Sem Doc" }),
@@ -254,7 +262,14 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
     });
 
     expect(result.customerId).toBe("cus_sandbox_doc");
-    expect(capturedBody).toBeDefined();
-    expect(capturedBody?.cpfCnpj).toBe("24991428000188");
+
+    const postCall = mockFetch.mock.calls.find(
+      (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).endsWith("/customers")
+    );
+    const requestBody = JSON.parse(
+      ((postCall?.[1] as RequestInit | undefined)?.body as string) || "{}"
+    ) as AsaasCustomerPayload;
+
+    expect(requestBody.cpfCnpj).toBe("24991428000188");
   });
 });
