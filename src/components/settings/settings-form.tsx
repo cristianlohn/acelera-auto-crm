@@ -18,7 +18,6 @@ import {
   Sparkles,
   Users,
   UserPlus,
-  Trash2,
   Crown,
   MessageSquare,
   AlertCircle,
@@ -47,7 +46,6 @@ import {
 } from "@/lib/team-data";
 import {
   inviteTeamMember,
-  removeTeamMember,
   getTeamMembers,
 } from "@/app/actions/team";
 import {
@@ -56,6 +54,7 @@ import {
 } from "@/app/actions/auth";
 import { formatDocument, formatPhone } from "@/lib/validations/document";
 import type { ApiKey } from "@/types/api-key";
+import { MemberRowActions } from "@/components/team/member-row-actions";
 
 // ---------------------------------------------------------------------------
 // Tipos das Abas e Configurações
@@ -404,22 +403,6 @@ export function SettingsForm({
         setTeamFeedback("Colaborador convidado com sucesso!");
         setTimeout(() => setTeamFeedback(null), 3500);
       }
-    });
-  };
-
-  // Remoção de Colaborador
-  const handleRemoveMember = (memberId: string) => {
-    startTeamTransition(async () => {
-      const res = await removeTeamMember(memberId);
-      if (!res.success) {
-        setTeamFeedback(res.error || "Erro ao remover colaborador.");
-        setTimeout(() => setTeamFeedback(null), 4000);
-        return;
-      }
-
-      setTeamMembers((prev) => prev.filter((m) => m.id !== memberId));
-      setTeamFeedback("Colaborador removido da equipe com sucesso!");
-      setTimeout(() => setTeamFeedback(null), 3500);
     });
   };
 
@@ -1101,30 +1084,12 @@ export function SettingsForm({
                           </div>
                         </div>
 
-                        {/* Ações por membro */}
+                        {/* Ações por membro com confirmação explícita via AlertDialog */}
                         <div className="flex items-center gap-2">
-                          <Button
-                            id={`btn-remove-${member.id}`}
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            disabled={isTeamPending || member.role === "admin"}
-                            onClick={() => handleRemoveMember(member.id)}
-                            className={cn(
-                              "text-xs h-7 gap-1",
-                              member.role === "admin"
-                                ? "text-muted-foreground/40 cursor-not-allowed"
-                                : "text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
-                            )}
-                            title={
-                              member.role === "admin"
-                                ? "O proprietário admin não pode ser removido"
-                                : "Remover colaborador"
-                            }
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span>Remover</span>
-                          </Button>
+                          <MemberRowActions
+                            member={member}
+                            onDeleted={(id) => setTeamMembers((prev) => prev.filter((m) => m.id !== id))}
+                          />
                         </div>
                       </div>
                     );

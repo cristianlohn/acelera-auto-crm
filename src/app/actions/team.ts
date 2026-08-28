@@ -35,9 +35,13 @@ import {
   deleteSalespersonAction as _deleteSalespersonAction,
   removeMemberAction as _removeMemberAction,
   deleteSellerAction as _deleteSellerAction,
+  removeTeamMemberAction as _removeTeamMemberAction,
+  removeTeamMemberAction,
   acceptOrganizationInviteAction as _acceptOrganizationInviteAction,
   type InviteTeamMemberInput,
 } from "./team-actions";
+
+export const removeTeamMemberAction = _removeTeamMemberAction;
 
 export type {
   TeamMember,
@@ -384,225 +388,20 @@ export async function removeTeamMember(
   memberId: string
 ): Promise<{ success: boolean; error?: string; message?: string }> {
   const cleanId = memberId.startsWith("inv-") ? memberId.replace(/^inv-/, "") : memberId;
-
-  // ── Modo demo / offline ────────────────────────────────────────────────────
-  const isDemoId =
-    memberId.startsWith("sp-") ||
-    memberId.startsWith("demo-") ||
-    cleanId.startsWith("sp-") ||
-    cleanId.startsWith("demo-");
-  const memIdx = localTeamMembers.findIndex((m) => m.id === memberId || m.id === cleanId);
-
-  if (isDemoId || (!isSupabaseServerConfigured() && memIdx !== -1)) {
-    if (memIdx === -1) {
-      return { success: false, error: "Colaborador não encontrado." };
-    }
-    const memMember = localTeamMembers[memIdx];
-    // Protege o admin/proprietário (UserRole = "admin" | "gerente" | "vendedor")
-    if (memMember.role === "admin") {
+  const localIdx = localTeamMembers.findIndex((m) => m.id === memberId || m.id === cleanId);
+  if (localIdx !== -1) {
+    if (localTeamMembers[localIdx].role === "admin") {
       return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
     }
-    localTeamMembers.splice(memIdx, 1);
-    revalidatePath("/settings");
-    revalidatePath("/team");
-    return { success: true, message: "Colaborador removido com sucesso." };
+    localTeamMembers.splice(localIdx, 1);
   }
 
-  // ── Modo produção (Supabase) ──────────────────────────────────────────────
-  try {
-    const supabaseUserClient = await createServerSupabaseClient();
-    const supabaseAdmin = createAdminClient();
-
-    // 1. Valida autenticação do usuário logado
-    const {
-      data: { user },
-    } = await supabaseUserClient.auth.getUser();
-    if (!user) {
-      return { success: false, error: "Não autorizado." };
-    }
-
-    // 2. Obtém a organização ativa do usuário logado
-    const { data: callerProfile } = await supabaseAdmin
-      .from("profiles")
-      .select("organization_id, role")
-      .eq("id", user.id)
-      .single();
-
-    const organizationId = callerProfile?.organization_id;
-    if (!organizationId) {
-      return { success: false, error: "Organização não encontrada." };
-    }
-
-    let removed = false;
-    let targetEmail: string | null = null;
-
-    // =========================================================================
-    // ETAPA A: organization_invites (convites pendentes com cleanId ou memberId)
-    // =========================================================================
-    try {
-      const { data: invite } = await supabaseAdmin
-        .from("organization_invites")
-        .select("id, organization_id, email")
-        .eq("organization_id", organizationId)
-        .eq("id", cleanId)
-        .maybeSingle();
-
-      if (invite) {
-        targetEmail = invite.email;
-        await supabaseAdmin
-          .from("organization_invites")
-          .delete()
-          .eq("id", invite.id);
-
-        if (invite.email) {
-          await supabaseAdmin
-            .from("profiles")
-            .update({ organization_id: null as unknown as string })
-            .eq("email", invite.email.toLowerCase())
-            .eq("organization_id", organizationId);
-        }
-        removed = true;
-      }
-    } catch {}
-
-    // =========================================================================
-    // ETAPA B: organization_members
-    // =========================================================================
-    try {
-      const { data: dbMember } = await supabaseAdmin
-        .from("organization_members")
-        .select("id, organization_id, role, user_id")
-        .eq("organization_id", organizationId)
-        .or(`id.eq.${cleanId},user_id.eq.${cleanId}`)
-        .maybeSingle();
-
-      if (dbMember) {
-        if ((dbMember.role as string) === "owner" || (dbMember.role as string) === "admin") {
-          return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
-        }
-
-        if (dbMember.user_id) {
-          await supabaseAdmin
-            .from("roleta_sellers")
-            .delete()
-            .eq("organization_id", organizationId)
-            .eq("user_id", dbMember.user_id);
-
-          await supabaseAdmin
-            .from("profiles")
-            .update({ organization_id: null as unknown as string })
-            .eq("id", dbMember.user_id)
-            .eq("organization_id", organizationId);
-        }
-
-        await supabaseAdmin
-          .from("organization_members")
-          .delete()
-          .eq("id", dbMember.id);
-
-        removed = true;
-      }
-    } catch {}
-
-    // =========================================================================
-    // ETAPA C: profiles (vínculo direto via organization_id por id ou email)
-    // =========================================================================
-    try {
-      let targetProfile = null;
-      const { data: pById } = await supabaseAdmin
-        .from("profiles")
-        .select("id, organization_id, role, email")
-        .eq("organization_id", organizationId)
-        .eq("id", cleanId)
-        .maybeSingle();
-
-      if (pById) {
-        targetProfile = pById;
-        targetEmail = targetEmail || pById.email;
-      }
-
-      if (!targetProfile && targetEmail) {
-        const { data: pByEmail } = await supabaseAdmin
-          .from("profiles")
-          .select("id, organization_id, role, email")
-          .eq("organization_id", organizationId)
-          .eq("email", targetEmail.toLowerCase())
-          .maybeSingle();
-        if (pByEmail) {
-          targetProfile = pByEmail;
-        }
-      }
-
-      if (targetProfile) {
-        if ((targetProfile.role as string) === "owner" || (targetProfile.role as string) === "admin") {
-          return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
-        }
-
-        await supabaseAdmin
-          .from("profiles")
-          .update({ organization_id: null as unknown as string })
-          .eq("id", targetProfile.id);
-
-        await supabaseAdmin
-          .from("roleta_sellers")
-          .delete()
-          .eq("organization_id", organizationId)
-          .eq("user_id", targetProfile.id);
-
-        if (targetProfile.email) {
-          await supabaseAdmin
-            .from("organization_invites")
-            .delete()
-            .eq("organization_id", organizationId)
-            .eq("email", targetProfile.email.toLowerCase());
-
-          await supabaseAdmin
-            .from("profiles")
-            .update({ organization_id: null as unknown as string })
-            .eq("organization_id", organizationId)
-            .eq("email", targetProfile.email.toLowerCase());
-        }
-
-        removed = true;
-      }
-    } catch {}
-
-    // Fallback: se nenhum registro formal foi localizado mas o ID pertencia à loja
-    if (!removed) {
-      await supabaseAdmin
-        .from("profiles")
-        .update({ organization_id: null as unknown as string })
-        .eq("id", cleanId)
-        .eq("organization_id", organizationId);
-      removed = true;
-    }
-
-    // Sincroniza localTeamMembers
-    const localIdx = localTeamMembers.findIndex(
-      (m) =>
-        m.id === memberId ||
-        m.id === cleanId ||
-        (targetEmail && m.email?.toLowerCase() === targetEmail.toLowerCase())
-    );
-    if (localIdx !== -1) localTeamMembers.splice(localIdx, 1);
-
-    if (removed) {
-      revalidatePath("/settings");
-      revalidatePath("/team");
-      revalidatePath("/dashboard/team");
-      revalidatePath("/", "layout");
-      return { success: true, message: "Colaborador desvinculado com sucesso." };
-    }
-
-    return {
-      success: false,
-      error: "Registro de colaborador ou convite não encontrado nesta loja.",
-    };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Erro inesperado ao remover colaborador.";
-    console.error("[REMOVE_MEMBER_EXCEPTION]:", err);
-    return { success: false, error: message };
-  }
+  const result = await removeTeamMemberAction(memberId);
+  return {
+    success: result.success,
+    error: result.error,
+    message: result.message || (result.success ? "Colaborador removido com sucesso." : undefined),
+  };
 }
 
 /**

@@ -5,22 +5,9 @@
 
 "use client";
 
-import React, { useState, useTransition } from "react";
-import { Trash2, Loader2, Mail, Phone, ShieldCheck, UserCheck } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { removeTeamMemberAction } from "@/app/actions/team-actions";
+import React from "react";
+import { Mail, Phone, ShieldCheck, UserCheck } from "lucide-react";
+import { MemberRowActions } from "@/components/team/member-row-actions";
 import type { TeamMember } from "@/types/team";
 
 export interface TeamMembersListProps {
@@ -29,29 +16,6 @@ export interface TeamMembersListProps {
 }
 
 export function TeamMembersList({ members, onMemberDeleted }: TeamMembersListProps) {
-  const [isPending, startTransition] = useTransition();
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const handleRemoveMember = async (memberId: string, memberEmail?: string, memberName?: string) => {
-    setDeletingId(memberId);
-    startTransition(async () => {
-      try {
-        const res = await removeTeamMemberAction(memberId, memberEmail);
-        if (res.success) {
-          toast.success(res.message || `${memberName || "Colaborador"} foi removido com sucesso.`);
-          onMemberDeleted?.(memberId);
-        } else {
-          toast.error(res.error || "Erro ao remover colaborador do servidor.");
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : "Erro ao remover colaborador.";
-        toast.error(msg);
-      } finally {
-        setDeletingId(null);
-      }
-    });
-  };
-
   if (members.length === 0) {
     return (
       <div className="rounded-xl border border-white/10 bg-[#121216] p-8 text-center text-zinc-400 text-xs">
@@ -67,7 +31,6 @@ export function TeamMembersList({ members, onMemberDeleted }: TeamMembersListPro
           (member.role as string) === "admin" ||
           (member.role as string) === "owner" ||
           Boolean((member as { isOwner?: boolean }).isOwner);
-        const isCurrentlyDeleting = isPending && deletingId === member.id;
 
         return (
           <div
@@ -105,43 +68,7 @@ export function TeamMembersList({ members, onMemberDeleted }: TeamMembersListPro
             </div>
 
             <div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={isCurrentlyDeleting || isOwner}
-                    className="text-red-500 hover:text-red-400 hover:bg-red-500/10 h-8 px-3 text-xs"
-                    data-testid={`btn-remove-member-${member.id}`}
-                  >
-                    {isCurrentlyDeleting ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                    ) : (
-                      <Trash2 className="w-4 h-4 mr-1" />
-                    )}
-                    Remover
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Remover Colaborador?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Tem certeza que deseja remover <strong>{member.name || member.email}</strong> da concessionária? 
-                      O colaborador perderá o acesso imediato ao CRM e à roleta de distribuição de leads.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => handleRemoveMember(member.id, member.email, member.name)}
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                    >
-                      {isCurrentlyDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                      Sim, Remover Colaborador
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <MemberRowActions member={member} onDeleted={onMemberDeleted} />
             </div>
           </div>
         );

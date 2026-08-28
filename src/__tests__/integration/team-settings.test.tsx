@@ -165,9 +165,11 @@ describe("[IT-15] Gestão de Equipe & Controle de Capacidade Multi-Tenant", () =
     });
 
     // Act
-    await act(async () => {
-      await user.click(removeButtons[2]);
-    });
+    await user.click(removeButtons[2]);
+
+    // Confirma no AlertDialog
+    const confirmButton = await screen.findByRole("button", { name: /sim, remover/i });
+    await user.click(confirmButton);
 
     // Assert
     expect(spyRemove).toHaveBeenCalled();
