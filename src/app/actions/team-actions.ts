@@ -819,12 +819,13 @@ export async function resendInviteEmailAction(
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
   const redirectTo = `${siteUrl}/auth/callback?next=/auth/update-password`;
+  const cleanEmail = email.trim().toLowerCase();
 
   if (tenantContext.isDemo) {
     return {
       success: true,
       emailSent: true,
-      fallbackInviteLink: `${redirectTo}?token=demo_resend_${Date.now()}&email=${encodeURIComponent(email)}`,
+      fallbackInviteLink: `${redirectTo}?token=demo_resend_${Date.now()}&email=${encodeURIComponent(cleanEmail)}`,
     };
   }
 
@@ -832,13 +833,13 @@ export async function resendInviteEmailAction(
     return {
       success: true,
       emailSent: false,
-      fallbackInviteLink: `${redirectTo}?token=local_${Date.now()}&email=${encodeURIComponent(email)}`,
+      fallbackInviteLink: `${redirectTo}?token=local_${Date.now()}&email=${encodeURIComponent(cleanEmail)}`,
     };
   }
 
   try {
     const supabaseAdmin = createAdminClient();
-    const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
       redirectTo,
       data: {
         full_name: name || "Colaborador",
@@ -846,19 +847,37 @@ export async function resendInviteEmailAction(
       },
     });
 
-    const linkRes = await supabaseAdmin.auth.admin.generateLink({
-      type: "invite",
-      email,
-      options: { redirectTo },
-    });
+    let actionLink = "";
+    try {
+      const linkRes = await supabaseAdmin.auth.admin.generateLink({
+        type: "invite",
+        email: cleanEmail,
+        options: { redirectTo },
+      });
+      if (!linkRes.error && linkRes.data?.properties?.action_link) {
+        actionLink = linkRes.data.properties.action_link;
+      }
+    } catch {}
 
-    const fallbackInviteLink =
-      linkRes.data?.properties?.action_link || `${redirectTo}?email=${encodeURIComponent(email)}`;
+    if (!actionLink) {
+      try {
+        const magicRes = await supabaseAdmin.auth.admin.generateLink({
+          type: "magiclink",
+          email: cleanEmail,
+          options: { redirectTo },
+        });
+        if (!magicRes.error && magicRes.data?.properties?.action_link) {
+          actionLink = magicRes.data.properties.action_link;
+        }
+      } catch {}
+    }
+
+    const fallbackInviteLink = actionLink || `${redirectTo}&email=${encodeURIComponent(cleanEmail)}`;
 
     if (inviteRes.error) {
       return {
         success: true,
-        emailSent: false,
+        emailSent: Boolean(actionLink),
         fallbackInviteLink,
         error: inviteRes.error.message,
       };
