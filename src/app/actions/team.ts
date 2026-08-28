@@ -32,6 +32,10 @@ import {
   resendInviteEmailAction as _resendInviteEmailAction,
   inviteSellerAction as _inviteSellerAction,
   acceptInviteAction as _acceptInviteAction,
+  deleteSalespersonAction as _deleteSalespersonAction,
+  removeMemberAction as _removeMemberAction,
+  deleteSellerAction as _deleteSellerAction,
+  acceptOrganizationInviteAction as _acceptOrganizationInviteAction,
   type InviteTeamMemberInput,
 } from "./team-actions";
 
@@ -68,6 +72,11 @@ export async function inviteSellerAction(formData: {
 export async function acceptInviteAction(token: string) {
   return _acceptInviteAction(token);
 }
+
+export const acceptOrganizationInviteAction = _acceptOrganizationInviteAction;
+export const deleteSalespersonAction = _deleteSalespersonAction;
+export const removeMemberAction = _removeMemberAction;
+export const deleteSellerAction = _deleteSellerAction;
 
 /**
  * Server Action unificada para reenviar convite por e-mail.
@@ -338,11 +347,11 @@ export async function removeTeamMember(
     };
   }
 
-  // Proteção de segurança: o admin não pode ser removido
-  if (member.role === "admin") {
+  // Proteção de segurança: o admin/owner não pode ser removido
+  if (member.role === "admin" || (member.role as unknown as { role: string }).role === "owner") {
     return {
       success: false,
-      error: "O administrador proprietário da conta não pode ser removido da equipe.",
+      error: "O proprietário da loja não pode ser desvinculado.",
     };
   }
 

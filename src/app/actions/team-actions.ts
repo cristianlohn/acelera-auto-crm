@@ -446,11 +446,72 @@ export async function acceptInviteAction(token: string): Promise<{
 
     // 2. Se o usuário estiver autenticado, vincula imediatamente
     if (tenantContext.userId) {
-      // Atualiza organization_members
+      const user = { id: tenantContext.userId };
+      const newOrgId = typedInvite.organization_id;
+
+      // 1. Busca vínculos ativos anteriores EXCLUSIVAMENTE com role de vendedor
+      const { data: previousSellerMemberships } = (await supabaseAdmin
+        .from("organization_members")
+        ?.select?.("id, organization_id, role")
+        ?.eq?.("user_id", user.id)
+        ?.eq?.("status", "active")
+        ?.neq?.("organization_id", newOrgId)
+        ?.in?.("role", ["seller", "vendedor"])) || { data: null };
+
+      if (previousSellerMemberships && previousSellerMemberships.length > 0) {
+        for (const prev of previousSellerMemberships) {
+          // Dupla checagem de segurança em memória:
+          if (prev.role === "owner" || prev.role === "admin") {
+            continue;
+          }
+
+          // A. Desativa apenas o vínculo de vendedor na loja antiga
+          await supabaseAdmin
+            .from("organization_members")
+            ?.update?.({
+              status: "transferred",
+              updated_at: new Date().toISOString(),
+            })
+            ?.eq?.("id", prev.id);
+
+          // B. Remove da roleta de distribuição de leads da loja antiga
+          try {
+            await (supabaseAdmin as unknown as { from: (table: string) => { delete: () => { eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<unknown> } } } })
+              .from("roleta_sellers")
+              ?.delete?.()
+              ?.eq?.("organization_id", prev.organization_id)
+              ?.eq?.("user_id", user.id);
+          } catch {}
+
+          // C. Transfere os leads abertos para o Admin da loja antiga
+          const { data: adminMember } = (await supabaseAdmin
+            .from("organization_members")
+            ?.select?.("user_id")
+            ?.eq?.("organization_id", prev.organization_id)
+            ?.in?.("role", ["owner", "admin"])
+            ?.eq?.("status", "active")
+            ?.limit?.(1)
+            ?.maybeSingle?.()) || { data: null };
+
+          if (adminMember?.user_id) {
+            await supabaseAdmin
+              .from("leads")
+              ?.update?.({
+                seller_id: adminMember.user_id,
+                updated_at: new Date().toISOString(),
+              })
+              ?.eq?.("organization_id", prev.organization_id)
+              ?.eq?.("seller_id", user.id)
+              ?.neq?.("status", "fechado");
+          }
+        }
+      }
+
+      // Atualiza organization_members para a nova loja
       await supabaseAdmin.from("organization_members")?.upsert?.(
         {
-          organization_id: typedInvite.organization_id,
-          user_id: tenantContext.userId,
+          organization_id: newOrgId,
+          user_id: user.id,
           role: typedInvite.role || "seller",
           status: "active",
           updated_at: new Date().toISOString(),
@@ -462,11 +523,11 @@ export async function acceptInviteAction(token: string): Promise<{
       await supabaseAdmin
         .from("profiles")
         ?.update?.({
-          organization_id: typedInvite.organization_id,
+          organization_id: newOrgId,
           role: typedInvite.role === "manager" ? "gerente" : "vendedor",
           updated_at: new Date().toISOString(),
         })
-        ?.eq?.("id", tenantContext.userId);
+        ?.eq?.("id", user.id);
 
       // Marca convite como accepted
       await supabaseAdmin
@@ -856,10 +917,66 @@ export async function updateSalespersonAction(
 
 /**
  * Remove ou desativa um membro da equipe comercial.
+ * Bloqueia categoricamente a exclusão de Dono ('owner') ou Administrador ('admin').
  */
 export async function deleteSalespersonAction(memberId: string): Promise<ActionResult> {
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  // 1. Checagem em memória
+  const memoryMember = memoryTeamMembers.find((m) => m.id === memberId && m.organization_id === orgId);
+  if (memoryMember && (String(memoryMember.role) === "admin" || String(memoryMember.role) === "owner")) {
+    return {
+      success: false,
+      error: "O proprietário da loja não pode ser desvinculado.",
+    };
+  }
+
+  // 2. Checagem e remoção no Supabase se configurado
+  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
+    try {
+      const supabaseAdmin = createAdminClient();
+
+      // Checa se o membro alvo tem papel de owner ou admin em profiles
+      const { data: targetProfile } = (await supabaseAdmin
+        .from("profiles")
+        ?.select?.("id, role, organization_id")
+        ?.eq?.("id", memberId)
+        ?.eq?.("organization_id", orgId)
+        ?.maybeSingle?.()) || { data: null };
+
+      if (targetProfile && (targetProfile.role === "admin" || (targetProfile.role as string) === "owner")) {
+        return {
+          success: false,
+          error: "O proprietário da loja não pode ser desvinculado.",
+        };
+      }
+
+      // Checa se o membro alvo tem papel de owner ou admin em organization_members
+      const { data: targetMember } = (await supabaseAdmin
+        .from("organization_members")
+        ?.select?.("id, role, status")
+        ?.eq?.("user_id", memberId)
+        ?.eq?.("organization_id", orgId)
+        ?.maybeSingle?.()) || { data: null };
+
+      if (targetMember && (targetMember.role === "owner" || targetMember.role === "admin")) {
+        return {
+          success: false,
+          error: "O proprietário da loja não pode ser desvinculado.",
+        };
+      }
+
+      // Desativa vínculo em organization_members
+      await supabaseAdmin
+        .from("organization_members")
+        ?.update?.({ status: "revoked", updated_at: new Date().toISOString() })
+        ?.eq?.("user_id", memberId)
+        ?.eq?.("organization_id", orgId);
+    } catch (err) {
+      console.error("[DELETE_SELLER_ERROR]:", err);
+    }
+  }
 
   const index = memoryTeamMembers.findIndex((m) => m.id === memberId && m.organization_id === orgId);
   if (index !== -1) {
@@ -869,9 +986,15 @@ export async function deleteSalespersonAction(memberId: string): Promise<ActionR
   try {
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/team");
+    revalidatePath("/team");
+    revalidatePath("/settings");
   } catch {
     // Silencioso
   }
 
   return { success: true };
 }
+
+export const removeMemberAction = deleteSalespersonAction;
+export const deleteSellerAction = deleteSalespersonAction;
+export const acceptOrganizationInviteAction = acceptInviteAction;

@@ -383,7 +383,7 @@ export interface Database {
           organization_id: string;
           user_id: string;
           role: string;
-          status: "pending" | "active" | "revoked";
+          status: "pending" | "active" | "revoked" | "transferred";
           created_at: string;
           updated_at: string;
         };
@@ -392,7 +392,7 @@ export interface Database {
           organization_id: string;
           user_id: string;
           role?: string;
-          status?: "pending" | "active" | "revoked";
+          status?: "pending" | "active" | "revoked" | "transferred";
           created_at?: string;
           updated_at?: string;
         };
@@ -401,7 +401,7 @@ export interface Database {
           organization_id?: string;
           user_id?: string;
           role?: string;
-          status?: "pending" | "active" | "revoked";
+          status?: "pending" | "active" | "revoked" | "transferred";
           created_at?: string;
           updated_at?: string;
         };

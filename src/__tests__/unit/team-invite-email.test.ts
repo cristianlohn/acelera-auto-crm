@@ -546,6 +546,184 @@ describe("[UNIT-TEAM-INVITE-EMAIL] Disparo Automático de Convite SMTP & Conting
     });
   });
 
+  describe("acceptInviteAction - Blindagem de Owner/Admin e Transferência de Vendedor", () => {
+    it("[UT-INV.12] Deve desativar APENAS vínculos com role seller/vendedor em lojas antigas e NUNCA alterar owner ou admin", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: false,
+        needsOnboarding: false,
+        organizationId: "org-antiga",
+        userId: "user-vendedor-123",
+        userEmail: "vendedor@loja.com",
+        profile: null,
+        organization: null,
+      });
+
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockUpdateMembership = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+      const mockUpdateLeads = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            neq: vi.fn().mockResolvedValue({ error: null }),
+          }),
+        }),
+      });
+
+      const mockAdminSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "organization_invites") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: {
+                      id: "inv-uuid-transfer",
+                      organization_id: "org-nova-loja",
+                      role: "seller",
+                      status: "pending",
+                      expires_at: new Date(Date.now() + 86400000).toISOString(),
+                      organizations: { name: "Nova Loja Veículos" },
+                    },
+                    error: null,
+                  }),
+                }),
+              }),
+              update: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ error: null }),
+              }),
+            };
+          }
+          if (table === "organization_members") {
+            return {
+              select: vi.fn().mockImplementation((fields?: string) => {
+                if (fields === "user_id") {
+                  return {
+                    eq: vi.fn().mockReturnValue({
+                      in: vi.fn().mockReturnValue({
+                        eq: vi.fn().mockReturnValue({
+                          limit: vi.fn().mockReturnValue({
+                            maybeSingle: vi.fn().mockResolvedValue({
+                              data: { user_id: "admin-da-loja-antiga" },
+                              error: null,
+                            }),
+                          }),
+                        }),
+                      }),
+                    }),
+                  };
+                }
+                return {
+                  eq: vi.fn().mockReturnValue({
+                    eq: vi.fn().mockReturnValue({
+                      neq: vi.fn().mockReturnValue({
+                        in: vi.fn().mockResolvedValue({
+                          data: [
+                            { id: "mem-seller-1", organization_id: "org-antiga-1", role: "seller" },
+                          ],
+                          error: null,
+                        }),
+                      }),
+                    }),
+                  }),
+                };
+              }),
+              update: mockUpdateMembership,
+              upsert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          if (table === "leads") {
+            return {
+              update: mockUpdateLeads,
+            };
+          }
+          if (table === "profiles") {
+            return {
+              update: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ error: null }),
+              }),
+            };
+          }
+          if (table === "roleta_sellers") {
+            return {
+              delete: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockResolvedValue({ error: null }),
+                }),
+              }),
+            };
+          }
+          return {};
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const result = await acceptInviteAction("token-transfer-123");
+
+      expect(result.success).toBe(true);
+      expect(mockUpdateMembership).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "transferred",
+        })
+      );
+      expect(mockUpdateLeads).toHaveBeenCalledWith(
+        expect.objectContaining({
+          seller_id: "admin-da-loja-antiga",
+        })
+      );
+    });
+  });
+
+  describe("deleteSalespersonAction / removeMemberAction - Blindagem de Dono/Admin", () => {
+    it("[UT-INV.13] Deve rejeitar categoricamente a exclusão de usuário com papel de 'admin' ou 'owner'", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: false,
+        needsOnboarding: false,
+        organizationId: "org-loja-1",
+        userId: "admin-user",
+        userEmail: "admin@loja.com",
+        profile: null,
+        organization: null,
+      });
+
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockAdminSupabase = {
+        from: vi.fn().mockImplementation((table: string) => {
+          if (table === "profiles") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    maybeSingle: vi.fn().mockResolvedValue({
+                      data: { id: "user-owner-id", role: "admin", organization_id: "org-loja-1" },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          return {};
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const { deleteSalespersonAction } = await import("@/app/actions/team-actions");
+      const result = await deleteSalespersonAction("user-owner-id");
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("O proprietário da loja não pode ser desvinculado.");
+    });
+  });
+
   describe("sendInviteEmailViaResend", () => {
     it("[UT-INV.11] Deve executar em modo de simulação gracioso quando RESEND_API_KEY não estiver configurada", async () => {
       const res = await sendInviteEmailViaResend({
