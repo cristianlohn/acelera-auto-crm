@@ -55,7 +55,11 @@ import {
   removeTeamMember,
   getTeamMembers,
 } from "@/app/actions/team";
-import { getCurrentUserProfileAction } from "@/app/actions/auth";
+import {
+  getCurrentUserProfileAction,
+  updateOrganizationSettingsAction,
+} from "@/app/actions/auth";
+import { formatDocument, formatPhone } from "@/lib/validations/document";
 
 // ---------------------------------------------------------------------------
 // Tipos das Abas e Configurações
@@ -153,13 +157,13 @@ export default function SettingsPage() {
   });
 
   const [store, setStore] = useState<StoreState>({
-    legalName: "Acelera Auto Comércio de Veículos LTDA",
-    tradeName: "Acelera Auto Matriz",
-    cnpj: "12.345.678/0001-90",
-    phone: "1133334444",
-    email: "contato@aceleraauto.com.br",
-    address: "Av. das Nações Unidas, 12901 - Brooklin Paulista, São Paulo - SP",
-    businessHours: "Segunda a Sexta: 08:00 - 19:00 | Sábado: 09:00 - 16:00",
+    legalName: "",
+    tradeName: "",
+    cnpj: "",
+    phone: "",
+    email: "",
+    address: "",
+    businessHours: "",
   });
 
   const [crmParams, setCrmParams] = useState<CRMParamsState>({
@@ -242,12 +246,15 @@ export default function SettingsPage() {
               phone: userProfile.phone || prev.phone,
               role: (userProfile.role as UserRole) || prev.role,
             }));
-            if (userProfile.organizationName) {
-              setStore((prev) => ({
-                ...prev,
-                tradeName: userProfile.organizationName,
-              }));
-            }
+            setStore((prev) => ({
+              ...prev,
+              tradeName: userProfile.organizationTradeName || userProfile.organizationName || prev.tradeName,
+              legalName: userProfile.organizationLegalName || prev.legalName,
+              cnpj: userProfile.organizationDocument ? formatDocument(userProfile.organizationDocument, "CNPJ") : prev.cnpj,
+              phone: userProfile.organizationPhone ? formatPhone(userProfile.organizationPhone) : prev.phone,
+              address: userProfile.organizationAddress || prev.address,
+              businessHours: userProfile.organizationBusinessHours || prev.businessHours,
+            }));
           }
         })
         .catch(() => {});
@@ -271,6 +278,16 @@ export default function SettingsPage() {
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     startSavingTransition(() => {
+      if (!isDemoMode) {
+        updateOrganizationSettingsAction({
+          name: store.tradeName,
+          legalName: store.legalName,
+          document: store.cnpj,
+          phone: store.phone,
+          address: store.address,
+          businessHours: store.businessHours,
+        }).catch(() => {});
+      }
       setTimeout(() => {
         setSaveFeedback("Configurações Salvas com Sucesso!");
         setTimeout(() => setSaveFeedback(null), 3000);
@@ -580,6 +597,7 @@ export default function SettingsPage() {
                     <Input
                       id="store-tradeName"
                       value={store.tradeName}
+                      placeholder="Ex: Minha Concessionária"
                       onChange={(e) =>
                         setStore((prev) => ({
                           ...prev,
@@ -600,6 +618,7 @@ export default function SettingsPage() {
                     <Input
                       id="store-legalName"
                       value={store.legalName}
+                      placeholder="Ex: Minha Concessionária LTDA"
                       onChange={(e) =>
                         setStore((prev) => ({
                           ...prev,
@@ -620,10 +639,11 @@ export default function SettingsPage() {
                     <Input
                       id="store-cnpj"
                       value={store.cnpj}
+                      placeholder="00.000.000/0000-00 ou 000.000.000-00"
                       onChange={(e) =>
                         setStore((prev) => ({
                           ...prev,
-                          cnpj: e.target.value,
+                          cnpj: formatDocument(e.target.value, "CNPJ"),
                         }))
                       }
                       className="text-xs h-8"
@@ -640,10 +660,11 @@ export default function SettingsPage() {
                     <Input
                       id="store-phone"
                       value={store.phone}
+                      placeholder="(11) 99999-9999"
                       onChange={(e) =>
                         setStore((prev) => ({
                           ...prev,
-                          phone: e.target.value,
+                          phone: formatPhone(e.target.value),
                         }))
                       }
                       className="text-xs h-8"
@@ -660,6 +681,7 @@ export default function SettingsPage() {
                     <Input
                       id="store-address"
                       value={store.address}
+                      placeholder="Ex: Av. Brasil, 1500 - Centro, São Paulo - SP"
                       onChange={(e) =>
                         setStore((prev) => ({
                           ...prev,
@@ -680,6 +702,7 @@ export default function SettingsPage() {
                     <Input
                       id="store-businessHours"
                       value={store.businessHours}
+                      placeholder="Ex: Segunda a Sexta: 08:00 - 18:00 | Sábado: 08:00 - 12:00"
                       onChange={(e) =>
                         setStore((prev) => ({
                           ...prev,

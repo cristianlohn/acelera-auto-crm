@@ -350,6 +350,12 @@ export interface UserProfileInfo {
   avatarUrl: string | null;
   initials: string;
   organizationName: string;
+  organizationDocument?: string | null;
+  organizationPhone?: string | null;
+  organizationAddress?: string | null;
+  organizationBusinessHours?: string | null;
+  organizationLegalName?: string | null;
+  organizationTradeName?: string | null;
   trialDaysRemaining: number;
   subscriptionAccess: OrganizationAccessStatus;
 }
@@ -400,6 +406,12 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
       avatarUrl: null,
       initials: demoInitials,
       organizationName: "Concessionária Demo",
+      organizationDocument: null,
+      organizationPhone: null,
+      organizationAddress: null,
+      organizationBusinessHours: null,
+      organizationLegalName: null,
+      organizationTradeName: "Concessionária Demo",
       trialDaysRemaining: 14,
       subscriptionAccess: {
         hasAccess: true,
@@ -435,9 +447,17 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
       .join("")
       .toUpperCase() || "GE";
 
-  const organizationName =
-    tenantContext.organization?.name ||
-    "Minha Concessionária";
+  const org = tenantContext.organization;
+  const organizationName = org?.name || "Minha Concessionária";
+  const organizationDocument = org?.document || null;
+  const organizationPhone = (org as unknown as { phone?: string })?.phone || null;
+  const organizationAddress = (org as unknown as { address?: string })?.address || null;
+  const organizationBusinessHours = (org as unknown as { business_hours?: string })?.business_hours || null;
+  const organizationLegalName =
+    (org as unknown as { billing_name?: string; corporate_name?: string })?.billing_name ||
+    (org as unknown as { corporate_name?: string })?.corporate_name ||
+    null;
+  const organizationTradeName = org?.name || null;
 
   const trialDaysRemaining = calculateTrialDaysRemaining(
     tenantContext.organization?.trial_ends_at
@@ -459,9 +479,65 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
     avatarUrl: tenantContext.profile?.avatar_url || null,
     initials,
     organizationName,
+    organizationDocument,
+    organizationPhone,
+    organizationAddress,
+    organizationBusinessHours,
+    organizationLegalName,
+    organizationTradeName,
     trialDaysRemaining,
     subscriptionAccess,
   };
+}
+
+export interface UpdateOrganizationSettingsInput {
+  name?: string;
+  legalName?: string;
+  document?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  businessHours?: string;
+}
+
+/**
+ * Atualiza os dados cadastrais da organização nas configurações da loja.
+ */
+export async function updateOrganizationSettingsAction(
+  input: UpdateOrganizationSettingsInput
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    if (tenantContext.isDemo) {
+      return { success: true };
+    }
+
+    if (!tenantContext.organizationId) {
+      return { success: false, error: "Organização não encontrada." };
+    }
+
+    if (isSupabaseServerConfigured()) {
+      const adminClient = createAdminClient();
+      const updateData: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (input.name !== undefined) updateData.name = input.name.trim();
+      if (input.legalName !== undefined) updateData.billing_name = input.legalName.trim();
+      if (input.document !== undefined) updateData.document = input.document.replace(/\D/g, "");
+      if (input.phone !== undefined) updateData.phone = input.phone.trim();
+      if (input.address !== undefined) updateData.address = input.address.trim();
+      if (input.businessHours !== undefined) updateData.business_hours = input.businessHours.trim();
+
+      await (adminClient.from("organizations") as unknown as { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } })
+        .update(updateData)
+        .eq("id", tenantContext.organizationId);
+    }
+
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro ao atualizar dados da organização.";
+    return { success: false, error: message };
+  }
 }
 
 /**
