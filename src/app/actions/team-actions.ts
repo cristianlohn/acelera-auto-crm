@@ -379,6 +379,7 @@ export async function acceptInviteAction(token: string): Promise<{
   error?: string;
   organizationId?: string;
   storeName?: string;
+  redirectUrl?: string;
 }> {
   try {
     if (!token) {
@@ -448,66 +449,71 @@ export async function acceptInviteAction(token: string): Promise<{
     if (tenantContext.userId) {
       const user = { id: tenantContext.userId };
       const newOrgId = typedInvite.organization_id;
+      const isSeller =
+        typedInvite.role === "seller" ||
+        typedInvite.role === "vendedor" ||
+        typedInvite.role === "sdr";
 
-      // 1. Busca vínculos ativos anteriores EXCLUSIVAMENTE com role de vendedor
-      const { data: previousSellerMemberships } = (await supabaseAdmin
-        .from("organization_members")
-        ?.select?.("id, organization_id, role")
-        ?.eq?.("user_id", user.id)
-        ?.eq?.("status", "active")
-        ?.neq?.("organization_id", newOrgId)
-        ?.in?.("role", ["seller", "vendedor"])) || { data: null };
+      // 1. Se for vendedor, busca se ele possui vínculos ativos em OUTRAS organizações
+      if (isSeller) {
+        const { data: previousMemberships } = (await supabaseAdmin
+          .from("organization_members")
+          ?.select?.("id, organization_id, role")
+          ?.eq?.("user_id", user.id)
+          ?.eq?.("status", "active")
+          ?.neq?.("organization_id", newOrgId)) || { data: null };
 
-      if (previousSellerMemberships && previousSellerMemberships.length > 0) {
-        for (const prev of previousSellerMemberships) {
-          // Dupla checagem de segurança em memória:
-          if (prev.role === "owner" || prev.role === "admin") {
-            continue;
-          }
+        if (previousMemberships && previousMemberships.length > 0) {
+          for (const prev of previousMemberships) {
+            // Dupla checagem de segurança em memória: permite múltiplos vínculos ativos para owner ou admin
+            if (prev.role === "owner" || prev.role === "admin") {
+              continue;
+            }
 
-          // A. Desativa apenas o vínculo de vendedor na loja antiga
-          await supabaseAdmin
-            .from("organization_members")
-            ?.update?.({
-              status: "transferred",
-              updated_at: new Date().toISOString(),
-            })
-            ?.eq?.("id", prev.id);
-
-          // B. Remove da roleta de distribuição de leads da loja antiga
-          try {
-            await (supabaseAdmin as unknown as { from: (table: string) => { delete: () => { eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<unknown> } } } })
-              .from("roleta_sellers")
-              ?.delete?.()
-              ?.eq?.("organization_id", prev.organization_id)
-              ?.eq?.("user_id", user.id);
-          } catch {}
-
-          // C. Transfere os leads abertos para o Admin da loja antiga
-          const { data: adminMember } = (await supabaseAdmin
-            .from("organization_members")
-            ?.select?.("user_id")
-            ?.eq?.("organization_id", prev.organization_id)
-            ?.in?.("role", ["owner", "admin"])
-            ?.eq?.("status", "active")
-            ?.limit?.(1)
-            ?.maybeSingle?.()) || { data: null };
-
-          if (adminMember?.user_id) {
+            // A. Desativa apenas o vínculo de vendedor na loja antiga
             await supabaseAdmin
-              .from("leads")
+              .from("organization_members")
               ?.update?.({
-                seller_id: adminMember.user_id,
+                status: "transferred",
                 updated_at: new Date().toISOString(),
               })
+              ?.eq?.("id", prev.id);
+
+            // B. Remove da roleta de distribuição de leads da loja antiga
+            try {
+              await (supabaseAdmin as unknown as { from: (table: string) => { delete: () => { eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<unknown> } } } })
+                .from("roleta_sellers")
+                ?.delete?.()
+                ?.eq?.("organization_id", prev.organization_id)
+                ?.eq?.("user_id", user.id);
+            } catch {}
+
+            // C. Encontra um Admin/Owner/Gerente da loja antiga para receber os leads em aberto
+            const { data: adminMember } = (await supabaseAdmin
+              .from("organization_members")
+              ?.select?.("user_id")
               ?.eq?.("organization_id", prev.organization_id)
-              ?.eq?.("seller_id", user.id)
-              ?.neq?.("status", "fechado");
+              ?.in?.("role", ["owner", "admin", "gerente"])
+              ?.eq?.("status", "active")
+              ?.limit?.(1)
+              ?.maybeSingle?.()) || { data: null };
+
+            if (adminMember?.user_id) {
+              await supabaseAdmin
+                .from("leads")
+                ?.update?.({
+                  seller_id: adminMember.user_id,
+                  updated_at: new Date().toISOString(),
+                })
+                ?.eq?.("organization_id", prev.organization_id)
+                ?.eq?.("seller_id", user.id)
+                ?.neq?.("status", "fechado");
+            }
           }
         }
       }
 
-      // Atualiza organization_members para a nova loja
+      // 3. Vincula o usuário à nova organização como 'active'
       await supabaseAdmin.from("organization_members")?.upsert?.(
         {
           organization_id: newOrgId,
@@ -519,7 +525,13 @@ export async function acceptInviteAction(token: string): Promise<{
         { onConflict: "organization_id,user_id" }
       );
 
-      // Atualiza perfil ativo
+      // 4. Marca o convite como aceito
+      await supabaseAdmin
+        .from("organization_invites")
+        ?.update?.({ status: "accepted", updated_at: new Date().toISOString() })
+        ?.eq?.("id", typedInvite.id);
+
+      // 5. Atualiza a organização ativa no profile/sessão
       await supabaseAdmin
         .from("profiles")
         ?.update?.({
@@ -528,18 +540,13 @@ export async function acceptInviteAction(token: string): Promise<{
           updated_at: new Date().toISOString(),
         })
         ?.eq?.("id", user.id);
-
-      // Marca convite como accepted
-      await supabaseAdmin
-        .from("organization_invites")
-        ?.update?.({ status: "accepted", updated_at: new Date().toISOString() })
-        ?.eq?.("id", typedInvite.id);
     }
 
     return {
       success: true,
       organizationId: typedInvite.organization_id,
       storeName: typedInvite.organizations?.name || "Loja",
+      redirectUrl: "/cockpit",
     };
   } catch (err: unknown) {
     console.error("[ACCEPT_INVITE_ERROR]:", err);

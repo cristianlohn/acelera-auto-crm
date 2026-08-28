@@ -617,13 +617,11 @@ describe("[UNIT-TEAM-INVITE-EMAIL] Disparo Automático de Convite SMTP & Conting
                 return {
                   eq: vi.fn().mockReturnValue({
                     eq: vi.fn().mockReturnValue({
-                      neq: vi.fn().mockReturnValue({
-                        in: vi.fn().mockResolvedValue({
-                          data: [
-                            { id: "mem-seller-1", organization_id: "org-antiga-1", role: "seller" },
-                          ],
-                          error: null,
-                        }),
+                      neq: vi.fn().mockResolvedValue({
+                        data: [
+                          { id: "mem-seller-1", organization_id: "org-antiga-1", role: "seller" },
+                        ],
+                        error: null,
                       }),
                     }),
                   }),
