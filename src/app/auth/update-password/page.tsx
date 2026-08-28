@@ -52,6 +52,22 @@ function UpdatePasswordForm() {
     if (typeof window !== "undefined" && isSupabaseConfigured()) {
       const supabase = createClient();
 
+      // 0. Captura access_token do hash (#access_token=...&refresh_token=...)
+      if (window.location.hash) {
+        try {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+          const access_token = hashParams.get("access_token");
+          const refresh_token = hashParams.get("refresh_token");
+          if (access_token && refresh_token) {
+            supabase.auth.setSession({ access_token, refresh_token }).then(({ data }) => {
+              if (data.session?.user?.email) {
+                setEmail(data.session.user.email);
+              }
+            });
+          }
+        } catch {}
+      }
+
       // 1. Captura código PKCE se presente na URL
       const code = searchParams.get("code");
       if (code) {
@@ -107,6 +123,19 @@ function UpdatePasswordForm() {
 
     startTransition(async () => {
       try {
+        // 0. Garante sessão do hash fragment se presente
+        if (typeof window !== "undefined" && window.location.hash && isSupabaseConfigured()) {
+          try {
+            const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+            const access_token = hashParams.get("access_token");
+            const refresh_token = hashParams.get("refresh_token");
+            if (access_token && refresh_token) {
+              const supabase = createClient();
+              await supabase.auth.setSession({ access_token, refresh_token });
+            }
+          } catch {}
+        }
+
         // 1. Atualização via Browser Client (se houver sessão PKCE local)
         if (isSupabaseConfigured()) {
           try {

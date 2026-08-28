@@ -819,13 +819,17 @@ export async function resendInviteEmailAction(
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
   const cleanEmail = email.trim().toLowerCase();
-  const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(`/auth/update-password?email=${encodeURIComponent(cleanEmail)}`)}`;
+  const orgId = tenantContext.organizationId || "org-001";
+
+  // Gera token único de convite criptográfico
+  const inviteToken = crypto.randomUUID();
+  const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(`/auth/update-password?token=${inviteToken}&email=${encodeURIComponent(cleanEmail)}`)}`;
 
   if (tenantContext.isDemo) {
     return {
       success: true,
       emailSent: true,
-      fallbackInviteLink: `${redirectTo}?token=demo_resend_${Date.now()}&email=${encodeURIComponent(cleanEmail)}`,
+      fallbackInviteLink: `${siteUrl}/auth/update-password?token=${inviteToken}&email=${encodeURIComponent(cleanEmail)}`,
     };
   }
 
@@ -833,12 +837,32 @@ export async function resendInviteEmailAction(
     return {
       success: true,
       emailSent: false,
-      fallbackInviteLink: `${redirectTo}?token=local_${Date.now()}&email=${encodeURIComponent(cleanEmail)}`,
+      fallbackInviteLink: `${siteUrl}/auth/update-password?token=${inviteToken}&email=${encodeURIComponent(cleanEmail)}`,
     };
   }
 
   try {
     const supabaseAdmin = createAdminClient();
+
+    // 1. Registra o token único na tabela organization_invites como pending
+    try {
+      await supabaseAdmin.from("organization_invites").upsert(
+        {
+          organization_id: orgId,
+          email: cleanEmail,
+          full_name: name || "Colaborador",
+          role: role || "seller",
+          token: inviteToken,
+          status: "pending",
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "token" }
+      );
+    } catch (err) {
+      console.warn("[RESEND_INVITE] organization_invites upsert:", err);
+    }
+
     const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {
       redirectTo,
       data: {
@@ -872,20 +896,12 @@ export async function resendInviteEmailAction(
       } catch {}
     }
 
-    const fallbackInviteLink = actionLink || `${redirectTo}&email=${encodeURIComponent(cleanEmail)}`;
-
-    if (inviteRes.error) {
-      return {
-        success: true,
-        emailSent: Boolean(actionLink),
-        fallbackInviteLink,
-        error: inviteRes.error.message,
-      };
-    }
+    const fallbackInviteLink =
+      actionLink || `${siteUrl}/auth/update-password?token=${inviteToken}&email=${encodeURIComponent(cleanEmail)}`;
 
     return {
       success: true,
-      emailSent: true,
+      emailSent: !inviteRes.error || Boolean(actionLink),
       fallbackInviteLink,
     };
   } catch (err: unknown) {

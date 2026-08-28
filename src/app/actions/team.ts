@@ -212,10 +212,11 @@ export async function inviteTeamMember(
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
-  const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(`/auth/update-password?email=${encodeURIComponent(cleanEmail)}`)}`;
+  const inviteToken = crypto.randomUUID();
+  const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(`/auth/update-password?token=${inviteToken}&email=${encodeURIComponent(cleanEmail)}`)}`;
 
   let emailSent = false;
-  let fallbackInviteLink = "";
+  let fallbackInviteLink = `${siteUrl}/auth/update-password?token=${inviteToken}&email=${encodeURIComponent(cleanEmail)}`;
   let memberId = `mem-${Date.now()}`;
 
   // Disparo de e-mail via Supabase Auth Admin se configurado
