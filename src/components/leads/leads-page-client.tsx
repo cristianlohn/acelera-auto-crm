@@ -40,6 +40,7 @@ import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
 import { createLead as persistLead, getLeads, updateLeadStatus } from "@/app/actions/leads";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
 import { useDemoRole } from "@/context/demo-role-context";
+import { canViewAllLeads } from "@/lib/permissions";
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import { LeadDetailsModal } from "@/components/leads/lead-details-modal";
@@ -740,6 +741,12 @@ export function LeadsPageClient({
   });
 
   useEffect(() => {
+    if (initialLeads !== undefined) {
+      setLeads(initialLeads);
+    }
+  }, [initialLeads]);
+
+  useEffect(() => {
     if (initialLeads !== undefined || isDemoMode) return;
 
     let isMounted = true;
@@ -794,9 +801,14 @@ export function LeadsPageClient({
     }, []),
   });
 
-  const isVendedorRole = role === "vendedor";
+  const isVendedorRole = !canViewAllLeads(role);
   const visibleLeads = isVendedorRole
-    ? leads.filter((l) => l.sellerName?.toLowerCase().includes("rafael") || l.sellerName === sellerName)
+    ? leads.filter(
+        (l) =>
+          l.sellerName === sellerName ||
+          l.sellerName?.toLowerCase().includes("rafael") ||
+          l.sellerName?.toLowerCase().includes("vendedor")
+      )
     : leads;
 
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);

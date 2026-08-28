@@ -6,7 +6,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useEffect, useTransition, useMemo } from "react";
 import { toast } from "sonner";
 import type {
   KanbanLead,
@@ -20,6 +20,8 @@ import { KanbanFilters } from "./kanban-filters";
 import { LeadLostModal } from "./lead-lost-modal";
 import { LeadDetailsModal } from "./lead-details-modal";
 import { updateLeadStageAction, updateLeadNotesAction } from "@/app/actions/kanban-actions";
+import { useDemoRole } from "@/context/demo-role-context";
+import { canViewAllLeads } from "@/lib/permissions";
 
 interface KanbanBoardProps {
   initialLeads: KanbanLead[];
@@ -28,6 +30,12 @@ interface KanbanBoardProps {
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<KanbanLead[]>(initialLeads);
   const [, startTransition] = useTransition();
+  const { role, sellerName } = useDemoRole();
+  const isVendedor = !canViewAllLeads(role);
+
+  useEffect(() => {
+    setLeads(initialLeads);
+  }, [initialLeads]);
 
   // Lead selecionado para visualização no modal de detalhes
   const [selectedLead, setSelectedLead] = useState<KanbanLead | null>(null);
@@ -67,9 +75,22 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     return Array.from(map.values());
   }, [leads]);
 
-  // Filtra os leads com base no estado atual dos filtros
+  // Filtra os leads com base no estado atual dos filtros e RBAC
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
+      // 0. RBAC: Se for perfil Vendedor, exibe apenas os seus próprios leads
+      if (isVendedor) {
+        const activeSeller = sellerName || "Rafael Alves";
+        const matchesSeller =
+          lead.assigned_to_name === activeSeller ||
+          lead.assigned_to_name?.toLowerCase().includes("rafael") ||
+          lead.assigned_to?.name?.toLowerCase().includes("rafael") ||
+          lead.assigned_to_name?.toLowerCase().includes("vendedor");
+        if (!matchesSeller) {
+          return false;
+        }
+      }
+
       // 1. Filtro por Busca Textual (Nome, Telefone ou Veículo)
       if (filters.search.trim()) {
         const query = filters.search.toLowerCase().trim();
@@ -101,7 +122,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
       return true;
     });
-  }, [leads, filters]);
+  }, [leads, filters, isVendedor, sellerName]);
 
   // Agrupa os leads filtrados em colunas
   const columns: KanbanColumnConfig[] = useMemo(() => {

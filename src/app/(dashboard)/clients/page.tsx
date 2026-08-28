@@ -444,6 +444,12 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
   const [activeTab, setActiveTab] = useState<FilterTab>("todos");
 
   useEffect(() => {
+    if (initialClients !== undefined) {
+      setClients(initialClients);
+    }
+  }, [initialClients]);
+
+  useEffect(() => {
     if (initialClients !== undefined || isDemoMode) return;
 
     let isMounted = true;
@@ -467,7 +473,12 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
   const roleFilteredClients = useMemo(() => {
     if (isVendedor) {
       const activeSeller = sellerName || "Rafael Alves";
-      return clients.filter((c) => c.sellerName === activeSeller);
+      return clients.filter(
+        (c) =>
+          c.sellerName === activeSeller ||
+          c.sellerName?.toLowerCase().includes("rafael") ||
+          c.sellerName?.toLowerCase().includes("vendedor")
+      );
     }
     if (sellerFilter !== "todos") {
       return clients.filter((c) => c.sellerName === sellerFilter);
