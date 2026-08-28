@@ -440,14 +440,16 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
     if (isDemoMode) return mockClients;
     return [];
   });
+  const [prevInitialClients, setPrevInitialClients] = useState(initialClients);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("todos");
 
-  useEffect(() => {
+  if (initialClients !== prevInitialClients) {
+    setPrevInitialClients(initialClients);
     if (initialClients !== undefined) {
       setClients(initialClients);
     }
-  }, [initialClients]);
+  }
 
   useEffect(() => {
     if (initialClients !== undefined || isDemoMode) return;

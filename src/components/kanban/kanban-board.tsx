@@ -6,7 +6,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useTransition, useMemo } from "react";
+import React, { useState, useTransition, useMemo } from "react";
 import { toast } from "sonner";
 import type {
   KanbanLead,
@@ -29,13 +29,15 @@ interface KanbanBoardProps {
 
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<KanbanLead[]>(initialLeads);
+  const [prevInitialLeads, setPrevInitialLeads] = useState<KanbanLead[]>(initialLeads);
   const [, startTransition] = useTransition();
   const { role, sellerName } = useDemoRole();
   const isVendedor = !canViewAllLeads(role);
 
-  useEffect(() => {
+  if (initialLeads !== prevInitialLeads) {
+    setPrevInitialLeads(initialLeads);
     setLeads(initialLeads);
-  }, [initialLeads]);
+  }
 
   // Lead selecionado para visualização no modal de detalhes
   const [selectedLead, setSelectedLead] = useState<KanbanLead | null>(null);

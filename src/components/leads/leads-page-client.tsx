@@ -739,12 +739,14 @@ export function LeadsPageClient({
     if (!isDemoMode) return [];
     return mockLeads;
   });
+  const [prevInitialLeads, setPrevInitialLeads] = useState(initialLeads);
 
-  useEffect(() => {
+  if (initialLeads !== prevInitialLeads) {
+    setPrevInitialLeads(initialLeads);
     if (initialLeads !== undefined) {
       setLeads(initialLeads);
     }
-  }, [initialLeads]);
+  }
 
   useEffect(() => {
     if (initialLeads !== undefined || isDemoMode) return;
