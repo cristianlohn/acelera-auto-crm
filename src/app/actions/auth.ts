@@ -665,7 +665,7 @@ export interface UpdatePasswordResult {
  */
 export async function updateUserPassword(
   newPassword: string,
-  authProof?: string | { inviteToken?: string; accessToken?: string }
+  authProof?: string | { inviteToken?: string; accessToken?: string; email?: string }
 ): Promise<UpdatePasswordResult> {
   console.log("[Auth Update] Iniciando atualização de senha segura...");
 
@@ -685,6 +685,8 @@ export async function updateUserPassword(
     typeof authProof === "string" ? authProof : authProof?.inviteToken;
   const accessToken =
     typeof authProof === "object" ? authProof?.accessToken : undefined;
+  const userEmail =
+    typeof authProof === "object" ? authProof?.email?.trim().toLowerCase() : undefined;
 
   try {
     const supabase = await createServerSupabaseClient();
@@ -736,19 +738,35 @@ export async function updateUserPassword(
     }
 
     // 3. Validação por Token de Convite na tabela organization_invites
-    if (inviteToken) {
-      const cleanToken = inviteToken.trim();
-      console.log("[Auth Update] Validando token de convite criptográfico:", cleanToken);
+    if (inviteToken || userEmail) {
+      const cleanToken = inviteToken?.trim();
+      console.log("[Auth Update] Validando convite criptográfico:", cleanToken, userEmail);
 
-      const { data: invite } = await adminClient
-        .from("organization_invites")
-        .select("id, email, organization_id, status, expires_at")
-        .eq("token", cleanToken)
-        .eq("status", "pending")
-        .maybeSingle();
+      let invite = null;
+      if (cleanToken) {
+        const { data: inviteByToken } = await adminClient
+          .from("organization_invites")
+          .select("id, email, organization_id, status, expires_at")
+          .eq("token", cleanToken)
+          .maybeSingle();
+        invite = inviteByToken;
+      }
 
-      if (invite && invite.email) {
-        if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+      if (!invite && userEmail) {
+        const { data: inviteByEmail } = await adminClient
+          .from("organization_invites")
+          .select("id, email, organization_id, status, expires_at")
+          .eq("email", userEmail)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        invite = inviteByEmail;
+      }
+
+      const targetEmail = invite?.email || userEmail;
+
+      if (targetEmail) {
+        if (invite?.expires_at && new Date(invite.expires_at) < new Date()) {
           return {
             success: false,
             error: "Este link de convite expirou. Solicite ao administrador o reenvio do convite.",
@@ -757,7 +775,7 @@ export async function updateUserPassword(
 
         const { data: usersData } = await adminClient.auth.admin.listUsers();
         const targetUser = usersData?.users?.find(
-          (u) => u.email?.toLowerCase() === invite.email.toLowerCase()
+          (u) => u.email?.toLowerCase() === targetEmail.toLowerCase()
         );
 
         if (targetUser) {
@@ -769,17 +787,19 @@ export async function updateUserPassword(
           if (!adminUpdateError) {
             try {
               await supabase.auth.signInWithPassword({
-                email: invite.email,
+                email: targetEmail,
                 password: newPassword,
               });
             } catch {}
 
-            try {
-              await adminClient
-                .from("organization_invites")
-                .update({ status: "accepted" })
-                .eq("id", invite.id);
-            } catch {}
+            if (invite) {
+              try {
+                await adminClient
+                  .from("organization_invites")
+                  .update({ status: "accepted" })
+                  .eq("id", invite.id);
+              } catch {}
+            }
 
             return { success: true };
           }

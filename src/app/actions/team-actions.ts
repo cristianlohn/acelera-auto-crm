@@ -819,11 +819,10 @@ export async function resendInviteEmailAction(
     process.env.NEXT_PUBLIC_APP_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://aceleraautocrm.com.br");
   const cleanEmail = email.trim().toLowerCase();
-  const orgId = tenantContext.organizationId || "org-001";
 
   // Gera token único de convite criptográfico
   const inviteToken = crypto.randomUUID();
-  const redirectTo = `${siteUrl}/auth/callback?next=${encodeURIComponent(`/auth/update-password?token=${inviteToken}&email=${encodeURIComponent(cleanEmail)}`)}`;
+  const redirectTo = `${siteUrl}/auth/update-password?token=${inviteToken}&email=${encodeURIComponent(cleanEmail)}`;
 
   if (tenantContext.isDemo) {
     return {
@@ -844,23 +843,33 @@ export async function resendInviteEmailAction(
   try {
     const supabaseAdmin = createAdminClient();
 
-    // 1. Registra o token único na tabela organization_invites como pending
-    try {
-      await supabaseAdmin.from("organization_invites").upsert(
-        {
-          organization_id: orgId,
-          email: cleanEmail,
-          full_name: name || "Colaborador",
-          role: role || "seller",
-          token: inviteToken,
-          status: "pending",
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "token" }
-      );
-    } catch (err) {
-      console.warn("[RESEND_INVITE] organization_invites upsert:", err);
+    if (typeof supabaseAdmin.from === "function") {
+      try {
+        const { data: profileRow } = await supabaseAdmin
+          .from("profiles")
+          .select("organization_id")
+          .eq("email", cleanEmail)
+          .maybeSingle();
+
+        const effectiveOrgId = profileRow?.organization_id || tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+        // 1. Registra o token único na tabela organization_invites como pending
+        await supabaseAdmin.from("organization_invites").upsert(
+          {
+            organization_id: effectiveOrgId,
+            email: cleanEmail,
+            full_name: name || "Colaborador",
+            role: role || "seller",
+            token: inviteToken,
+            status: "pending",
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "token" }
+        );
+      } catch (err) {
+        console.warn("[RESEND_INVITE] organization_invites upsert:", err);
+      }
     }
 
     const inviteRes = await supabaseAdmin.auth.admin.inviteUserByEmail(cleanEmail, {

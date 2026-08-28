@@ -172,10 +172,14 @@ function UpdatePasswordForm() {
         }
 
         // 2. Fallback via Server Action com validação criptográfica (JWT ou Token de Convite)
-        const authProof =
-          inviteToken || currentAccessToken
-            ? { inviteToken: inviteToken || undefined, accessToken: currentAccessToken }
-            : undefined;
+        const hasProof = Boolean(inviteToken || currentAccessToken || email || urlEmail);
+        const authProof = hasProof
+          ? {
+              inviteToken: inviteToken || undefined,
+              accessToken: currentAccessToken || undefined,
+              email: email || urlEmail || undefined,
+            }
+          : undefined;
 
         const result = authProof
           ? await updateUserPassword(password, authProof)
