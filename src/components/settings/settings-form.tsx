@@ -1041,12 +1041,24 @@ export function SettingsForm({
 
                 <div className="divide-y divide-border/40">
                   {teamMembers.map((member) => {
-                    const roleCfg = ROLE_CONFIG[member.role] || ROLE_CONFIG.vendedor;
-                    const initials = member.fullName
+                    const memberName =
+                      member.fullName ||
+                      (member as unknown as { name?: string }).name ||
+                      "Colaborador";
+                    const roleKey = (
+                      member.role === "admin" || member.role === "gerente" || member.role === "vendedor"
+                        ? member.role
+                        : member.role === ("manager" as string)
+                        ? "gerente"
+                        : "vendedor"
+                    ) as UserRole;
+                    const roleCfg = ROLE_CONFIG[roleKey] || ROLE_CONFIG.vendedor;
+                    const initials = memberName
                       .split(" ")
+                      .filter(Boolean)
                       .map((n) => n[0])
                       .slice(0, 2)
-                      .join("");
+                      .join("") || "CB";
 
                     return (
                       <div
@@ -1060,7 +1072,7 @@ export function SettingsForm({
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="text-xs font-bold text-foreground">
-                                {member.fullName}
+                                {memberName}
                               </p>
                               <span
                                 className={cn(

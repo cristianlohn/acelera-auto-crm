@@ -10,9 +10,10 @@ import React from "react";
 import { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { resolveUserTenantContext } from "@/lib/auth/tenant";
-import { getTeamMembersAction } from "@/app/actions/team-actions";
+import { getTeamMembers } from "@/app/actions/team";
 import { getApiKeysAction } from "@/app/actions/api-key-actions";
 import { SettingsForm } from "@/components/settings/settings-form";
+import type { TeamMember } from "@/lib/team-data";
 import type { ApiKey } from "@/types/api-key";
 
 export const metadata: Metadata = {
@@ -70,9 +71,9 @@ export default async function SettingsPage() {
       }
     : null;
 
-  let members: Awaited<ReturnType<typeof getTeamMembersAction>> = [];
+  let members: TeamMember[] = [];
   try {
-    members = await getTeamMembersAction(tenantContext.organizationId || undefined);
+    members = await getTeamMembers();
   } catch {}
 
   let apiKeys: ApiKey[] = [];
@@ -87,7 +88,7 @@ export default async function SettingsPage() {
       <SettingsForm
         initialProfile={profile}
         initialOrganization={organization}
-        initialTeamMembers={members as unknown as Parameters<typeof SettingsForm>[0]["initialTeamMembers"]}
+        initialTeamMembers={members}
         initialApiKeys={apiKeys}
       />
     </div>
