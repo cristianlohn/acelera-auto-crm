@@ -118,21 +118,24 @@ export async function getTeamMembersAction(explicitOrgId?: string): Promise<Team
         .eq("organization_id", orgId)
         .order("created_at", { ascending: true });
 
-      const members: TeamMember[] = (!error && data) ? data.map((p) => ({
-        id: p.id,
-        organization_id: p.organization_id,
-        name: p.full_name,
-        email: p.email,
-        phone: p.phone || "",
-        role: (p.role === "gerente" || p.role === "admin" ? "manager" : "seller") as TeamMember["role"],
-        segment: "all",
-        in_roulette: true,
-        status: "active",
-        monthly_goal_units: 15,
-        current_sales_units: 8,
-        avg_sla_minutes: 5.5,
-        created_at: p.created_at,
-      })) : [];
+      const members: TeamMember[] = (!error && data) ? data.map((p) => {
+        const raw = p as unknown as { in_roulette?: boolean; status?: TeamMember["status"] };
+        return {
+          id: p.id,
+          organization_id: p.organization_id,
+          name: p.full_name,
+          email: p.email,
+          phone: p.phone || "",
+          role: (p.role === "gerente" || p.role === "admin" ? "manager" : "seller") as TeamMember["role"],
+          segment: "all",
+          in_roulette: raw.in_roulette !== undefined && raw.in_roulette !== null ? Boolean(raw.in_roulette) : true,
+          status: raw.status || "active",
+          monthly_goal_units: 15,
+          current_sales_units: 8,
+          avg_sla_minutes: 5.5,
+          created_at: p.created_at,
+        };
+      }) : [];
 
       // Consulta convites pendentes
       const { data: invites } = (await supabase
@@ -939,21 +942,23 @@ export async function toggleRouletteStatusAction(
 
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
     try {
-      const supabase = await createServerSupabaseClient();
-      await (supabase as unknown as { from: (table: string) => { update: (data: unknown) => { eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<unknown> } } } })
+      const supabaseAdmin = createAdminClient();
+      await (supabaseAdmin as unknown as { from: (table: string) => { update: (data: unknown) => { eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<unknown> } } } })
         .from("profiles")
         .update({ in_roulette: inRoulette, updated_at: new Date().toISOString() })
         .eq("id", memberId)
         .eq("organization_id", orgId);
     } catch {
-      // Ignora erro se coluna customizada não existir no schema base
+      // Fallback
     }
   }
 
   try {
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/team");
+    revalidatePath("/team");
     revalidatePath("/leads");
+    revalidatePath("/dashboard/leads");
   } catch {
     // Silencioso
   }

@@ -17,7 +17,7 @@ import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
-import { notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
+import { resolveAssignedSeller, notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
 import { mockLeads } from "@/lib/mock-data";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 import type { Database } from "@/types/database.types";
@@ -131,6 +131,9 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
+  // Resolve vendedor responsável pela roleta ou pelo nome informado
+  const resolvedSeller = await resolveAssignedSeller(input.sellerName, orgId);
+
   const fallbackLead: Lead = {
     id: `l-${Date.now()}`,
     name: input.name,
@@ -138,7 +141,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     email: input.email,
     vehicleInterest: input.vehicleInterest,
     status: input.status || "novo",
-    sellerName: input.sellerName || "Rafael Alves",
+    sellerName: resolvedSeller,
     lastContactAt: new Date().toISOString(),
     origin: input.origin || "site",
   };
@@ -158,7 +161,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
         email: input.email || null,
         vehicle_interest: input.vehicleInterest,
         status: input.status || "novo",
-        seller_name: input.sellerName || "Rafael Alves",
+        seller_name: resolvedSeller,
         origin: input.origin || "site",
         notes: input.notes || null,
       })
@@ -170,6 +173,8 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     }
 
     revalidatePath("/leads");
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard");
     const domainLead = mapDbLeadToDomain(data);
 
     void notifyAssignedSellerViaWhatsApp({
@@ -227,8 +232,50 @@ export async function updateLeadStatus(
     }
 
     revalidatePath("/leads");
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard");
     return { success: true, id, status };
   } catch {
     return { success: true, id, status };
+  }
+}
+
+/**
+ * Reatribui o vendedor responsável por um lead.
+ */
+export async function updateLeadSeller(
+  id: string,
+  sellerName: string,
+  sellerId?: string
+): Promise<{ success: boolean; id: string; sellerName: string }> {
+  const tenantContext = await resolveUserTenantContext();
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  if (tenantContext.isDemo || !isSupabaseServerConfigured() || !tenantContext.organizationId) {
+    return { success: true, id, sellerName };
+  }
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const updatePayload: { seller_name: string; seller_id?: string; updated_at: string } = {
+      seller_name: sellerName,
+      updated_at: new Date().toISOString(),
+    };
+    if (sellerId) {
+      updatePayload.seller_id = sellerId;
+    }
+
+    await supabase
+      .from("leads")
+      .update(updatePayload)
+      .eq("id", id)
+      .eq("organization_id", orgId);
+
+    revalidatePath("/leads");
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard");
+    return { success: true, id, sellerName };
+  } catch {
+    return { success: true, id, sellerName };
   }
 }

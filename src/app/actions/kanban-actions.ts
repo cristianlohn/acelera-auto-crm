@@ -743,3 +743,68 @@ export async function deleteLeadAction(
 
   return { success: true };
 }
+
+/**
+ * Reatribui o vendedor responsável por um lead no Kanban com persistência e revalidação.
+ */
+export async function updateLeadAssignedSellerAction(
+  leadId: string,
+  sellerName: string,
+  sellerId?: string
+): Promise<KanbanActionResult> {
+  const tenantContext = await resolveUserTenantContext();
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  const memLead = memoryKanbanLeads.find((l) => l.id === leadId);
+  const nowIso = new Date().toISOString();
+
+  if (memLead) {
+    memLead.assigned_to_name = sellerName;
+    if (sellerId) {
+      memLead.assigned_to = {
+        id: sellerId,
+        name: sellerName,
+      };
+    } else {
+      memLead.assigned_to = {
+        id: `seller-${Date.now()}`,
+        name: sellerName,
+      };
+    }
+    memLead.updated_at = nowIso;
+  }
+
+  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const updatePayload: { seller_name: string; seller_id?: string; updated_at: string } = {
+        seller_name: sellerName,
+        updated_at: nowIso,
+      };
+      if (sellerId) {
+        updatePayload.seller_id = sellerId;
+      }
+
+      const { error } = await supabase
+        .from("leads")
+        .update(updatePayload)
+        .eq("id", leadId)
+        .eq("organization_id", orgId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao transferir lead.";
+      return { success: false, error: msg };
+    }
+  }
+
+  try {
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard");
+    revalidatePath("/leads");
+  } catch {}
+
+  return { success: true, lead: memLead };
+}

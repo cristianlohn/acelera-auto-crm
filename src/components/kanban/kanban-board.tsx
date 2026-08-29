@@ -19,7 +19,7 @@ import { KanbanColumn } from "./kanban-column";
 import { KanbanFilters } from "./kanban-filters";
 import { LeadLostModal } from "./lead-lost-modal";
 import { LeadDetailsModal } from "./lead-details-modal";
-import { updateLeadStageAction, updateLeadNotesAction } from "@/app/actions/kanban-actions";
+import { updateLeadStageAction, updateLeadNotesAction, updateLeadAssignedSellerAction } from "@/app/actions/kanban-actions";
 import { useDemoRole } from "@/context/demo-role-context";
 import { canViewAllLeads } from "@/lib/permissions";
 
@@ -63,7 +63,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     });
   };
 
-  // Lista única de vendedores para o dropdown de filtro
+  // Lista única de vendedores para o dropdown de filtro e reatribuição
   const sellersList = useMemo(() => {
     const map = new Map<string, { id: string; name: string }>();
     leads.forEach((l) => {
@@ -253,6 +253,49 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     }
   };
 
+  const handleReassignSeller = async (leadId: string, newSellerName: string, newSellerId?: string) => {
+    // Atualização Otimista
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === leadId
+          ? {
+              ...l,
+              assigned_to_name: newSellerName,
+              assigned_to: {
+                id: newSellerId || `seller-${Date.now()}`,
+                name: newSellerName,
+              },
+            }
+          : l
+      )
+    );
+    setSelectedLead((prev) =>
+      prev && prev.id === leadId
+        ? {
+            ...prev,
+            assigned_to_name: newSellerName,
+            assigned_to: {
+              id: newSellerId || `seller-${Date.now()}`,
+              name: newSellerName,
+            },
+          }
+        : prev
+    );
+
+    toast.success(`Lead transferido para ${newSellerName} com sucesso!`);
+
+    startTransition(async () => {
+      try {
+        const res = await updateLeadAssignedSellerAction(leadId, newSellerName, newSellerId);
+        if (!res.success) {
+          toast.error("Erro ao transferir lead no servidor.", { description: res.error });
+        }
+      } catch {
+        // Silencioso
+      }
+    });
+  };
+
   return (
     <div className="space-y-4" data-testid="kanban-board-container">
       {/* Barra de Filtros Executiva */}
@@ -291,6 +334,8 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
             );
           }}
           onUpdateNotes={handleUpdateNotes}
+          onReassignSeller={handleReassignSeller}
+          availableSellers={sellersList}
         />
       )}
 

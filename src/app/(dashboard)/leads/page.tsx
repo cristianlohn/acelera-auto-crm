@@ -9,6 +9,7 @@
 import React from "react";
 import { Metadata } from "next";
 import { getLeads } from "@/app/actions/leads";
+import { getTeamMembersAction } from "@/app/actions/team-actions";
 import { resolveUserTenantContext } from "@/lib/auth/tenant";
 import { LeadsPageClient } from "@/components/leads/leads-page-client";
 
@@ -19,14 +20,16 @@ export const metadata: Metadata = {
 };
 
 export default async function LeadsPage() {
-  const [leads, tenantContext] = await Promise.all([
+  const [leads, teamMembers, tenantContext] = await Promise.all([
     getLeads(),
+    getTeamMembersAction(),
     resolveUserTenantContext(),
   ]);
 
   return (
     <LeadsPageClient
       initialLeads={leads}
+      initialTeamMembers={teamMembers}
       initialOrganizationId={tenantContext.organizationId || null}
       userRole={tenantContext.profile?.role || (tenantContext.isDemo ? undefined : "seller")}
     />

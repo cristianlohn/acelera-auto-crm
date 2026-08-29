@@ -37,6 +37,8 @@ export interface LeadDetailsModalProps {
   onClose: () => void;
   onUpdateStage: (leadId: string, newStage: LeadStage) => void;
   onUpdateNotes?: (leadId: string, notes: string) => Promise<void> | void;
+  onReassignSeller?: (leadId: string, sellerName: string, sellerId?: string) => Promise<void> | void;
+  availableSellers?: Array<{ id: string; name: string }>;
 }
 
 function formatCurrencyBRL(value?: number): string {
@@ -69,16 +71,20 @@ export function LeadDetailsModal({
   onClose,
   onUpdateStage,
   onUpdateNotes,
+  onReassignSeller,
+  availableSellers,
 }: LeadDetailsModalProps) {
   const [prevLeadId, setPrevLeadId] = useState<string | null>(null);
   const [notes, setNotes] = useState(lead?.notes || "");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
+  const [isChangingSeller, setIsChangingSeller] = useState(false);
 
   if (lead && lead.id !== prevLeadId) {
     setPrevLeadId(lead.id);
     setNotes(lead.notes || "");
     setNotesSaved(false);
+    setIsChangingSeller(false);
   }
 
   // Listener para tecla Escape
@@ -303,13 +309,55 @@ export function LeadDetailsModal({
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs font-bold text-white shadow">
                 {lead.assigned_to_name.charAt(0).toUpperCase()}
               </div>
-              <div className="min-w-0">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                  Vendedor Responsável
-                </span>
-                <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                  {lead.assigned_to_name}
-                </p>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Vendedor Responsável
+                  </span>
+                  {onReassignSeller && (
+                    <button
+                      type="button"
+                      onClick={() => setIsChangingSeller(!isChangingSeller)}
+                      className="text-[10px] font-bold text-orange-500 hover:text-orange-400 hover:underline transition-colors"
+                    >
+                      {isChangingSeller ? "Cancelar" : "Alterar"}
+                    </button>
+                  )}
+                </div>
+                {isChangingSeller ? (
+                  <select
+                    id="select-reassign-seller"
+                    defaultValue={lead.assigned_to_name}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      if (!newName) return;
+                      const matchedSeller = availableSellers?.find((s) => s.name === newName);
+                      onReassignSeller?.(lead.id, newName, matchedSeller?.id);
+                      setIsChangingSeller(false);
+                    }}
+                    className="mt-1 w-full rounded border border-orange-500/40 bg-zinc-950 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  >
+                    <option value={lead.assigned_to_name}>{lead.assigned_to_name} (Atual)</option>
+                    {availableSellers
+                      ?.filter((s) => s.name !== lead.assigned_to_name)
+                      .map((seller) => (
+                        <option key={seller.id} value={seller.name}>
+                          {seller.name}
+                        </option>
+                      ))}
+                  </select>
+                ) : (
+                  <p
+                    onClick={() => onReassignSeller && setIsChangingSeller(true)}
+                    className={cn(
+                      "text-xs font-bold text-slate-900 dark:text-slate-100 truncate",
+                      onReassignSeller && "cursor-pointer hover:text-orange-500 transition-colors"
+                    )}
+                    title={onReassignSeller ? "Clique para transferir lead" : undefined}
+                  >
+                    {lead.assigned_to_name}
+                  </p>
+                )}
               </div>
             </div>
 

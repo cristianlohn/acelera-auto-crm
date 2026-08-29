@@ -7,6 +7,7 @@ import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   sendWhatsAppMessage,
   buildNewLeadAlertMessage,
@@ -39,52 +40,88 @@ export async function resolveAssignedSeller(
   explicitSeller?: string | null,
   organizationId: string = DEFAULT_DEMO_ORG_ID
 ): Promise<string> {
-  if (explicitSeller && explicitSeller.trim()) {
+  if (
+    explicitSeller &&
+    explicitSeller.trim() &&
+    !explicitSeller.includes("Roleta Automática") &&
+    explicitSeller !== "roleta"
+  ) {
     return explicitSeller.trim();
   }
 
-  let activeSellers = DEFAULT_ACTIVE_SELLERS;
+  let activeSellers: string[] = [];
 
   if (isSupabaseServerConfigured()) {
     try {
       const supabase = await createServerSupabaseClient();
-      const { data: teamData } = await supabase
+
+      // 1. Busca vendedores da loja
+      const { data: teamData } = await (supabase as unknown as {
+        from: (table: string) => {
+          select: (cols: string) => {
+            eq: (col: string, val: string) => {
+              in: (col: string, vals: string[]) => Promise<{ data: Array<{ full_name: string; role: string; in_roulette?: boolean }> | null }>;
+            };
+          };
+        };
+      })
         .from("profiles")
-        .select("full_name, role")
+        .select("full_name, role, in_roulette")
         .eq("organization_id", organizationId)
-        .in("role", ["vendedor"]);
+        .in("role", ["vendedor", "seller"]);
 
       if (teamData && teamData.length > 0) {
-        const names = teamData
-          .map((p) => p.full_name)
-          .filter((name): name is string => Boolean(name && name.trim()));
-        if (names.length > 0) {
-          activeSellers = names;
+        const onDutySellers = teamData
+          .filter((p) => p.in_roulette !== false && Boolean(p.full_name?.trim()))
+          .map((p) => p.full_name.trim());
+
+        if (onDutySellers.length > 0) {
+          activeSellers = onDutySellers;
         }
-      } else {
-        // Fallback seguro: quando não houver vendedores ativos, alocar para o Gestor / Admin
-        const { data: adminData } = await supabase
+      }
+
+      // 2. Se não houver vendedores ativos no plantão, busca gestores/admins
+      if (activeSellers.length === 0) {
+        const { data: adminData } = await (supabase as unknown as {
+          from: (table: string) => {
+            select: (cols: string) => {
+              eq: (col: string, val: string) => {
+                in: (col: string, vals: string[]) => Promise<{ data: Array<{ full_name: string; role: string; in_roulette?: boolean }> | null }>;
+              };
+            };
+          };
+        })
           .from("profiles")
-          .select("full_name, role")
+          .select("full_name, role, in_roulette")
           .eq("organization_id", organizationId)
-          .in("role", ["admin", "gerente"]);
+          .in("role", ["admin", "gerente", "manager", "superadmin"]);
 
         if (adminData && adminData.length > 0) {
-          const adminNames = adminData
-            .map((p) => p.full_name)
-            .filter((name): name is string => Boolean(name && name.trim()));
-          if (adminNames.length > 0) {
-            return adminNames[0];
+          const onDutyAdmins = adminData
+            .filter((p) => p.in_roulette !== false && Boolean(p.full_name?.trim()))
+            .map((p) => p.full_name.trim());
+
+          if (onDutyAdmins.length > 0) {
+            activeSellers = onDutyAdmins;
+          } else {
+            const firstAdmin = adminData.find((p) => Boolean(p.full_name?.trim()));
+            if (firstAdmin?.full_name) {
+              return firstAdmin.full_name.trim();
+            }
           }
         }
       }
     } catch {
-      // Fallback para lista padrão em caso de instabilidade
+      // Fallback
     }
   }
 
   if (activeSellers.length === 0) {
-    return "Fila de Atendimento";
+    if (organizationId === DEFAULT_DEMO_ORG_ID) {
+      activeSellers = DEFAULT_ACTIVE_SELLERS;
+    } else {
+      return "Fila de Atendimento";
+    }
   }
 
   const assigned = activeSellers[roundRobinCursor % activeSellers.length];

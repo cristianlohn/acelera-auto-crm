@@ -7,7 +7,7 @@
 
 "use client";
 
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import {
@@ -37,7 +37,8 @@ import {
 import { cn } from "@/lib/utils";
 import { mockLeads } from "@/lib/mock-data";
 import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
-import { createLead as persistLead, getLeads, updateLeadStatus } from "@/app/actions/leads";
+import { createLead as persistLead, getLeads, updateLeadStatus, updateLeadSeller } from "@/app/actions/leads";
+import { getTeamMembersAction } from "@/app/actions/team-actions";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
 import { useDemoRole } from "@/context/demo-role-context";
 import {
@@ -51,6 +52,7 @@ import { LeadDetailsModal } from "@/components/leads/lead-details-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 import type { KanbanLead, LeadStage } from "@/types/kanban";
+import type { TeamMember } from "@/types/team";
 
 function mapStatusToStage(status: LeadStatus): LeadStage {
   switch (status) {
@@ -473,10 +475,12 @@ function AddLeadModal({
   onAdd,
   triggerLabel = "Novo Lead",
   triggerId = "btn-add-lead",
+  teamMembers,
 }: {
   onAdd: (lead: Lead) => void;
   triggerLabel?: string;
   triggerId?: string;
+  teamMembers?: TeamMember[];
 }) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
@@ -494,6 +498,18 @@ function AddLeadModal({
       return;
     }
 
+    let resolvedSeller = form.sellerName;
+    if (!resolvedSeller || resolvedSeller.includes("Roleta Automática")) {
+      const onDuty = teamMembers?.filter((m) => m.in_roulette && m.status === "active");
+      if (onDuty && onDuty.length > 0) {
+        resolvedSeller = onDuty[0].name;
+      } else if (teamMembers && teamMembers.length > 0) {
+        resolvedSeller = teamMembers[0].name;
+      } else {
+        resolvedSeller = "Rafael Alves";
+      }
+    }
+
     const newLead: Lead = {
       id: `lead_${Date.now()}`,
       name: form.name.trim(),
@@ -501,10 +517,7 @@ function AddLeadModal({
       email: form.email.trim() || undefined,
       vehicleInterest: form.vehicleInterest.trim(),
       status: form.status,
-      sellerName:
-        form.sellerName === "Roleta Automática (Equipe)"
-          ? "Rafael Alves"
-          : form.sellerName,
+      sellerName: resolvedSeller,
       lastContactAt: new Date().toISOString(),
       origin: form.origin,
     };
@@ -671,9 +684,19 @@ function AddLeadModal({
               <option value="Roleta Automática (Equipe)">
                 ⚡ Roleta Automática (Distribuição Inteligente)
               </option>
-              <option value="Rafael Alves">Rafael Alves (Você)</option>
-              <option value="Juliana Costa">Juliana Costa (Vendedora)</option>
-              <option value="Marcos Ferreira">Marcos Ferreira (Gerente)</option>
+              {teamMembers && teamMembers.length > 0 ? (
+                teamMembers.map((m) => (
+                  <option key={m.id} value={m.name}>
+                    {m.name} {m.in_roulette ? "🟢 (Plantão)" : "⏸️ (Pausado)"}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="Rafael Alves">Rafael Alves (Você)</option>
+                  <option value="Juliana Costa">Juliana Costa (Vendedora)</option>
+                  <option value="Marcos Ferreira">Marcos Ferreira (Gerente)</option>
+                </>
+              )}
             </select>
           </div>
 
@@ -724,12 +747,14 @@ function computeMetrics(leads: Lead[]) {
 
 export interface LeadsPageClientProps {
   initialLeads?: Lead[];
+  initialTeamMembers?: TeamMember[];
   initialOrganizationId?: string | null;
   userRole?: string;
 }
 
 export function LeadsPageClient({
   initialLeads,
+  initialTeamMembers,
   initialOrganizationId,
   userRole,
 }: LeadsPageClientProps = {}) {
@@ -738,6 +763,9 @@ export function LeadsPageClient({
   const isVendedorRole = effectiveRole === "seller";
   const canConfigureIntegrations = canManageIntegrationsAndBilling(effectiveRole);
 
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(
+    initialTeamMembers || []
+  );
   const [organizationId, setOrganizationId] = useState<string | null>(
     initialOrganizationId || null
   );
@@ -757,6 +785,13 @@ export function LeadsPageClient({
       setLeads(initialLeads);
     }
   }
+
+  useEffect(() => {
+    if (initialTeamMembers || isDemoMode) return;
+    getTeamMembersAction()
+      .then(setTeamMembers)
+      .catch(() => {});
+  }, [isDemoMode, initialTeamMembers]);
 
   useEffect(() => {
     if (initialLeads !== undefined || isDemoMode) return;
@@ -825,6 +860,19 @@ export function LeadsPageClient({
 
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
+  const availableSellersList = useMemo(() => {
+    if (teamMembers && teamMembers.length > 0) {
+      return teamMembers.map((m) => ({ id: m.id, name: m.name }));
+    }
+    const map = new Map<string, { id: string; name: string }>();
+    leads.forEach((l) => {
+      if (l.sellerName && l.sellerName !== "Fila de Atendimento") {
+        map.set(l.sellerName, { id: l.sellerName, name: l.sellerName });
+      }
+    });
+    return Array.from(map.values());
+  }, [teamMembers, leads]);
+
   const handleAddLead = useCallback((lead: Lead) => {
     setLeads((prev) => [lead, ...prev]);
     persistLead({
@@ -835,8 +883,35 @@ export function LeadsPageClient({
       status: lead.status,
       sellerName: lead.sellerName,
       origin: lead.origin,
-    }).catch(() => {});
+    })
+      .then((createdLead) => {
+        setLeads((prev) =>
+          prev.map((l) => (l.id === lead.id ? { ...l, ...createdLead } : l))
+        );
+      })
+      .catch(() => {});
   }, [setLeads]);
+
+  const handleReassignSeller = useCallback(
+    async (leadId: string, newSellerName: string, newSellerId?: string) => {
+      // 1. Atualização Otimista
+      setLeads((prev) =>
+        prev.map((l) => (l.id === leadId ? { ...l, sellerName: newSellerName } : l))
+      );
+      setSelectedLead((prev) =>
+        prev && prev.id === leadId ? { ...prev, sellerName: newSellerName } : prev
+      );
+
+      toast.success(`Lead transferido para ${newSellerName} com sucesso!`);
+
+      try {
+        await updateLeadSeller(leadId, newSellerName, newSellerId);
+      } catch {
+        // Silencioso
+      }
+    },
+    [setLeads]
+  );
 
   const handleMoveLead = useCallback(
     async (leadId: string, newStatus: LeadStatus) => {
@@ -912,7 +987,7 @@ export function LeadsPageClient({
               : `${visibleLeads.length} leads no total da loja`}
           </p>
         </div>
-        <AddLeadModal onAdd={handleAddLead} />
+        <AddLeadModal onAdd={handleAddLead} teamMembers={teamMembers} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -999,6 +1074,7 @@ export function LeadsPageClient({
               onAdd={handleAddLead}
               triggerLabel="Cadastrar Primeiro Lead"
               triggerId="btn-empty-add-lead"
+              teamMembers={teamMembers}
             />
             {canConfigureIntegrations && (
               <a
@@ -1045,6 +1121,8 @@ export function LeadsPageClient({
               prev && prev.id === leadId ? { ...prev, status: newStatus } : prev
             );
           }}
+          onReassignSeller={handleReassignSeller}
+          availableSellers={availableSellersList}
         />
       )}
     </div>
