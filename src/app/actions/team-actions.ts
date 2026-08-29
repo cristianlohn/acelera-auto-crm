@@ -6,6 +6,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
@@ -17,6 +18,7 @@ import {
   type UpdateSalespersonFormData,
 } from "@/lib/validations/team";
 import type { TeamMember, TeamSummaryMetrics } from "@/types/team";
+import { ROULETTE_STATUS_COOKIE, getRouletteStatusMap } from "@/lib/services/team-status";
 
 export type { TeamMember, TeamMember as SalespersonMember } from "@/types/team";
 export type {
@@ -118,8 +120,35 @@ export async function getTeamMembersAction(explicitOrgId?: string): Promise<Team
         .eq("organization_id", orgId)
         .order("created_at", { ascending: true });
 
+      // Consulta status de plantão em store global e cookie
+      const statusMap = getRouletteStatusMap();
+      let cookieOverrides: Record<string, boolean> = {};
+      try {
+        const cookieStore = await cookies();
+        const rawCookie = cookieStore.get(ROULETTE_STATUS_COOKIE)?.value;
+        if (rawCookie) {
+          cookieOverrides = JSON.parse(rawCookie);
+        }
+      } catch {
+        // Silencioso se cookies() não estiver disponível
+      }
+
       const members: TeamMember[] = (!error && data) ? data.map((p) => {
         const raw = p as unknown as { in_roulette?: boolean; status?: TeamMember["status"] };
+        let resolvedInRoulette = true;
+
+        if (statusMap.has(p.id)) {
+          resolvedInRoulette = statusMap.get(p.id)!;
+        } else if (cookieOverrides[p.id] !== undefined) {
+          resolvedInRoulette = cookieOverrides[p.id];
+        } else if (statusMap.has(`${orgId}:${p.id}`)) {
+          resolvedInRoulette = statusMap.get(`${orgId}:${p.id}`)!;
+        } else if (cookieOverrides[`${orgId}:${p.id}`] !== undefined) {
+          resolvedInRoulette = cookieOverrides[`${orgId}:${p.id}`];
+        } else if (raw.in_roulette !== undefined && raw.in_roulette !== null) {
+          resolvedInRoulette = Boolean(raw.in_roulette);
+        }
+
         return {
           id: p.id,
           organization_id: p.organization_id,
@@ -128,7 +157,7 @@ export async function getTeamMembersAction(explicitOrgId?: string): Promise<Team
           phone: p.phone || "",
           role: (p.role === "gerente" || p.role === "admin" ? "manager" : "seller") as TeamMember["role"],
           segment: "all",
-          in_roulette: raw.in_roulette !== undefined && raw.in_roulette !== null ? Boolean(raw.in_roulette) : true,
+          in_roulette: resolvedInRoulette,
           status: raw.status || "active",
           monthly_goal_units: 15,
           current_sales_units: 8,
@@ -935,19 +964,45 @@ export async function toggleRouletteStatusAction(
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
+  // 1. Atualiza a store em memória global
+  const statusMap = getRouletteStatusMap();
+  statusMap.set(memberId, inRoulette);
+  statusMap.set(`${orgId}:${memberId}`, inRoulette);
+
   const member = memoryTeamMembers.find((m) => m.id === memberId && m.organization_id === orgId);
   if (member) {
     member.in_roulette = inRoulette;
   }
 
+  // 2. Grava persistência em Cookie HTTP (survive a recarregamentos e serverless)
+  try {
+    const cookieStore = await cookies();
+    let currentOverrides: Record<string, boolean> = {};
+    const existing = cookieStore.get(ROULETTE_STATUS_COOKIE)?.value;
+    if (existing) {
+      try {
+        currentOverrides = JSON.parse(existing);
+      } catch {}
+    }
+    currentOverrides[memberId] = inRoulette;
+    currentOverrides[`${orgId}:${memberId}`] = inRoulette;
+    cookieStore.set(ROULETTE_STATUS_COOKIE, JSON.stringify(currentOverrides), {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+  } catch {
+    // Silencioso se cookies() não for mutável no contexto da execução
+  }
+
+  // 3. Atualiza no Supabase caso a coluna in_roulette esteja presente no banco
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
     try {
       const supabaseAdmin = createAdminClient();
-      await (supabaseAdmin as unknown as { from: (table: string) => { update: (data: unknown) => { eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<unknown> } } } })
+      await (supabaseAdmin as unknown as { from: (table: string) => { update: (data: unknown) => { eq: (k: string, v: string) => Promise<unknown> } } })
         .from("profiles")
         .update({ in_roulette: inRoulette, updated_at: new Date().toISOString() })
-        .eq("id", memberId)
-        .eq("organization_id", orgId);
+        .eq("id", memberId);
     } catch {
       // Fallback
     }

@@ -12,6 +12,7 @@ import {
   buildNewLeadAlertMessage,
   type LeadAlertData,
 } from "@/lib/services/whatsapp";
+import { getRouletteStatusMap } from "@/lib/services/team-status";
 
 /** Organização padrão para persistência demo/sandbox */
 export const DEFAULT_DEMO_ORG_ID = "a0000000-0000-0000-0000-000000000001";
@@ -59,19 +60,27 @@ export async function resolveAssignedSeller(
         from: (table: string) => {
           select: (cols: string) => {
             eq: (col: string, val: string) => {
-              in: (col: string, vals: string[]) => Promise<{ data: Array<{ full_name: string; role: string; in_roulette?: boolean }> | null }>;
+              in: (col: string, vals: string[]) => Promise<{ data: Array<{ id?: string; full_name: string; role: string; in_roulette?: boolean }> | null }>;
             };
           };
         };
       })
         .from("profiles")
-        .select("full_name, role, in_roulette")
+        .select("id, full_name, role, in_roulette")
         .eq("organization_id", organizationId)
         .in("role", ["vendedor", "seller"]);
 
+      const statusMap = getRouletteStatusMap();
+
       if (teamData && teamData.length > 0) {
         const onDutySellers = teamData
-          .filter((p) => p.in_roulette !== false && Boolean(p.full_name?.trim()))
+          .filter((p) => {
+            let isIn = p.in_roulette !== false;
+            if (p.id && statusMap?.has(p.id)) {
+              isIn = statusMap.get(p.id)!;
+            }
+            return isIn && Boolean(p.full_name?.trim());
+          })
           .map((p) => p.full_name.trim());
 
         if (onDutySellers.length > 0) {
@@ -85,19 +94,25 @@ export async function resolveAssignedSeller(
           from: (table: string) => {
             select: (cols: string) => {
               eq: (col: string, val: string) => {
-                in: (col: string, vals: string[]) => Promise<{ data: Array<{ full_name: string; role: string; in_roulette?: boolean }> | null }>;
+                in: (col: string, vals: string[]) => Promise<{ data: Array<{ id?: string; full_name: string; role: string; in_roulette?: boolean }> | null }>;
               };
             };
           };
         })
           .from("profiles")
-          .select("full_name, role, in_roulette")
+          .select("id, full_name, role, in_roulette")
           .eq("organization_id", organizationId)
           .in("role", ["admin", "gerente", "manager", "superadmin"]);
 
         if (adminData && adminData.length > 0) {
           const onDutyAdmins = adminData
-            .filter((p) => p.in_roulette !== false && Boolean(p.full_name?.trim()))
+            .filter((p) => {
+              let isIn = p.in_roulette !== false;
+              if (p.id && statusMap?.has(p.id)) {
+                isIn = statusMap.get(p.id)!;
+              }
+              return isIn && Boolean(p.full_name?.trim());
+            })
             .map((p) => p.full_name.trim());
 
           if (onDutyAdmins.length > 0) {

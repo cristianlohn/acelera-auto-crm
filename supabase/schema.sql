@@ -75,6 +75,7 @@ create table public.profiles (
   email text not null,
   phone text,
   avatar_url text,
+  in_roulette boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

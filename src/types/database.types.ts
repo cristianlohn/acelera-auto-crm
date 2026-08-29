@@ -112,6 +112,7 @@ export interface Database {
           email: string;
           phone: string | null;
           avatar_url: string | null;
+          in_roulette?: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -123,6 +124,7 @@ export interface Database {
           email: string;
           phone?: string | null;
           avatar_url?: string | null;
+          in_roulette?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -134,6 +136,7 @@ export interface Database {
           email?: string;
           phone?: string | null;
           avatar_url?: string | null;
+          in_roulette?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
