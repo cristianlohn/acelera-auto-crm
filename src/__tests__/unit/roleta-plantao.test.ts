@@ -6,13 +6,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   resolveAssignedSellerInfo,
-  resolveAssignedSeller,
   resetRoundRobinCursor,
 } from "@/lib/crm/roleta";
-import {
-  toggleRouletteStatusAction,
-  memoryTeamMembers,
-} from "@/app/actions/team-actions";
 import { getRouletteStatusMap } from "@/lib/services/team-status";
 import * as supabaseServerModule from "@/lib/supabase/server";
 
@@ -71,7 +66,7 @@ describe("[UNIT-ROLETA-PLANTAO] Distribuição da Roleta Automática para Membro
 
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
     vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
-      mockSupabase as any
+      mockSupabase as never
     );
 
     // 1º lead deve ir para Lucas ou Carla (nunca Bruno)
@@ -115,7 +110,7 @@ describe("[UNIT-ROLETA-PLANTAO] Distribuição da Roleta Automática para Membro
 
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
     vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
-      mockSupabase as any
+      mockSupabase as never
     );
 
     const res = await resolveAssignedSellerInfo("roleta", orgId);
@@ -146,7 +141,7 @@ describe("[UNIT-ROLETA-PLANTAO] Distribuição da Roleta Automática para Membro
 
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
     vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
-      mockSupabase as any
+      mockSupabase as never
     );
 
     const res = await resolveAssignedSellerInfo("roleta", orgId);
@@ -177,7 +172,7 @@ describe("[UNIT-ROLETA-PLANTAO] Distribuição da Roleta Automática para Membro
 
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
     vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
-      mockSupabase as any
+      mockSupabase as never
     );
 
     const resFila = await resolveAssignedSellerInfo("Fila de Atendimento", orgId);

@@ -21,7 +21,7 @@ import {
 import { formatPhone } from "@/lib/validations/document";
 import { createKanbanLeadAction, type CreateKanbanLeadInput } from "@/app/actions/kanban-actions";
 import { getTeamMembersAction } from "@/app/actions/team-actions";
-import type { KanbanLead, LeadStage } from "@/types/kanban";
+import type { KanbanLead } from "@/types/kanban";
 import type { TeamMember } from "@/types/team";
 
 export interface AddKanbanLeadModalProps {

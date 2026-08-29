@@ -249,7 +249,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
       return true;
     });
-  }, [leads, filters, isVendedor, sellerName]);
+  }, [leads, filters, isVendedor, sellerName, currentUserProfile, isDemoMode]);
 
   // Agrupa os leads filtrados em colunas
   const columns: KanbanColumnConfig[] = useMemo(() => {
