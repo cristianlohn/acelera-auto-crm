@@ -14,6 +14,8 @@ export interface UseLeadsRealtimeProps {
   onLeadInserted?: (newLead: Lead) => void;
   onLeadUpdated?: (updatedLead: Lead) => void;
   onLeadDeleted?: (deletedLeadId: string) => void;
+  onPollSync?: () => Promise<void> | void;
+  pollIntervalMs?: number;
 }
 
 /**
@@ -40,7 +42,43 @@ export function useLeadsRealtime({
   onLeadInserted,
   onLeadUpdated,
   onLeadDeleted,
+  onPollSync,
+  pollIntervalMs = 5000,
 }: UseLeadsRealtimeProps) {
+  // 1. Sincronização em segundo plano via Heartbeat Polling & Foco da Janela
+  useEffect(() => {
+    if (isDemo || !organizationId || !onPollSync) return;
+
+    let isMounted = true;
+
+    const executeSync = async () => {
+      if (isMounted && typeof document !== "undefined" && document.visibilityState === "visible") {
+        try {
+          await onPollSync();
+        } catch {
+          // Silencioso
+        }
+      }
+    };
+
+    const interval = setInterval(executeSync, pollIntervalMs);
+
+    const handleFocus = () => {
+      executeSync();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleFocus);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleFocus);
+    };
+  }, [organizationId, isDemo, onPollSync, pollIntervalMs]);
+
+  // 2. Sincronização Instantânea via Supabase Realtime WebSocket
   useEffect(() => {
     // No modo demo ou sem organização ativa, não conecta ao WebSocket
     if (isDemo || !organizationId) return;

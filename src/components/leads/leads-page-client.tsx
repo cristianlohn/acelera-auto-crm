@@ -831,7 +831,54 @@ export function LeadsPageClient({
     };
   }, [isDemoMode, initialLeads]);
 
-  // Sincronização e reconciliação reativa via Supabase Realtime
+  const handlePollSync = useCallback(async () => {
+    try {
+      const freshLeads = await getLeads();
+      if (!freshLeads || freshLeads.length === 0) return;
+
+      setLeads((prev) => {
+        const newLeads = freshLeads.filter(
+          (fl) => !prev.some((pl) => pl.id === fl.id)
+        );
+
+        if (newLeads.length > 0) {
+          newLeads.forEach((nl) => {
+            toast.success(`🎯 Novo Lead Recebido: ${nl.name || "Cliente"}`, {
+              description: `Interesse: ${nl.vehicleInterest || "Veículo"} • Vendedor: ${nl.sellerName}`,
+              duration: 5000,
+            });
+          });
+
+          const existingUpdated = prev.map((pl) => {
+            const fresh = freshLeads.find((fl) => fl.id === pl.id);
+            return fresh ? { ...pl, ...fresh } : pl;
+          });
+          return [...newLeads, ...existingUpdated];
+        }
+
+        let hasChanges = false;
+        const updated = prev.map((pl) => {
+          const fresh = freshLeads.find((fl) => fl.id === pl.id);
+          if (
+            fresh &&
+            (fresh.status !== pl.status ||
+              fresh.sellerName !== pl.sellerName ||
+              fresh.lastContactAt !== pl.lastContactAt)
+          ) {
+            hasChanges = true;
+            return { ...pl, ...fresh };
+          }
+          return pl;
+        });
+
+        return hasChanges ? updated : prev;
+      });
+    } catch {
+      // Silencioso
+    }
+  }, [setLeads]);
+
+  // Sincronização e reconciliação reativa via Supabase Realtime + Heartbeat Sync
   useLeadsRealtime({
     organizationId,
     isDemo: isDemoMode,
@@ -851,6 +898,7 @@ export function LeadsPageClient({
     onLeadDeleted: useCallback((deletedLeadId: string) => {
       setLeads((prev) => prev.filter((l) => l.id !== deletedLeadId));
     }, [setLeads]),
+    onPollSync: handlePollSync,
   });
 
   const allowAllLeads = canViewAllLeads(effectiveRole);

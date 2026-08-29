@@ -6,7 +6,6 @@
 export const ROULETTE_STATUS_COOKIE = "acelera_roulette_status_v1";
 
 declare global {
-  // eslint-disable-next-line no-var
   var __acelera_roulette_status_map: Map<string, boolean> | undefined;
 }
 

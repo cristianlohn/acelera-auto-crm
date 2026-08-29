@@ -6,7 +6,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useTransition, useMemo, useEffect } from "react";
 import { toast } from "sonner";
 import type {
   KanbanLead,
@@ -19,7 +19,14 @@ import { KanbanColumn } from "./kanban-column";
 import { KanbanFilters } from "./kanban-filters";
 import { LeadLostModal } from "./lead-lost-modal";
 import { LeadDetailsModal } from "./lead-details-modal";
-import { updateLeadStageAction, updateLeadNotesAction, updateLeadAssignedSellerAction } from "@/app/actions/kanban-actions";
+import {
+  updateLeadStageAction,
+  updateLeadNotesAction,
+  updateLeadAssignedSellerAction,
+  getKanbanBoardAction,
+} from "@/app/actions/kanban-actions";
+import { getCurrentUserProfileAction } from "@/app/actions/auth";
+import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { useDemoRole } from "@/context/demo-role-context";
 import { canViewAllLeads } from "@/lib/permissions";
 
@@ -30,14 +37,81 @@ interface KanbanBoardProps {
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<KanbanLead[]>(initialLeads);
   const [prevInitialLeads, setPrevInitialLeads] = useState<KanbanLead[]>(initialLeads);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
-  const { role, sellerName } = useDemoRole();
+  const { role, sellerName, isDemoMode } = useDemoRole();
   const isVendedor = !canViewAllLeads(role);
 
   if (initialLeads !== prevInitialLeads) {
     setPrevInitialLeads(initialLeads);
     setLeads(initialLeads);
   }
+
+  useEffect(() => {
+    if (isDemoMode) return;
+    getCurrentUserProfileAction()
+      .then((p) => {
+        if (p.organizationId) {
+          setOrganizationId(p.organizationId);
+        }
+      })
+      .catch(() => {});
+  }, [isDemoMode]);
+
+  const handlePollSync = React.useCallback(async () => {
+    try {
+      const boardData = await getKanbanBoardAction();
+      if (!boardData || !boardData.columns) return;
+
+      const freshLeads = boardData.columns.flatMap((c) => c.leads);
+
+      setLeads((prev) => {
+        const newLeads = freshLeads.filter(
+          (fl) => !prev.some((pl) => pl.id === fl.id)
+        );
+
+        if (newLeads.length > 0) {
+          newLeads.forEach((nl) => {
+            toast.success(`🎯 Novo Lead Recebido: ${nl.name || "Cliente"}`, {
+              description: `Interesse: ${nl.vehicle_of_interest || "Veículo"} • Vendedor: ${nl.assigned_to_name}`,
+              duration: 5000,
+            });
+          });
+
+          const existingUpdated = prev.map((pl) => {
+            const fresh = freshLeads.find((fl) => fl.id === pl.id);
+            return fresh ? { ...pl, ...fresh } : pl;
+          });
+          return [...newLeads, ...existingUpdated];
+        }
+
+        let hasChanges = false;
+        const updated = prev.map((pl) => {
+          const fresh = freshLeads.find((fl) => fl.id === pl.id);
+          if (
+            fresh &&
+            (fresh.stage !== pl.stage ||
+              fresh.assigned_to_name !== pl.assigned_to_name ||
+              fresh.notes !== pl.notes)
+          ) {
+            hasChanges = true;
+            return { ...pl, ...fresh };
+          }
+          return pl;
+        });
+
+        return hasChanges ? updated : prev;
+      });
+    } catch {
+      // Silencioso
+    }
+  }, []);
+
+  useLeadsRealtime({
+    organizationId,
+    isDemo: isDemoMode,
+    onPollSync: handlePollSync,
+  });
 
   // Lead selecionado para visualização no modal de detalhes
   const [selectedLead, setSelectedLead] = useState<KanbanLead | null>(null);
