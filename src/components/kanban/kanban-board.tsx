@@ -59,7 +59,11 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     getCurrentUserProfileAction()
       .then((p) => {
         if (p) {
-          setCurrentUserProfile({ id: p.userId, name: p.fullName, role: p.role });
+          setCurrentUserProfile({
+            id: p.userId || undefined,
+            name: p.fullName || undefined,
+            role: p.role || undefined,
+          });
           if (p.organizationId) {
             setOrganizationId(p.organizationId);
           }

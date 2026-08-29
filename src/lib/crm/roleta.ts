@@ -88,9 +88,9 @@ export async function resolveAssignedSellerInfo(
   let teamProfiles: Array<{
     id: string;
     full_name: string;
-    role?: string;
-    phone?: string;
-    in_roulette?: boolean;
+    role?: string | null;
+    phone?: string | null;
+    in_roulette?: boolean | null;
   }> = [];
 
   if (isSupabaseServerConfigured()) {
@@ -104,7 +104,15 @@ export async function resolveAssignedSellerInfo(
         .eq("organization_id", organizationId);
 
       if (!error && Array.isArray(allProfiles) && allProfiles.length > 0) {
-        teamProfiles = allProfiles.filter((p) => Boolean(p.full_name?.trim()));
+        teamProfiles = allProfiles
+          .filter((p) => Boolean(p.full_name?.trim()))
+          .map((p) => ({
+            id: p.id,
+            full_name: p.full_name,
+            role: p.role,
+            phone: p.phone,
+            in_roulette: p.in_roulette,
+          }));
       } else {
         // Suporte a mocks de teste que utilizam encadeamento com .in("role", ...)
         try {
