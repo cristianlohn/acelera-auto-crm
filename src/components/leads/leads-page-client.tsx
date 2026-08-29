@@ -477,7 +477,7 @@ function AddLeadModal({
   triggerId = "btn-add-lead",
   teamMembers,
 }: {
-  onAdd: (lead: Lead) => void;
+  onAdd: (lead: Lead, requestedSellerName?: string) => void;
   triggerLabel?: string;
   triggerId?: string;
   teamMembers?: TeamMember[];
@@ -498,15 +498,20 @@ function AddLeadModal({
       return;
     }
 
-    let resolvedSeller = form.sellerName;
-    if (!resolvedSeller || resolvedSeller.includes("Roleta Automática")) {
+    const isRoulette =
+      !form.sellerName ||
+      form.sellerName.includes("Roleta Automática") ||
+      form.sellerName === "roleta";
+
+    let optimisticSellerName = form.sellerName;
+    if (isRoulette) {
       const onDuty = teamMembers?.filter((m) => m.in_roulette && m.status === "active");
       if (onDuty && onDuty.length > 0) {
-        resolvedSeller = onDuty[0].name;
+        optimisticSellerName = onDuty[0].name;
       } else if (teamMembers && teamMembers.length > 0) {
-        resolvedSeller = teamMembers[0].name;
+        optimisticSellerName = teamMembers[0].name;
       } else {
-        resolvedSeller = "Rafael Alves";
+        optimisticSellerName = "Roleta Automática";
       }
     }
 
@@ -517,12 +522,12 @@ function AddLeadModal({
       email: form.email.trim() || undefined,
       vehicleInterest: form.vehicleInterest.trim(),
       status: form.status,
-      sellerName: resolvedSeller,
+      sellerName: optimisticSellerName,
       lastContactAt: new Date().toISOString(),
       origin: form.origin,
     };
 
-    onAdd(newLead);
+    onAdd(newLead, isRoulette ? "Roleta Automática (Equipe)" : form.sellerName);
     setForm(INITIAL_FORM);
     setOpen(false);
   };
@@ -873,24 +878,27 @@ export function LeadsPageClient({
     return Array.from(map.values());
   }, [teamMembers, leads]);
 
-  const handleAddLead = useCallback((lead: Lead) => {
-    setLeads((prev) => [lead, ...prev]);
-    persistLead({
-      name: lead.name,
-      phone: lead.phone,
-      email: lead.email,
-      vehicleInterest: lead.vehicleInterest,
-      status: lead.status,
-      sellerName: lead.sellerName,
-      origin: lead.origin,
-    })
-      .then((createdLead) => {
-        setLeads((prev) =>
-          prev.map((l) => (l.id === lead.id ? { ...l, ...createdLead } : l))
-        );
+  const handleAddLead = useCallback(
+    (lead: Lead, requestedSellerName?: string) => {
+      setLeads((prev) => [lead, ...prev]);
+      persistLead({
+        name: lead.name,
+        phone: lead.phone,
+        email: lead.email,
+        vehicleInterest: lead.vehicleInterest,
+        status: lead.status,
+        sellerName: requestedSellerName ?? lead.sellerName,
+        origin: lead.origin,
       })
-      .catch(() => {});
-  }, [setLeads]);
+        .then((createdLead) => {
+          setLeads((prev) =>
+            prev.map((l) => (l.id === lead.id ? { ...l, ...createdLead } : l))
+          );
+        })
+        .catch(() => {});
+    },
+    [setLeads]
+  );
 
   const handleReassignSeller = useCallback(
     async (leadId: string, newSellerName: string, newSellerId?: string) => {

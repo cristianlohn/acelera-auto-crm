@@ -7,7 +7,6 @@ import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import {
   sendWhatsAppMessage,
   buildNewLeadAlertMessage,
@@ -109,6 +108,55 @@ export async function resolveAssignedSeller(
               return firstAdmin.full_name.trim();
             }
           }
+        }
+      }
+
+      // 3. Distribuição Inteligente por Menor Carga (Equilíbrio Dinâmico de Leads)
+      if (activeSellers.length > 1 && organizationId !== DEFAULT_DEMO_ORG_ID) {
+        try {
+          const { data: recentLeads } = await (supabase as unknown as {
+            from: (table: string) => {
+              select: (cols: string) => {
+                eq: (col: string, val: string) => {
+                  order: (col: string, opt: { ascending: boolean }) => {
+                    limit: (count: number) => Promise<{ data: Array<{ seller_name: string; created_at: string }> | null }>;
+                  };
+                };
+              };
+            };
+          })
+            .from("leads")
+            .select("seller_name, created_at")
+            .eq("organization_id", organizationId)
+            .order("created_at", { ascending: false })
+            .limit(100);
+
+          if (recentLeads && Array.isArray(recentLeads)) {
+            const sellerStats = activeSellers.map((seller) => {
+              const assigned = recentLeads.filter(
+                (l) => l.seller_name?.trim().toLowerCase() === seller.toLowerCase()
+              );
+              const count = assigned.length;
+              const lastLeadDate = assigned[0]?.created_at
+                ? new Date(assigned[0].created_at).getTime()
+                : 0;
+              return { seller, count, lastLeadDate };
+            });
+
+            // Ordenação: 1º quem tem MENOS leads; 2º quem está há mais tempo sem receber lead
+            sellerStats.sort((a, b) => {
+              if (a.count !== b.count) {
+                return a.count - b.count;
+              }
+              return a.lastLeadDate - b.lastLeadDate;
+            });
+
+            if (sellerStats[0]?.seller) {
+              return sellerStats[0].seller;
+            }
+          }
+        } catch {
+          // Fallback para round-robin seletivo
         }
       }
     } catch {
