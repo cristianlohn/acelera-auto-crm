@@ -34,18 +34,25 @@ import { useDemoRole } from "@/context/demo-role-context";
 export interface SellerActionCockpitProps {
   className?: string;
   metrics?: ManagerCockpitMetrics;
+  sellerName?: string;
 }
 
 export function SellerActionCockpit({
   className,
   metrics,
+  sellerName: propSellerName,
 }: SellerActionCockpitProps) {
-  const { sellerName, isDemoMode } = useDemoRole();
+  const { sellerName: demoSellerName, isDemoMode } = useDemoRole();
   const [isExpanded, setIsExpanded] = useState(true);
   const [notifiedActions, setNotifiedActions] = useState<Set<string>>(new Set());
 
-  const activeSellerName = sellerName || "Rafael Alves";
-  const sellerMetric = metrics?.sellerRanking.find((s) => s.sellerName === activeSellerName);
+  const activeSellerName =
+    propSellerName ||
+    (isDemoMode ? demoSellerName : "Vendedor");
+
+  const sellerMetric = metrics?.sellerRanking.find(
+    (s) => s.sellerName.toLowerCase().trim() === activeSellerName.toLowerCase().trim()
+  ) || (metrics?.sellerRanking.length === 1 ? metrics.sellerRanking[0] : undefined);
 
   // Métricas do vendedor (Rafael Alves ou vendedor logado)
   const myPendingLeadsCount = isDemoMode ? 4 : (sellerMetric?.leadsCount ?? 0);
@@ -131,7 +138,7 @@ export function SellerActionCockpit({
               </h2>
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/20 border border-blue-500/30 px-2.5 py-0.5 text-[10px] font-bold text-blue-400">
                 <User className="h-3 w-3" />
-                {sellerName || "Rafael Alves"}
+                {activeSellerName}
               </span>
             </div>
             <p className="text-xs text-zinc-400">
