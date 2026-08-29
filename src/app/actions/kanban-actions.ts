@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
-import { resolveAssignedSeller, notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
+import { resolveAssignedSeller, resolveAssignedSellerInfo, notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
 import type { LeadStage, KanbanLead, KanbanBoardData, KanbanColumnConfig } from "@/types/kanban";
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import type { LeadStatus, LeadOrigin } from "@/types/database.types";
@@ -409,11 +409,16 @@ export async function getKanbanLeadsAction(
       if (!allowAll) {
         const userId = tenantContext.userId;
         const userName = tenantContext.profile?.full_name;
-        if (userId && userName) {
-          query = query.or(`seller_id.eq.${userId},seller_name.eq.${userName}`);
-        } else if (userId) {
-          query = query.eq("seller_id", userId);
-        }
+        const userFilterParts = [
+          "seller_name.eq.Fila de Atendimento",
+          "seller_name.eq.Fila Geral",
+          "seller_name.eq.Roleta Automática",
+          "seller_name.is.null",
+          "seller_id.is.null"
+        ];
+        if (userId) userFilterParts.push(`seller_id.eq.${userId}`);
+        if (userName) userFilterParts.push(`seller_name.eq.${userName}`);
+        query = query.or(userFilterParts.join(","));
       }
 
       const { data, error } = await query.order("created_at", { ascending: false });
@@ -461,6 +466,10 @@ export async function getKanbanLeadsAction(
   if (!allowAll) {
     return allFallbackLeads.filter(
       (l) =>
+        !l.assigned_to_name ||
+        l.assigned_to_name === "Fila de Atendimento" ||
+        l.assigned_to_name === "Fila Geral" ||
+        l.assigned_to_name === "Roleta Automática" ||
         l.assigned_to?.id === tenantContext.userId ||
         l.assigned_to_name === tenantContext.profile?.full_name ||
         l.assigned_to_name === "Rafael Alves" ||
@@ -838,10 +847,14 @@ export async function createKanbanLeadAction(
     input.assigned_to_name.toLowerCase().includes("roleta") ||
     input.assigned_to_name === "all";
 
-  const resolvedSeller = await resolveAssignedSeller(
+  const sellerInfo = await resolveAssignedSellerInfo(
     isRoulette ? undefined : input.assigned_to_name,
     orgId
   );
+  const resolvedSeller = sellerInfo.sellerName;
+  const resolvedSellerId =
+    sellerInfo.sellerId ||
+    (tenantContext.profile?.full_name === resolvedSeller ? tenantContext.userId : undefined);
   const nowIso = new Date().toISOString();
 
   const newKanbanLead: KanbanLead = {
@@ -855,7 +868,7 @@ export async function createKanbanLeadAction(
     stage: input.stage || "new",
     assigned_to_name: resolvedSeller,
     assigned_to: {
-      id: `sp-${Date.now()}`,
+      id: resolvedSellerId || `sp-${Date.now()}`,
       name: resolvedSeller,
     },
     sla_minutes: 0,
@@ -910,6 +923,7 @@ export async function createKanbanLeadAction(
           vehicle_interest: input.vehicle_of_interest.trim(),
           status: dbStatus,
           seller_name: resolvedSeller,
+          seller_id: resolvedSellerId || null,
           origin: dbOrigin,
           notes: input.notes?.trim() || null,
         })

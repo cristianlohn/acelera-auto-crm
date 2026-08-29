@@ -33,145 +33,184 @@ export function resetRoundRobinCursor(val = 0) {
   roundRobinCursor = val;
 }
 
+export interface ResolvedSellerInfo {
+  sellerName: string;
+  sellerId?: string;
+  sellerPhone?: string;
+}
+
 /**
- * Determina o vendedor atribuído ao lead (específico ou via Roleta Automática).
+ * Determina detalhadamente o vendedor atribuído ao lead (nome, id e telefone).
  */
-export async function resolveAssignedSeller(
+export async function resolveAssignedSellerInfo(
   explicitSeller?: string | null,
   organizationId: string = DEFAULT_DEMO_ORG_ID
-): Promise<string> {
-  if (
+): Promise<ResolvedSellerInfo> {
+  const isExplicit =
     explicitSeller &&
     explicitSeller.trim() &&
     !explicitSeller.includes("Roleta Automática") &&
-    explicitSeller !== "roleta"
-  ) {
-    return explicitSeller.trim();
-  }
-
-  let activeSellers: string[] = [];
+    explicitSeller !== "roleta" &&
+    explicitSeller !== "all";
 
   if (isSupabaseServerConfigured()) {
     try {
       const supabase = await createServerSupabaseClient();
 
-      // 1. Busca vendedores da loja
-      const { data: teamData } = await (supabase as unknown as {
+      let teamData: Array<{ id?: string; full_name: string; role?: string; phone?: string; in_roulette?: boolean }> | null = null;
+
+      const queryBuilder = (supabase as unknown as {
         from: (table: string) => {
           select: (cols: string) => {
             eq: (col: string, val: string) => {
-              in: (col: string, vals: string[]) => Promise<{ data: Array<{ id?: string; full_name: string; role: string; in_roulette?: boolean }> | null }>;
+              in?: (col: string, vals: string[]) => Promise<{ data: Array<{ id?: string; full_name: string; role?: string; phone?: string; in_roulette?: boolean }> | null }>;
+              then?: (resolve: (val: { data: Array<{ id?: string; full_name: string; role?: string; phone?: string; in_roulette?: boolean }> | null }) => void) => void;
             };
           };
         };
       })
         .from("profiles")
-        .select("id, full_name, role, in_roulette")
-        .eq("organization_id", organizationId)
-        .in("role", ["vendedor", "seller"]);
+        .select("id, full_name, role, phone, in_roulette")
+        .eq("organization_id", organizationId);
+
+      if (typeof queryBuilder.in === "function") {
+        const { data: sellers } = await queryBuilder.in("role", ["vendedor", "seller"]);
+        if (sellers && sellers.length > 0) {
+          teamData = sellers;
+        } else {
+          const { data: admins } = await queryBuilder.in("role", [
+            "admin",
+            "gerente",
+            "manager",
+            "superadmin",
+            "owner",
+          ]);
+          teamData = admins || [];
+        }
+      } else {
+        const res = await (queryBuilder as unknown as Promise<{ data: Array<{ id?: string; full_name: string; role?: string; phone?: string; in_roulette?: boolean }> | null }>);
+        teamData = res?.data || null;
+      }
 
       const statusMap = getRouletteStatusMap();
 
       if (teamData && teamData.length > 0) {
-        const onDutySellers = teamData
-          .filter((p) => {
+        // Se foi passado um vendedor explícito, encontra no banco
+        if (isExplicit) {
+          const matched = teamData.find(
+            (p) =>
+              p.full_name?.trim().toLowerCase() === explicitSeller!.trim().toLowerCase() ||
+              p.id === explicitSeller
+          );
+          if (matched) {
+            return {
+              sellerName: matched.full_name.trim(),
+              sellerId: matched.id,
+              sellerPhone: matched.phone || undefined,
+            };
+          }
+          return {
+            sellerName: explicitSeller!.trim(),
+          };
+        }
+
+        // Distribuição via Roleta:
+        // Prioridade 1: Vendedores com in_roulette !== false
+        let candidateProfiles = teamData.filter((p) => {
+          let isIn = p.in_roulette !== false;
+          if (p.id && statusMap?.has(p.id)) {
+            isIn = statusMap.get(p.id)!;
+          }
+          const isSellerRole = ["vendedor", "seller"].includes(p.role?.toLowerCase() || "");
+          return isIn && isSellerRole && Boolean(p.full_name?.trim());
+        });
+
+        // Prioridade 2: Qualquer membro ativo no plantão (inclusive gerentes, donos, admins)
+        if (candidateProfiles.length === 0) {
+          candidateProfiles = teamData.filter((p) => {
             let isIn = p.in_roulette !== false;
             if (p.id && statusMap?.has(p.id)) {
               isIn = statusMap.get(p.id)!;
             }
             return isIn && Boolean(p.full_name?.trim());
-          })
-          .map((p) => p.full_name.trim());
-
-        if (onDutySellers.length > 0) {
-          activeSellers = onDutySellers;
+          });
         }
-      }
 
-      // 2. Se não houver vendedores ativos no plantão, busca gestores/admins
-      if (activeSellers.length === 0) {
-        const { data: adminData } = await (supabase as unknown as {
-          from: (table: string) => {
-            select: (cols: string) => {
-              eq: (col: string, val: string) => {
-                in: (col: string, vals: string[]) => Promise<{ data: Array<{ id?: string; full_name: string; role: string; in_roulette?: boolean }> | null }>;
-              };
-            };
+        // Prioridade 3: Qualquer perfil da loja com nome cadastrado
+        if (candidateProfiles.length === 0) {
+          candidateProfiles = teamData.filter((p) => Boolean(p.full_name?.trim()));
+        }
+
+        if (candidateProfiles.length === 1) {
+          const single = candidateProfiles[0];
+          return {
+            sellerName: single.full_name.trim(),
+            sellerId: single.id,
+            sellerPhone: single.phone || undefined,
           };
-        })
-          .from("profiles")
-          .select("id, full_name, role, in_roulette")
-          .eq("organization_id", organizationId)
-          .in("role", ["admin", "gerente", "manager", "superadmin"]);
-
-        if (adminData && adminData.length > 0) {
-          const onDutyAdmins = adminData
-            .filter((p) => {
-              let isIn = p.in_roulette !== false;
-              if (p.id && statusMap?.has(p.id)) {
-                isIn = statusMap.get(p.id)!;
-              }
-              return isIn && Boolean(p.full_name?.trim());
-            })
-            .map((p) => p.full_name.trim());
-
-          if (onDutyAdmins.length > 0) {
-            activeSellers = onDutyAdmins;
-          } else {
-            const firstAdmin = adminData.find((p) => Boolean(p.full_name?.trim()));
-            if (firstAdmin?.full_name) {
-              return firstAdmin.full_name.trim();
-            }
-          }
         }
-      }
 
-      // 3. Distribuição Inteligente por Menor Carga (Equilíbrio Dinâmico de Leads)
-      if (activeSellers.length > 1 && organizationId !== DEFAULT_DEMO_ORG_ID) {
-        try {
-          const { data: recentLeads } = await (supabase as unknown as {
-            from: (table: string) => {
-              select: (cols: string) => {
-                eq: (col: string, val: string) => {
-                  order: (col: string, opt: { ascending: boolean }) => {
-                    limit: (count: number) => Promise<{ data: Array<{ seller_name: string; created_at: string }> | null }>;
+        if (candidateProfiles.length > 1) {
+          // Balanceamento dinâmico pelos últimos 100 leads
+          try {
+            const { data: recentLeads } = await (supabase as unknown as {
+              from: (table: string) => {
+                select: (cols: string) => {
+                  eq: (col: string, val: string) => {
+                    order: (col: string, opt: { ascending: boolean }) => {
+                      limit: (count: number) => Promise<{ data: Array<{ seller_name: string; seller_id?: string; created_at: string }> | null }>;
+                    };
                   };
                 };
               };
-            };
-          })
-            .from("leads")
-            .select("seller_name, created_at")
-            .eq("organization_id", organizationId)
-            .order("created_at", { ascending: false })
-            .limit(100);
+            })
+              .from("leads")
+              .select("seller_name, seller_id, created_at")
+              .eq("organization_id", organizationId)
+              .order("created_at", { ascending: false })
+              .limit(100);
 
-          if (recentLeads && Array.isArray(recentLeads)) {
-            const sellerStats = activeSellers.map((seller) => {
-              const assigned = recentLeads.filter(
-                (l) => l.seller_name?.trim().toLowerCase() === seller.toLowerCase()
-              );
-              const count = assigned.length;
-              const lastLeadDate = assigned[0]?.created_at
-                ? new Date(assigned[0].created_at).getTime()
-                : 0;
-              return { seller, count, lastLeadDate };
-            });
+            if (recentLeads && Array.isArray(recentLeads)) {
+              const stats = candidateProfiles.map((p) => {
+                const assigned = recentLeads.filter(
+                  (l) =>
+                    (l.seller_id && l.seller_id === p.id) ||
+                    (l.seller_name && l.seller_name.trim().toLowerCase() === p.full_name.trim().toLowerCase())
+                );
+                const count = assigned.length;
+                const lastLeadDate = assigned[0]?.created_at
+                  ? new Date(assigned[0].created_at).getTime()
+                  : 0;
+                return { profile: p, count, lastLeadDate };
+              });
 
-            // Ordenação: 1º quem tem MENOS leads; 2º quem está há mais tempo sem receber lead
-            sellerStats.sort((a, b) => {
-              if (a.count !== b.count) {
-                return a.count - b.count;
+              stats.sort((a, b) => {
+                if (a.count !== b.count) {
+                  return a.count - b.count;
+                }
+                return a.lastLeadDate - b.lastLeadDate;
+              });
+
+              if (stats[0]?.profile) {
+                const chosen = stats[0].profile;
+                return {
+                  sellerName: chosen.full_name.trim(),
+                  sellerId: chosen.id,
+                  sellerPhone: chosen.phone || undefined,
+                };
               }
-              return a.lastLeadDate - b.lastLeadDate;
-            });
-
-            if (sellerStats[0]?.seller) {
-              return sellerStats[0].seller;
             }
+          } catch {
+            // Fallback para round-robin
           }
-        } catch {
-          // Fallback para round-robin seletivo
+
+          const chosen = candidateProfiles[roundRobinCursor % candidateProfiles.length];
+          roundRobinCursor = (roundRobinCursor + 1) % candidateProfiles.length;
+          return {
+            sellerName: chosen.full_name.trim(),
+            sellerId: chosen.id,
+            sellerPhone: chosen.phone || undefined,
+          };
         }
       }
     } catch {
@@ -179,17 +218,28 @@ export async function resolveAssignedSeller(
     }
   }
 
-  if (activeSellers.length === 0) {
-    if (organizationId === DEFAULT_DEMO_ORG_ID) {
-      activeSellers = DEFAULT_ACTIVE_SELLERS;
-    } else {
-      return "Fila de Atendimento";
-    }
+  if (isExplicit) {
+    return { sellerName: explicitSeller!.trim() };
   }
 
-  const assigned = activeSellers[roundRobinCursor % activeSellers.length];
-  roundRobinCursor = (roundRobinCursor + 1) % activeSellers.length;
-  return assigned;
+  if (organizationId === DEFAULT_DEMO_ORG_ID) {
+    const demoName = DEFAULT_ACTIVE_SELLERS[roundRobinCursor % DEFAULT_ACTIVE_SELLERS.length];
+    roundRobinCursor = (roundRobinCursor + 1) % DEFAULT_ACTIVE_SELLERS.length;
+    return { sellerName: demoName };
+  }
+
+  return { sellerName: "Fila Geral" };
+}
+
+/**
+ * Determina o vendedor atribuído ao lead (específico ou via Roleta Automática).
+ */
+export async function resolveAssignedSeller(
+  explicitSeller?: string | null,
+  organizationId: string = DEFAULT_DEMO_ORG_ID
+): Promise<string> {
+  const res = await resolveAssignedSellerInfo(explicitSeller, organizationId);
+  return res.sellerName;
 }
 
 export interface NotifyAssignedSellerParams {

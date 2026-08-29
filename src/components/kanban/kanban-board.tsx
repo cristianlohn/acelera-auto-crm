@@ -26,9 +26,11 @@ import {
   getKanbanBoardAction,
 } from "@/app/actions/kanban-actions";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
+import { getTeamMembersAction } from "@/app/actions/team-actions";
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { useDemoRole } from "@/context/demo-role-context";
 import { canViewAllLeads } from "@/lib/permissions";
+import type { TeamMember } from "@/types/team";
 
 interface KanbanBoardProps {
   initialLeads: KanbanLead[];
@@ -38,6 +40,11 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<KanbanLead[]>(initialLeads);
   const [prevInitialLeads, setPrevInitialLeads] = useState<KanbanLead[]>(initialLeads);
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<{
+    id?: string;
+    name?: string;
+    role?: string;
+  } | null>(null);
   const [, startTransition] = useTransition();
   const { role, sellerName, isDemoMode } = useDemoRole();
   const isVendedor = !canViewAllLeads(role);
@@ -51,8 +58,11 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     if (isDemoMode) return;
     getCurrentUserProfileAction()
       .then((p) => {
-        if (p.organizationId) {
-          setOrganizationId(p.organizationId);
+        if (p) {
+          setCurrentUserProfile({ id: p.userId, name: p.fullName, role: p.role });
+          if (p.organizationId) {
+            setOrganizationId(p.organizationId);
+          }
         }
       })
       .catch(() => {});
@@ -137,31 +147,68 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     });
   };
 
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getTeamMembersAction()
+      .then((members) => {
+        if (isMounted && members) {
+          setTeamMembers(members);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Lista única de vendedores para o dropdown de filtro e reatribuição
   const sellersList = useMemo(() => {
     const map = new Map<string, { id: string; name: string }>();
-    leads.forEach((l) => {
-      if (l.assigned_to_name && l.assigned_to_name !== "Fila Geral") {
-        map.set(l.assigned_to_name, {
-          id: l.assigned_to?.id || l.assigned_to_name,
-          name: l.assigned_to_name,
+    if (teamMembers && teamMembers.length > 0) {
+      teamMembers
+        .filter((m) => m.status === "active")
+        .forEach((m) => {
+          map.set(m.name, { id: m.id, name: m.name });
         });
+    }
+    leads.forEach((l) => {
+      if (
+        l.assigned_to_name &&
+        l.assigned_to_name !== "Fila Geral" &&
+        l.assigned_to_name !== "Fila de Atendimento"
+      ) {
+        if (!map.has(l.assigned_to_name)) {
+          map.set(l.assigned_to_name, {
+            id: l.assigned_to?.id || l.assigned_to_name,
+            name: l.assigned_to_name,
+          });
+        }
       }
     });
     return Array.from(map.values());
-  }, [leads]);
+  }, [leads, teamMembers]);
 
   // Filtra os leads com base no estado atual dos filtros e RBAC
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
-      // 0. RBAC: Se for perfil Vendedor, exibe apenas os seus próprios leads
+      // 0. RBAC: Se for perfil Vendedor, exibe os seus próprios leads OU leads em Fila de Atendimento / Fila Geral
       if (isVendedor) {
-        const activeSeller = sellerName || "Rafael Alves";
+        const activeSeller = currentUserProfile?.name || sellerName || "Rafael Alves";
+        const currentUserId = currentUserProfile?.id;
         const matchesSeller =
           lead.assigned_to_name === activeSeller ||
-          lead.assigned_to_name?.toLowerCase().includes("rafael") ||
-          lead.assigned_to?.name?.toLowerCase().includes("rafael") ||
-          lead.assigned_to_name?.toLowerCase().includes("vendedor");
+          (Boolean(currentUserId) && lead.assigned_to?.id === currentUserId) ||
+          lead.assigned_to_name === "Fila de Atendimento" ||
+          lead.assigned_to_name === "Fila Geral" ||
+          lead.assigned_to_name === "Roleta Automática" ||
+          !lead.assigned_to_name ||
+          (isDemoMode && (
+            lead.assigned_to_name?.toLowerCase().includes("rafael") ||
+            lead.assigned_to?.name?.toLowerCase().includes("rafael") ||
+            lead.assigned_to_name?.toLowerCase().includes("vendedor")
+          ));
         if (!matchesSeller) {
           return false;
         }

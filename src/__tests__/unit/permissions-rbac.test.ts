@@ -188,4 +188,22 @@ describe("[UNIT-RBAC] Isolamento de Dados por Papel de Vendedor", () => {
       ).toBe(true);
     });
   });
+
+  it("createKanbanLeadAction cadastra lead com vendedor resolvido e mantém visibilidade", async () => {
+    const { createKanbanLeadAction } = await import("@/app/actions/kanban-actions");
+    const result = await createKanbanLeadAction({
+      name: "Cliente Teste Novo",
+      phone: "(11) 99887-7665",
+      vehicle_of_interest: "Toyota Corolla Cross 2024",
+      assigned_to_name: "roleta",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.lead).toBeDefined();
+    expect(result.lead?.assigned_to_name).toBeDefined();
+    expect(result.lead?.assigned_to?.id).toBeDefined();
+
+    const leads = await getKanbanLeadsAction(undefined, "seller");
+    expect(leads.some((l) => l.name === "Cliente Teste Novo")).toBe(true);
+  });
 });
