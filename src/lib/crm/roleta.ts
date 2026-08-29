@@ -53,13 +53,15 @@ export async function resolveAssignedSellerInfo(
   explicitSeller?: string | null,
   organizationId: string = DEFAULT_DEMO_ORG_ID
 ): Promise<ResolvedSellerInfo> {
+  const cleanExplicit = explicitSeller?.trim();
   const isExplicit =
-    explicitSeller &&
-    explicitSeller.trim() &&
-    !explicitSeller.includes("Roleta Automática") &&
-    !explicitSeller.toLowerCase().includes("roleta") &&
-    !explicitSeller.toLowerCase().includes("fila") &&
-    explicitSeller !== "all";
+    Boolean(cleanExplicit) &&
+    !cleanExplicit!.toLowerCase().includes("roleta") &&
+    !cleanExplicit!.toLowerCase().includes("fila") &&
+    cleanExplicit !== "all" &&
+    cleanExplicit !== "none" &&
+    cleanExplicit !== "null" &&
+    cleanExplicit !== "undefined";
 
   const statusMap = getRouletteStatusMap();
   let cookieOverrides: Record<string, boolean> = {};
@@ -158,8 +160,8 @@ export async function resolveAssignedSellerInfo(
   if (isExplicit) {
     const matched = teamProfiles.find(
       (p) =>
-        p.full_name?.trim().toLowerCase() === explicitSeller!.trim().toLowerCase() ||
-        p.id === explicitSeller
+        p.full_name?.trim().toLowerCase() === cleanExplicit!.toLowerCase() ||
+        p.id === cleanExplicit
     );
     if (matched) {
       return {
@@ -168,9 +170,11 @@ export async function resolveAssignedSellerInfo(
         sellerPhone: matched.phone || undefined,
       };
     }
-    return {
-      sellerName: explicitSeller!.trim(),
-    };
+    if (cleanExplicit!.length >= 2 && !cleanExplicit!.toLowerCase().includes("fila")) {
+      return {
+        sellerName: cleanExplicit!,
+      };
+    }
   }
 
   // -------------------------------------------------------------

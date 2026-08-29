@@ -117,12 +117,21 @@ export function AddKanbanLeadModal({
     const map = new Map<string, string>();
     if (team && team.length > 0) {
       team
-        .filter((m) => m.status === "active")
+        .filter(
+          (m) =>
+            m.status === "active" &&
+            !m.name.toLowerCase().includes("fila") &&
+            !m.name.toLowerCase().includes("roleta")
+        )
         .forEach((m) => map.set(m.name, m.name));
     }
     if (availableSellers && availableSellers.length > 0) {
       availableSellers.forEach((s) => {
-        if (s.name && s.name !== "Fila Geral" && !s.name.includes("Roleta")) {
+        if (
+          s.name &&
+          !s.name.toLowerCase().includes("fila") &&
+          !s.name.toLowerCase().includes("roleta")
+        ) {
           map.set(s.name, s.name);
         }
       });

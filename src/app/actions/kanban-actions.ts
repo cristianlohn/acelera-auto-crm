@@ -746,7 +746,7 @@ export async function getLeadByIdAction(
         assigned_to: data.seller_id
           ? { id: data.seller_id, name: data.seller_name || "Vendedor" }
           : null,
-        assigned_to_name: data.seller_name || "Fila Geral",
+        assigned_to_name: data.seller_name || "Vendedor de Plantão",
         stage: normalizeDbStatusToStage(data.status),
         sla_minutes: 0,
         sla_minutes_elapsed: 0,
@@ -884,7 +884,17 @@ export async function createKanbanLeadAction(
     isRoulette ? undefined : input.assigned_to_name,
     orgId
   );
-  const resolvedSeller = sellerInfo.sellerName;
+  let resolvedSeller = sellerInfo.sellerName?.trim();
+  if (
+    !resolvedSeller ||
+    resolvedSeller.toLowerCase().includes("fila") ||
+    resolvedSeller.toLowerCase().includes("roleta")
+  ) {
+    resolvedSeller =
+      tenantContext.profile?.full_name?.trim() ||
+      "Rafael Alves";
+  }
+
   const resolvedSellerId =
     sellerInfo.sellerId ||
     (tenantContext.profile?.full_name === resolvedSeller ? tenantContext.userId : undefined);

@@ -177,7 +177,16 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
 
   // Resolve vendedor responsável pela roleta ou pelo nome informado
   const resolvedInfo = await resolveAssignedSellerInfo(input.sellerName, orgId);
-  const resolvedSeller = resolvedInfo.sellerName;
+  let resolvedSeller = resolvedInfo.sellerName?.trim();
+  if (
+    !resolvedSeller ||
+    resolvedSeller.toLowerCase().includes("fila") ||
+    resolvedSeller.toLowerCase().includes("roleta")
+  ) {
+    resolvedSeller =
+      tenantContext.profile?.full_name?.trim() ||
+      "Rafael Alves";
+  }
   const resolvedSellerId =
     resolvedInfo.sellerId ||
     (tenantContext.profile?.full_name === resolvedSeller ? tenantContext.userId : undefined);
