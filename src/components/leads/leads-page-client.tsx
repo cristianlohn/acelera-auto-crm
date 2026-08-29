@@ -532,7 +532,7 @@ function AddLeadModal({
       origin: form.origin,
     };
 
-    onAdd(newLead, isRoulette ? "Roleta Automática (Equipe)" : form.sellerName);
+    onAdd(newLead, isRoulette ? "roleta" : form.sellerName);
     setForm(INITIAL_FORM);
     setOpen(false);
   };

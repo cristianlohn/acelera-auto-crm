@@ -3,6 +3,7 @@ import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   sendWhatsAppMessage,
   buildNewLeadAlertMessage,
@@ -10,6 +11,14 @@ import {
 } from "@/lib/services/whatsapp";
 import { ROULETTE_STATUS_COOKIE, getRouletteStatusMap } from "@/lib/services/team-status";
 import { memoryTeamMembers } from "@/app/actions/team-actions";
+
+async function getSupabaseForRoleta() {
+  try {
+    return createAdminClient();
+  } catch {
+    return await createServerSupabaseClient();
+  }
+}
 
 /** Organização padrão para persistência demo/sandbox */
 export const DEFAULT_DEMO_ORG_ID = "a0000000-0000-0000-0000-000000000001";
@@ -48,7 +57,8 @@ export async function resolveAssignedSellerInfo(
     explicitSeller &&
     explicitSeller.trim() &&
     !explicitSeller.includes("Roleta Automática") &&
-    explicitSeller !== "roleta" &&
+    !explicitSeller.toLowerCase().includes("roleta") &&
+    !explicitSeller.toLowerCase().includes("fila") &&
     explicitSeller !== "all";
 
   const statusMap = getRouletteStatusMap();
@@ -83,9 +93,9 @@ export async function resolveAssignedSellerInfo(
 
   if (isSupabaseServerConfigured()) {
     try {
-      const supabase = await createServerSupabaseClient();
+      const supabase = await getSupabaseForRoleta();
 
-      // 1. Consulta todos os perfis da organização no Supabase
+      // 1. Consulta todos os perfis da organização no Supabase com admin client ou server client
       const { data: allProfiles, error } = await supabase
         .from("profiles")
         .select("id, full_name, role, phone, in_roulette")

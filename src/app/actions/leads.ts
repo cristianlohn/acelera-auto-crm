@@ -16,8 +16,9 @@ import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
-import { resolveAssignedSeller, notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
+import { resolveAssignedSeller, resolveAssignedSellerInfo, notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
 import { mockLeads } from "@/lib/mock-data";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 import type { Database } from "@/types/database.types";
@@ -35,7 +36,7 @@ function mapDbLeadToDomain(
     email: row.email || undefined,
     vehicleInterest: row.vehicle_interest,
     status: row.status,
-    sellerName: row.seller_name,
+    sellerName: row.seller_name || "Vendedor de Plantão",
     lastContactAt: row.last_contact_at,
     origin: row.origin,
   };
@@ -103,7 +104,50 @@ export async function getLeads(overrideRole?: string): Promise<Lead[]> {
       return [];
     }
 
-    return data.map(mapDbLeadToDomain);
+    const orgId = tenantContext.organizationId;
+    return Promise.all(
+      data.map(async (row) => {
+        let sellerName = row.seller_name;
+        let sellerId = row.seller_id;
+
+        const isUnassigned =
+          !sellerName ||
+          sellerName.toLowerCase().includes("fila") ||
+          sellerName.toLowerCase().includes("roleta");
+
+        if (isUnassigned) {
+          try {
+            const autoResolved = await resolveAssignedSellerInfo(undefined, orgId);
+            if (autoResolved?.sellerName && !autoResolved.sellerName.toLowerCase().includes("fila")) {
+              sellerName = autoResolved.sellerName;
+              sellerId = autoResolved.sellerId || null;
+
+              void (async () => {
+                try {
+                  const admin = createAdminClient();
+                  await admin
+                    .from("leads")
+                    .update({ seller_name: sellerName, seller_id: sellerId })
+                    .eq("id", row.id);
+                } catch {}
+              })();
+            }
+          } catch {}
+        }
+
+        return {
+          id: row.id,
+          name: row.name,
+          phone: row.phone,
+          email: row.email || undefined,
+          vehicleInterest: row.vehicle_interest,
+          status: row.status,
+          sellerName: sellerName || "Vendedor de Plantão",
+          lastContactAt: row.last_contact_at,
+          origin: row.origin,
+        };
+      })
+    );
   } catch {
     return [];
   }
@@ -132,7 +176,11 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
   // Resolve vendedor responsável pela roleta ou pelo nome informado
-  const resolvedSeller = await resolveAssignedSeller(input.sellerName, orgId);
+  const resolvedInfo = await resolveAssignedSellerInfo(input.sellerName, orgId);
+  const resolvedSeller = resolvedInfo.sellerName;
+  const resolvedSellerId =
+    resolvedInfo.sellerId ||
+    (tenantContext.profile?.full_name === resolvedSeller ? tenantContext.userId : undefined);
 
   const fallbackLead: Lead = {
     id: `l-${Date.now()}`,
@@ -162,6 +210,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
         vehicle_interest: input.vehicleInterest,
         status: input.status || "novo",
         seller_name: resolvedSeller,
+        seller_id: resolvedSellerId || null,
         origin: input.origin || "site",
         notes: input.notes || null,
       })

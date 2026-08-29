@@ -153,4 +153,38 @@ describe("[UNIT-ROLETA-PLANTAO] Distribuição da Roleta Automática para Membro
     expect(res.sellerName).toBe("Dono da Loja");
     expect(res.sellerId).toBe("usr-admin-1");
   });
+
+  it("quando a string informada contiver 'Fila' ou 'Roleta', trata como distribuição e não salva como nome de vendedor", async () => {
+    const orgId = "org-fila-check";
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: [
+                  { id: "vendedor-10", full_name: "Vendedora Mariana", role: "seller", in_roulette: true },
+                ],
+                error: null,
+              }),
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
+      mockSupabase as any
+    );
+
+    const resFila = await resolveAssignedSellerInfo("Fila de Atendimento", orgId);
+    expect(resFila.sellerName).toBe("Vendedora Mariana");
+    expect(resFila.sellerId).toBe("vendedor-10");
+
+    const resFilaGeral = await resolveAssignedSellerInfo("Fila Geral", orgId);
+    expect(resFilaGeral.sellerName).toBe("Vendedora Mariana");
+  });
 });

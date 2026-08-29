@@ -8,6 +8,7 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { resolveAssignedSeller, resolveAssignedSellerInfo, notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
 import type { LeadStage, KanbanLead, KanbanBoardData, KanbanColumnConfig } from "@/types/kanban";
@@ -424,38 +425,69 @@ export async function getKanbanLeadsAction(
       const { data, error } = await query.order("created_at", { ascending: false });
 
       if (!error && Array.isArray(data)) {
-        return data.map((row) => {
-          const createdAtDate = new Date(row.created_at || Date.now());
-          const minutesElapsed = Math.max(
-            0,
-            Math.round((Date.now() - createdAtDate.getTime()) / 60000)
-          );
+        return Promise.all(
+          data.map(async (row) => {
+            const createdAtDate = new Date(row.created_at || Date.now());
+            const minutesElapsed = Math.max(
+              0,
+              Math.round((Date.now() - createdAtDate.getTime()) / 60000)
+            );
 
-          const stage = normalizeDbStatusToStage(row.status);
+            const stage = normalizeDbStatusToStage(row.status);
 
-          return {
-            id: row.id,
-            organization_id: row.organization_id,
-            name: row.name,
-            phone: row.phone,
-            email: row.email || undefined,
-            source: row.origin || "site",
-            vehicle_of_interest: row.vehicle_interest || "Veículo não especificado",
-            assigned_to: row.seller_id
-              ? {
-                  id: row.seller_id,
-                  name: row.seller_name || "Vendedor",
+            let sellerName = row.seller_name;
+            let sellerId = row.seller_id;
+
+            const isFilaOrUnassigned =
+              !sellerName ||
+              sellerName.toLowerCase().includes("fila") ||
+              sellerName.toLowerCase().includes("roleta");
+
+            if (isFilaOrUnassigned) {
+              try {
+                const autoResolved = await resolveAssignedSellerInfo(undefined, orgId);
+                if (autoResolved?.sellerName && !autoResolved.sellerName.toLowerCase().includes("fila")) {
+                  sellerName = autoResolved.sellerName;
+                  sellerId = autoResolved.sellerId || null;
+
+                  // Atualiza no banco em background
+                  void (async () => {
+                    try {
+                      const admin = createAdminClient();
+                      await admin
+                        .from("leads")
+                        .update({ seller_name: sellerName, seller_id: sellerId })
+                        .eq("id", row.id);
+                    } catch {}
+                  })();
                 }
-              : null,
-            assigned_to_name: row.seller_name || "Fila Geral",
-            stage,
-            sla_minutes: minutesElapsed,
-            sla_minutes_elapsed: minutesElapsed,
-            created_at: row.created_at,
-            updated_at: row.updated_at,
-            notes: row.notes || undefined,
-          };
-        });
+              } catch {}
+            }
+
+            return {
+              id: row.id,
+              organization_id: row.organization_id,
+              name: row.name,
+              phone: row.phone,
+              email: row.email || undefined,
+              source: row.origin || "site",
+              vehicle_of_interest: row.vehicle_interest || "Veículo não especificado",
+              assigned_to: sellerId || sellerName
+                ? {
+                    id: sellerId || `sp-${Date.now()}`,
+                    name: sellerName || "Vendedor",
+                  }
+                : null,
+              assigned_to_name: sellerName || "Vendedor de Plantão",
+              stage,
+              sla_minutes: minutesElapsed,
+              sla_minutes_elapsed: minutesElapsed,
+              created_at: row.created_at,
+              updated_at: row.updated_at,
+              notes: row.notes || undefined,
+            };
+          })
+        );
       }
     } catch {
       // Fallback
@@ -845,6 +877,7 @@ export async function createKanbanLeadAction(
   const isRoulette =
     !input.assigned_to_name ||
     input.assigned_to_name.toLowerCase().includes("roleta") ||
+    input.assigned_to_name.toLowerCase().includes("fila") ||
     input.assigned_to_name === "all";
 
   const sellerInfo = await resolveAssignedSellerInfo(
