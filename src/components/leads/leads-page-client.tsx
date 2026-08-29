@@ -37,6 +37,7 @@ import {
 import { cn } from "@/lib/utils";
 import { mockLeads } from "@/lib/mock-data";
 import { timeAgo, urgencyClass, whatsappUrl } from "@/lib/lead-utils";
+import { formatPhone } from "@/lib/validations/document";
 import { createLead as persistLead, getLeads, updateLeadStatus, updateLeadSeller } from "@/app/actions/leads";
 import { getTeamMembersAction } from "@/app/actions/team-actions";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
@@ -489,7 +490,11 @@ function AddLeadModal({
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === "phone") {
+      setForm((prev) => ({ ...prev, phone: formatPhone(value) }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -48,7 +48,15 @@ import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/lead-utils";
 import { useDemoRole } from "@/context/demo-role-context";
 import { canViewAllLeads } from "@/lib/permissions";
+import {
+  formatPhone,
+  formatDocument,
+  validateCPF,
+  sanitizeDigits,
+} from "@/lib/validations/document";
+import { getTeamMembersAction } from "@/app/actions/team-actions";
 import type { Client, ClientStatus, ClientFormData } from "@/types/crm";
+import type { TeamMember } from "@/types/team";
 
 // ---------------------------------------------------------------------------
 // Constantes e Configurações Visuais
@@ -111,7 +119,7 @@ const INITIAL_CLIENT_FORM: ClientFormData = {
   email: "",
   document: "",
   status: "ativo",
-  sellerName: "Rafael Alves",
+  sellerName: "roleta",
   vehiclePreference: "",
   notes: "",
 };
@@ -120,21 +128,34 @@ interface AddClientModalProps {
   onAdd: (client: Client) => void;
   defaultSellerName?: string;
   lockSeller?: boolean;
+  teamMembers?: TeamMember[];
 }
 
 function AddClientModal({
   onAdd,
-  defaultSellerName = "Rafael Alves",
+  defaultSellerName = "roleta",
   lockSeller = false,
+  teamMembers,
 }: AddClientModalProps) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<ClientFormData>(() => ({
     ...INITIAL_CLIENT_FORM,
-    sellerName: defaultSellerName,
+    sellerName: defaultSellerName || "roleta",
   }));
+  const [cpfError, setCpfError] = useState<string | null>(null);
+
+  const isCpfValid = useMemo(() => {
+    if (!form.document || form.document.trim() === "") return true;
+    const clean = sanitizeDigits(form.document);
+    if (clean.length < 11) return true; // Digitando ainda ou incompleto
+    return validateCPF(form.document);
+  }, [form.document]);
 
   const isFormValid =
-    form.name.trim().length >= 2 && form.phone.trim().length >= 8;
+    form.name.trim().length >= 2 &&
+    sanitizeDigits(form.phone).length >= 10 &&
+    isCpfValid &&
+    !cpfError;
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -142,19 +163,45 @@ function AddClientModal({
     >
   ) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === "phone") {
+      setForm((prev) => ({ ...prev, phone: formatPhone(value) }));
+    } else if (name === "document") {
+      const formatted = formatDocument(value, "CPF");
+      setForm((prev) => ({ ...prev, document: formatted }));
+      const digits = sanitizeDigits(formatted);
+      if (digits.length === 11) {
+        if (!validateCPF(formatted)) {
+          setCpfError("CPF inválido. Verifique os dígitos.");
+        } else {
+          setCpfError(null);
+        }
+      } else {
+        setCpfError(null);
+      }
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) return;
 
-    const newClient = createClient(form);
+    const resolvedSeller =
+      form.sellerName === "roleta" || !form.sellerName
+        ? "Roleta Automática"
+        : form.sellerName;
+
+    const newClient = createClient({
+      ...form,
+      sellerName: resolvedSeller,
+    });
     onAdd(newClient);
     setForm({
       ...INITIAL_CLIENT_FORM,
-      sellerName: defaultSellerName,
+      sellerName: defaultSellerName || "roleta",
     });
+    setCpfError(null);
     setOpen(false);
   };
 
@@ -226,7 +273,7 @@ function AddClientModal({
                 name="phone"
                 value={form.phone}
                 onChange={handleChange}
-                placeholder="Ex: 47998877665"
+                placeholder="(47) 99887-7665"
                 type="tel"
                 required
               />
@@ -265,8 +312,11 @@ function AddClientModal({
                 name="document"
                 value={form.document || ""}
                 onChange={handleChange}
-                placeholder="Ex: 123.456.789-00"
+                placeholder="000.000.000-00"
               />
+              {cpfError && (
+                <span className="text-[11px] text-red-500 font-medium">{cpfError}</span>
+              )}
             </div>
 
             <div className="grid gap-1.5">
@@ -306,10 +356,22 @@ function AddClientModal({
                 disabled={lockSeller}
                 className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs font-medium text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                <option value="Rafael Alves">Rafael Alves</option>
-                <option value="Camila Dias">Camila Dias</option>
-                <option value="Lucas Santana">Lucas Santana</option>
-                <option value="Beatriz Rocha">Beatriz Rocha</option>
+                <option value="roleta">🎯 Roleta Automática (Distribuir por Roleta)</option>
+                {teamMembers && teamMembers.length > 0 ? (
+                  teamMembers
+                    .filter((m) => m.status === "active")
+                    .map((m) => (
+                      <option key={m.id} value={m.name}>
+                        {m.name} {m.role === "manager" ? "(Gestor)" : ""}
+                      </option>
+                    ))
+                ) : (
+                  <>
+                    <option value="Rafael Alves">Rafael Alves</option>
+                    <option value="Juliana Costa">Juliana Costa</option>
+                    <option value="Marcos Ferreira">Marcos Ferreira</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -443,6 +505,21 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
   const [prevInitialClients, setPrevInitialClients] = useState(initialClients);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("todos");
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    getTeamMembersAction()
+      .then((members) => {
+        if (isMounted && members) {
+          setTeamMembers(members);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   if (initialClients !== prevInitialClients) {
     setPrevInitialClients(initialClients);
@@ -563,9 +640,21 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
                   aria-label="Filtrar por Vendedor"
                 >
                   <option value="todos">Todos os Vendedores</option>
-                  <option value="Rafael Alves">Rafael Alves</option>
-                  <option value="Juliana Costa">Juliana Costa</option>
-                  <option value="Marcos Ferreira">Marcos Ferreira</option>
+                  {teamMembers && teamMembers.length > 0 ? (
+                    teamMembers
+                      .filter((m) => m.status === "active")
+                      .map((m) => (
+                        <option key={m.id} value={m.name}>
+                          {m.name}
+                        </option>
+                      ))
+                  ) : (
+                    <>
+                      <option value="Rafael Alves">Rafael Alves</option>
+                      <option value="Juliana Costa">Juliana Costa</option>
+                      <option value="Marcos Ferreira">Marcos Ferreira</option>
+                    </>
+                  )}
                 </select>
               </div>
             )}
@@ -573,8 +662,9 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
             {/* Modal de Adição de Cliente */}
             <AddClientModal
               onAdd={handleAddClient}
-              defaultSellerName={isVendedor ? (sellerName || "Rafael Alves") : undefined}
+              defaultSellerName={isVendedor ? (sellerName || "Rafael Alves") : "roleta"}
               lockSeller={isVendedor}
+              teamMembers={teamMembers}
             />
           </div>
         </div>

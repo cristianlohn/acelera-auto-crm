@@ -9,10 +9,24 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import { resolveAssignedSeller, notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
 import type { LeadStage, KanbanLead, KanbanBoardData, KanbanColumnConfig } from "@/types/kanban";
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
-import type { LeadStatus } from "@/types/database.types";
+import type { LeadStatus, LeadOrigin } from "@/types/database.types";
 import { updateLeadStageSchema } from "@/lib/validations/kanban";
+
+export interface CreateKanbanLeadInput {
+  name: string;
+  phone: string;
+  email?: string;
+  vehicle_of_interest: string;
+  source?: string;
+  stage?: LeadStage;
+  assigned_to_name?: string;
+  value?: number;
+  segment?: "all" | "new_cars" | "used_cars" | "f_and_i";
+  notes?: string;
+}
 
 export interface KanbanActionResult {
   success: boolean;
@@ -807,4 +821,131 @@ export async function updateLeadAssignedSellerAction(
   } catch {}
 
   return { success: true, lead: memLead };
+}
+
+/**
+ * Cria um novo lead diretamente no Kanban / Funil de Vendas com distribuição por Roleta ou vendedor direto.
+ */
+export async function createKanbanLeadAction(
+  input: CreateKanbanLeadInput
+): Promise<KanbanActionResult> {
+  const tenantContext = await resolveUserTenantContext();
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  // Resolve vendedor responsável pela roleta ou pelo nome informado
+  const isRoulette =
+    !input.assigned_to_name ||
+    input.assigned_to_name.toLowerCase().includes("roleta") ||
+    input.assigned_to_name === "all";
+
+  const resolvedSeller = await resolveAssignedSeller(
+    isRoulette ? undefined : input.assigned_to_name,
+    orgId
+  );
+  const nowIso = new Date().toISOString();
+
+  const newKanbanLead: KanbanLead = {
+    id: `lead-k-${Date.now()}`,
+    organization_id: orgId,
+    name: input.name.trim(),
+    phone: input.phone.trim(),
+    email: input.email?.trim() || undefined,
+    vehicle_of_interest: input.vehicle_of_interest.trim(),
+    source: (input.source || "patio") as KanbanLead["source"],
+    stage: input.stage || "new",
+    assigned_to_name: resolvedSeller,
+    assigned_to: {
+      id: `sp-${Date.now()}`,
+      name: resolvedSeller,
+    },
+    sla_minutes: 0,
+    sla_minutes_elapsed: 0,
+    created_at: nowIso,
+    updated_at: nowIso,
+    value: input.value || 120000,
+    segment: input.segment || "all",
+    notes: input.notes?.trim() || undefined,
+  };
+
+  memoryKanbanLeads.unshift(newKanbanLead);
+
+  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
+    try {
+      const dbStatus: LeadStatus =
+        input.stage === "won"
+          ? "fechado"
+          : input.stage === "visit_scheduled" || input.stage === "test_drive"
+          ? "visita"
+          : input.stage === "proposal" || input.stage === "proposal_fi"
+          ? "proposta"
+          : input.stage === "in_contact"
+          ? "atendimento"
+          : "novo";
+
+      const dbOrigin: LeadOrigin =
+        input.source === "indicacao"
+          ? "indicacao"
+          : input.source === "instagram" || input.source === "meta_ads"
+          ? "instagram"
+          : input.source === "site"
+          ? "site"
+          : input.source === "webmotors"
+          ? "webmotors"
+          : input.source === "icarros"
+          ? "icarros"
+          : input.source === "olx"
+          ? "olx"
+          : input.source === "patio" || input.source === "patio_balcao"
+          ? "patio_balcao"
+          : "whatsapp";
+
+      const supabase = await createServerSupabaseClient();
+      const { data, error } = await supabase
+        .from("leads")
+        .insert({
+          organization_id: orgId,
+          name: input.name.trim(),
+          phone: input.phone.trim(),
+          email: input.email?.trim() || null,
+          vehicle_interest: input.vehicle_of_interest.trim(),
+          status: dbStatus,
+          seller_name: resolvedSeller,
+          origin: dbOrigin,
+          notes: input.notes?.trim() || null,
+        })
+        .select()
+        .single();
+
+      if (!error && data) {
+        newKanbanLead.id = data.id;
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  try {
+    void notifyAssignedSellerViaWhatsApp({
+      lead: {
+        id: newKanbanLead.id,
+        name: newKanbanLead.name,
+        phone: newKanbanLead.phone,
+        email: newKanbanLead.email,
+        vehicleInterest: newKanbanLead.vehicle_of_interest,
+        source: newKanbanLead.source,
+      },
+      sellerName: resolvedSeller,
+      organizationId: orgId,
+    });
+  } catch {
+    // Silencioso
+  }
+
+  try {
+    revalidatePath("/dashboard/leads");
+    revalidatePath("/dashboard");
+    revalidatePath("/leads");
+  } catch {}
+
+  return { success: true, lead: newKanbanLead };
 }

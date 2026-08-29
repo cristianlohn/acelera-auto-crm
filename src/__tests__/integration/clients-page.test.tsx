@@ -175,15 +175,17 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
     const nameInput = screen.getByPlaceholderText(/ex: mariana souza/i);
-    const phoneInput = screen.getByPlaceholderText(/ex: 47998877665/i);
+    const phoneInput = screen.getByPlaceholderText(/\(47\) 99887-7665/i);
+    const documentInput = screen.getByPlaceholderText(/000\.000\.000-00/i);
     const submitBtn = screen.getByRole("button", { name: /cadastrar cliente/i });
 
     // Assert 1 (Submissão bloqueada se nome ou telefone estiverem vazios)
     expect(submitBtn).toBeDisabled();
 
-    // Act 2 (Preenche os dados do cliente)
+    // Act 2 (Preenche os dados do cliente com máscara e CPF válido)
     await user.type(nameInput, "Guilherme Santos");
     await user.type(phoneInput, "11988776655");
+    await user.type(documentInput, "52998224725"); // CPF válido
     await user.type(screen.getByPlaceholderText(/ex: mariana@email\.com/i), "guilherme@email.com");
     await user.type(screen.getByPlaceholderText(/ex: corolla cross xre/i), "BMW 320i M Sport");
 

@@ -9,7 +9,8 @@
 import React from "react";
 import { Search, X, DollarSign, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import type { KanbanFilterState } from "@/types/kanban";
+import type { KanbanFilterState, KanbanLead } from "@/types/kanban";
+import { AddKanbanLeadModal } from "./add-kanban-lead-modal";
 
 interface KanbanFiltersProps {
   filters: KanbanFilterState;
@@ -18,6 +19,7 @@ interface KanbanFiltersProps {
   sellers: { id: string; name: string }[];
   totalLeadsCount: number;
   totalPipelineValue: number;
+  onLeadAdded?: (lead: KanbanLead) => void;
 }
 
 function formatCurrencyBRL(value: number): string {
@@ -35,6 +37,7 @@ export function KanbanFilters({
   sellers,
   totalLeadsCount,
   totalPipelineValue,
+  onLeadAdded,
 }: KanbanFiltersProps) {
   const hasActiveFilters =
     filters.search.trim() !== "" ||
@@ -103,8 +106,8 @@ export function KanbanFilters({
           )}
         </div>
 
-        {/* Resumo Rápido de Pipeline */}
-        <div className="flex items-center gap-4 pl-2 text-xs">
+        {/* Resumo Rápido de Pipeline & Ação de Novo Lead */}
+        <div className="flex items-center gap-3 pl-2 text-xs self-end lg:self-center">
           <div className="flex items-center gap-1.5 text-zinc-300">
             <Users className="h-4 w-4 text-orange-400" />
             <span className="font-semibold text-white">{totalLeadsCount}</span>
@@ -116,6 +119,11 @@ export function KanbanFilters({
             <span className="font-bold text-emerald-400">{formatCurrencyBRL(totalPipelineValue)}</span>
             <span className="text-zinc-500 hidden sm:inline">em negociação</span>
           </div>
+          <div className="h-4 w-px bg-white/10" />
+          <AddKanbanLeadModal
+            onLeadAdded={onLeadAdded || (() => {})}
+            availableSellers={sellers}
+          />
         </div>
       </div>
     </div>

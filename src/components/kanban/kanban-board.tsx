@@ -372,7 +372,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
   return (
     <div className="space-y-4" data-testid="kanban-board-container">
-      {/* Barra de Filtros Executiva */}
+      {/* Barra de Filtros Executiva & Ação de Novo Lead */}
       <KanbanFilters
         filters={filters}
         onFilterChange={handleFilterChange}
@@ -380,6 +380,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
         sellers={sellersList}
         totalLeadsCount={totalLeadsCount}
         totalPipelineValue={totalPipelineValue}
+        onLeadAdded={(newLead) => setLeads((prev) => [newLead, ...prev])}
       />
 
       {/* Quadro Kanban com Rolagem Horizontal Suave */}
