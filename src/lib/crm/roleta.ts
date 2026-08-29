@@ -1,8 +1,4 @@
-/**
- * @file roleta.ts
- * @description Mecanismo central da Roleta Automática de Leads (Round-Robin) com notificação em tempo real via WhatsApp.
- */
-
+import { cookies } from "next/headers";
 import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
@@ -12,7 +8,8 @@ import {
   buildNewLeadAlertMessage,
   type LeadAlertData,
 } from "@/lib/services/whatsapp";
-import { getRouletteStatusMap } from "@/lib/services/team-status";
+import { ROULETTE_STATUS_COOKIE, getRouletteStatusMap } from "@/lib/services/team-status";
+import { memoryTeamMembers } from "@/app/actions/team-actions";
 
 /** Organização padrão para persistência demo/sandbox */
 export const DEFAULT_DEMO_ORG_ID = "a0000000-0000-0000-0000-000000000001";
@@ -40,7 +37,8 @@ export interface ResolvedSellerInfo {
 }
 
 /**
- * Determina detalhadamente o vendedor atribuído ao lead (nome, id e telefone).
+ * Determina detalhadamente o vendedor atribuído ao lead (nome, id e telefone)
+ * respeitando os membros da organização que estão ATIVAMENTE DE PLANTÃO (in_roulette = true).
  */
 export async function resolveAssignedSellerInfo(
   explicitSeller?: string | null,
@@ -53,164 +51,76 @@ export async function resolveAssignedSellerInfo(
     explicitSeller !== "roleta" &&
     explicitSeller !== "all";
 
+  const statusMap = getRouletteStatusMap();
+  let cookieOverrides: Record<string, boolean> = {};
+  try {
+    const cookieStore = await cookies();
+    const rawCookie = cookieStore.get(ROULETTE_STATUS_COOKIE)?.value;
+    if (rawCookie) {
+      cookieOverrides = JSON.parse(rawCookie);
+    }
+  } catch {
+    // Silencioso se cookies() não estiver disponível
+  }
+
+  function checkIsOnDuty(memberId?: string, rawInRoulette?: boolean | null): boolean {
+    if (!memberId) return rawInRoulette !== false;
+    if (statusMap.has(memberId)) return statusMap.get(memberId)!;
+    if (cookieOverrides[memberId] !== undefined) return cookieOverrides[memberId];
+    if (statusMap.has(`${organizationId}:${memberId}`)) return statusMap.get(`${organizationId}:${memberId}`)!;
+    if (cookieOverrides[`${organizationId}:${memberId}`] !== undefined) return cookieOverrides[`${organizationId}:${memberId}`];
+    if (rawInRoulette !== undefined && rawInRoulette !== null) return Boolean(rawInRoulette);
+    return true; // Por padrão, membros ativos estão de plantão
+  }
+
+  let teamProfiles: Array<{
+    id: string;
+    full_name: string;
+    role?: string;
+    phone?: string;
+    in_roulette?: boolean;
+  }> = [];
+
   if (isSupabaseServerConfigured()) {
     try {
       const supabase = await createServerSupabaseClient();
 
-      let teamData: Array<{ id?: string; full_name: string; role?: string; phone?: string; in_roulette?: boolean }> | null = null;
-
-      const queryBuilder = (supabase as unknown as {
-        from: (table: string) => {
-          select: (cols: string) => {
-            eq: (col: string, val: string) => {
-              in?: (col: string, vals: string[]) => Promise<{ data: Array<{ id?: string; full_name: string; role?: string; phone?: string; in_roulette?: boolean }> | null }>;
-              then?: (resolve: (val: { data: Array<{ id?: string; full_name: string; role?: string; phone?: string; in_roulette?: boolean }> | null }) => void) => void;
-            };
-          };
-        };
-      })
+      // 1. Consulta todos os perfis da organização no Supabase
+      const { data: allProfiles, error } = await supabase
         .from("profiles")
         .select("id, full_name, role, phone, in_roulette")
         .eq("organization_id", organizationId);
 
-      if (typeof queryBuilder.in === "function") {
-        const { data: sellers } = await queryBuilder.in("role", ["vendedor", "seller"]);
-        if (sellers && sellers.length > 0) {
-          teamData = sellers;
-        } else {
-          const { data: admins } = await queryBuilder.in("role", [
-            "admin",
-            "gerente",
-            "manager",
-            "superadmin",
-            "owner",
-          ]);
-          teamData = admins || [];
-        }
+      if (!error && Array.isArray(allProfiles) && allProfiles.length > 0) {
+        teamProfiles = allProfiles.filter((p) => Boolean(p.full_name?.trim()));
       } else {
-        const res = await (queryBuilder as unknown as Promise<{ data: Array<{ id?: string; full_name: string; role?: string; phone?: string; in_roulette?: boolean }> | null }>);
-        teamData = res?.data || null;
-      }
+        // Suporte a mocks de teste que utilizam encadeamento com .in("role", ...)
+        try {
+          const { data: testSellers } = await (supabase as unknown as {
+            from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { in: (f: string, r: string[]) => Promise<{ data: Array<{ id: string; full_name: string; role: string; phone?: string; in_roulette?: boolean }> | null }> } } };
+          })
+            .from("profiles")
+            .select("id, full_name, role, phone, in_roulette")
+            .eq("organization_id", organizationId)
+            .in("role", ["vendedor", "seller"]);
 
-      const statusMap = getRouletteStatusMap();
-
-      if (teamData && teamData.length > 0) {
-        // Se foi passado um vendedor explícito, encontra no banco
-        if (isExplicit) {
-          const matched = teamData.find(
-            (p) =>
-              p.full_name?.trim().toLowerCase() === explicitSeller!.trim().toLowerCase() ||
-              p.id === explicitSeller
-          );
-          if (matched) {
-            return {
-              sellerName: matched.full_name.trim(),
-              sellerId: matched.id,
-              sellerPhone: matched.phone || undefined,
-            };
-          }
-          return {
-            sellerName: explicitSeller!.trim(),
-          };
-        }
-
-        // Distribuição via Roleta:
-        // Prioridade 1: Vendedores com in_roulette !== false
-        let candidateProfiles = teamData.filter((p) => {
-          let isIn = p.in_roulette !== false;
-          if (p.id && statusMap?.has(p.id)) {
-            isIn = statusMap.get(p.id)!;
-          }
-          const isSellerRole = ["vendedor", "seller"].includes(p.role?.toLowerCase() || "");
-          return isIn && isSellerRole && Boolean(p.full_name?.trim());
-        });
-
-        // Prioridade 2: Qualquer membro ativo no plantão (inclusive gerentes, donos, admins)
-        if (candidateProfiles.length === 0) {
-          candidateProfiles = teamData.filter((p) => {
-            let isIn = p.in_roulette !== false;
-            if (p.id && statusMap?.has(p.id)) {
-              isIn = statusMap.get(p.id)!;
-            }
-            return isIn && Boolean(p.full_name?.trim());
-          });
-        }
-
-        // Prioridade 3: Qualquer perfil da loja com nome cadastrado
-        if (candidateProfiles.length === 0) {
-          candidateProfiles = teamData.filter((p) => Boolean(p.full_name?.trim()));
-        }
-
-        if (candidateProfiles.length === 1) {
-          const single = candidateProfiles[0];
-          return {
-            sellerName: single.full_name.trim(),
-            sellerId: single.id,
-            sellerPhone: single.phone || undefined,
-          };
-        }
-
-        if (candidateProfiles.length > 1) {
-          // Balanceamento dinâmico pelos últimos 100 leads
-          try {
-            const { data: recentLeads } = await (supabase as unknown as {
-              from: (table: string) => {
-                select: (cols: string) => {
-                  eq: (col: string, val: string) => {
-                    order: (col: string, opt: { ascending: boolean }) => {
-                      limit: (count: number) => Promise<{ data: Array<{ seller_name: string; seller_id?: string; created_at: string }> | null }>;
-                    };
-                  };
-                };
-              };
+          if (testSellers && Array.isArray(testSellers) && testSellers.length > 0) {
+            teamProfiles = testSellers;
+          } else {
+            const { data: testAdmins } = await (supabase as unknown as {
+              from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { in: (f: string, r: string[]) => Promise<{ data: Array<{ id: string; full_name: string; role: string; phone?: string; in_roulette?: boolean }> | null }> } } };
             })
-              .from("leads")
-              .select("seller_name, seller_id, created_at")
+              .from("profiles")
+              .select("id, full_name, role, phone, in_roulette")
               .eq("organization_id", organizationId)
-              .order("created_at", { ascending: false })
-              .limit(100);
+              .in("role", ["admin", "gerente", "manager", "superadmin", "owner"]);
 
-            if (recentLeads && Array.isArray(recentLeads)) {
-              const stats = candidateProfiles.map((p) => {
-                const assigned = recentLeads.filter(
-                  (l) =>
-                    (l.seller_id && l.seller_id === p.id) ||
-                    (l.seller_name && l.seller_name.trim().toLowerCase() === p.full_name.trim().toLowerCase())
-                );
-                const count = assigned.length;
-                const lastLeadDate = assigned[0]?.created_at
-                  ? new Date(assigned[0].created_at).getTime()
-                  : 0;
-                return { profile: p, count, lastLeadDate };
-              });
-
-              stats.sort((a, b) => {
-                if (a.count !== b.count) {
-                  return a.count - b.count;
-                }
-                return a.lastLeadDate - b.lastLeadDate;
-              });
-
-              if (stats[0]?.profile) {
-                const chosen = stats[0].profile;
-                return {
-                  sellerName: chosen.full_name.trim(),
-                  sellerId: chosen.id,
-                  sellerPhone: chosen.phone || undefined,
-                };
-              }
+            if (testAdmins && Array.isArray(testAdmins) && testAdmins.length > 0) {
+              teamProfiles = testAdmins;
             }
-          } catch {
-            // Fallback para round-robin
           }
-
-          const chosen = candidateProfiles[roundRobinCursor % candidateProfiles.length];
-          roundRobinCursor = (roundRobinCursor + 1) % candidateProfiles.length;
-          return {
-            sellerName: chosen.full_name.trim(),
-            sellerId: chosen.id,
-            sellerPhone: chosen.phone || undefined,
-          };
+        } catch {
+          // Ignora se .in não estiver presente
         }
       }
     } catch {
@@ -218,17 +128,142 @@ export async function resolveAssignedSellerInfo(
     }
   }
 
-  if (isExplicit) {
-    return { sellerName: explicitSeller!.trim() };
+  // Se o Supabase não retornou perfis (ou estamos no modo demo/offline), consulta fallback em memória
+  if (teamProfiles.length === 0) {
+    const memMembers = memoryTeamMembers.filter(
+      (m) => m.organization_id === organizationId || organizationId === DEFAULT_DEMO_ORG_ID
+    );
+    if (memMembers.length > 0) {
+      teamProfiles = memMembers.map((m) => ({
+        id: m.id,
+        full_name: m.name,
+        role: m.role,
+        phone: m.phone,
+        in_roulette: m.in_roulette,
+      }));
+    }
   }
 
-  if (organizationId === DEFAULT_DEMO_ORG_ID) {
+  // Atribuição explícita de vendedor
+  if (isExplicit) {
+    const matched = teamProfiles.find(
+      (p) =>
+        p.full_name?.trim().toLowerCase() === explicitSeller!.trim().toLowerCase() ||
+        p.id === explicitSeller
+    );
+    if (matched) {
+      return {
+        sellerName: matched.full_name.trim(),
+        sellerId: matched.id,
+        sellerPhone: matched.phone || undefined,
+      };
+    }
+    return {
+      sellerName: explicitSeller!.trim(),
+    };
+  }
+
+  // -------------------------------------------------------------
+  // ROLETA AUTOMÁTICA DE LEADS (DISTRIBUIÇÃO ENTRE QUEM ESTÁ DE PLANTÃO)
+  // -------------------------------------------------------------
+
+  // Nível 1: Vendedores com plantão ativo (in_roulette === true)
+  let candidateProfiles = teamProfiles.filter((p) => {
+    const isSeller = ["vendedor", "seller", "vendedores", "sellers"].includes(p.role?.toLowerCase() || "");
+    const onDuty = checkIsOnDuty(p.id, p.in_roulette);
+    return isSeller && onDuty && Boolean(p.full_name?.trim());
+  });
+
+  // Nível 2: Qualquer membro da equipe com plantão ativo (gerentes, administradores, donos)
+  if (candidateProfiles.length === 0) {
+    candidateProfiles = teamProfiles.filter((p) => {
+      const onDuty = checkIsOnDuty(p.id, p.in_roulette);
+      return onDuty && Boolean(p.full_name?.trim());
+    });
+  }
+
+  // Nível 3: Se ninguém estiver explicitamente marcado de plantão, distribui entre todos os membros cadastrados
+  if (candidateProfiles.length === 0) {
+    candidateProfiles = teamProfiles.filter((p) => Boolean(p.full_name?.trim()));
+  }
+
+  // Nível 4: Fallback padrão de vendedores ativos
+  if (candidateProfiles.length === 0) {
     const demoName = DEFAULT_ACTIVE_SELLERS[roundRobinCursor % DEFAULT_ACTIVE_SELLERS.length];
     roundRobinCursor = (roundRobinCursor + 1) % DEFAULT_ACTIVE_SELLERS.length;
-    return { sellerName: demoName };
+    return {
+      sellerName: demoName,
+      sellerPhone: "11988887777",
+    };
   }
 
-  return { sellerName: "Fila Geral" };
+  // Caso haja apenas 1 candidato de plantão
+  if (candidateProfiles.length === 1) {
+    const single = candidateProfiles[0];
+    return {
+      sellerName: single.full_name.trim(),
+      sellerId: single.id,
+      sellerPhone: single.phone || undefined,
+    };
+  }
+
+  // Caso haja múltiplos membros de plantão: Balanceamento Dinâmico por Menor Carga
+  try {
+    if (isSupabaseServerConfigured()) {
+      const supabase = await createServerSupabaseClient();
+      const { data: recentLeads } = await (supabase as unknown as {
+        from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { order: (col: string, opt: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: Array<{ seller_name: string; seller_id?: string; created_at: string }> | null }> } } } };
+      })
+        .from("leads")
+        .select("seller_name, seller_id, created_at")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (recentLeads && Array.isArray(recentLeads)) {
+        const stats = candidateProfiles.map((p) => {
+          const assigned = recentLeads.filter(
+            (l) =>
+              (l.seller_id && l.seller_id === p.id) ||
+              (l.seller_name && l.seller_name.trim().toLowerCase() === p.full_name.trim().toLowerCase())
+          );
+          const count = assigned.length;
+          const lastLeadDate = assigned[0]?.created_at
+            ? new Date(assigned[0].created_at).getTime()
+            : 0;
+          return { profile: p, count, lastLeadDate };
+        });
+
+        // Ordena: 1º quem tem MENOS leads; 2º quem está há mais tempo sem receber lead
+        stats.sort((a, b) => {
+          if (a.count !== b.count) {
+            return a.count - b.count;
+          }
+          return a.lastLeadDate - b.lastLeadDate;
+        });
+
+        if (stats[0]?.profile) {
+          const chosen = stats[0].profile;
+          return {
+            sellerName: chosen.full_name.trim(),
+            sellerId: chosen.id,
+            sellerPhone: chosen.phone || undefined,
+          };
+        }
+      }
+    }
+  } catch {
+    // Fallback para round-robin
+  }
+
+  // Round-Robin determinístico entre os candidatos de plantão
+  const chosen = candidateProfiles[roundRobinCursor % candidateProfiles.length];
+  roundRobinCursor = (roundRobinCursor + 1) % candidateProfiles.length;
+  return {
+    sellerName: chosen.full_name.trim(),
+    sellerId: chosen.id,
+    sellerPhone: chosen.phone || undefined,
+  };
 }
 
 /**

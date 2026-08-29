@@ -52,7 +52,7 @@ export interface ActionResult {
 }
 
 // Armazenamento em memória com dados ricos para o ambiente demo e offline
-const memoryTeamMembers: TeamMember[] = [
+export const memoryTeamMembers: TeamMember[] = [
   {
     id: "sp-001",
     organization_id: DEFAULT_DEMO_ORG_ID,
