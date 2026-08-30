@@ -688,6 +688,7 @@ export async function inviteTeamMemberAction(
           email: cleanEmail,
           phone: validData.phone,
           role: validData.role === "manager" ? "gerente" : "vendedor",
+          in_roulette: validData.in_roulette ?? true,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "id" }

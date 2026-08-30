@@ -912,7 +912,7 @@ export async function createKanbanLeadAction(
   ) {
     resolvedSeller =
       tenantContext.profile?.full_name?.trim() ||
-      "Rafael Alves";
+      (tenantContext.isDemo ? "Rafael Alves" : "Vendedor de Plantão");
   }
 
   const resolvedSellerId =

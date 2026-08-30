@@ -182,4 +182,110 @@ describe("[UNIT-ROLETA-PLANTAO] Distribuição da Roleta Automática para Membro
     const resFilaGeral = await resolveAssignedSellerInfo("Fila Geral", orgId);
     expect(resFilaGeral.sellerName).toBe("Vendedora Mariana");
   });
+
+  it("deve distribuir para o vendedor de plantão com MENOS leads ativos no funil", async () => {
+    const orgId = "org-least-active";
+    const statusMap = getRouletteStatusMap();
+
+    // Vendedor 1: 3 leads ativos
+    statusMap.set(`${orgId}:vendedor-01`, true);
+    // Vendedor 2: 1 lead ativo (deve receber o lead!)
+    statusMap.set(`${orgId}:vendedor-02`, true);
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: [
+                  { id: "vendedor-01", full_name: "Vendedor Ocupado", role: "seller", in_roulette: true },
+                  { id: "vendedor-02", full_name: "Vendedor Livre", role: "seller", in_roulette: true },
+                ],
+                error: null,
+              }),
+            }),
+          };
+        }
+        if (table === "leads") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                neq: vi.fn().mockReturnValue({
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({
+                      data: [
+                        { seller_id: "vendedor-01", seller_name: "Vendedor Ocupado", status: "atendimento", created_at: new Date(Date.now() - 1000).toISOString() },
+                        { seller_id: "vendedor-01", seller_name: "Vendedor Ocupado", status: "visita", created_at: new Date(Date.now() - 2000).toISOString() },
+                        { seller_id: "vendedor-01", seller_name: "Vendedor Ocupado", status: "proposta", created_at: new Date(Date.now() - 3000).toISOString() },
+                        { seller_id: "vendedor-02", seller_name: "Vendedor Livre", status: "novo", created_at: new Date(Date.now() - 4000).toISOString() },
+                      ],
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
+      mockSupabase as never
+    );
+
+    const res = await resolveAssignedSellerInfo("roleta", orgId);
+    expect(res.sellerName).toBe("Vendedor Livre");
+    expect(res.sellerId).toBe("vendedor-02");
+  });
+
+  it("nunca deve vazar vendedores mock (Rafael Alves) para organizações customizadas reais", async () => {
+    const orgId = "org-real-empty-store";
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: [],
+                error: null,
+              }),
+            }),
+          };
+        }
+        if (table === "leads") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                neq: vi.fn().mockReturnValue({
+                  order: vi.fn().mockReturnValue({
+                    limit: vi.fn().mockResolvedValue({
+                      data: [],
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
+      mockSupabase as never
+    );
+
+    const res = await resolveAssignedSellerInfo("roleta", orgId);
+    expect(res.sellerName).not.toBe("Rafael Alves");
+    expect(res.sellerName).not.toBe("Juliana Costa");
+    expect(res.sellerName).not.toBe("Marcos Ferreira");
+    expect(res.sellerName).toBe("Vendedor de Plantão");
+  });
 });

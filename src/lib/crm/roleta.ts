@@ -148,7 +148,7 @@ export async function resolveAssignedSellerInfo(
     }
   }
 
-  // Se o Supabase não retornou perfis e estamos no modo demo/offline, consulta fallback em memória
+  // Se o Supabase não retornou perfis e estamos no modo demo/offline, consulta fallback em memória apenas para a organização demo
   if (teamProfiles.length === 0 && organizationId === DEFAULT_DEMO_ORG_ID) {
     const memMembers = memoryTeamMembers.filter(
       (m) => m.organization_id === DEFAULT_DEMO_ORG_ID
@@ -191,7 +191,9 @@ export async function resolveAssignedSellerInfo(
 
   // Nível 1: Vendedores com plantão ativo (in_roulette === true)
   let candidateProfiles = teamProfiles.filter((p) => {
-    const isSeller = ["vendedor", "seller", "vendedores", "sellers"].includes(p.role?.toLowerCase() || "");
+    const isSeller = ["vendedor", "seller", "vendedores", "sellers", "sdr"].includes(
+      p.role?.toLowerCase() || ""
+    );
     const onDuty = checkIsOnDuty(p.id, p.in_roulette);
     return isSeller && onDuty && Boolean(p.full_name?.trim());
   });
@@ -204,18 +206,29 @@ export async function resolveAssignedSellerInfo(
     });
   }
 
-  // Nível 3: Se ninguém estiver explicitamente marcado de plantão, distribui entre todos os membros cadastrados
+  // Nível 3: Se ninguém estiver explicitamente marcado de plantão, distribui entre todos os vendedores ou membros cadastrados na organização
   if (candidateProfiles.length === 0) {
-    candidateProfiles = teamProfiles.filter((p) => Boolean(p.full_name?.trim()));
+    const allSellers = teamProfiles.filter((p) =>
+      ["vendedor", "seller", "vendedores", "sellers", "sdr"].includes(p.role?.toLowerCase() || "") &&
+      Boolean(p.full_name?.trim())
+    );
+    candidateProfiles = allSellers.length > 0 ? allSellers : teamProfiles.filter((p) => Boolean(p.full_name?.trim()));
   }
 
-  // Nível 4: Fallback padrão de demonstração se não houver NENHUM membro na organização
+  // Nível 4: Fallback padrão SE E SOMENTE SE estivermos no ambiente demo e não houver membros
   if (candidateProfiles.length === 0) {
-    const demoName = DEFAULT_ACTIVE_SELLERS[roundRobinCursor % DEFAULT_ACTIVE_SELLERS.length];
-    roundRobinCursor = (roundRobinCursor + 1) % DEFAULT_ACTIVE_SELLERS.length;
+    if (organizationId === DEFAULT_DEMO_ORG_ID) {
+      const demoName = DEFAULT_ACTIVE_SELLERS[roundRobinCursor % DEFAULT_ACTIVE_SELLERS.length];
+      roundRobinCursor = (roundRobinCursor + 1) % DEFAULT_ACTIVE_SELLERS.length;
+      return {
+        sellerName: demoName,
+        sellerPhone: "11988887777",
+      };
+    }
+
+    // Organização real sem perfis cadastrados: NUNCA vazar dados de mock
     return {
-      sellerName: demoName,
-      sellerPhone: "11988887777",
+      sellerName: "Vendedor de Plantão",
     };
   }
 
@@ -229,22 +242,36 @@ export async function resolveAssignedSellerInfo(
     };
   }
 
-  // Caso haja múltiplos membros de plantão: Balanceamento Dinâmico por Menor Carga
+  // Caso haja múltiplos membros de plantão: Balanceamento Dinâmico por Menor Carga de Leads Ativos
   try {
     if (isSupabaseServerConfigured()) {
-      const supabase = await createServerSupabaseClient();
-      const { data: recentLeads } = await (supabase as unknown as {
-        from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { order: (col: string, opt: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: Array<{ seller_name: string; seller_id?: string; created_at: string }> | null }> } } } };
+      const supabase = await getSupabaseForRoleta();
+      // Consulta os leads ativos da organização (não fechados / em andamento no funil)
+      const { data: activeLeads } = await (supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (k: string, v: string) => {
+              neq: (statusKey: string, statusVal: string) => {
+                order: (col: string, opt: { ascending: boolean }) => {
+                  limit: (n: number) => Promise<{
+                    data: Array<{ seller_name: string; seller_id?: string; created_at: string; status?: string }> | null;
+                  }>;
+                };
+              };
+            };
+          };
+        };
       })
         .from("leads")
-        .select("seller_name, seller_id, created_at")
+        .select("seller_name, seller_id, created_at, status")
         .eq("organization_id", organizationId)
+        .neq("status", "fechado")
         .order("created_at", { ascending: false })
-        .limit(100);
+        .limit(200);
 
-      if (recentLeads && Array.isArray(recentLeads)) {
+      if (activeLeads && Array.isArray(activeLeads)) {
         const stats = candidateProfiles.map((p) => {
-          const assigned = recentLeads.filter(
+          const assigned = activeLeads.filter(
             (l) =>
               (l.seller_id && l.seller_id === p.id) ||
               (l.seller_name && l.seller_name.trim().toLowerCase() === p.full_name.trim().toLowerCase())
@@ -256,12 +283,18 @@ export async function resolveAssignedSellerInfo(
           return { profile: p, count, lastLeadDate };
         });
 
-        // Ordena: 1º quem tem MENOS leads; 2º quem está há mais tempo sem receber lead
+        // Ordena com rigor:
+        // 1º Quem tem MENOS LEADS ATIVOS (Fair Least-Active-Leads Distribution)
+        // 2º Quem está há mais tempo sem receber lead (menor timestamp do último lead)
+        // 3º Desempate estável por ID
         stats.sort((a, b) => {
           if (a.count !== b.count) {
             return a.count - b.count;
           }
-          return a.lastLeadDate - b.lastLeadDate;
+          if (a.lastLeadDate !== b.lastLeadDate) {
+            return a.lastLeadDate - b.lastLeadDate;
+          }
+          return a.profile.id.localeCompare(b.profile.id);
         });
 
         if (stats[0]?.profile) {
@@ -275,10 +308,10 @@ export async function resolveAssignedSellerInfo(
       }
     }
   } catch {
-    // Fallback para round-robin
+    // Fallback para round-robin determinístico entre os candidatos da própria loja
   }
 
-  // Round-Robin determinístico entre os candidatos de plantão
+  // Round-Robin determinístico entre os candidatos de plantão da própria organização
   const chosen = candidateProfiles[roundRobinCursor % candidateProfiles.length];
   roundRobinCursor = (roundRobinCursor + 1) % candidateProfiles.length;
   return {

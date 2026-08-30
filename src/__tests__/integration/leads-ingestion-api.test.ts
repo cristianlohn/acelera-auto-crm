@@ -286,6 +286,19 @@ describe("[API-V1-LEADS] Ingestão Externa de Leads & Distribuição via Roleta"
         valid: true,
         organizationId: TEST_ORG_A_ID,
       });
+      setMockRouletteSellers([
+        {
+          id: "seller-1",
+          organization_id: TEST_ORG_A_ID,
+          name: "Vendedor Teste",
+          phone: "+5511988881111",
+          role: "seller",
+          segment: "all",
+          in_roulette: true,
+          status: "active",
+          last_lead_assigned_at: null,
+        },
+      ]);
     });
 
     it("[API-LEAD-04.1] Deve retornar HTTP 201 Created com payload completo e WhatsApp Direct URL", async () => {

@@ -205,7 +205,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   ) {
     resolvedSeller =
       tenantContext.profile?.full_name?.trim() ||
-      "Rafael Alves";
+      (tenantContext.isDemo ? "Rafael Alves" : "Vendedor de Plantão");
   }
   const resolvedSellerId =
     resolvedInfo.sellerId ||

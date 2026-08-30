@@ -165,14 +165,9 @@ export async function distributeLead(
     }
   }
 
-  // Se não encontrou dados no banco (ou modo demo/testes), utiliza o estado em memória
+  // Se não encontrou dados no banco (ou modo demo/testes), utiliza o estado em memória apenas com match estrito de organization_id
   if (allMembers.length === 0) {
-    allMembers = memorySellers.filter(
-      (m) => m.organization_id === organizationId || organizationId === DEFAULT_DEMO_ORG_ID
-    );
-    if (allMembers.length === 0 && memorySellers.length > 0) {
-      allMembers = memorySellers;
-    }
+    allMembers = memorySellers.filter((m) => m.organization_id === organizationId);
   }
 
   // 2. Filtra vendedores estritamente ATIVOS e EM PLANTÃO NA ROLETA
@@ -180,12 +175,12 @@ export async function distributeLead(
     (m) => m.status === "active" && m.in_roulette === true
   );
 
-  // 3. Caso não haja nenhum vendedor na roleta, busca Gestor / Administrador como Fallback
+  // 3. Caso não haja nenhum vendedor na roleta, busca Gestor / Administrador como Fallback da própria organização
   if (activeInRoulette.length === 0) {
     const managerFallback = allMembers.find(
       (m) =>
         m.status === "active" &&
-        (m.role === "manager" || m.role === "admin" || (m.role as string) === "gerente")
+        (m.role === "manager" || m.role === "admin" || (m.role as string) === "gerente" || (m.role as string) === "owner")
     );
 
     if (managerFallback) {
@@ -246,9 +241,52 @@ export async function distributeLead(
     }
   }
 
-  // 5. Algoritmo Fair Round-Robin:
-  // Ordena pelo menor timestamp de last_lead_assigned_at (quem recebeu lead há mais tempo ou nunca recebeu tem prioridade)
+  // 5. Algoritmo Fair Least-Active-Leads & Round-Robin:
+  // Consulta contagem de leads ativos por vendedor se o Supabase estiver configurado
+  const activeLeadCounts: Record<string, number> = {};
+  if (isSupabaseServerConfigured()) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { data: activeLeads } = await (supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (k: string, v: string) => {
+              neq: (statusKey: string, statusVal: string) => Promise<{
+                data: Array<{ seller_id?: string; seller_name?: string }> | null;
+              }>;
+            };
+          };
+        };
+      })
+        .from("leads")
+        .select("seller_id, seller_name")
+        .eq("organization_id", organizationId)
+        .neq("status", "fechado");
+
+      if (activeLeads && Array.isArray(activeLeads)) {
+        activeLeads.forEach((l) => {
+          if (l.seller_id) {
+            activeLeadCounts[l.seller_id] = (activeLeadCounts[l.seller_id] || 0) + 1;
+          }
+        });
+      }
+    } catch {
+      // Ignora erro
+    }
+  }
+
+  // Ordena com rigor:
+  // 1º Quem tem MENOS LEADS ATIVOS (Fair Distribution)
+  // 2º Quem está há mais tempo sem receber lead (menor timestamp de last_lead_assigned_at)
+  // 3º Desempate estável por ID
   candidatePool.sort((a, b) => {
+    const countA = activeLeadCounts[a.id] || 0;
+    const countB = activeLeadCounts[b.id] || 0;
+
+    if (countA !== countB) {
+      return countA - countB;
+    }
+
     const timeA = getTimestampValue(a.last_lead_assigned_at);
     const timeB = getTimestampValue(b.last_lead_assigned_at);
 
