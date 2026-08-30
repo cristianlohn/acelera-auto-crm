@@ -47,7 +47,9 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   } | null>(null);
   const [, startTransition] = useTransition();
   const { role, sellerName, isDemoMode } = useDemoRole();
-  const isVendedor = !canViewAllLeads(role);
+  const effectiveRole = !isDemoMode && currentUserProfile?.role ? currentUserProfile.role : role;
+  const isVendedor = !canViewAllLeads(effectiveRole);
+  const effectiveSellerName = !isDemoMode && currentUserProfile?.name ? currentUserProfile.name : sellerName;
 
   if (initialLeads !== prevInitialLeads) {
     setPrevInitialLeads(initialLeads);
@@ -172,42 +174,47 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     const map = new Map<string, { id: string; name: string }>();
     if (teamMembers && teamMembers.length > 0) {
       teamMembers
-        .filter((m) => m.status === "active")
+        .filter(
+          (m) =>
+            m.status === "active" &&
+            !m.name.toLowerCase().includes("fila") &&
+            !m.name.toLowerCase().includes("roleta")
+        )
         .forEach((m) => {
           map.set(m.name, { id: m.id, name: m.name });
         });
+      return Array.from(map.values());
     }
-    leads.forEach((l) => {
-      if (
-        l.assigned_to_name &&
-        l.assigned_to_name !== "Fila Geral" &&
-        l.assigned_to_name !== "Fila de Atendimento"
-      ) {
-        if (!map.has(l.assigned_to_name)) {
-          map.set(l.assigned_to_name, {
-            id: l.assigned_to?.id || l.assigned_to_name,
-            name: l.assigned_to_name,
-          });
+
+    if (isDemoMode) {
+      leads.forEach((l) => {
+        if (
+          l.assigned_to_name &&
+          !l.assigned_to_name.toLowerCase().includes("fila") &&
+          !l.assigned_to_name.includes("Roleta")
+        ) {
+          if (!map.has(l.assigned_to_name)) {
+            map.set(l.assigned_to_name, {
+              id: l.assigned_to?.id || l.assigned_to_name,
+              name: l.assigned_to_name,
+            });
+          }
         }
-      }
-    });
+      });
+    }
     return Array.from(map.values());
-  }, [leads, teamMembers]);
+  }, [leads, teamMembers, isDemoMode]);
 
   // Filtra os leads com base no estado atual dos filtros e RBAC
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
-      // 0. RBAC: Se for perfil Vendedor, exibe os seus próprios leads OU leads em Fila de Atendimento / Fila Geral
+      // 0. RBAC: Se for perfil Vendedor, exibe ESTRITAMENTE os seus próprios leads
       if (isVendedor) {
-        const activeSeller = currentUserProfile?.name || sellerName || "Rafael Alves";
+        const activeSeller = effectiveSellerName;
         const currentUserId = currentUserProfile?.id;
         const matchesSeller =
-          lead.assigned_to_name === activeSeller ||
+          (Boolean(activeSeller) && lead.assigned_to_name === activeSeller) ||
           (Boolean(currentUserId) && lead.assigned_to?.id === currentUserId) ||
-          lead.assigned_to_name === "Fila de Atendimento" ||
-          lead.assigned_to_name === "Fila Geral" ||
-          lead.assigned_to_name === "Roleta Automática" ||
-          !lead.assigned_to_name ||
           (isDemoMode && (
             lead.assigned_to_name?.toLowerCase().includes("rafael") ||
             lead.assigned_to?.name?.toLowerCase().includes("rafael") ||
@@ -249,7 +256,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
       return true;
     });
-  }, [leads, filters, isVendedor, sellerName, currentUserProfile, isDemoMode]);
+  }, [leads, filters, isVendedor, effectiveSellerName, currentUserProfile, isDemoMode]);
 
   // Agrupa os leads filtrados em colunas
   const columns: KanbanColumnConfig[] = useMemo(() => {

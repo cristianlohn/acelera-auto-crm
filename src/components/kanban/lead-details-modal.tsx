@@ -338,13 +338,24 @@ export function LeadDetailsModal({
                     className="mt-1 w-full rounded border border-orange-500/40 bg-zinc-950 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
                   >
                     <option value={lead.assigned_to_name}>{lead.assigned_to_name} (Atual)</option>
-                    {availableSellers
-                      ?.filter((s) => s.name !== lead.assigned_to_name)
-                      .map((seller) => (
+                    {(() => {
+                      const uniqueMap = new Map<string, { id: string; name: string }>();
+                      availableSellers?.forEach((s) => {
+                        if (
+                          s.name &&
+                          s.name !== lead.assigned_to_name &&
+                          !s.name.toLowerCase().includes("fila") &&
+                          !s.name.toLowerCase().includes("roleta")
+                        ) {
+                          uniqueMap.set(s.name, s);
+                        }
+                      });
+                      return Array.from(uniqueMap.values()).map((seller) => (
                         <option key={seller.id} value={seller.name}>
                           {seller.name}
                         </option>
-                      ))}
+                      ));
+                    })()}
                   </select>
                 ) : (
                   <p

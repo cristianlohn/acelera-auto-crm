@@ -438,15 +438,24 @@ export async function getKanbanLeadsAction(
             let sellerName = row.seller_name;
             let sellerId = row.seller_id;
 
+            const isMockSeller =
+              !tenantContext.isDemo &&
+              Boolean(tenantContext.organizationId) &&
+              ["Rafael Alves", "Juliana Costa", "Marcos Ferreira", "Fila Geral", "Fila de Atendimento"].includes(sellerName || "");
+
             const isFilaOrUnassigned =
               !sellerName ||
               sellerName.toLowerCase().includes("fila") ||
               sellerName.toLowerCase().includes("roleta");
 
-            if (isFilaOrUnassigned) {
+            if (isFilaOrUnassigned || isMockSeller) {
               try {
                 const autoResolved = await resolveAssignedSellerInfo(undefined, orgId);
-                if (autoResolved?.sellerName && !autoResolved.sellerName.toLowerCase().includes("fila")) {
+                if (
+                  autoResolved?.sellerName &&
+                  !autoResolved.sellerName.toLowerCase().includes("fila") &&
+                  (!isMockSeller || !["Rafael Alves", "Juliana Costa", "Marcos Ferreira"].includes(autoResolved.sellerName))
+                ) {
                   sellerName = autoResolved.sellerName;
                   sellerId = autoResolved.sellerId || null;
 

@@ -148,10 +148,10 @@ export async function resolveAssignedSellerInfo(
     }
   }
 
-  // Se o Supabase não retornou perfis (ou estamos no modo demo/offline), consulta fallback em memória
-  if (teamProfiles.length === 0) {
+  // Se o Supabase não retornou perfis e estamos no modo demo/offline, consulta fallback em memória
+  if (teamProfiles.length === 0 && organizationId === DEFAULT_DEMO_ORG_ID) {
     const memMembers = memoryTeamMembers.filter(
-      (m) => m.organization_id === organizationId || organizationId === DEFAULT_DEMO_ORG_ID
+      (m) => m.organization_id === DEFAULT_DEMO_ORG_ID
     );
     if (memMembers.length > 0) {
       teamProfiles = memMembers.map((m) => ({
@@ -209,7 +209,7 @@ export async function resolveAssignedSellerInfo(
     candidateProfiles = teamProfiles.filter((p) => Boolean(p.full_name?.trim()));
   }
 
-  // Nível 4: Fallback padrão de vendedores ativos
+  // Nível 4: Fallback padrão de demonstração se não houver NENHUM membro na organização
   if (candidateProfiles.length === 0) {
     const demoName = DEFAULT_ACTIVE_SELLERS[roundRobinCursor % DEFAULT_ACTIVE_SELLERS.length];
     roundRobinCursor = (roundRobinCursor + 1) % DEFAULT_ACTIVE_SELLERS.length;
