@@ -76,10 +76,18 @@ export async function acceptInviteAction(token: string) {
   return _acceptInviteAction(token);
 }
 
-export const acceptOrganizationInviteAction = _acceptOrganizationInviteAction;
-export const deleteSalespersonAction = _deleteSalespersonAction;
-export const removeMemberAction = _removeMemberAction;
-export const deleteSellerAction = _deleteSellerAction;
+export async function acceptOrganizationInviteAction(token: string) {
+  return _acceptOrganizationInviteAction(token);
+}
+export async function deleteSalespersonAction(memberId: string, orgId?: string) {
+  return _deleteSalespersonAction(memberId, orgId);
+}
+export async function removeMemberAction(memberId: string, orgId?: string) {
+  return _removeMemberAction(memberId, orgId);
+}
+export async function deleteSellerAction(memberId: string, orgId?: string) {
+  return _deleteSellerAction(memberId, orgId);
+}
 
 /**
  * Server Action unificada para reenviar convite por e-mail.

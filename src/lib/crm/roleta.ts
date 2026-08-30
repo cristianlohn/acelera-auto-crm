@@ -10,7 +10,7 @@ import {
   type LeadAlertData,
 } from "@/lib/services/whatsapp";
 import { ROULETTE_STATUS_COOKIE, getRouletteStatusMap } from "@/lib/services/team-status";
-import { memoryTeamMembers } from "@/app/actions/team-actions";
+import { memoryTeamMembers } from "@/lib/crm/team-memory";
 
 async function getSupabaseForRoleta() {
   try {

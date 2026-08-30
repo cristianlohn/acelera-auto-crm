@@ -1,0 +1,55 @@
+/**
+ * @file team-memory.ts
+ * @description Armazenamento em memória dos membros da equipe para modo demo e offline.
+ */
+
+import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import type { TeamMember } from "@/types/team";
+
+export const memoryTeamMembers: TeamMember[] = [
+  {
+    id: "sp-001",
+    organization_id: DEFAULT_DEMO_ORG_ID,
+    name: "Rafael Alves",
+    email: "rafael.alves@aceleraauto.com.br",
+    phone: "+5511988887777",
+    role: "seller",
+    segment: "all",
+    in_roulette: true,
+    status: "active",
+    monthly_goal_units: 15,
+    current_sales_units: 11,
+    avg_sla_minutes: 4.2,
+    created_at: new Date(Date.now() - 60 * 86400000).toISOString(),
+  },
+  {
+    id: "sp-002",
+    organization_id: DEFAULT_DEMO_ORG_ID,
+    name: "Juliana Costa",
+    email: "juliana.costa@aceleraauto.com.br",
+    phone: "+5511977776666",
+    role: "seller",
+    segment: "new_cars",
+    in_roulette: true,
+    status: "active",
+    monthly_goal_units: 12,
+    current_sales_units: 9,
+    avg_sla_minutes: 6.8,
+    created_at: new Date(Date.now() - 45 * 86400000).toISOString(),
+  },
+  {
+    id: "sp-003",
+    organization_id: DEFAULT_DEMO_ORG_ID,
+    name: "Marcos Ferreira",
+    email: "marcos.ferreira@aceleraauto.com.br",
+    phone: "+5511966665555",
+    role: "seller",
+    segment: "used_cars",
+    in_roulette: true,
+    status: "active",
+    monthly_goal_units: 10,
+    current_sales_units: 6,
+    avg_sla_minutes: 18.5,
+    created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
+  },
+];
