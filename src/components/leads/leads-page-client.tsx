@@ -907,12 +907,20 @@ export function LeadsPageClient({
   });
 
   const allowAllLeads = canViewAllLeads(effectiveRole);
-  const visibleLeads = !allowAllLeads
+  const visibleLeads = !allowAllLeads && isDemoMode
     ? leads.filter(
         (l) =>
           l.sellerName === sellerName ||
           l.sellerName?.toLowerCase().includes("rafael") ||
           l.sellerName?.toLowerCase().includes("vendedor")
+      )
+    : !allowAllLeads && !isDemoMode
+    ? leads.filter(
+        (l) =>
+          (sellerName && l.sellerName === sellerName) ||
+          l.sellerName === "Vendedor de Plantão" ||
+          l.sellerName === "Roleta Automática" ||
+          !l.sellerName
       )
     : leads;
 

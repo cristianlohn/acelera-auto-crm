@@ -100,15 +100,22 @@ export async function resolveAssignedSellerInfo(
       // 1. Consulta todos os perfis da organização no Supabase com admin client ou server client
       const { data: allProfiles, error } = await supabase
         .from("profiles")
-        .select("id, full_name, role, phone, in_roulette")
+        .select("*")
         .eq("organization_id", organizationId);
 
       if (!error && Array.isArray(allProfiles) && allProfiles.length > 0) {
-        teamProfiles = allProfiles
-          .filter((p) => Boolean(p.full_name?.trim()))
+        teamProfiles = (allProfiles as unknown as Array<{
+          id: string;
+          full_name?: string | null;
+          name?: string | null;
+          role?: string | null;
+          phone?: string | null;
+          in_roulette?: boolean | null;
+        }>)
+          .filter((p) => Boolean((p.full_name || p.name)?.trim()))
           .map((p) => ({
             id: p.id,
-            full_name: p.full_name,
+            full_name: (p.full_name || p.name)!.trim(),
             role: p.role,
             phone: p.phone,
             in_roulette: p.in_roulette,
@@ -142,6 +149,37 @@ export async function resolveAssignedSellerInfo(
         } catch {
           // Ignora se .in não estiver presente
         }
+      }
+
+      // 1.1 Inclui membros adicionados via convite ativo/pendente caso ainda não tenham profile completo
+      try {
+        const { data: invites } = await (supabase as unknown as {
+          from: (t: string) => {
+            select: (c: string) => {
+              eq: (k: string, v: string) => Promise<{ data: Array<{ id: string; full_name?: string; email?: string; phone?: string; role?: string }> | null }>;
+            };
+          };
+        })
+          .from("organization_invites")
+          .select("*")
+          .eq("organization_id", organizationId);
+
+        if (invites && Array.isArray(invites) && invites.length > 0) {
+          invites.forEach((inv) => {
+            const invName = inv.full_name?.trim();
+            if (invName && !teamProfiles.some((tp) => tp.full_name.toLowerCase() === invName.toLowerCase())) {
+              teamProfiles.push({
+                id: `inv-${inv.id}`,
+                full_name: invName,
+                role: inv.role || "seller",
+                phone: inv.phone || null,
+                in_roulette: true,
+              });
+            }
+          });
+        }
+      } catch {
+        // Ignora se tabela não existir
       }
     } catch {
       // Fallback

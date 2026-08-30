@@ -31,7 +31,7 @@ export default async function LeadsPage() {
       initialLeads={leads}
       initialTeamMembers={teamMembers}
       initialOrganizationId={tenantContext.organizationId || null}
-      userRole={tenantContext.profile?.role || (tenantContext.isDemo ? undefined : "seller")}
+      userRole={tenantContext.profile?.role || (tenantContext.isDemo ? undefined : "admin")}
     />
   );
 }
