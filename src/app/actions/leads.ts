@@ -19,8 +19,10 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { resolveAssignedSellerInfo, notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
+import { getTeamMembersAction } from "@/app/actions/team-actions";
 import { mockLeads } from "@/lib/mock-data";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
+import type { TeamMember } from "@/types/team";
 import type { Database } from "@/types/database.types";
 
 /**
@@ -104,35 +106,53 @@ export async function getLeads(overrideRole?: string): Promise<Lead[]> {
       return [];
     }
 
-    const orgId = tenantContext.organizationId;
+    const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+    const realMembers = await getTeamMembersAction(orgId);
+    const validMembersMap = new Map<string, TeamMember>();
+    realMembers
+      .filter(
+        (m) =>
+          m.status === "active" &&
+          !m.name.toLowerCase().includes("fila") &&
+          !m.name.toLowerCase().includes("roleta")
+      )
+      .forEach((m) => {
+        validMembersMap.set(m.name.trim().toLowerCase(), m);
+      });
+    const activeMembersList = Array.from(validMembersMap.values());
+    let roundRobinIdx = 0;
+
     return Promise.all(
       data.map(async (row) => {
-        let sellerName = row.seller_name;
+        let sellerName = row.seller_name?.trim() || "";
         let sellerId = row.seller_id;
 
-        const isUnassigned =
-          !sellerName ||
-          sellerName.toLowerCase().includes("fila") ||
-          sellerName.toLowerCase().includes("roleta");
+        const isRealOrg = !tenantContext.isDemo && Boolean(tenantContext.organizationId);
+        const isValidSeller = isRealOrg
+          ? activeMembersList.length > 0 && Boolean(sellerName) && validMembersMap.has(sellerName.toLowerCase())
+          : Boolean(sellerName) && !sellerName.toLowerCase().includes("fila") && !sellerName.toLowerCase().includes("roleta");
 
-        if (isUnassigned) {
+        if (isRealOrg && !isValidSeller && activeMembersList.length > 0) {
+          const assignedMember = activeMembersList[roundRobinIdx % activeMembersList.length];
+          roundRobinIdx++;
+
+          sellerName = assignedMember.name;
+          sellerId = assignedMember.id;
+
           try {
-            const autoResolved = await resolveAssignedSellerInfo(undefined, orgId);
-            if (autoResolved?.sellerName && !autoResolved.sellerName.toLowerCase().includes("fila")) {
-              sellerName = autoResolved.sellerName;
-              sellerId = autoResolved.sellerId || null;
-
-              void (async () => {
-                try {
-                  const admin = createAdminClient();
-                  await admin
-                    .from("leads")
-                    .update({ seller_name: sellerName, seller_id: sellerId })
-                    .eq("id", row.id);
-                } catch {}
-              })();
-            }
-          } catch {}
+            const admin = createAdminClient();
+            await admin
+              .from("leads")
+              .update({ seller_name: sellerName, seller_id: sellerId })
+              .eq("id", row.id);
+          } catch {
+            try {
+              await supabase
+                .from("leads")
+                .update({ seller_name: sellerName, seller_id: sellerId })
+                .eq("id", row.id);
+            } catch {}
+          }
         }
 
         return {

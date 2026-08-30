@@ -11,9 +11,11 @@ import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/su
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { resolveAssignedSellerInfo, notifyAssignedSellerViaWhatsApp } from "@/lib/crm/roleta";
+import { getTeamMembersAction } from "@/app/actions/team-actions";
 import type { LeadStage, KanbanLead, KanbanBoardData, KanbanColumnConfig } from "@/types/kanban";
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import type { LeadStatus, LeadOrigin } from "@/types/database.types";
+import type { TeamMember } from "@/types/team";
 import { updateLeadStageSchema } from "@/lib/validations/kanban";
 
 export interface CreateKanbanLeadInput {
@@ -425,6 +427,21 @@ export async function getKanbanLeadsAction(
       const { data, error } = await query.order("created_at", { ascending: false });
 
       if (!error && Array.isArray(data)) {
+        const realMembers = await getTeamMembersAction(orgId);
+        const validMembersMap = new Map<string, TeamMember>();
+        realMembers
+          .filter(
+            (m) =>
+              m.status === "active" &&
+              !m.name.toLowerCase().includes("fila") &&
+              !m.name.toLowerCase().includes("roleta")
+          )
+          .forEach((m) => {
+            validMembersMap.set(m.name.trim().toLowerCase(), m);
+          });
+        const activeMembersList = Array.from(validMembersMap.values());
+        let roundRobinIdx = 0;
+
         return Promise.all(
           data.map(async (row) => {
             const createdAtDate = new Date(row.created_at || Date.now());
@@ -435,42 +452,36 @@ export async function getKanbanLeadsAction(
 
             const stage = normalizeDbStatusToStage(row.status);
 
-            let sellerName = row.seller_name;
+            let sellerName = row.seller_name?.trim() || "";
             let sellerId = row.seller_id;
 
-            const isMockSeller =
-              !tenantContext.isDemo &&
-              Boolean(tenantContext.organizationId) &&
-              ["Rafael Alves", "Juliana Costa", "Marcos Ferreira", "Fila Geral", "Fila de Atendimento"].includes(sellerName || "");
+            const isRealOrg = !tenantContext.isDemo && Boolean(tenantContext.organizationId);
+            const isValidSeller = isRealOrg
+              ? activeMembersList.length > 0 && Boolean(sellerName) && validMembersMap.has(sellerName.toLowerCase())
+              : Boolean(sellerName) && !sellerName.toLowerCase().includes("fila") && !sellerName.toLowerCase().includes("roleta");
 
-            const isFilaOrUnassigned =
-              !sellerName ||
-              sellerName.toLowerCase().includes("fila") ||
-              sellerName.toLowerCase().includes("roleta");
+            if (isRealOrg && !isValidSeller && activeMembersList.length > 0) {
+              const assignedMember = activeMembersList[roundRobinIdx % activeMembersList.length];
+              roundRobinIdx++;
 
-            if (isFilaOrUnassigned || isMockSeller) {
+              sellerName = assignedMember.name;
+              sellerId = assignedMember.id;
+
+              // Atualiza no banco de dados
               try {
-                const autoResolved = await resolveAssignedSellerInfo(undefined, orgId);
-                if (
-                  autoResolved?.sellerName &&
-                  !autoResolved.sellerName.toLowerCase().includes("fila") &&
-                  (!isMockSeller || !["Rafael Alves", "Juliana Costa", "Marcos Ferreira"].includes(autoResolved.sellerName))
-                ) {
-                  sellerName = autoResolved.sellerName;
-                  sellerId = autoResolved.sellerId || null;
-
-                  // Atualiza no banco em background
-                  void (async () => {
-                    try {
-                      const admin = createAdminClient();
-                      await admin
-                        .from("leads")
-                        .update({ seller_name: sellerName, seller_id: sellerId })
-                        .eq("id", row.id);
-                    } catch {}
-                  })();
-                }
-              } catch {}
+                const admin = createAdminClient();
+                await admin
+                  .from("leads")
+                  .update({ seller_name: sellerName, seller_id: sellerId })
+                  .eq("id", row.id);
+              } catch {
+                try {
+                  await supabase
+                    .from("leads")
+                    .update({ seller_name: sellerName, seller_id: sellerId })
+                    .eq("id", row.id);
+                } catch {}
+              }
             }
 
             return {
