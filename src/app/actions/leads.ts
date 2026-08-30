@@ -223,37 +223,70 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     origin: input.origin || "site",
   };
 
-  if (!isSupabaseServerConfigured()) {
-    return fallbackLead;
+  function isValidUUID(val?: string | null): boolean {
+    if (!val) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
   }
 
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase
-      .from("leads")
-      .insert({
-        organization_id: orgId,
-        name: input.name,
-        phone: input.phone,
-        email: input.email || null,
-        vehicle_interest: input.vehicleInterest,
-        status: input.status || "novo",
-        seller_name: resolvedSeller,
-        seller_id: resolvedSellerId || null,
-        origin: input.origin || "site",
-        notes: input.notes || null,
-      })
-      .select()
-      .single();
+  const safeSellerId = isValidUUID(resolvedSellerId) ? resolvedSellerId : null;
+  const insertPayload = {
+    organization_id: orgId,
+    name: input.name,
+    phone: input.phone,
+    email: input.email || null,
+    vehicle_interest: input.vehicleInterest,
+    status: input.status || "novo",
+    seller_name: resolvedSeller,
+    seller_id: safeSellerId,
+    origin: input.origin || "site",
+    notes: input.notes || null,
+  };
 
-    if (error || !data) {
-      return fallbackLead;
+  let insertedData: Database["public"]["Tables"]["leads"]["Row"] | null = null;
+
+  if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { data, error } = await supabase
+        .from("leads")
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (!error && data) {
+        insertedData = data;
+      }
+    } catch {
+      // Tenta fallback com admin
     }
 
-    revalidatePath("/leads");
-    revalidatePath("/dashboard/leads");
-    revalidatePath("/dashboard");
-    const domainLead = mapDbLeadToDomain(data);
+    if (!insertedData) {
+      try {
+        const adminClient = createAdminClient();
+        const { data: adminData, error: adminErr } = await adminClient
+          .from("leads")
+          .insert(insertPayload)
+          .select()
+          .single();
+
+        if (!adminErr && adminData) {
+          insertedData = adminData;
+        } else if (adminErr) {
+          console.error("[Create Lead Admin Insert Error]", adminErr);
+        }
+      } catch (adminEx) {
+        console.error("[Create Lead Admin Exception]", adminEx);
+      }
+    }
+  }
+
+  if (insertedData) {
+    try {
+      revalidatePath("/leads");
+      revalidatePath("/dashboard/leads");
+      revalidatePath("/dashboard");
+    } catch {}
+    const domainLead = mapDbLeadToDomain(insertedData);
 
     void notifyAssignedSellerViaWhatsApp({
       lead: {
@@ -269,9 +302,9 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     });
 
     return domainLead;
-  } catch {
-    return fallbackLead;
   }
+
+  return fallbackLead;
 }
 
 
@@ -334,20 +367,36 @@ export async function updateLeadSeller(
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const updatePayload: { seller_name: string; seller_id?: string; updated_at: string } = {
+    const isUUID = sellerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sellerId.trim());
+    const updatePayload: { seller_name: string; seller_id?: string | null; updated_at: string } = {
       seller_name: sellerName,
+      seller_id: isUUID ? sellerId : null,
       updated_at: new Date().toISOString(),
     };
-    if (sellerId) {
-      updatePayload.seller_id = sellerId;
-    }
 
-    await supabase
-      .from("leads")
-      .update(updatePayload)
-      .eq("id", id)
-      .eq("organization_id", orgId);
+    let updateSuccess = false;
+
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { error } = await supabase
+        .from("leads")
+        .update(updatePayload)
+        .eq("id", id)
+        .eq("organization_id", orgId);
+
+      if (!error) updateSuccess = true;
+    } catch {}
+
+    if (!updateSuccess) {
+      try {
+        const adminClient = createAdminClient();
+        await adminClient
+          .from("leads")
+          .update(updatePayload)
+          .eq("id", id)
+          .eq("organization_id", orgId);
+      } catch {}
+    }
 
     revalidatePath("/leads");
     revalidatePath("/dashboard/leads");

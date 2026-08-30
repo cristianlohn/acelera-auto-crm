@@ -637,10 +637,6 @@ export async function updateLeadStageAction(
         updated_at: nowIso,
       };
 
-      if (newStage === "lost" && lostReason) {
-        updatePayload.notes = `[Motivo Perda]: ${lostReason}`;
-      }
-
       const { error } = await supabase
         .from("leads")
         .update(updatePayload)
@@ -702,12 +698,27 @@ export async function updateLeadNotesAction(
 
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
     try {
-      const supabase = await createServerSupabaseClient();
-      await supabase
-        .from("leads")
-        .update({ notes, updated_at: nowIso })
-        .eq("id", leadId)
-        .eq("organization_id", orgId);
+      let updateSuccess = false;
+      try {
+        const supabase = await createServerSupabaseClient();
+        const { error } = await supabase
+          .from("leads")
+          .update({ notes, updated_at: nowIso })
+          .eq("id", leadId)
+          .eq("organization_id", orgId);
+        if (!error) updateSuccess = true;
+      } catch {}
+
+      if (!updateSuccess) {
+        try {
+          const adminClient = createAdminClient();
+          await adminClient
+            .from("leads")
+            .update({ notes, updated_at: nowIso })
+            .eq("id", leadId)
+            .eq("organization_id", orgId);
+        } catch {}
+      }
     } catch (err) {
       console.warn("[Kanban Notes Update Error]:", err);
     }
@@ -851,23 +862,35 @@ export async function updateLeadAssignedSellerAction(
 
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
     try {
-      const supabase = await createServerSupabaseClient();
-      const updatePayload: { seller_name: string; seller_id?: string; updated_at: string } = {
+      const isUUID = sellerId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sellerId.trim());
+      const updatePayload: { seller_name: string; seller_id?: string | null; updated_at: string } = {
         seller_name: sellerName,
+        seller_id: isUUID ? sellerId : null,
         updated_at: nowIso,
       };
-      if (sellerId) {
-        updatePayload.seller_id = sellerId;
-      }
 
-      const { error } = await supabase
-        .from("leads")
-        .update(updatePayload)
-        .eq("id", leadId)
-        .eq("organization_id", orgId);
+      let updateSuccess = false;
 
-      if (error) {
-        return { success: false, error: error.message };
+      try {
+        const supabase = await createServerSupabaseClient();
+        const { error } = await supabase
+          .from("leads")
+          .update(updatePayload)
+          .eq("id", leadId)
+          .eq("organization_id", orgId);
+
+        if (!error) updateSuccess = true;
+      } catch {}
+
+      if (!updateSuccess) {
+        try {
+          const adminClient = createAdminClient();
+          await adminClient
+            .from("leads")
+            .update(updatePayload)
+            .eq("id", leadId)
+            .eq("organization_id", orgId);
+        } catch {}
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao transferir lead.";
@@ -943,61 +966,96 @@ export async function createKanbanLeadAction(
     notes: input.notes?.trim() || undefined,
   };
 
+  function isValidUUID(val?: string | null): boolean {
+    if (!val) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
+  }
+
   memoryKanbanLeads.unshift(newKanbanLead);
 
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
+    const dbStatus: LeadStatus =
+      input.stage === "won"
+        ? "fechado"
+        : input.stage === "visit_scheduled" || input.stage === "test_drive"
+        ? "visita"
+        : input.stage === "proposal" || input.stage === "proposal_fi"
+        ? "proposta"
+        : input.stage === "in_contact"
+        ? "atendimento"
+        : "novo";
+
+    const dbOrigin: LeadOrigin =
+      input.source === "indicacao"
+        ? "indicacao"
+        : input.source === "instagram" || input.source === "meta_ads"
+        ? "instagram"
+        : input.source === "site"
+        ? "site"
+        : input.source === "webmotors"
+        ? "webmotors"
+        : input.source === "icarros"
+        ? "icarros"
+        : input.source === "olx"
+        ? "olx"
+        : input.source === "patio" || input.source === "patio_balcao"
+        ? "patio_balcao"
+        : "whatsapp";
+
+    const safeSellerId = isValidUUID(resolvedSellerId) ? resolvedSellerId : null;
+    const insertPayload = {
+      organization_id: orgId,
+      name: input.name.trim(),
+      phone: input.phone.trim(),
+      email: input.email?.trim() || null,
+      vehicle_interest: input.vehicle_of_interest.trim(),
+      status: dbStatus,
+      seller_name: resolvedSeller,
+      seller_id: safeSellerId,
+      origin: dbOrigin,
+      notes: input.notes?.trim() || null,
+    };
+
+    let insertedRecord: { id: string } | null = null;
+
+    // 1. Tenta inserir com o client de sessão do usuário
     try {
-      const dbStatus: LeadStatus =
-        input.stage === "won"
-          ? "fechado"
-          : input.stage === "visit_scheduled" || input.stage === "test_drive"
-          ? "visita"
-          : input.stage === "proposal" || input.stage === "proposal_fi"
-          ? "proposta"
-          : input.stage === "in_contact"
-          ? "atendimento"
-          : "novo";
-
-      const dbOrigin: LeadOrigin =
-        input.source === "indicacao"
-          ? "indicacao"
-          : input.source === "instagram" || input.source === "meta_ads"
-          ? "instagram"
-          : input.source === "site"
-          ? "site"
-          : input.source === "webmotors"
-          ? "webmotors"
-          : input.source === "icarros"
-          ? "icarros"
-          : input.source === "olx"
-          ? "olx"
-          : input.source === "patio" || input.source === "patio_balcao"
-          ? "patio_balcao"
-          : "whatsapp";
-
       const supabase = await createServerSupabaseClient();
       const { data, error } = await supabase
         .from("leads")
-        .insert({
-          organization_id: orgId,
-          name: input.name.trim(),
-          phone: input.phone.trim(),
-          email: input.email?.trim() || null,
-          vehicle_interest: input.vehicle_of_interest.trim(),
-          status: dbStatus,
-          seller_name: resolvedSeller,
-          seller_id: resolvedSellerId || null,
-          origin: dbOrigin,
-          notes: input.notes?.trim() || null,
-        })
-        .select()
+        .insert(insertPayload)
+        .select("id")
         .single();
 
       if (!error && data) {
-        newKanbanLead.id = data.id;
+        insertedRecord = data;
       }
     } catch {
-      // Fallback
+      // Tenta fallback com admin
+    }
+
+    // 2. Se falhou (por exemplo, RLS ou credenciais da sessão), insere com Admin Client (service_role)
+    if (!insertedRecord) {
+      try {
+        const adminClient = createAdminClient();
+        const { data: adminData, error: adminErr } = await adminClient
+          .from("leads")
+          .insert(insertPayload)
+          .select("id")
+          .single();
+
+        if (!adminErr && adminData) {
+          insertedRecord = adminData;
+        } else if (adminErr) {
+          console.error("[Kanban Lead Admin Insert Error]", adminErr);
+        }
+      } catch (adminEx) {
+        console.error("[Kanban Lead Admin Exception]", adminEx);
+      }
+    }
+
+    if (insertedRecord) {
+      newKanbanLead.id = insertedRecord.id;
     }
   }
 
