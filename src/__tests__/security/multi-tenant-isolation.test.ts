@@ -179,6 +179,49 @@ describe("[SECURITY-MULTI-TENANT] Isolamento Estrito Multi-Tenant e Prevenção 
         })
       );
     });
+
+    it("[SEC-TENANT-02.1] createLead deve lançar erro explícito quando o banco rejeita o INSERT em ambiente de produção", async () => {
+      mockAlfaTenantContext();
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockSingle = vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: "violates check constraint 'leads_phone_check'" },
+      });
+
+      const mockInsert = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: mockSingle,
+        }),
+      });
+
+      vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
+        from: vi.fn().mockReturnValue({ insert: mockInsert }),
+      } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
+
+      // Também simula erro no adminClient
+      const adminModule = await import("@/lib/supabase/admin");
+      vi.spyOn(adminModule, "createAdminClient").mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: null,
+                error: { message: "violates check constraint 'leads_phone_check'" },
+              }),
+            }),
+          }),
+        }),
+      } as unknown as ReturnType<typeof adminModule.createAdminClient>);
+
+      await expect(
+        createLead({
+          name: "Novo Lead Teste",
+          phone: "11988882222",
+          vehicleInterest: "Toyota Corolla",
+        })
+      ).rejects.toThrow(/violates check constraint/i);
+    });
   });
 
   describe("3. UPDATE / MODIFICAÇÃO — Bloqueio de Alteração Cross-Tenant", () => {

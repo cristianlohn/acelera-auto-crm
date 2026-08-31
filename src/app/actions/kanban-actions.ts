@@ -971,7 +971,15 @@ export async function createKanbanLeadAction(
     return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
   }
 
-  memoryKanbanLeads.unshift(newKanbanLead);
+  const isOfflineOrDemo =
+    tenantContext.isDemo || (!tenantContext.organizationId && !isSupabaseServerConfigured());
+
+  if (!isOfflineOrDemo && !tenantContext.organizationId) {
+    return {
+      success: false,
+      error: "Organização não encontrada para o usuário autenticado.",
+    };
+  }
 
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
     const dbStatus: LeadStatus =
@@ -1017,6 +1025,7 @@ export async function createKanbanLeadAction(
     };
 
     let insertedRecord: { id: string } | null = null;
+    let lastError: string | null = null;
 
     // 1. Tenta inserir com o client de sessão do usuário
     try {
@@ -1029,9 +1038,11 @@ export async function createKanbanLeadAction(
 
       if (!error && data) {
         insertedRecord = data;
+      } else if (error) {
+        lastError = error.message;
       }
-    } catch {
-      // Tenta fallback com admin
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Erro ao conectar ao banco de dados.";
     }
 
     // 2. Se falhou (por exemplo, RLS ou credenciais da sessão), insere com Admin Client (service_role)
@@ -1046,18 +1057,29 @@ export async function createKanbanLeadAction(
 
         if (!adminErr && adminData) {
           insertedRecord = adminData;
+          lastError = null;
         } else if (adminErr) {
           console.error("[Kanban Lead Admin Insert Error]", adminErr);
+          lastError = adminErr.message;
         }
       } catch (adminEx) {
         console.error("[Kanban Lead Admin Exception]", adminEx);
+        lastError = adminEx instanceof Error ? adminEx.message : "Exceção ao persistir lead via serviço de administração.";
       }
     }
 
-    if (insertedRecord) {
-      newKanbanLead.id = insertedRecord.id;
+    if (!insertedRecord) {
+      return {
+        success: false,
+        error: lastError || "Falha ao persistir lead no banco de dados. O registro foi rejeitado.",
+      };
     }
+
+    newKanbanLead.id = insertedRecord.id;
   }
+
+  // Registra no estado em memória apenas se persistido com sucesso ou em modo sandbox/demo
+  memoryKanbanLeads.unshift(newKanbanLead);
 
   try {
     void notifyAssignedSellerViaWhatsApp({

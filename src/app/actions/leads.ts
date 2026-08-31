@@ -243,6 +243,14 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   };
 
   let insertedData: Database["public"]["Tables"]["leads"]["Row"] | null = null;
+  let lastError: string | null = null;
+
+  const isOfflineOrDemo =
+    tenantContext.isDemo || (!tenantContext.organizationId && !isSupabaseServerConfigured());
+
+  if (!isOfflineOrDemo && !tenantContext.organizationId) {
+    throw new Error("Organização não encontrada para o usuário autenticado.");
+  }
 
   if (isSupabaseServerConfigured() && !tenantContext.isDemo && tenantContext.organizationId) {
     try {
@@ -255,9 +263,11 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
 
       if (!error && data) {
         insertedData = data;
+      } else if (error) {
+        lastError = error.message;
       }
-    } catch {
-      // Tenta fallback com admin
+    } catch (err) {
+      lastError = err instanceof Error ? err.message : "Erro ao conectar ao banco de dados.";
     }
 
     if (!insertedData) {
@@ -271,12 +281,19 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
 
         if (!adminErr && adminData) {
           insertedData = adminData;
+          lastError = null;
         } else if (adminErr) {
           console.error("[Create Lead Admin Insert Error]", adminErr);
+          lastError = adminErr.message;
         }
       } catch (adminEx) {
         console.error("[Create Lead Admin Exception]", adminEx);
+        lastError = adminEx instanceof Error ? adminEx.message : "Exceção ao persistir lead via serviço de administração.";
       }
+    }
+
+    if (!insertedData) {
+      throw new Error(lastError || "Falha ao persistir lead no banco de dados. O registro foi rejeitado.");
     }
   }
 

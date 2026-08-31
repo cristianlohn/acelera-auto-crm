@@ -9,10 +9,12 @@ import {
   getKanbanBoardAction,
   updateLeadStageAction,
   updateLeadLostReasonAction,
+  createKanbanLeadAction,
   resetMemoryKanbanLeads,
 } from "@/app/actions/kanban-actions";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import * as supabaseServerModule from "@/lib/supabase/server";
+import * as supabaseAdminModule from "@/lib/supabase/admin";
 import * as tenantAuthModule from "@/lib/auth/tenant";
 
 describe("[UNIT-KANBAN] Server Actions do Funil Kanban de Leads", () => {
@@ -96,5 +98,119 @@ describe("[UNIT-KANBAN] Server Actions do Funil Kanban de Leads", () => {
     const updatedLead = leads.find((l) => l.id === "lead-k-101");
     expect(updatedLead?.stage).toBe("lost");
     expect(updatedLead?.lost_reason).toBe(validReason);
+  });
+
+  it("[TEST-KANBAN-05] createKanbanLeadAction deve retornar falha explícita e NÃO poluir estado quando o banco rejeita o INSERT", async () => {
+    vi.spyOn(tenantAuthModule, "resolveUserTenantContext").mockResolvedValue({
+      userId: "user-real-123",
+      userEmail: "gerente@loja.com",
+      organizationId: "org-real-123",
+      isDemo: false,
+      profile: {
+        id: "user-real-123",
+        organization_id: "org-real-123",
+        full_name: "Gerente Loja",
+        role: "gerente",
+        email: "gerente@loja.com",
+        phone: "11988887777",
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      organization: null,
+      needsOnboarding: false,
+    });
+
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    // Simula erro na inserção via cliente Supabase
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
+      from: vi.fn().mockReturnValue({
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: "violates foreign key constraint 'leads_seller_id_fkey'" },
+            }),
+          }),
+        }),
+      }),
+    } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
+
+    // Simula erro também no admin client
+    vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: "violates foreign key constraint 'leads_seller_id_fkey'" },
+            }),
+          }),
+        }),
+      }),
+    } as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>);
+
+    const result = await createKanbanLeadAction({
+      name: "Lead Falha Teste",
+      phone: "11988887777",
+      vehicle_of_interest: "Honda HR-V",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/violates foreign key constraint/i);
+
+    // Garante que não adicionou aos leads em memória
+    const memoryLeads = await getKanbanLeadsAction("org-real-123");
+    expect(memoryLeads.some((l) => l.name === "Lead Falha Teste")).toBe(false);
+  });
+
+  it("[TEST-KANBAN-06] createKanbanLeadAction deve persistir com sucesso e retornar ID do banco", async () => {
+    vi.spyOn(tenantAuthModule, "resolveUserTenantContext").mockResolvedValue({
+      userId: "user-real-123",
+      userEmail: "gerente@loja.com",
+      organizationId: "org-real-123",
+      isDemo: false,
+      profile: {
+        id: "user-real-123",
+        organization_id: "org-real-123",
+        full_name: "Gerente Loja",
+        role: "gerente",
+        email: "gerente@loja.com",
+        phone: "11988887777",
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      organization: null,
+      needsOnboarding: false,
+    });
+
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    const generatedDbId = "lead-uuid-persisted-123";
+
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
+      from: vi.fn().mockReturnValue({
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { id: generatedDbId },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
+
+    const result = await createKanbanLeadAction({
+      name: "Lead Sucesso Teste",
+      phone: "11988887777",
+      vehicle_of_interest: "Toyota Yaris",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.lead?.id).toBe(generatedDbId);
+    expect(result.lead?.name).toBe("Lead Sucesso Teste");
   });
 });
