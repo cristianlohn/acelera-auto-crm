@@ -39,7 +39,7 @@ const INITIAL_LEAD_FORM: CreateKanbanLeadInput = {
   source: "patio",
   stage: "new",
   assigned_to_name: "roleta",
-  value: 120000,
+  value: undefined,
   segment: "all",
   notes: "",
 };

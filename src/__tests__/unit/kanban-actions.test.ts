@@ -266,4 +266,40 @@ describe("[UNIT-KANBAN] Server Actions do Funil Kanban de Leads", () => {
     expect(result.error).toBeDefined();
     expect(result.error).toMatch(/obrigatório|dígitos/i);
   });
+
+  it("[TEST-KANBAN-09] createKanbanLeadAction NÃO deve injetar valor hardcoded (ex: 120000) se não fornecido", async () => {
+    vi.spyOn(tenantAuthModule, "resolveUserTenantContext").mockResolvedValue({
+      userId: "user-real-123",
+      userEmail: "gerente@loja.com",
+      organizationId: "org-real-123",
+      isDemo: false,
+      profile: null,
+      organization: null,
+      needsOnboarding: false,
+    });
+
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
+      from: vi.fn().mockReturnValue({
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: { id: "lead-no-val-123" },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
+
+    const result = await createKanbanLeadAction({
+      name: "Lead Sem Valor",
+      phone: "11988887777",
+      vehicle_of_interest: "Fiat Pulse",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.lead?.value).toBeUndefined();
+  });
 });

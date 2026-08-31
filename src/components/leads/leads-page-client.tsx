@@ -110,7 +110,7 @@ function convertDomainLeadToKanban(lead: Lead): KanbanLead {
     sla_minutes_elapsed: elapsedMinutes,
     created_at: lead.lastContactAt || new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    value: 150000,
+    value: undefined,
     segment: "used_cars",
     notes: "",
   };

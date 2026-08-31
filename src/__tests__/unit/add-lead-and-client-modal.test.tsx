@@ -51,7 +51,7 @@ vi.mock("@/app/actions/kanban-actions", () => ({
       sla_minutes_elapsed: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      value: 120000,
+      value: input.value,
       segment: "all",
       notes: input.notes,
     },

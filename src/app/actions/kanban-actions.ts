@@ -985,7 +985,7 @@ export async function createKanbanLeadAction(
     sla_minutes_elapsed: 0,
     created_at: nowIso,
     updated_at: nowIso,
-    value: input.value || 120000,
+    value: typeof input.value === "number" && !isNaN(input.value) ? input.value : undefined,
     segment: input.segment || "all",
     notes: input.notes?.trim() || undefined,
   };
