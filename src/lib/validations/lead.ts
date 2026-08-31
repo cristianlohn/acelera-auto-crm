@@ -100,5 +100,89 @@ export const leadIngestSchema = z.object({
   utm_campaign: z.string().trim().optional().or(z.null().transform(() => undefined)),
 });
 
+/**
+ * Enum Zod canônico correspondente ao ENUM `lead_origin` do banco de dados (PostgreSQL/Supabase).
+ */
+export const leadOriginEnum = z.enum([
+  "whatsapp",
+  "instagram",
+  "site",
+  "indicacao",
+  "telefone",
+  "olx",
+  "icarros",
+  "webmotors",
+  "indicacao_dono",
+  "cliente_carteira",
+  "patio_balcao",
+]);
+
+export type LeadOriginValue = z.infer<typeof leadOriginEnum>;
+
+/**
+ * Normaliza qualquer variação ou abreviação de canal de origem para o enum canônico do banco de dados.
+ */
+export function normalizeLeadOrigin(source?: string | null): LeadOriginValue {
+  if (!source) return "site";
+  const s = source.toLowerCase().trim();
+  if (s === "patio" || s === "balcao" || s === "patio_balcao") return "patio_balcao";
+  if (s === "indicacao_dono" || s === "dono") return "indicacao_dono";
+  if (s === "cliente_carteira" || s === "carteira") return "cliente_carteira";
+  if (s === "indicacao" || s.includes("indica")) return "indicacao";
+  if (s === "webmotors" || s.includes("webmotors")) return "webmotors";
+  if (s === "icarros" || s.includes("icarros")) return "icarros";
+  if (s === "instagram" || s === "meta_ads" || s.includes("insta") || s.includes("meta") || s.includes("face")) return "instagram";
+  if (s === "whatsapp" || s.includes("whats") || s.includes("zap")) return "whatsapp";
+  if (s === "olx" || s.includes("olx")) return "olx";
+  if (s === "telefone" || s.includes("fone") || s.includes("tel")) return "telefone";
+  if (s === "site" || s === "landing_page" || s === "google_ads") return "site";
+
+  const parsed = leadOriginEnum.safeParse(s);
+  if (parsed.success) return parsed.data;
+
+  return "site";
+}
+
+/**
+ * Schema de validação Zod para criação de lead pelo CRM geral
+ */
+export const createLeadSchema = z.object({
+  name: z.string().trim().min(1, "Nome do lead é obrigatório"),
+  phone: z.string().trim().min(8, "Telefone deve ter no mínimo 8 dígitos"),
+  email: emailOptionalSchema,
+  vehicleInterest: z.string().trim().min(1, "Veículo de interesse é obrigatório"),
+  status: z.enum(["novo", "atendimento", "visita", "proposta", "fechado"]).optional().default("novo"),
+  sellerName: z.string().trim().optional(),
+  origin: leadOriginEnum.optional().default("site"),
+  notes: z.string().trim().optional().nullable(),
+});
+
+/**
+ * Schema de validação Zod para criação de lead diretamente no Funil Kanban
+ */
+export const createKanbanLeadSchema = z.object({
+  name: z.string().trim().min(1, "Nome do lead é obrigatório"),
+  phone: z.string().trim().min(8, "Telefone deve ter no mínimo 8 dígitos"),
+  email: emailOptionalSchema,
+  vehicle_of_interest: z.string().trim().min(1, "Veículo de interesse é obrigatório"),
+  source: z.string().trim().optional(),
+  stage: z.enum([
+    "new",
+    "in_contact",
+    "test_drive",
+    "proposal",
+    "won",
+    "lost",
+    "visit_scheduled",
+    "proposal_fi",
+  ]).optional().default("new"),
+  assigned_to_name: z.string().trim().optional(),
+  value: z.number().nonnegative().optional().default(120000),
+  segment: z.enum(["all", "new_cars", "used_cars", "f_and_i"]).optional().default("all"),
+  notes: z.string().trim().optional().nullable(),
+});
+
 export type LeadIngestInput = z.input<typeof leadIngestSchema>;
 export type LeadIngestOutput = z.infer<typeof leadIngestSchema>;
+export type CreateLeadSchemaInput = z.input<typeof createLeadSchema>;
+export type CreateKanbanLeadSchemaInput = z.input<typeof createKanbanLeadSchema>;

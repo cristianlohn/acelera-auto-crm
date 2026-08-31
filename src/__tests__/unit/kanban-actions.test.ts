@@ -213,4 +213,57 @@ describe("[UNIT-KANBAN] Server Actions do Funil Kanban de Leads", () => {
     expect(result.lead?.id).toBe(generatedDbId);
     expect(result.lead?.name).toBe("Lead Sucesso Teste");
   });
+
+  it("[TEST-KANBAN-07] createKanbanLeadAction deve normalizar e aceitar patio_balcao e canais canônicos sem erro", async () => {
+    vi.spyOn(tenantAuthModule, "resolveUserTenantContext").mockResolvedValue({
+      userId: "user-real-123",
+      userEmail: "gerente@loja.com",
+      organizationId: "org-real-123",
+      isDemo: false,
+      profile: null,
+      organization: null,
+      needsOnboarding: false,
+    });
+
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    const mockInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: { id: "lead-patio-123" },
+          error: null,
+        }),
+      }),
+    });
+
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
+      from: vi.fn().mockReturnValue({ insert: mockInsert }),
+    } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
+
+    const result = await createKanbanLeadAction({
+      name: "Cliente Balcão",
+      phone: "11988887777",
+      vehicle_of_interest: "Jeep Renegade",
+      source: "patio_balcao",
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        origin: "patio_balcao",
+      })
+    );
+  });
+
+  it("[TEST-KANBAN-08] createKanbanLeadAction deve rejeitar com erro amigável de validação Zod quando campos obrigatórios estiverem ausentes", async () => {
+    const result = await createKanbanLeadAction({
+      name: "",
+      phone: "123", // Telefone inválido (<8 dígitos)
+      vehicle_of_interest: "",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
+    expect(result.error).toMatch(/obrigatório|dígitos/i);
+  });
 });

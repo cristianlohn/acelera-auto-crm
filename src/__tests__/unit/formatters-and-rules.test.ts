@@ -456,3 +456,55 @@ describe("[SUT: timeAgo] Formatação Amigável de Tempo Decorrido (PT-BR)", () 
     expect(result).toBe("5d atrás");
   });
 });
+
+// ---------------------------------------------------------------------------
+// 7. normalizeLeadOrigin & leadOriginEnum — Normalização de Canais de Entrada
+// ---------------------------------------------------------------------------
+
+describe("[SUT: normalizeLeadOrigin] Normalização de Canais de Entrada do CRM", () => {
+  it("[UT-29] Deve normalizar canais físicos de atendimento (pátio, balcão) para 'patio_balcao'", async () => {
+    const { normalizeLeadOrigin } = await import("@/lib/validations/lead");
+
+    expect(normalizeLeadOrigin("patio")).toBe("patio_balcao");
+    expect(normalizeLeadOrigin("balcao")).toBe("patio_balcao");
+    expect(normalizeLeadOrigin("patio_balcao")).toBe("patio_balcao");
+  });
+
+  it("[UT-30] Deve normalizar canais digitais e portais automotivos para seus enums correspondentes", async () => {
+    const { normalizeLeadOrigin } = await import("@/lib/validations/lead");
+
+    expect(normalizeLeadOrigin("webmotors")).toBe("webmotors");
+    expect(normalizeLeadOrigin("icarros")).toBe("icarros");
+    expect(normalizeLeadOrigin("meta_ads")).toBe("instagram");
+    expect(normalizeLeadOrigin("instagram")).toBe("instagram");
+    expect(normalizeLeadOrigin("whatsapp")).toBe("whatsapp");
+    expect(normalizeLeadOrigin("olx")).toBe("olx");
+    expect(normalizeLeadOrigin("site")).toBe("site");
+    expect(normalizeLeadOrigin("landing_page")).toBe("site");
+    expect(normalizeLeadOrigin("indicacao_dono")).toBe("indicacao_dono");
+    expect(normalizeLeadOrigin("cliente_carteira")).toBe("cliente_carteira");
+    expect(normalizeLeadOrigin(null)).toBe("site");
+  });
+
+  it("[UT-31] Deve validar estritamente todos os 11 canais aceitos no leadOriginEnum", async () => {
+    const { leadOriginEnum } = await import("@/lib/validations/lead");
+
+    const expectedChannels = [
+      "whatsapp",
+      "instagram",
+      "site",
+      "indicacao",
+      "telefone",
+      "olx",
+      "icarros",
+      "webmotors",
+      "indicacao_dono",
+      "cliente_carteira",
+      "patio_balcao",
+    ];
+
+    expect(leadOriginEnum.options).toEqual(expectedChannels);
+    expect(leadOriginEnum.safeParse("patio_balcao").success).toBe(true);
+    expect(leadOriginEnum.safeParse("origem_invalida").success).toBe(false);
+  });
+});

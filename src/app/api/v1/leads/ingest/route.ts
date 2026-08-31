@@ -11,14 +11,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { leadIngestSchema } from "@/lib/validations/lead";
+import { leadIngestSchema, normalizeLeadOrigin } from "@/lib/validations/lead";
 import { distributeLead, DEFAULT_DEMO_ORG_ID } from "@/lib/services/lead-roulette";
 import { validateApiKey } from "@/lib/services/api-key-service";
 import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
-import type { LeadOrigin } from "@/types/database.types";
 
 /**
  * Extrai a chave de API dos headers da requisição.
@@ -38,28 +37,6 @@ function extractApiKey(request: NextRequest): string | null {
   }
 
   return null;
-}
-
-/**
- * Normaliza o canal de origem para o enum do banco de dados.
- */
-function mapSourceToLeadOrigin(source?: string): LeadOrigin {
-  switch (source) {
-    case "meta_ads":
-      return "instagram";
-    case "webmotors":
-      return "webmotors";
-    case "icarros":
-      return "icarros";
-    case "olx":
-      return "olx";
-    case "landing_page":
-    case "google_ads":
-      return "site";
-    case "other":
-    default:
-      return "site";
-  }
 }
 
 /**
@@ -133,7 +110,7 @@ export async function POST(request: NextRequest) {
     let leadId = `lead_ingest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     let isRecontact = false;
     const vehicleInterest = payload.vehicle_of_interest || "Interesse Geral";
-    const origin = mapSourceToLeadOrigin(payload.source);
+    const origin = normalizeLeadOrigin(payload.source);
     const nowIso = new Date().toISOString();
 
     // 5. Persistência e Idempotência no Supabase se configurado

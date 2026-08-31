@@ -22,7 +22,11 @@ create type public.lead_origin as enum (
   'indicacao',
   'telefone',
   'olx',
-  'icarros'
+  'icarros',
+  'webmotors',
+  'indicacao_dono',
+  'cliente_carteira',
+  'patio_balcao'
 );
 
 create type public.vehicle_status as enum (

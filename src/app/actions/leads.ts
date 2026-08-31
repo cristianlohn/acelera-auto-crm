@@ -24,6 +24,11 @@ import { mockLeads } from "@/lib/mock-data";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 import type { TeamMember } from "@/types/team";
 import type { Database } from "@/types/database.types";
+import {
+  createLeadSchema,
+  leadOriginEnum,
+  normalizeLeadOrigin,
+} from "@/lib/validations/lead";
 
 /**
  * Converte um registro do banco de dados para a entidade Lead do domínio.
@@ -192,6 +197,12 @@ export interface CreateLeadInput {
  * @returns O lead criado formatado para o domínio.
  */
 export async function createLead(input: CreateLeadInput): Promise<Lead> {
+  // 1. Validação Zod Prévia do Schema de Entrada
+  const validation = createLeadSchema.safeParse(input);
+  if (!validation.success) {
+    throw new Error(validation.error.issues[0]?.message || "Dados inválidos para criação do lead.");
+  }
+
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
@@ -211,6 +222,13 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     resolvedInfo.sellerId ||
     (tenantContext.profile?.full_name === resolvedSeller ? tenantContext.userId : undefined);
 
+  // 2. Normalização e Validação Estrita do Enum de Origem
+  const dbOrigin: LeadOrigin = normalizeLeadOrigin(input.origin);
+  const originValidation = leadOriginEnum.safeParse(dbOrigin);
+  if (!originValidation.success) {
+    throw new Error("Canal de origem inválido. Selecione uma opção válida.");
+  }
+
   const fallbackLead: Lead = {
     id: `l-${Date.now()}`,
     name: input.name,
@@ -220,7 +238,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     status: input.status || "novo",
     sellerName: resolvedSeller,
     lastContactAt: new Date().toISOString(),
-    origin: input.origin || "site",
+    origin: dbOrigin,
   };
 
   function isValidUUID(val?: string | null): boolean {
@@ -238,7 +256,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     status: input.status || "novo",
     seller_name: resolvedSeller,
     seller_id: safeSellerId,
-    origin: input.origin || "site",
+    origin: dbOrigin,
     notes: input.notes || null,
   };
 

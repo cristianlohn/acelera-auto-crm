@@ -17,6 +17,11 @@ import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import type { LeadStatus, LeadOrigin } from "@/types/database.types";
 import type { TeamMember } from "@/types/team";
 import { updateLeadStageSchema } from "@/lib/validations/kanban";
+import {
+  normalizeLeadOrigin,
+  leadOriginEnum,
+  createKanbanLeadSchema,
+} from "@/lib/validations/lead";
 
 export interface CreateKanbanLeadInput {
   name: string;
@@ -913,6 +918,15 @@ export async function updateLeadAssignedSellerAction(
 export async function createKanbanLeadAction(
   input: CreateKanbanLeadInput
 ): Promise<KanbanActionResult> {
+  // 1. Validação Zod Prévia do Schema de Entrada
+  const validation = createKanbanLeadSchema.safeParse(input);
+  if (!validation.success) {
+    return {
+      success: false,
+      error: validation.error.issues[0]?.message || "Dados inválidos para criação do lead.",
+    };
+  }
+
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
@@ -943,6 +957,16 @@ export async function createKanbanLeadAction(
     (tenantContext.profile?.full_name === resolvedSeller ? tenantContext.userId : undefined);
   const nowIso = new Date().toISOString();
 
+  // 2. Normalização e Validação Estrita do Enum de Origem
+  const dbOrigin: LeadOrigin = normalizeLeadOrigin(input.source);
+  const originValidation = leadOriginEnum.safeParse(dbOrigin);
+  if (!originValidation.success) {
+    return {
+      success: false,
+      error: "Canal de origem inválido. Selecione uma opção válida.",
+    };
+  }
+
   const newKanbanLead: KanbanLead = {
     id: `lead-k-${Date.now()}`,
     organization_id: orgId,
@@ -950,7 +974,7 @@ export async function createKanbanLeadAction(
     phone: input.phone.trim(),
     email: input.email?.trim() || undefined,
     vehicle_of_interest: input.vehicle_of_interest.trim(),
-    source: (input.source || "patio") as KanbanLead["source"],
+    source: (input.source || dbOrigin) as KanbanLead["source"],
     stage: input.stage || "new",
     assigned_to_name: resolvedSeller,
     assigned_to: {
@@ -992,23 +1016,6 @@ export async function createKanbanLeadAction(
         : input.stage === "in_contact"
         ? "atendimento"
         : "novo";
-
-    const dbOrigin: LeadOrigin =
-      input.source === "indicacao"
-        ? "indicacao"
-        : input.source === "instagram" || input.source === "meta_ads"
-        ? "instagram"
-        : input.source === "site"
-        ? "site"
-        : input.source === "webmotors"
-        ? "webmotors"
-        : input.source === "icarros"
-        ? "icarros"
-        : input.source === "olx"
-        ? "olx"
-        : input.source === "patio" || input.source === "patio_balcao"
-        ? "patio_balcao"
-        : "whatsapp";
 
     const safeSellerId = isValidUUID(resolvedSellerId) ? resolvedSellerId : null;
     const insertPayload = {
