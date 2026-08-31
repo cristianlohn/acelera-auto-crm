@@ -207,5 +207,47 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
       expect(metrics.totalActiveLeads).toBe(1);
       expect(metrics.sellerRanking[0].sellerName).toBe("Vendedor Alpha");
     });
+
+    it("deve retornar estado estritamente zerado (R$ 0, 0%, 0 leads) para organização real sem leads no banco", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: false,
+        needsOnboarding: false,
+        organizationId: "org-empty-999",
+        userId: "user-empty",
+        userEmail: "gestor@empty.com",
+        profile: { full_name: "Gestor Vazio", role: "admin", email: "gestor@empty.com", phone: null, id: "u2", organization_id: "org-empty-999", created_at: "", updated_at: "", avatar_url: null },
+        organization: { id: "org-empty-999", name: "Loja Nova Sem Leads", slug: "nova", document: null, created_at: "", updated_at: "" },
+      });
+
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockSupabaseQuery = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockResolvedValue({
+          data: [],
+          error: null,
+        }),
+      };
+
+      vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
+        from: vi.fn().mockReturnValue(mockSupabaseQuery),
+      } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
+
+      const metrics = await getManagerCockpitMetrics();
+
+      expect(metrics.totalPipelineValue).toBe(0);
+      expect(metrics.valueAtRisk).toBe(0);
+      expect(metrics.totalActiveLeads).toBe(0);
+      expect(metrics.totalLeads).toBe(0);
+      expect(metrics.wonLeadsCount).toBe(0);
+      expect(metrics.overdueLeadsCount).toBe(0);
+      expect(metrics.conversionRate).toBe(0);
+      expect(metrics.averageFirstContactMinutes).toBe(0);
+      expect(metrics.sellerRanking).toEqual([]);
+      expect(metrics.bottlenecks?.withoutReturnCount).toBe(0);
+      expect(metrics.bottlenecks?.proposalsWithoutFollowupCount).toBe(0);
+      expect(metrics.bottlenecks?.pendingFinancingCount).toBe(0);
+      expect(metrics.bottlenecks?.hotLeadsCount).toBe(0);
+    });
   });
 });

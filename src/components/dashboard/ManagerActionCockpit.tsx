@@ -233,6 +233,12 @@ export function ManagerActionCockpit({
           wonLeadsCount: 0,
           conversionRate: 0,
           sellerRanking: [],
+          bottlenecks: {
+            withoutReturnCount: 0,
+            proposalsWithoutFollowupCount: 0,
+            pendingFinancingCount: 0,
+            hotLeadsCount: 0,
+          },
         });
 
   const totalPipeline = activeMetrics.totalPipelineValue;
@@ -243,7 +249,62 @@ export function ManagerActionCockpit({
   const conversionRate = activeMetrics.conversionRate;
   const wonCount = activeMetrics.wonLeadsCount;
 
-  const actionsList: SellerAction[] = isDemoMode ? DEFAULT_SELLER_ACTIONS : [];
+  const actionsList: SellerAction[] = (isDemoMode && !metrics) ? DEFAULT_SELLER_ACTIONS : [];
+
+  const bottleneckMetrics: BottleneckMetric[] = [
+    {
+      id: "sem-retorno",
+      count: isDemoMode && !metrics
+        ? 12
+        : (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0),
+      label: "Leads sem retorno",
+      description: "Tempo de espera estourado (> 15 min no primeiro contato)",
+      icon: Clock,
+      color: "text-red-500",
+      bgColor: "bg-red-500/10",
+      borderColor: "border-red-500/30",
+      urgency: "critico",
+    },
+    {
+      id: "propostas-paradas",
+      count: isDemoMode && !metrics
+        ? 8
+        : (activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 0),
+      label: "Propostas sem follow-up",
+      description: "Propostas enviadas há mais de 24h sem novo contato",
+      icon: FileSpreadsheet,
+      color: "text-orange-500",
+      bgColor: "bg-orange-500/10",
+      borderColor: "border-orange-500/30",
+      urgency: "alto",
+    },
+    {
+      id: "aguardando-banco",
+      count: isDemoMode && !metrics
+        ? 5
+        : (activeMetrics.bottlenecks?.pendingFinancingCount ?? 0),
+      label: "Aguardando financiamento",
+      description: "Fichas bancárias pendentes de aprovação na mesa de crédito",
+      icon: Banknote,
+      color: "text-amber-500",
+      bgColor: "bg-amber-500/10",
+      borderColor: "border-amber-500/30",
+      urgency: "medio",
+    },
+    {
+      id: "leads-quentes",
+      count: isDemoMode && !metrics
+        ? 17
+        : (activeMetrics.bottlenecks?.hotLeadsCount ?? 0),
+      label: "Leads quentes sem ação hoje",
+      description: "Clientes em negociação avançada sem interação nas últimas 8h",
+      icon: Flame,
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/10",
+      borderColor: "border-blue-500/30",
+      urgency: "info",
+    },
+  ];
 
   const handleNotifySeller = (action: SellerAction) => {
     setNotifiedActions((prev) => new Set(prev).add(action.id));
@@ -424,7 +485,7 @@ export function ManagerActionCockpit({
 
           {/* 2. Grid dos 4 Indicadores de Gargalo */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {DEFAULT_BOTTLENECK_METRICS.map((metric) => {
+            {bottleneckMetrics.map((metric) => {
               const IconComp = metric.icon;
               return (
                 <div

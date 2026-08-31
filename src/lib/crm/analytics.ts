@@ -13,6 +13,13 @@ export interface SellerPerformanceMetric {
   sharePercentage: number;
 }
 
+export interface BottleneckStats {
+  withoutReturnCount: number;
+  proposalsWithoutFollowupCount: number;
+  pendingFinancingCount: number;
+  hotLeadsCount: number;
+}
+
 export interface ManagerCockpitMetrics {
   totalPipelineValue: number;
   valueAtRisk: number;
@@ -24,6 +31,7 @@ export interface ManagerCockpitMetrics {
   wonLeadsCount: number;
   conversionRate: number;
   sellerRanking: SellerPerformanceMetric[];
+  bottlenecks?: BottleneckStats;
 }
 
 export interface LeadAnalyticsInput {
@@ -75,7 +83,7 @@ const VEHICLE_ESTIMATED_PRICES: Record<string, number> = {
 /**
  * Estima o valor monetário do veículo em negociação com base no modelo ou valor explícito.
  */
-export function estimateLeadVehicleValue(lead: LeadAnalyticsInput, defaultTicket = 120000): number {
+export function estimateLeadVehicleValue(lead: LeadAnalyticsInput, defaultTicket = 0): number {
   if (typeof lead.estimatedValue === "number" && lead.estimatedValue > 0) return lead.estimatedValue;
   if (typeof lead.estimated_value === "number" && lead.estimated_value > 0) return lead.estimated_value;
   if (typeof lead.price === "number" && lead.price > 0) return lead.price;
@@ -99,9 +107,14 @@ const ACTIVE_STATUSES = new Set([
   "visita_agendada",
   "proposta_enviada",
   "em_negociacao",
+  "proposal",
+  "proposal_fi",
+  "in_contact",
+  "test_drive",
+  "visit_scheduled",
 ]);
 
-const WON_STATUSES = new Set(["fechado", "ganho", "vendido"]);
+const WON_STATUSES = new Set(["fechado", "ganho", "vendido", "won"]);
 
 /**
  * Função pura e determinística de cálculo de métricas executivas do Cockpit do Gestor.
@@ -118,6 +131,11 @@ export function calculateManagerCockpitMetrics(
   let totalActiveLeads = 0;
   let wonLeadsCount = 0;
   let overdueLeadsCount = 0;
+
+  let withoutReturnCount = 0;
+  let proposalsWithoutFollowupCount = 0;
+  let pendingFinancingCount = 0;
+  let hotLeadsCount = 0;
 
   const contactResponseTimes: number[] = [];
   let compliantContactCount = 0;
@@ -137,13 +155,13 @@ export function calculateManagerCockpitMetrics(
     const rawStatus = (lead.status || "novo").toLowerCase();
     const isActive = ACTIVE_STATUSES.has(rawStatus);
     const isWon = WON_STATUSES.has(rawStatus);
-    const isNew = rawStatus === "novo";
-    const val = estimateLeadVehicleValue(lead, options?.defaultTicket);
+    const isNew = rawStatus === "novo" || rawStatus === "new";
+    const val = estimateLeadVehicleValue(lead, options?.defaultTicket ?? 0);
 
     const seller =
       lead.sellerName?.trim() ||
       lead.seller_name?.trim() ||
-      "Rafael Alves";
+      "Vendedor Não Atribuído";
 
     if (!sellerGroups[seller]) {
       sellerGroups[seller] = {
@@ -180,6 +198,7 @@ export function calculateManagerCockpitMetrics(
       if (minutesSinceCreation > 15) {
         isOverdue = true;
         overdueLeadsCount++;
+        withoutReturnCount++;
         valueAtRisk += val;
       }
     } else if (isActive) {
@@ -190,6 +209,29 @@ export function calculateManagerCockpitMetrics(
           valueAtRisk += val;
         }
       }
+    }
+
+    // Indicadores de Gargalo adicionais
+    if (
+      (rawStatus === "proposta" || rawStatus === "proposal" || rawStatus === "proposta_enviada") &&
+      (!lastContactStr || (nowTime - new Date(lastContactStr).getTime()) > 24 * 3600000)
+    ) {
+      proposalsWithoutFollowupCount++;
+    }
+
+    if (
+      (rawStatus === "proposta_fi" || rawStatus === "f_and_i" || rawStatus.includes("financiamento")) &&
+      (!lastContactStr || (nowTime - new Date(lastContactStr).getTime()) > 24 * 3600000)
+    ) {
+      pendingFinancingCount++;
+    }
+
+    if (
+      (rawStatus === "atendimento" || rawStatus === "in_contact" || rawStatus === "visita" || rawStatus === "test_drive") &&
+      hasContact &&
+      (nowTime - new Date(lastContactStr!).getTime()) <= 24 * 3600000
+    ) {
+      hotLeadsCount++;
     }
 
     // Cálculo do tempo de primeiro atendimento
@@ -218,7 +260,7 @@ export function calculateManagerCockpitMetrics(
             contactResponseTimes.length
           ).toFixed(1)
         )
-      : 8.5; // Média padrão saudável quando não houver histórico
+      : 0;
 
   const slaComplianceRate =
     totalEvaluatedForSLA > 0
@@ -279,5 +321,11 @@ export function calculateManagerCockpitMetrics(
     wonLeadsCount,
     conversionRate,
     sellerRanking,
+    bottlenecks: {
+      withoutReturnCount,
+      proposalsWithoutFollowupCount,
+      pendingFinancingCount,
+      hotLeadsCount,
+    },
   };
 }

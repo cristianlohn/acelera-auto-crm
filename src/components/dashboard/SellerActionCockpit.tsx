@@ -55,12 +55,12 @@ export function SellerActionCockpit({
   ) || (metrics?.sellerRanking.length === 1 ? metrics.sellerRanking[0] : undefined);
 
   // Métricas do vendedor (Rafael Alves ou vendedor logado)
-  const myPendingLeadsCount = isDemoMode ? 4 : (sellerMetric?.leadsCount ?? 0);
-  const myPendingPipelineValue = isDemoMode ? 680000 : ((sellerMetric?.activeDeals ?? 0) * 120000);
-  const myMonthlyWonDeals = isDemoMode ? 6 : (sellerMetric?.wonDeals ?? 0);
-  const myMonthlyRevenue = isDemoMode ? 420000 : ((sellerMetric?.wonDeals ?? 0) * 115000);
-  const myAverageSlaMinutes = isDemoMode ? 6.2 : (sellerMetric?.avgResponseMinutes ?? 0.0);
-  const mySlaComplianceRate = isDemoMode ? 94 : (sellerMetric ? (sellerMetric.avgResponseMinutes <= 15 ? 100 : 50) : 100);
+  const myPendingLeadsCount = (isDemoMode && !metrics) ? 4 : (sellerMetric?.leadsCount ?? 0);
+  const myPendingPipelineValue = (isDemoMode && !metrics) ? 680000 : (sellerMetric && metrics ? (metrics.totalPipelineValue || 0) : 0);
+  const myMonthlyWonDeals = (isDemoMode && !metrics) ? 6 : (sellerMetric?.wonDeals ?? 0);
+  const myMonthlyRevenue = (isDemoMode && !metrics) ? 420000 : 0;
+  const myAverageSlaMinutes = (isDemoMode && !metrics) ? 6.2 : (sellerMetric?.avgResponseMinutes ?? 0.0);
+  const mySlaComplianceRate = (isDemoMode && !metrics) ? 94 : (sellerMetric ? (sellerMetric.avgResponseMinutes <= 15 ? 100 : 50) : 100);
 
   // Ações e alertas estritamente do próprio vendedor
   const myActions: {
@@ -72,7 +72,7 @@ export function SellerActionCockpit({
     urgency: "critico" | "medio" | "info";
     phone: string;
     defaultMessage: string;
-  }[] = isDemoMode
+  }[] = (isDemoMode && !metrics)
     ? [
         {
           id: "seller-act-1",

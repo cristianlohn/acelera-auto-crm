@@ -37,14 +37,14 @@ export async function getManagerCockpitMetrics(
       lastContactAt: l.lastContactAt,
       createdAt: l.lastContactAt || new Date(Date.now() - 3600000).toISOString(),
     }));
-    return calculateManagerCockpitMetrics(demoLeadsInput);
+    return calculateManagerCockpitMetrics(demoLeadsInput, { defaultTicket: 120000 });
   }
 
   const targetOrgId = explicitOrgId || tenantContext.organizationId;
 
   // 2. Usuário real autenticado sem organização vinculada
   if (!targetOrgId) {
-    return calculateManagerCockpitMetrics([]);
+    return calculateManagerCockpitMetrics([], { defaultTicket: 0 });
   }
 
   // 3. Consulta estritamente filtrada por organization_id
@@ -57,7 +57,7 @@ export async function getManagerCockpitMetrics(
         .eq("organization_id", targetOrgId);
 
       if (error || !data) {
-        return calculateManagerCockpitMetrics([]);
+        return calculateManagerCockpitMetrics([], { defaultTicket: 0 });
       }
 
       const dbLeadsInput: LeadAnalyticsInput[] = data.map((row) => ({
@@ -72,11 +72,11 @@ export async function getManagerCockpitMetrics(
         organizationId: row.organization_id,
       }));
 
-      return calculateManagerCockpitMetrics(dbLeadsInput);
+      return calculateManagerCockpitMetrics(dbLeadsInput, { defaultTicket: 0 });
     } catch {
-      return calculateManagerCockpitMetrics([]);
+      return calculateManagerCockpitMetrics([], { defaultTicket: 0 });
     }
   }
 
-  return calculateManagerCockpitMetrics([]);
+  return calculateManagerCockpitMetrics([], { defaultTicket: 0 });
 }

@@ -49,6 +49,7 @@ import {
 } from "@/lib/permissions";
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
+import { calculateManagerCockpitMetrics, type LeadAnalyticsInput } from "@/lib/crm/analytics";
 import { LeadDetailsModal } from "@/components/leads/lead-details-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
@@ -1019,7 +1020,24 @@ export function LeadsPageClient({
     [leads, setLeads]
   );
 
-  const { active, visits, proposals, avgHrs } = computeMetrics(visibleLeads);
+      const { active, visits, proposals, avgHrs } = computeMetrics(visibleLeads);
+
+  const cockpitMetrics = useMemo(() => {
+    if (isDemoMode) {
+      return undefined;
+    }
+    const analyticsInput: LeadAnalyticsInput[] = visibleLeads.map((l) => ({
+      id: l.id,
+      name: l.name,
+      phone: l.phone,
+      status: l.status,
+      sellerName: l.sellerName,
+      vehicleInterest: l.vehicleInterest,
+      lastContactAt: l.lastContactAt,
+      createdAt: l.lastContactAt || undefined,
+    }));
+    return calculateManagerCockpitMetrics(analyticsInput, { defaultTicket: 0 });
+  }, [visibleLeads, isDemoMode]);
 
   return (
     <div className="flex-1 space-y-6 p-6 md:p-8 pt-6">
@@ -1093,7 +1111,7 @@ export function LeadsPageClient({
 
       {!isVendedorRole && visibleLeads.length > 0 && (
         <div className="px-4 pt-4 sm:px-6">
-          <ManagerActionCockpit />
+          <ManagerActionCockpit metrics={cockpitMetrics} />
         </div>
       )}
 
