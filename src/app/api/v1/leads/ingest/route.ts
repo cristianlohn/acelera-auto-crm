@@ -18,6 +18,16 @@ import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+async function getSupabaseForIngest() {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      return createAdminClient();
+    } catch {}
+  }
+  return await createServerSupabaseClient();
+}
 
 /**
  * Extrai a chave de API dos headers da requisição.
@@ -99,8 +109,8 @@ export async function POST(request: NextRequest) {
 
     const payload = parseResult.data;
     const organizationId =
-      request.headers.get("x-organization-id") ||
       keyValidation.organizationId ||
+      request.headers.get("x-organization-id") ||
       DEFAULT_DEMO_ORG_ID;
 
     // 3. Execução da Roleta Comercial (Fair Round-Robin)
@@ -113,14 +123,14 @@ export async function POST(request: NextRequest) {
     const origin = normalizeLeadOrigin(payload.source);
     const nowIso = new Date().toISOString();
 
-    // 5. Persistência e Idempotência no Supabase se configurado
+    // 5. Persistência e Idempotência no Supabase com getSupabaseForIngest
     if (isSupabaseServerConfigured()) {
       try {
-        const supabase = await createServerSupabaseClient();
+        const adminSupabase = await getSupabaseForIngest();
 
         // Verifica se existe lead recente com mesmo telefone na mesma organização (últimos 10 minutos)
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-        const { data: existingLeads } = await supabase
+        const { data: existingLeads } = await adminSupabase
           .from("leads")
           .select("id, seller_id, seller_name, notes")
           .eq("organization_id", organizationId)
@@ -138,7 +148,7 @@ export async function POST(request: NextRequest) {
             ? `${existing.notes ? `${existing.notes}\n` : ""}[Recontato]: ${payload.notes}`
             : existing.notes;
 
-          await supabase
+          await adminSupabase
             .from("leads")
             .update({
               vehicle_interest: vehicleInterest,
@@ -147,9 +157,10 @@ export async function POST(request: NextRequest) {
             })
             .eq("id", leadId);
         } else {
-          await supabase.from("leads").insert({
+          const { error: insertError } = await adminSupabase.from("leads").insert({
             id: leadId,
             organization_id: organizationId,
+            tenant_id: organizationId,
             name: payload.name,
             phone: payload.phone,
             email: payload.email || null,
@@ -163,6 +174,26 @@ export async function POST(request: NextRequest) {
             created_at: nowIso,
             updated_at: nowIso,
           });
+
+          if (insertError) {
+            console.warn("[Lead Ingestion Fallback]:", insertError.message);
+            await adminSupabase.from("leads").insert({
+              id: leadId,
+              organization_id: organizationId,
+              name: payload.name,
+              phone: payload.phone,
+              email: payload.email || null,
+              vehicle_interest: vehicleInterest,
+              status: "novo",
+              origin,
+              seller_id: assignedSeller?.id || null,
+              seller_name: assignedSeller?.name || "Fila de Atendimento",
+              notes: payload.notes || null,
+              last_contact_at: null,
+              created_at: nowIso,
+              updated_at: nowIso,
+            });
+          }
         }
       } catch (dbError) {
         console.warn("[Lead Ingestion DB] Erro ao persistir lead no banco relacional:", dbError);

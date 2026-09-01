@@ -5,12 +5,13 @@
 
 import { useEffect } from "react";
 import { createBrowserClient } from "@supabase/ssr";
+import { useQueryClient } from "@tanstack/react-query";
 import type { Lead, LeadOrigin, LeadStatus } from "@/types/crm";
 import { toast } from "sonner";
 
 export interface UseLeadsRealtimeProps {
-  organizationId: string | null;
-  isDemo: boolean;
+  organizationId?: string | null;
+  isDemo?: boolean;
   onLeadInserted?: (newLead: Lead) => void;
   onLeadUpdated?: (updatedLead: Lead) => void;
   onLeadDeleted?: (deletedLeadId: string) => void;
@@ -38,13 +39,20 @@ export function mapRealtimePayloadToLead(raw: Record<string, unknown>): Lead {
 
 export function useLeadsRealtime({
   organizationId,
-  isDemo,
+  isDemo = false,
   onLeadInserted,
   onLeadUpdated,
   onLeadDeleted,
   onPollSync,
   pollIntervalMs = 5000,
-}: UseLeadsRealtimeProps) {
+}: UseLeadsRealtimeProps = {}) {
+  let queryClient: ReturnType<typeof useQueryClient> | null = null;
+  try {
+    queryClient = useQueryClient();
+  } catch {
+    // Silencioso caso renderizado fora de QueryClientProvider
+  }
+
   // 1. Sincronização em segundo plano via Heartbeat Polling & Foco da Janela
   useEffect(() => {
     if (isDemo || !organizationId || !onPollSync) return;
@@ -104,6 +112,7 @@ export function useLeadsRealtime({
           filter: `organization_id=eq.${organizationId}`,
         },
         (payload) => {
+          queryClient?.invalidateQueries({ queryKey: ["leads"] });
           const newLead = mapRealtimePayloadToLead(payload.new as Record<string, unknown>);
           onLeadInserted?.(newLead);
           toast.success(`🎯 Novo Lead Recebido: ${newLead.name || "Cliente"}`, {
@@ -121,7 +130,11 @@ export function useLeadsRealtime({
           filter: `organization_id=eq.${organizationId}`,
         },
         (payload) => {
+          queryClient?.invalidateQueries({ queryKey: ["leads"] });
           const updatedLead = mapRealtimePayloadToLead(payload.new as Record<string, unknown>);
+          if (updatedLead.id) {
+            queryClient?.invalidateQueries({ queryKey: ["lead", updatedLead.id] });
+          }
           onLeadUpdated?.(updatedLead);
         }
       )
@@ -134,8 +147,10 @@ export function useLeadsRealtime({
           filter: `organization_id=eq.${organizationId}`,
         },
         (payload) => {
+          queryClient?.invalidateQueries({ queryKey: ["leads"] });
           const deletedId = (payload.old as { id?: string })?.id;
           if (deletedId) {
+            queryClient?.invalidateQueries({ queryKey: ["lead", deletedId] });
             onLeadDeleted?.(deletedId);
           }
         }

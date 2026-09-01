@@ -61,6 +61,7 @@ import {
   canManageTeam,
   canManageIntegrationsAndBilling,
 } from "@/lib/permissions";
+import { WhatsAppIntegrationCard } from "./whatsapp-integration-card";
 
 // ---------------------------------------------------------------------------
 // Tipos das Abas e Configurações
@@ -1285,6 +1286,9 @@ export function SettingsForm({
                   💡 <strong>Instrução de Header:</strong> Envie o token no header HTTP <code className="bg-muted px-1.5 py-0.5 rounded text-orange-400 font-mono">x-api-key: {storeApiKey}</code> ou <code className="bg-muted px-1.5 py-0.5 rounded text-orange-400 font-mono">Authorization: Bearer {storeApiKey}</code>.
                 </p>
               </div>
+
+              {/* Integração WhatsApp Evolution API v2 */}
+              <WhatsAppIntegrationCard />
 
               {/* 3. Card: Guia Passo a Passo "Como conectar seus leads" */}
               <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-sm space-y-4">

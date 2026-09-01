@@ -15,14 +15,15 @@ import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import type { LeadOrigin, LeadStatus } from "@/types/database.types";
+import { validateApiKey } from "@/lib/services/api-key-service";
+import {
+  resolveAssignedSeller,
+  resetRoundRobinCursor,
+  notifyAssignedSellerViaWhatsApp,
+  DEFAULT_DEMO_ORG_ID,
+} from "@/lib/crm/roleta";
 
-/** Chaves de API pré-configuradas para sandbox/testes */
-const VALID_STATIC_API_KEYS = new Set([
-  "acelera_api_key_live_123",
-  "test_api_key",
-  "demo_store_api_key",
-  "acelera_secret_token_live",
-]);
+export { resolveAssignedSeller, resetRoundRobinCursor };
 
 /**
  * Extrai a chave de API dos headers da requisição.
@@ -43,38 +44,6 @@ function extractApiKey(request: NextRequest): string | null {
 
   return null;
 }
-
-/**
- * Valida a autenticidade da chave de API fornecida.
- */
-function isApiKeyValid(apiKey: string | null): boolean {
-  if (!apiKey) return false;
-
-  const envKey = process.env.STORE_API_KEY || process.env.ACELERA_WEBHOOK_API_KEY;
-  if (envKey && apiKey === envKey) {
-    return true;
-  }
-
-  if (VALID_STATIC_API_KEYS.has(apiKey)) {
-    return true;
-  }
-
-  // Valida chaves que seguem o padrão de prefixo seguro
-  if (apiKey.startsWith("acelera_") || apiKey.startsWith("ak_") || apiKey.startsWith("store_key_")) {
-    return true;
-  }
-
-  return false;
-}
-
-import {
-  resolveAssignedSeller,
-  resetRoundRobinCursor,
-  notifyAssignedSellerViaWhatsApp,
-  DEFAULT_DEMO_ORG_ID,
-} from "@/lib/crm/roleta";
-
-export { resolveAssignedSeller, resetRoundRobinCursor };
 
 /**
  * Normaliza o canal de origem do lead (Webmotors, iCarros, Meta Ads, Site, etc).
@@ -105,16 +74,23 @@ export function normalizeOrigin(rawOrigin?: string): LeadOrigin {
 export async function POST(request: NextRequest) {
   try {
     // -------------------------------------------------------------------------
-    // 1. Validação de Autenticação via Header (x-api-key ou Bearer)
+    // 1. Validação Criptográfica de Autenticação via Header (x-api-key ou Bearer)
     // -------------------------------------------------------------------------
     const apiKey = extractApiKey(request);
+    const keyValidation = await validateApiKey(apiKey);
 
-    if (!isApiKeyValid(apiKey)) {
+    if (!keyValidation.valid) {
       return NextResponse.json(
-        { error: "Chave de API inválida ou ausente." },
+        {
+          success: false,
+          error: "Chave de API inválida ou ausente.",
+          detail: keyValidation.error,
+        },
         { status: 401 }
       );
     }
+
+    const organizationId = keyValidation.organizationId || DEFAULT_DEMO_ORG_ID;
 
     // -------------------------------------------------------------------------
     // 2. Leitura e Validação do Payload JSON
@@ -156,27 +132,38 @@ export async function POST(request: NextRequest) {
       (typeof body.origin === "string" && body.origin.trim()) ||
       "site";
 
+    const sanitizeSeller = (val?: unknown): string | null => {
+      if (typeof val !== "string") return null;
+      const trimmed = val.trim();
+      if (!trimmed) return null;
+      const lower = trimmed.toLowerCase();
+      if (lower === "string" || lower === "null" || lower === "undefined" || lower === "none") return null;
+      return trimmed;
+    };
+
     const explicitSeller =
-      (typeof body.seller_name === "string" && body.seller_name.trim()) ||
-      (typeof body.sellerName === "string" && body.sellerName.trim()) ||
-      (typeof body.assigned_to === "string" && body.assigned_to.trim()) ||
+      sanitizeSeller(body.seller_id) ||
+      sanitizeSeller(body.sellerId) ||
+      sanitizeSeller(body.seller_name) ||
+      sanitizeSeller(body.sellerName) ||
+      sanitizeSeller(body.assigned_to) ||
       null;
 
-    const assignedSeller = await resolveAssignedSeller(explicitSeller, DEFAULT_DEMO_ORG_ID);
+    const assignedSeller = await resolveAssignedSeller(explicitSeller, organizationId);
     const normalizedSource = normalizeOrigin(rawSource);
     const initialStatus: LeadStatus = "novo";
     const nowIso = new Date().toISOString();
     let leadId = `lead_wh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     // -------------------------------------------------------------------------
-    // 3. Persistência Relacional no Supabase (se configurado)
+    // 3. Persistência Relacional no Supabase com Tenant Isolado
     // -------------------------------------------------------------------------
     if (isSupabaseServerConfigured()) {
       const supabase = await createServerSupabaseClient();
       const { data, error } = await supabase
         .from("leads")
         .insert({
-          organization_id: DEFAULT_DEMO_ORG_ID,
+          organization_id: organizationId,
           name,
           phone,
           email,
@@ -217,7 +204,7 @@ export async function POST(request: NextRequest) {
         source: normalizedSource,
       },
       sellerName: assignedSeller,
-      organizationId: DEFAULT_DEMO_ORG_ID,
+      organizationId: organizationId,
     });
 
     // -------------------------------------------------------------------------

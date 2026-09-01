@@ -39,11 +39,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  mockClients,
-  createClient,
-  formatCurrency,
-} from "@/lib/mock-data";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { formatCurrency, mockClients } from "@/lib/mock-data";
+import { getClients, saveClientAction } from "@/app/actions/clients";
+import { useClients } from "@/hooks/use-clients";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/lead-utils";
 import { useDemoRole } from "@/context/demo-role-context";
@@ -192,10 +191,25 @@ function AddClientModal({
         ? "Roleta Automática"
         : form.sellerName;
 
-    const newClient = createClient({
-      ...form,
+    const clientPayload = {
+      name: form.name,
+      phone: form.phone,
+      email: form.email || undefined,
+      document: form.document || undefined,
+      status: form.status,
       sellerName: resolvedSeller,
-    });
+      vehiclePreference: form.vehiclePreference || undefined,
+      notes: form.notes || undefined,
+    };
+
+    const newClient: Client = {
+      id: `c-${Date.now()}`,
+      ...clientPayload,
+      totalPurchased: 0,
+      purchasesCount: 0,
+      lastInteractionAt: new Date().toISOString(),
+    };
+
     onAdd(newClient);
     setForm({
       ...INITIAL_CLIENT_FORM,
@@ -203,6 +217,9 @@ function AddClientModal({
     });
     setCpfError(null);
     setOpen(false);
+
+    // Persiste no banco Supabase em segundo plano
+    void saveClientAction(clientPayload).catch(() => {});
   };
 
   return (
@@ -489,23 +506,39 @@ export interface ClientsPageProps {
   initialClients?: Client[];
 }
 
-export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
+function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
   const { role, sellerName, isDemoMode } = useDemoRole();
   const isVendedor = !canViewAllLeads(role);
   const [sellerFilter, setSellerFilter] = useState<string>("todos");
-  const [isLoading, setIsLoading] = useState<boolean>(
-    initialClients === undefined && !isDemoMode
-  );
-
-  const [clients, setClients] = useState<Client[]>(() => {
-    if (initialClients !== undefined) return initialClients;
-    if (isDemoMode) return mockClients;
-    return [];
-  });
-  const [prevInitialClients, setPrevInitialClients] = useState(initialClients);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("todos");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+
+  // Inicializa clientes com dados demo síncronos se estiver no modo demo (0ms delay visual)
+  const [clients, setClients] = useState<Client[]>(() => {
+    if (Array.isArray(initialClients)) return initialClients;
+    if (isDemoMode) return mockClients;
+    return [];
+  });
+
+  // Consumo reativo via TanStack Query v5 conectado a Server Actions / Supabase (ativo para organizações reais)
+  const { data: serverClients, isLoading: isQueryLoading, refetch } = useClients(
+    {
+      search: search || undefined,
+      status: activeTab === "todos" ? undefined : activeTab,
+    },
+    initialClients,
+    { enabled: !isDemoMode }
+  );
+
+  const isLoading = isQueryLoading && !clients.length && !initialClients && !isDemoMode;
+
+  // Sincroniza dados do TanStack Query com estado local no modo real
+  useEffect(() => {
+    if (!isDemoMode && Array.isArray(serverClients)) {
+      setClients(serverClients);
+    }
+  }, [serverClients, isDemoMode]);
 
   useEffect(() => {
     let isMounted = true;
@@ -521,38 +554,24 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
     };
   }, []);
 
-  if (initialClients !== prevInitialClients) {
-    setPrevInitialClients(initialClients);
-    if (initialClients !== undefined) {
-      setClients(initialClients);
-    }
-  }
-
-  useEffect(() => {
-    if (initialClients !== undefined || isDemoMode) return;
-
-    let isMounted = true;
-    setTimeout(() => {
-      if (isMounted) {
-        setClients([]);
-        setIsLoading(false);
-      }
-    }, 0);
-    return () => {
-      isMounted = false;
-    };
-  }, [isDemoMode, initialClients]);
-
   // Adição de cliente reativo no topo da carteira
-  const handleAddClient = useCallback((newClient: Client) => {
-    setClients((prev) => [newClient, ...prev]);
-  }, []);
+  const handleAddClient = useCallback(
+    (newClient: Client) => {
+      setClients((prev) => [newClient, ...prev.filter((c) => c.id !== newClient.id)]);
+      if (!isDemoMode) {
+        refetch();
+      }
+    },
+    [refetch, isDemoMode]
+  );
+
+  const safeClients = Array.isArray(clients) ? clients : [];
 
   // Lista base filtrada estritamente por papel RBAC (Vendedor visualiza apenas seus próprios clientes)
   const roleFilteredClients = useMemo(() => {
     if (isVendedor) {
       const activeSeller = sellerName || "Rafael Alves";
-      return clients.filter(
+      return safeClients.filter(
         (c) =>
           c.sellerName === activeSeller ||
           c.sellerName?.toLowerCase().includes("rafael") ||
@@ -560,10 +579,10 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
       );
     }
     if (sellerFilter !== "todos") {
-      return clients.filter((c) => c.sellerName === sellerFilter);
+      return safeClients.filter((c) => c.sellerName === sellerFilter);
     }
-    return clients;
-  }, [clients, isVendedor, sellerName, sellerFilter]);
+    return safeClients;
+  }, [safeClients, isVendedor, sellerName, sellerFilter]);
 
   // Cálculos das métricas executivas da carteira
   const metrics = useMemo(() => {
@@ -955,4 +974,31 @@ export default function ClientsPage({ initialClients }: ClientsPageProps = {}) {
       </div>
     </div>
   );
+}
+
+export default function ClientsPage(props: ClientsPageProps) {
+  let hasQueryClient = true;
+  try {
+    useQueryClient();
+  } catch {
+    hasQueryClient = false;
+  }
+
+  if (!hasQueryClient) {
+    const [fallbackQueryClient] = useState(
+      () =>
+        new QueryClient({
+          defaultOptions: {
+            queries: { retry: false },
+          },
+        })
+    );
+    return (
+      <QueryClientProvider client={fallbackQueryClient}>
+        <ClientsPageContent {...props} />
+      </QueryClientProvider>
+    );
+  }
+
+  return <ClientsPageContent {...props} />;
 }

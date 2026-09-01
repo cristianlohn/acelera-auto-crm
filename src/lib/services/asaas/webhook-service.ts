@@ -3,8 +3,10 @@
  * @description Serviço de processamento seguro e idempotente para Webhooks de Faturamento do Asaas.
  */
 
+import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
+import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 
 export type AsaasWebhookEvent =
   | "PAYMENT_CREATED"
@@ -105,7 +107,17 @@ const VALID_DEV_WEBHOOK_SECRETS = new Set([
 const processedEventIds = new Set<string>();
 
 /**
- * Valida o token de segurança do webhook do Asaas.
+ * Comparação segura de strings para prevenção contra timing attacks.
+ */
+function safeTimingCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+/**
+ * Valida o token de segurança do webhook do Asaas usando comparação em tempo constante.
  */
 export function verifyAsaasWebhookToken(token: string | null): boolean {
   if (!token || !token.trim()) return false;
@@ -116,12 +128,14 @@ export function verifyAsaasWebhookToken(token: string | null): boolean {
     process.env.ASAAS_WEBHOOK_ACCESS_TOKEN ||
     process.env.ASAAS_API_KEY;
 
-  if (configuredSecret && cleanToken === configuredSecret.trim()) {
+  if (configuredSecret && safeTimingCompare(cleanToken, configuredSecret.trim())) {
     return true;
   }
 
-  if (VALID_DEV_WEBHOOK_SECRETS.has(cleanToken)) {
-    return true;
+  for (const devSecret of VALID_DEV_WEBHOOK_SECRETS) {
+    if (safeTimingCompare(cleanToken, devSecret)) {
+      return true;
+    }
   }
 
   return false;
@@ -236,8 +250,34 @@ export async function processAsaasWebhookEvent(
   const customerId = payment?.customer || subscription?.customer;
   const subscriptionId = payment?.subscription || subscription?.id;
 
+  // 1.1 Proteção do Modo Demonstração: Não altera bancos de dados reais
+  if (
+    externalRef === DEFAULT_DEMO_ORG_ID ||
+    externalRef === "00000000-0000-0000-0000-000000000001" ||
+    externalRef?.startsWith("demo") ||
+    externalRef === "demo" ||
+    customerId?.startsWith("demo")
+  ) {
+    markEventAsProcessed(eventKey);
+    return {
+      success: true,
+      event,
+      organizationId: externalRef || DEFAULT_DEMO_ORG_ID,
+      actionTaken: "demo_simulation_acknowledged",
+    };
+  }
+
   const org = await findOrganizationByAsaasData(externalRef, customerId, subscriptionId);
-  const targetOrgId = org?.id || externalRef;
+  const targetOrgId = isSupabaseServerConfigured() ? org?.id : (org?.id || externalRef);
+
+  if (!targetOrgId) {
+    markEventAsProcessed(eventKey);
+    return {
+      success: true,
+      event,
+      actionTaken: "skipped_organization_not_found",
+    };
+  }
 
   let actionTaken = "none";
 
@@ -260,6 +300,7 @@ export async function processAsaasWebhookEvent(
             subscription_status: "active",
             plan_status: "active",
             plan: "pro",
+            trial_ends_at: null,
             current_period_end: periodEnd,
             updated_at: new Date().toISOString(),
           };
@@ -274,6 +315,28 @@ export async function processAsaasWebhookEvent(
             .eq("id", targetOrgId);
         } catch (err) {
           console.warn("[Asaas Webhook] Falha ao atualizar organization no Supabase:", err);
+        }
+      }
+      break;
+    }
+
+    case "PAYMENT_REFUNDED":
+    case "PAYMENT_DELETED": {
+      actionTaken = "payment_refunded_subscription_suspended";
+
+      if (isSupabaseServerConfigured() && targetOrgId) {
+        try {
+          const supabaseAdmin = createAdminClient();
+          await supabaseAdmin
+            .from("organizations")
+            .update({
+              subscription_status: "inactive",
+              plan_status: "inactive",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", targetOrgId);
+        } catch (err) {
+          console.warn("[Asaas Webhook] Falha ao atualizar estorno:", err);
         }
       }
       break;

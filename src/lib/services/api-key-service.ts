@@ -73,8 +73,8 @@ const initialMemoryApiKeys: ApiKey[] = [
     id: "key-meta-ads-01",
     organization_id: DEFAULT_DEMO_ORG_ID,
     name: "Meta Ads - Campanha Instagram & Facebook 2026",
-    key_prefix: "acelera_live_9a7b...",
-    key_hash: hashApiKey("acelera_live_9a7b1234567890abcdef1234567890abcdef12345678"),
+    key_prefix: "acelera_live_0001...",
+    key_hash: hashApiKey("acelera_live_00000000000000000000000000000001"),
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 12).toISOString(),
     last_used_at: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
     revoked_at: null,
@@ -85,8 +85,8 @@ const initialMemoryApiKeys: ApiKey[] = [
     id: "key-webmotors-02",
     organization_id: DEFAULT_DEMO_ORG_ID,
     name: "Webmotors Pro - Ingestão Direta de Estoque",
-    key_prefix: "acelera_live_4f3c...",
-    key_hash: hashApiKey("acelera_live_4f3c1234567890abcdef1234567890abcdef12345678"),
+    key_prefix: "acelera_live_0002...",
+    key_hash: hashApiKey("acelera_live_00000000000000000000000000000002"),
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 35).toISOString(),
     last_used_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
     revoked_at: null,
@@ -97,8 +97,8 @@ const initialMemoryApiKeys: ApiKey[] = [
     id: "key-olx-03",
     organization_id: DEFAULT_DEMO_ORG_ID,
     name: "OLX Autos - Integração Antiga (Descontinuada)",
-    key_prefix: "acelera_live_8e1d...",
-    key_hash: hashApiKey("acelera_live_8e1d1234567890abcdef1234567890abcdef12345678"),
+    key_prefix: "acelera_live_0003...",
+    key_hash: hashApiKey("acelera_live_00000000000000000000000000000003"),
     created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 90).toISOString(),
     last_used_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 40).toISOString(),
     revoked_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
@@ -128,13 +128,27 @@ export async function validateApiKey(rawKey: string | null | undefined): Promise
 
   const trimmedKey = rawKey.trim();
 
-  // 1. Validação rápida de chaves estáticas de teste / webhook legado
-  const envKey = process.env.STORE_API_KEY || process.env.ACELERA_WEBHOOK_API_KEY;
-  if (VALID_STATIC_API_KEYS.has(trimmedKey) || (envKey && trimmedKey === envKey)) {
+  // 1. Validação restrita de chaves de teste (somente em ambiente de testes unitários/CI)
+  const isTestEnvironment =
+    process.env.NODE_ENV === "test" ||
+    process.env.VITEST === "true" ||
+    process.env.PLAYWRIGHT_TEST === "true";
+
+  if (isTestEnvironment && VALID_STATIC_API_KEYS.has(trimmedKey)) {
     return {
       valid: true,
       organizationId: DEFAULT_DEMO_ORG_ID,
-      name: "Chave de Teste / Sandbox",
+      name: "Chave de Teste / Sandbox (CI/Test Runner)",
+    };
+  }
+
+  // Chave mestra configurada explicitamente por variável de ambiente de servidor
+  const envKey = process.env.STORE_API_KEY || process.env.ACELERA_WEBHOOK_API_KEY;
+  if (envKey && trimmedKey === envKey) {
+    return {
+      valid: true,
+      organizationId: process.env.DEFAULT_STORE_ORG_ID || DEFAULT_DEMO_ORG_ID,
+      name: "Chave de Servidor (.env Segura)",
     };
   }
 

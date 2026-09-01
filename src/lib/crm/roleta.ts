@@ -54,14 +54,17 @@ export async function resolveAssignedSellerInfo(
   organizationId: string = DEFAULT_DEMO_ORG_ID
 ): Promise<ResolvedSellerInfo> {
   const cleanExplicit = explicitSeller?.trim();
+  const lowerExplicit = cleanExplicit?.toLowerCase();
   const isExplicit =
     Boolean(cleanExplicit) &&
-    !cleanExplicit!.toLowerCase().includes("roleta") &&
-    !cleanExplicit!.toLowerCase().includes("fila") &&
-    cleanExplicit !== "all" &&
-    cleanExplicit !== "none" &&
-    cleanExplicit !== "null" &&
-    cleanExplicit !== "undefined";
+    lowerExplicit !== "string" &&
+    lowerExplicit !== "null" &&
+    lowerExplicit !== "undefined" &&
+    lowerExplicit !== "none" &&
+    lowerExplicit !== "all" &&
+    lowerExplicit !== "" &&
+    !lowerExplicit!.includes("roleta") &&
+    !lowerExplicit!.includes("fila");
 
   const statusMap = getRouletteStatusMap();
   let cookieOverrides: Record<string, boolean> = {};
@@ -91,6 +94,7 @@ export async function resolveAssignedSellerInfo(
     role?: string | null;
     phone?: string | null;
     in_roulette?: boolean | null;
+    is_online?: boolean | null;
   }> = [];
 
   if (isSupabaseServerConfigured()) {
@@ -111,6 +115,7 @@ export async function resolveAssignedSellerInfo(
           role?: string | null;
           phone?: string | null;
           in_roulette?: boolean | null;
+          is_online?: boolean | null;
         }>)
           .filter((p) => Boolean((p.full_name || p.name)?.trim()))
           .map((p) => ({
@@ -119,6 +124,7 @@ export async function resolveAssignedSellerInfo(
             role: p.role,
             phone: p.phone,
             in_roulette: p.in_roulette,
+            is_online: p.is_online,
           }));
       } else {
         // Suporte a mocks de teste que utilizam encadeamento com .in("role", ...)
@@ -224,19 +230,34 @@ export async function resolveAssignedSellerInfo(
   }
 
   // -------------------------------------------------------------
-  // ROLETA AUTOMÁTICA DE LEADS (DISTRIBUIÇÃO ENTRE QUEM ESTÁ DE PLANTÃO)
+  // ROLETA AUTOMÁTICA DE LEADS (DISTRIBUIÇÃO ENTRE QUEM ESTÁ ONLINE / DE PLANTÃO)
   // -------------------------------------------------------------
 
-  // Nível 1: Vendedores com plantão ativo (in_roulette === true)
+  const isSellerRole = (role?: string | null) =>
+    ["vendedor", "seller", "vendedores", "sellers", "sdr"].includes(role?.toLowerCase() || "");
+
+  // Prioridade 1: Consultores que estão explicitamente com is_online: true no banco de dados
   let candidateProfiles = teamProfiles.filter((p) => {
-    const isSeller = ["vendedor", "seller", "vendedores", "sellers", "sdr"].includes(
-      p.role?.toLowerCase() || ""
-    );
-    const onDuty = checkIsOnDuty(p.id, p.in_roulette);
-    return isSeller && onDuty && Boolean(p.full_name?.trim());
+    return isSellerRole(p.role) && p.is_online === true && Boolean(p.full_name?.trim());
   });
 
-  // Nível 2: Qualquer membro da equipe com plantão ativo (gerentes, administradores, donos)
+  // Se nenhum vendedor estiver online, verifica qualquer membro da equipe com is_online: true
+  if (candidateProfiles.length === 0) {
+    candidateProfiles = teamProfiles.filter((p) => {
+      return p.is_online === true && Boolean(p.full_name?.trim());
+    });
+  }
+
+  // Prioridade 2: Vendedores com plantão ativo (in_roulette === true)
+  if (candidateProfiles.length === 0) {
+    candidateProfiles = teamProfiles.filter((p) => {
+      const isSeller = isSellerRole(p.role);
+      const onDuty = checkIsOnDuty(p.id, p.in_roulette);
+      return isSeller && onDuty && Boolean(p.full_name?.trim());
+    });
+  }
+
+  // Prioridade 3: Qualquer membro da equipe com plantão ativo (gerentes, administradores, donos)
   if (candidateProfiles.length === 0) {
     candidateProfiles = teamProfiles.filter((p) => {
       const onDuty = checkIsOnDuty(p.id, p.in_roulette);
@@ -244,12 +265,9 @@ export async function resolveAssignedSellerInfo(
     });
   }
 
-  // Nível 3: Se ninguém estiver explicitamente marcado de plantão, distribui entre todos os vendedores ou membros cadastrados na organização
+  // Prioridade 4: Vendedores ou membros cadastrados na organização
   if (candidateProfiles.length === 0) {
-    const allSellers = teamProfiles.filter((p) =>
-      ["vendedor", "seller", "vendedores", "sellers", "sdr"].includes(p.role?.toLowerCase() || "") &&
-      Boolean(p.full_name?.trim())
-    );
+    const allSellers = teamProfiles.filter((p) => isSellerRole(p.role) && Boolean(p.full_name?.trim()));
     candidateProfiles = allSellers.length > 0 ? allSellers : teamProfiles.filter((p) => Boolean(p.full_name?.trim()));
   }
 
@@ -280,11 +298,22 @@ export async function resolveAssignedSellerInfo(
     };
   }
 
-  // Caso haja múltiplos membros de plantão: Balanceamento Dinâmico por Menor Carga de Leads Ativos
+  // Quando há consultores com is_online: true, executa a Roleta Round-Robin direta entre eles
+  const hasOnlineProfiles = candidateProfiles.some((p) => p.is_online === true);
+  if (hasOnlineProfiles) {
+    const chosen = candidateProfiles[roundRobinCursor % candidateProfiles.length];
+    roundRobinCursor = (roundRobinCursor + 1) % candidateProfiles.length;
+    return {
+      sellerName: chosen.full_name.trim(),
+      sellerId: chosen.id,
+      sellerPhone: chosen.phone || undefined,
+    };
+  }
+
+  // Caso contrário, executa balanceamento dinâmico por menor carga de leads ativos
   try {
     if (isSupabaseServerConfigured()) {
       const supabase = await getSupabaseForRoleta();
-      // Consulta os leads ativos da organização (não fechados / em andamento no funil)
       const { data: activeLeads } = await (supabase as unknown as {
         from: (t: string) => {
           select: (c: string) => {
@@ -321,10 +350,6 @@ export async function resolveAssignedSellerInfo(
           return { profile: p, count, lastLeadDate };
         });
 
-        // Ordena com rigor:
-        // 1º Quem tem MENOS LEADS ATIVOS (Fair Least-Active-Leads Distribution)
-        // 2º Quem está há mais tempo sem receber lead (menor timestamp do último lead)
-        // 3º Desempate estável por ID
         stats.sort((a, b) => {
           if (a.count !== b.count) {
             return a.count - b.count;
@@ -346,7 +371,7 @@ export async function resolveAssignedSellerInfo(
       }
     }
   } catch {
-    // Fallback para round-robin determinístico entre os candidatos da própria loja
+    // Fallback para round-robin
   }
 
   // Round-Robin determinístico entre os candidatos de plantão da própria organização
@@ -373,6 +398,7 @@ export async function resolveAssignedSeller(
 export interface NotifyAssignedSellerParams {
   lead: LeadAlertData;
   sellerName: string;
+  sellerPhone?: string | null;
   organizationId?: string;
   appUrl?: string;
 }
@@ -384,15 +410,16 @@ export interface NotifyAssignedSellerParams {
 export async function notifyAssignedSellerViaWhatsApp({
   lead,
   sellerName,
+  sellerPhone: initialSellerPhone,
   organizationId = DEFAULT_DEMO_ORG_ID,
   appUrl,
 }: NotifyAssignedSellerParams): Promise<{ success: boolean; dispatched: boolean }> {
   try {
-    let sellerPhone: string | null = null;
+    let sellerPhone: string | null = initialSellerPhone || null;
 
-    if (isSupabaseServerConfigured()) {
+    if (!sellerPhone && isSupabaseServerConfigured()) {
       try {
-        const supabase = await createServerSupabaseClient();
+        const supabase = await getSupabaseForRoleta();
         const { data: profile } = await supabase
           .from("profiles")
           .select("full_name, phone")
@@ -413,6 +440,13 @@ export async function notifyAssignedSellerViaWhatsApp({
       sellerPhone = "11988887777";
     }
 
+    const seller = {
+      name: sellerName,
+      phone: sellerPhone || "Sem telefone",
+    };
+
+    console.log("[Roleta] Consultor selecionado:", seller.name, "Telefone:", seller.phone);
+
     if (!sellerPhone) {
       console.log(`[WhatsApp Notification] Vendedor "${sellerName}" não possui telefone cadastrado.`);
       return { success: true, dispatched: false };
@@ -424,9 +458,26 @@ export async function notifyAssignedSellerViaWhatsApp({
       appUrl
     );
 
+    const isDemo =
+      organizationId === DEFAULT_DEMO_ORG_ID ||
+      organizationId === "00000000-0000-0000-0000-000000000001" ||
+      organizationId.startsWith("demo") ||
+      organizationId === "demo";
+
+    console.log("[Roleta WhatsApp] Preparando despacho para vendedor:", {
+      sellerName,
+      sellerPhone,
+      organizationId,
+      isDemo,
+      leadId: lead.id,
+    });
+
     const result = await sendWhatsAppMessage({
       toPhone: sellerPhone,
       messageText,
+      isDemo,
+      tenantId: organizationId,
+      organizationId,
     });
 
     if (result.success) {

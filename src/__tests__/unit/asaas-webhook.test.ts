@@ -289,4 +289,142 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
       expect(json2.actionTaken).toBe("skipped_duplicate_event");
     });
   });
+
+  describe("[TEST-ASAAS-NOT-FOUND] Tratamento Gracioso de Organização Não Localizada", () => {
+    it("deve responder 200 OK com skipped_organization_not_found quando o tenant/customer não existir", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockAdminSupabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+            }),
+          }),
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const request = new NextRequest("http://localhost:3000/api/v1/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": VALID_TOKEN,
+        },
+        body: JSON.stringify({
+          id: "evt_unknown_org_001",
+          event: "PAYMENT_CONFIRMED",
+          payment: {
+            id: "pay_unknown_123",
+            customer: "cus_inexistente_999",
+            externalReference: "org-inexistente-uuid",
+          },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.received).toBe(true);
+      expect(json.actionTaken).toBe("skipped_organization_not_found");
+    });
+  });
+
+  describe("[TEST-ASAAS-DEMO-PROTECTION] Proteção do Modo Demonstração", () => {
+    it("não deve alterar o banco de dados de produção se o payload for do tenant demo", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+      const mockAdminSupabase = {
+        from: vi.fn(),
+      };
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const request = new NextRequest("http://localhost:3000/api/v1/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": VALID_TOKEN,
+        },
+        body: JSON.stringify({
+          id: "evt_demo_sim_001",
+          event: "PAYMENT_CONFIRMED",
+          payment: {
+            id: "pay_demo_test",
+            externalReference: "00000000-0000-0000-0000-000000000001",
+          },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.received).toBe(true);
+      expect(json.actionTaken).toBe("demo_simulation_acknowledged");
+      expect(mockAdminSupabase.from).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("[TEST-ASAAS-REFUND] Estorno de Pagamento", () => {
+    it("deve processar PAYMENT_REFUNDED e suspender a assinatura no Supabase", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+
+      const mockAdminSupabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: "org-refund-001", name: "Loja Refund" },
+              }),
+            }),
+          }),
+          update: mockUpdate,
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const request = new NextRequest("http://localhost:3000/api/v1/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": VALID_TOKEN,
+        },
+        body: JSON.stringify({
+          id: "evt_refund_001",
+          event: "PAYMENT_REFUNDED",
+          payment: {
+            id: "pay_ref_123",
+            customer: "cus_ref_001",
+            externalReference: "org-refund-001",
+          },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.received).toBe(true);
+      expect(json.actionTaken).toBe("payment_refunded_subscription_suspended");
+
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subscription_status: "inactive",
+          plan_status: "inactive",
+        })
+      );
+    });
+  });
 });

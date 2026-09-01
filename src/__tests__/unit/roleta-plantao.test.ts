@@ -288,4 +288,51 @@ describe("[UNIT-ROLETA-PLANTAO] Distribuição da Roleta Automática para Membro
     expect(res.sellerName).not.toBe("Marcos Ferreira");
     expect(res.sellerName).toBe("Vendedor de Plantão");
   });
+
+  it("deve priorizar consultores com is_online: true no banco e alternar via Round-Robin", async () => {
+    const orgId = "org-online-duty";
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({
+                data: [
+                  { id: "vend-online-1", full_name: "Marcos Online", role: "seller", is_online: true, in_roulette: true, phone: "47911111111" },
+                  { id: "vend-offline-2", full_name: "Paulo Offline", role: "seller", is_online: false, in_roulette: true, phone: "47922222222" },
+                  { id: "vend-online-3", full_name: "Fernanda Online", role: "seller", is_online: true, in_roulette: true, phone: "47933333333" },
+                ],
+                error: null,
+              }),
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
+      mockSupabase as never
+    );
+
+    resetRoundRobinCursor(0);
+
+    // 1º lead: deve ir para Marcos Online (1º online)
+    const res1 = await resolveAssignedSellerInfo("roleta", orgId);
+    expect(res1.sellerName).toBe("Marcos Online");
+    expect(res1.sellerId).toBe("vend-online-1");
+    expect(res1.sellerPhone).toBe("47911111111");
+
+    // 2º lead: deve alternar via Round-Robin para Fernanda Online (2º online)
+    const res2 = await resolveAssignedSellerInfo("roleta", orgId);
+    expect(res2.sellerName).toBe("Fernanda Online");
+    expect(res2.sellerId).toBe("vend-online-3");
+    expect(res2.sellerPhone).toBe("47933333333");
+
+    // 3º lead: deve reiniciar o ciclo para Marcos Online
+    const res3 = await resolveAssignedSellerInfo("roleta", orgId);
+    expect(res3.sellerName).toBe("Marcos Online");
+  });
 });

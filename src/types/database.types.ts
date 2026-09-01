@@ -113,6 +113,7 @@ export interface Database {
           phone: string | null;
           avatar_url: string | null;
           in_roulette?: boolean | null;
+          is_online?: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -125,6 +126,7 @@ export interface Database {
           phone?: string | null;
           avatar_url?: string | null;
           in_roulette?: boolean | null;
+          is_online?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -137,6 +139,7 @@ export interface Database {
           phone?: string | null;
           avatar_url?: string | null;
           in_roulette?: boolean | null;
+          is_online?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -225,6 +228,7 @@ export interface Database {
         Row: {
           id: string;
           organization_id: string;
+          tenant_id?: string | null;
           seller_id: string | null;
           seller_name: string;
           name: string;
@@ -235,12 +239,14 @@ export interface Database {
           origin: LeadOrigin;
           last_contact_at: string | null;
           notes: string | null;
+          custom_fields?: Json | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
-          organization_id: string;
+          organization_id?: string;
+          tenant_id?: string | null;
           seller_id?: string | null;
           seller_name?: string;
           name: string;
@@ -251,12 +257,14 @@ export interface Database {
           origin?: LeadOrigin;
           last_contact_at?: string | null;
           notes?: string | null;
+          custom_fields?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           organization_id?: string;
+          tenant_id?: string | null;
           seller_id?: string | null;
           seller_name?: string;
           name?: string;
@@ -267,6 +275,7 @@ export interface Database {
           origin?: LeadOrigin;
           last_contact_at?: string | null;
           notes?: string | null;
+          custom_fields?: Json | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -290,9 +299,12 @@ export interface Database {
         Row: {
           id: string;
           organization_id: string;
+          tenant_id?: string | null;
+          created_by?: string | null;
           name: string;
           key_prefix: string;
           key_hash: string;
+          status?: string | null;
           created_at: string;
           last_used_at: string | null;
           revoked_at: string | null;
@@ -300,10 +312,13 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          organization_id: string;
+          organization_id?: string;
+          tenant_id?: string | null;
+          created_by?: string | null;
           name: string;
           key_prefix: string;
           key_hash: string;
+          status?: string | null;
           created_at?: string;
           last_used_at?: string | null;
           revoked_at?: string | null;
@@ -312,9 +327,12 @@ export interface Database {
         Update: {
           id?: string;
           organization_id?: string;
+          tenant_id?: string | null;
+          created_by?: string | null;
           name?: string;
           key_prefix?: string;
           key_hash?: string;
+          status?: string | null;
           created_at?: string;
           last_used_at?: string | null;
           revoked_at?: string | null;
@@ -411,6 +429,112 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "organization_members_organization_id_fkey";
+            columns: ["organization_id"];
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+
+      clients: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          phone: string;
+          email: string | null;
+          document: string | null;
+          status: "ativo" | "comprador" | "inativo";
+          seller_name: string;
+          seller_id: string | null;
+          vehicle_preference: string | null;
+          total_purchased: number;
+          purchases_count: number;
+          last_interaction_at: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          name: string;
+          phone: string;
+          email?: string | null;
+          document?: string | null;
+          status?: "ativo" | "comprador" | "inativo";
+          seller_name?: string;
+          seller_id?: string | null;
+          vehicle_preference?: string | null;
+          total_purchased?: number;
+          purchases_count?: number;
+          last_interaction_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          name?: string;
+          phone?: string;
+          email?: string | null;
+          document?: string | null;
+          status?: "ativo" | "comprador" | "inativo";
+          seller_name?: string;
+          seller_id?: string | null;
+          vehicle_preference?: string | null;
+          total_purchased?: number;
+          purchases_count?: number;
+          last_interaction_at?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "clients_organization_id_fkey";
+            columns: ["organization_id"];
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+
+      whatsapp_instances: {
+        Row: {
+          id: string;
+          organization_id: string;
+          instance_name: string;
+          status: "connected" | "connecting" | "disconnected";
+          qr_code: string | null;
+          phone_number: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          instance_name: string;
+          status?: "connected" | "connecting" | "disconnected";
+          qr_code?: string | null;
+          phone_number?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          instance_name?: string;
+          status?: "connected" | "connecting" | "disconnected";
+          qr_code?: string | null;
+          phone_number?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_instances_organization_id_fkey";
             columns: ["organization_id"];
             referencedRelation: "organizations";
             referencedColumns: ["id"];

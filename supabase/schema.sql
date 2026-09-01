@@ -124,6 +124,19 @@ create table public.leads (
   updated_at timestamptz not null default now()
 );
 
+-- Chaves de API & Integrações Externas (Multi-tenant)
+create table public.api_keys (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  name text not null,
+  key_prefix text not null,
+  key_hash text unique not null,
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz,
+  revoked_at timestamptz,
+  expires_at timestamptz
+);
+
 -- ============================================================================
 -- 4. Gatilhos (Triggers) para atualização automática de `updated_at`
 -- ============================================================================

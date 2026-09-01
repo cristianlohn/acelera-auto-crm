@@ -11,7 +11,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   sanitizeWhatsAppPhone,
+  formatWhatsAppNumber,
   sendWhatsAppMessage,
+  sendLeadNotificationToSeller,
 } from "@/lib/services/whatsapp/client";
 import {
   buildNewLeadAlertMessage,
@@ -24,6 +26,14 @@ import * as supabaseServerModule from "@/lib/supabase/server";
 describe("[UNIT-WHATSAPP] Serviço Modular de WhatsApp", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    delete process.env.WHATSAPP_API_URL;
+    delete process.env.WHATSAPP_API_TOKEN;
+    delete process.env.WHATSAPP_API_KEY;
+    delete process.env.WHATSAPP_INSTANCE_TOKEN;
+    delete process.env.WHATSAPP_PROVIDER;
+    delete process.env.EVOLUTION_API_URL;
+    delete process.env.EVOLUTION_API_KEY;
+    delete process.env.EVOLUTION_API_TOKEN;
   });
 
   describe("[TEST-WHATSAPP-PHONE-SANITIZATION] Sanitização de Telefones", () => {
@@ -46,6 +56,13 @@ describe("[UNIT-WHATSAPP] Serviço Modular de WhatsApp", () => {
     it("deve retornar string vazia para valores inválidos ou nulos", () => {
       expect(sanitizeWhatsAppPhone("")).toBe("");
       expect(sanitizeWhatsAppPhone("abc-xyz")).toBe("");
+    });
+
+    it("formatWhatsAppNumber deve adicionar 55 se ausente e limpar formatações rigorosamente", () => {
+      expect(formatWhatsAppNumber("47999998888")).toBe("5547999998888");
+      expect(formatWhatsAppNumber("(47) 98888-7777")).toBe("5547988887777");
+      expect(formatWhatsAppNumber("+55 47 97777-6666")).toBe("5547977776666");
+      expect(formatWhatsAppNumber("4788887777")).toBe("5547988887777");
     });
   });
 
@@ -148,6 +165,174 @@ describe("[UNIT-WHATSAPP] Serviço Modular de WhatsApp", () => {
 
       expect(result).toBeDefined();
       expect(result.dispatched).toBe(true);
+    });
+  });
+
+  describe("[TEST-WHATSAPP-PROVIDERS] Integração com Múltiplos Gateways HTTP", () => {
+    it("deve despachar requisição formatada para provedor z-api com Client-Token e { phone, message }", async () => {
+      process.env.WHATSAPP_API_URL = "https://api.z-api.io/instances/test-inst/token/test-tok/send-text";
+      process.env.WHATSAPP_API_KEY = "zapi-secret-key-123";
+      process.env.WHATSAPP_PROVIDER = "z-api";
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ id: "zapi_msg_001" }),
+      });
+      global.fetch = mockFetch;
+
+      const result = await sendWhatsAppMessage({
+        toPhone: "(11) 98888-7777",
+        messageText: "Olá consultor, novo lead atribuído!",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.mode).toBe("production");
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe("https://api.z-api.io/instances/test-inst/token/test-tok/send-text");
+      expect(options.headers["Client-Token"]).toBe("zapi-secret-key-123");
+      expect(options.headers["Authorization"]).toBe("Bearer zapi-secret-key-123");
+
+      const body = JSON.parse(options.body);
+      expect(body.phone).toBe("5511988887777");
+      expect(body.message).toBe("Olá consultor, novo lead atribuído!");
+    });
+
+    it("deve despachar requisição formatada para provedor evolution com apikey e { number, text }", async () => {
+      process.env.WHATSAPP_API_URL = "https://evolution.minhaloja.com.br/message/sendText/crm";
+      process.env.WHATSAPP_API_KEY = "evolution-token-456";
+      process.env.WHATSAPP_PROVIDER = "evolution";
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ messageId: "evo_msg_999" }),
+      });
+      global.fetch = mockFetch;
+
+      const result = await sendWhatsAppMessage({
+        toPhone: "47987654321",
+        messageText: "Aviso de novo lead na roleta",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.mode).toBe("production");
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const [, options] = mockFetch.mock.calls[0];
+      expect(options.headers["apikey"]).toBe("evolution-token-456");
+
+      const body = JSON.parse(options.body);
+      expect(body.number).toBe("5547987654321");
+      expect(body.text).toBe("Aviso de novo lead na roleta");
+    });
+
+    it("deve montar endpoint canônico /message/sendText/{instanceName} e payload { number, text } para Evolution API v2", async () => {
+      process.env.EVOLUTION_API_URL = "https://api-whatsapp.aceleraautocrm.com.br";
+      process.env.EVOLUTION_API_KEY = "evo-key-live-123";
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue(JSON.stringify({ key: { id: "evo_msg_canonical_1" } })),
+      });
+      global.fetch = mockFetch;
+
+      const result = await sendWhatsAppMessage({
+        toPhone: "47999998888",
+        messageText: "🚨 *Novo Lead Atribuído!*\nCliente: João",
+        tenantId: "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.mode).toBe("production");
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const [url, options] = mockFetch.mock.calls[0];
+      expect(url).toBe(
+        "https://api-whatsapp.aceleraautocrm.com.br/message/sendText/org_bbbbbbbb_cccc_dddd_eeee_ffffffffffff"
+      );
+      expect(options.headers["apikey"]).toBe("evo-key-live-123");
+      expect(options.headers["Content-Type"]).toBe("application/json");
+
+      const body = JSON.parse(options.body);
+      expect(body).toEqual({
+        number: "5547999998888",
+        text: "🚨 *Novo Lead Atribuído!*\nCliente: João",
+      });
+    });
+  });
+
+  describe("[TEST-WHATSAPP-DEMO-PROTECTION] Proteção do Modo Demonstração", () => {
+    it("deve operar em simulação sem disparar fetch quando isDemo === true mesmo com env vars preenchidas", async () => {
+      process.env.WHATSAPP_API_URL = "https://api.z-api.io/instances/live/send-text";
+      process.env.WHATSAPP_API_KEY = "live-production-key";
+
+      const mockFetch = vi.fn();
+      global.fetch = mockFetch;
+
+      const result = await sendWhatsAppMessage({
+        toPhone: "11988887777",
+        messageText: "Lead simulado no modo demo",
+        isDemo: true,
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.simulated).toBe(true);
+      expect(result.mode).toBe("simulation");
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("deve reconhecer tenant de demonstração padrão e evitar requisição de rede", async () => {
+      process.env.WHATSAPP_API_URL = "https://api.z-api.io/instances/live/send-text";
+      process.env.WHATSAPP_API_KEY = "live-production-key";
+
+      const mockFetch = vi.fn();
+      global.fetch = mockFetch;
+
+      const result = await sendWhatsAppMessage({
+        toPhone: "11988887777",
+        messageText: "Lead simulado",
+        tenantId: "a0000000-0000-0000-0000-000000000001",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.mode).toBe("simulation");
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("[TEST-WHATSAPP-LEAD-ALERT] Envio de Alerta de Lead (sendLeadNotificationToSeller)", () => {
+    it("deve montar mensagem formatada com SLA de 15 minutos e disparar envio", async () => {
+      process.env.WHATSAPP_API_URL = "https://api.z-api.io/instances/test/token/test/send-text";
+      process.env.WHATSAPP_API_KEY = "token-123";
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ id: "msg_sla_001" }),
+      });
+      global.fetch = mockFetch;
+
+      const result = await sendLeadNotificationToSeller({
+        sellerPhone: "11988887777",
+        sellerName: "Rafael Alves",
+        leadName: "Roberto Carlos",
+        leadPhone: "11977778888",
+        vehicleInterest: "Honda HR-V Touring 2024",
+        origin: "webmotors",
+        leadId: "lead_sla_123",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.mode).toBe("production");
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      const [, options] = mockFetch.mock.calls[0];
+      const body = JSON.parse(options.body);
+      expect(body.message).toContain("🚨 *Novo Lead Atribuído!*");
+      expect(body.message).toContain("👤 *Cliente:* Roberto Carlos");
+      expect(body.message).toContain("🚗 *Interesse:* Honda HR-V Touring 2024");
+      expect(body.message).toContain("⏱️ *SLA de Resposta:* 15 minutos");
+      expect(body.message).toContain("/leads?lead_id=lead_sla_123");
     });
   });
 });
