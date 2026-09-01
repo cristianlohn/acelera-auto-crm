@@ -10,8 +10,6 @@ import { getCurrentUserAndTenant, extractBearerToken } from "@/lib/auth/get-curr
 import { memoryApiKeys } from "@/lib/services/api-key-service";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { getScopedSupabaseClient } from "@/lib/supabase/authenticated-client";
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/database.types";
 
 /**
  * Schema Zod para validação do payload de criação de chave de API

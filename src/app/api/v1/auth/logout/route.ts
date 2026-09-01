@@ -6,7 +6,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
-import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 
 /**
  * Extrai o token JWT Bearer do cabeçalho de autorização.

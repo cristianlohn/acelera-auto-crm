@@ -5,7 +5,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import {
   MessageSquare,
@@ -38,67 +38,40 @@ export function WhatsAppIntegrationCard() {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Consulta inicial de status
-  const fetchStatus = useCallback(async () => {
-    try {
-      setErrorMessage(null);
-      const res = await getWhatsAppStatusAction();
-      if (res.success) {
-        setStatus(res.status);
-        setInstanceName(res.instanceName || "");
-        if (res.qrCode) setQrCode(res.qrCode);
-      } else if (res.error) {
-        setErrorMessage(res.error);
-      }
-    } catch (err) {
-      console.error("[WhatsAppIntegrationCard] Erro ao buscar status:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
+  // Consulta e sincronização de status com cleanup seguro
   useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
+    let isMounted = true;
 
-  // Polling de 4 segundos enquanto o status for 'connecting' (aguardando leitura do QR Code)
-  useEffect(() => {
-    if (status === "connecting") {
-      pollingRef.current = setInterval(async () => {
-        try {
-          const res = await getWhatsAppStatusAction();
-          if (res.success) {
-            if (res.status === "connected") {
-              setStatus("connected");
-              setQrCode(null);
-              setPairingCode(null);
-              if (pollingRef.current) clearInterval(pollingRef.current);
-            } else if (res.status === "disconnected") {
-              setStatus("disconnected");
-              setQrCode(null);
-              if (pollingRef.current) clearInterval(pollingRef.current);
-            }
+    const checkStatus = async () => {
+      try {
+        const res = await getWhatsAppStatusAction();
+        if (isMounted && res?.success) {
+          setStatus(res.status);
+          if (res.instanceName) setInstanceName(res.instanceName);
+          if (res.qrCode) {
+            setQrCode(res.qrCode);
+          } else if (res.status === "connected" || res.status === "disconnected") {
+            setQrCode(null);
+            setPairingCode(null);
           }
-        } catch (pollErr) {
-          console.warn("[WhatsAppIntegrationCard] Erro no polling de status:", pollErr);
         }
-      }, 4000);
-    } else {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-      }
-    }
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
+      } catch (err) {
+        console.error("Erro ao verificar status do WhatsApp:", err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
-  }, [status]);
+
+    checkStatus();
+
+    const interval = setInterval(checkStatus, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Ação: Iniciar Conexão / Gerar QR Code
   const handleConnect = async () => {

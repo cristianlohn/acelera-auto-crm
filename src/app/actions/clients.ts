@@ -11,7 +11,7 @@ import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import { resolveUserTenantContext } from "@/lib/auth/tenant";
 import { mockClients } from "@/lib/mock-data";
 import {
   saveClientSchema,
@@ -133,7 +133,6 @@ export async function saveClientAction(
   }
 
   const tenantContext = await resolveUserTenantContext();
-  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
   const data = validation.data;
 
   // 1. Modo Demonstração

@@ -13,7 +13,7 @@
 
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useContext } from "react";
 import {
   Users,
   UserCheck,
@@ -39,9 +39,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryClientContext } from "@tanstack/react-query";
 import { formatCurrency, mockClients } from "@/lib/mock-data";
-import { getClients, saveClientAction } from "@/app/actions/clients";
+import { saveClientAction } from "@/app/actions/clients";
 import { useClients } from "@/hooks/use-clients";
 import { cn } from "@/lib/utils";
 import { timeAgo } from "@/lib/lead-utils";
@@ -513,13 +513,7 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("todos");
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
-
-  // Inicializa clientes com dados demo síncronos se estiver no modo demo (0ms delay visual)
-  const [clients, setClients] = useState<Client[]>(() => {
-    if (Array.isArray(initialClients)) return initialClients;
-    if (isDemoMode) return mockClients;
-    return [];
-  });
+  const [optimisticClients, setOptimisticClients] = useState<Client[]>([]);
 
   // Consumo reativo via TanStack Query v5 conectado a Server Actions / Supabase (ativo para organizações reais)
   const { data: serverClients, isLoading: isQueryLoading, refetch } = useClients(
@@ -531,14 +525,16 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
     { enabled: !isDemoMode }
   );
 
-  const isLoading = isQueryLoading && !clients.length && !initialClients && !isDemoMode;
+  const safeClients = useMemo(() => {
+    const baseClients = !isDemoMode
+      ? (Array.isArray(serverClients) ? serverClients : Array.isArray(initialClients) ? initialClients : [])
+      : (Array.isArray(initialClients) ? initialClients : mockClients);
+    if (optimisticClients.length === 0) return baseClients;
+    const addedIds = new Set(optimisticClients.map((c) => c.id));
+    return [...optimisticClients, ...baseClients.filter((c) => !addedIds.has(c.id))];
+  }, [isDemoMode, serverClients, initialClients, optimisticClients]);
 
-  // Sincroniza dados do TanStack Query com estado local no modo real
-  useEffect(() => {
-    if (!isDemoMode && Array.isArray(serverClients)) {
-      setClients(serverClients);
-    }
-  }, [serverClients, isDemoMode]);
+  const isLoading = isQueryLoading && !safeClients.length && !initialClients && !isDemoMode;
 
   useEffect(() => {
     let isMounted = true;
@@ -557,15 +553,13 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
   // Adição de cliente reativo no topo da carteira
   const handleAddClient = useCallback(
     (newClient: Client) => {
-      setClients((prev) => [newClient, ...prev.filter((c) => c.id !== newClient.id)]);
+      setOptimisticClients((prev) => [newClient, ...prev.filter((c) => c.id !== newClient.id)]);
       if (!isDemoMode) {
         refetch();
       }
     },
     [refetch, isDemoMode]
   );
-
-  const safeClients = Array.isArray(clients) ? clients : [];
 
   // Lista base filtrada estritamente por papel RBAC (Vendedor visualiza apenas seus próprios clientes)
   const roleFilteredClients = useMemo(() => {
@@ -977,22 +971,17 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
 }
 
 export default function ClientsPage(props: ClientsPageProps) {
-  let hasQueryClient = true;
-  try {
-    useQueryClient();
-  } catch {
-    hasQueryClient = false;
-  }
+  const existingClient = useContext(QueryClientContext);
+  const [fallbackQueryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { retry: false },
+        },
+      })
+  );
 
-  if (!hasQueryClient) {
-    const [fallbackQueryClient] = useState(
-      () =>
-        new QueryClient({
-          defaultOptions: {
-            queries: { retry: false },
-          },
-        })
-    );
+  if (!existingClient) {
     return (
       <QueryClientProvider client={fallbackQueryClient}>
         <ClientsPageContent {...props} />

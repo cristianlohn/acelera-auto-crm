@@ -4,7 +4,6 @@
  */
 
 import { z } from "zod";
-import { sanitizeWhatsAppPhone } from "@/lib/services/whatsapp/client";
 
 /**
  * Sanitizador e validador de número de telefone/WhatsApp brasileiro

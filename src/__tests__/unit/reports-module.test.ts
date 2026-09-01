@@ -12,7 +12,7 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getExecutiveReportData } from "@/app/actions/reports";
-import { PERIOD_METRICS, EMPTY_METRICS } from "@/lib/reports/fixtures";
+import { PERIOD_METRICS } from "@/lib/reports/fixtures";
 import * as tenantAuthModule from "@/lib/auth/tenant";
 import * as supabaseServerModule from "@/lib/supabase/server";
 
@@ -46,30 +46,30 @@ let dbLeads: MockLeadRow[] = [];
 function createMockSupabase() {
   return {
     from: vi.fn((table: string) => {
-      let filters: Array<{ col: string; val: unknown }> = [];
-      let gteFilters: Array<{ col: string; val: string }> = [];
-      let lteFilters: Array<{ col: string; val: string }> = [];
+      const filters: Array<{ col: string; val: unknown }> = [];
+      const gteFilters: Array<{ col: string; val: string }> = [];
+      const lteFilters: Array<{ col: string; val: string }> = [];
 
       function executeQuery(): MockLeadRow[] {
         if (table !== "leads") return [];
         let list = [...dbLeads];
 
         for (const f of filters) {
-          list = list.filter((item) => (item as any)[f.col] === f.val);
+          list = list.filter((item) => (item as unknown as Record<string, unknown>)[f.col] === f.val);
         }
 
         for (const g of gteFilters) {
-          list = list.filter((item) => (item as any)[g.col] >= g.val);
+          list = list.filter((item) => String((item as unknown as Record<string, unknown>)[g.col]) >= g.val);
         }
 
         for (const l of lteFilters) {
-          list = list.filter((item) => (item as any)[l.col] <= l.val);
+          list = list.filter((item) => String((item as unknown as Record<string, unknown>)[l.col]) <= l.val);
         }
 
         return list;
       }
 
-      const chain: any = {
+      const chain: Record<string, unknown> = {
         select: vi.fn(() => chain),
         eq: vi.fn((col: string, val: unknown) => {
           filters.push({ col, val });
@@ -213,7 +213,7 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
     vi.spyOn(tenantAuthModule, "resolveUserTenantContext").mockResolvedValueOnce({
       userId: "super-id",
       organizationId: null,
-      profile: { id: "super-id", role: "superadmin" as any, organization_id: "", full_name: "Superadmin Global", email: "super@crm.com", phone: null, avatar_url: null, created_at: "", updated_at: "" },
+      profile: { id: "super-id", role: "superadmin" as unknown as import("@/types/database.types").UserRole, organization_id: "", full_name: "Superadmin Global", email: "super@crm.com", phone: null, avatar_url: null, created_at: "", updated_at: "" },
       organization: null,
       isDemo: false,
       needsOnboarding: false,

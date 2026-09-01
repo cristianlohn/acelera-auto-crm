@@ -211,7 +211,7 @@ export async function sendWhatsAppMessage({
 
   try {
     let endpoint = apiUrl;
-    let headers: Record<string, string> = {
+    const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
     let bodyPayload: Record<string, unknown> = {};
@@ -343,7 +343,6 @@ export async function sendLeadNotificationToSeller({
   leadName,
   leadPhone,
   vehicleInterest = "Veículo de Interesse",
-  origin = "Canal Digital",
   leadId,
   isDemo = false,
   tenantId,

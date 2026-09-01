@@ -144,15 +144,13 @@ vi.mock("@supabase/supabase-js", async (importOriginal) => {
         }),
       },
       from: vi.fn((table: string) => {
-        let filters: Array<{ col: string; val: unknown }> = [];
+        const filters: Array<{ col: string; val: unknown }> = [];
         let orFilter: string | null = null;
         let updatePayload: Record<string, unknown> | null = null;
-        let insertPayload: Record<string, unknown> | null = null;
 
         const chain = {
           select: vi.fn(() => chain),
           insert: vi.fn((payload: unknown) => {
-            insertPayload = payload as Record<string, unknown>;
             if (table === "leads") {
               const newLead: MockLead = {
                 ...(payload as MockLead),
@@ -521,7 +519,7 @@ describe("[OFFENSIVE-SECURITY] Blindagem Exaustiva contra Vazamento de Dados Cru
     it("[SEC-LEAD-MUTATE-02] Tentativa de exclusão de lead alheio via deleteLeadAction não altera o registro", async () => {
       // deleteLeadAction valida organizationId via resolveUserTenantContext
       // Como o lead-alfa-001 pertence a ORG_A, ele não deve ser afetado por requisições da ORG_B
-      const result = await deleteLeadAction("lead-alfa-001");
+      await deleteLeadAction("lead-alfa-001");
 
       const leadA = dbLeads.find((l) => l.id === "lead-alfa-001");
       expect(leadA).toBeDefined();

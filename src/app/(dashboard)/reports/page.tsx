@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useContext } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -37,7 +37,7 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/mock-data";
 import { useDemoRole } from "@/context/demo-role-context";
 import { normalizeRole, canViewExecutiveReports } from "@/lib/permissions";
-import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryClientContext } from "@tanstack/react-query";
 import type {
   ReportPeriod,
   PeriodOption,
@@ -140,7 +140,7 @@ function ReportsPageContent() {
   const canViewReports = canViewExecutiveReports(effectiveRole);
 
   // Consumo Dual-Engine com TanStack Query v5
-  const { data: reportData, isLoading } = useExecutiveReports(
+  const { data: reportData } = useExecutiveReports(
     period,
     isDemoMode,
     isDemoMode ? PERIOD_METRICS[period] : undefined
@@ -623,22 +623,17 @@ function ReportsPageContent() {
 }
 
 export default function ReportsPage() {
-  let hasQueryClient = true;
-  try {
-    useQueryClient();
-  } catch {
-    hasQueryClient = false;
-  }
+  const existingClient = useContext(QueryClientContext);
+  const [fallbackQueryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: { retry: false },
+        },
+      })
+  );
 
-  if (!hasQueryClient) {
-    const [fallbackQueryClient] = useState(
-      () =>
-        new QueryClient({
-          defaultOptions: {
-            queries: { retry: false },
-          },
-        })
-    );
+  if (!existingClient) {
     return (
       <QueryClientProvider client={fallbackQueryClient}>
         <ReportsPageContent />

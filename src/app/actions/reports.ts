@@ -74,7 +74,7 @@ export async function getExecutiveReportData(
   }
 
   // 2. Produção: Validações de Contexto e Papel
-  const roleStr = (tenantContext.profile?.role as string) || (tenantContext as any).role || "";
+  const roleStr = (tenantContext.profile?.role as string) || (tenantContext as { role?: string }).role || "";
   const isSuperAdmin = roleStr === "superadmin";
 
   if (!isSuperAdmin && !tenantContext.organizationId) {

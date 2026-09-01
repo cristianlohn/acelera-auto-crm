@@ -484,7 +484,7 @@ export async function disconnectWhatsAppAction(): Promise<WhatsAppDisconnectResu
     const { evolutionUrl, evolutionKey } = getEvolutionCredentials();
 
     // 1. Modo Demonstração / Simulação
-    if (!evolutionUrl || !evolutionKey) {
+    if (isDemo || !evolutionUrl || !evolutionKey) {
       demoState = {
         status: "disconnected",
         connected: false,

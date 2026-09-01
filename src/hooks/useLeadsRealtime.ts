@@ -3,9 +3,9 @@
  * @description Hook do Supabase Realtime para sincronização reativa e isolamento estrito de leads por organização.
  */
 
-import { useEffect } from "react";
+import { useEffect, useContext } from "react";
 import { createBrowserClient } from "@supabase/ssr";
-import { useQueryClient } from "@tanstack/react-query";
+import { QueryClientContext } from "@tanstack/react-query";
 import type { Lead, LeadOrigin, LeadStatus } from "@/types/crm";
 import { toast } from "sonner";
 
@@ -46,12 +46,7 @@ export function useLeadsRealtime({
   onPollSync,
   pollIntervalMs = 5000,
 }: UseLeadsRealtimeProps = {}) {
-  let queryClient: ReturnType<typeof useQueryClient> | null = null;
-  try {
-    queryClient = useQueryClient();
-  } catch {
-    // Silencioso caso renderizado fora de QueryClientProvider
-  }
+  const queryClient = useContext(QueryClientContext);
 
   // 1. Sincronização em segundo plano via Heartbeat Polling & Foco da Janela
   useEffect(() => {
@@ -164,5 +159,5 @@ export function useLeadsRealtime({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [organizationId, isDemo, onLeadInserted, onLeadUpdated, onLeadDeleted]);
+  }, [organizationId, isDemo, onLeadInserted, onLeadUpdated, onLeadDeleted, queryClient]);
 }

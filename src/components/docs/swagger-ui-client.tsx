@@ -9,11 +9,6 @@ import React from "react";
 import dynamic from "next/dynamic";
 import "swagger-ui-react/swagger-ui.css";
 
-interface SwaggerUIProps {
-  url?: string;
-  spec?: Record<string, unknown>;
-}
-
 // Carregamento dinâmico exclusivo no cliente (Browser) para evitar erros de SSR no Swagger UI
 const SwaggerUI = dynamic(
   () => import("swagger-ui-react"),

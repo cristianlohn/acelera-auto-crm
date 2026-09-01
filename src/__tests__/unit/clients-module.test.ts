@@ -59,7 +59,7 @@ let dbClients: MockClientDbRow[] = [];
 function createMockSupabase() {
   return {
     from: vi.fn((table: string) => {
-      let filters: Array<{ col: string; val: unknown }> = [];
+      const filters: Array<{ col: string; val: unknown }> = [];
       let orFilter: string | null = null;
       let updatePayload: Record<string, unknown> | null = null;
       let isDelete = false;
@@ -88,13 +88,13 @@ function createMockSupabase() {
         return list;
       }
 
-      const chain: any = {
+      const chain: Record<string, unknown> = {
         select: vi.fn(() => chain),
-        insert: vi.fn((payload: any) => {
+        insert: vi.fn((payload: Record<string, unknown>) => {
           const row: MockClientDbRow = {
             id: `client_${Date.now()}`,
             ...payload,
-          };
+          } as unknown as MockClientDbRow;
           dbClients.push(row);
           return {
             select: vi.fn(() => ({
@@ -105,7 +105,7 @@ function createMockSupabase() {
             single: vi.fn().mockResolvedValue({ data: row, error: null }),
           };
         }),
-        update: vi.fn((payload: any) => {
+        update: vi.fn((payload: Record<string, unknown>) => {
           updatePayload = payload;
           return chain;
         }),
@@ -147,12 +147,10 @@ function createMockSupabase() {
         }),
         then: (resolve: (value: { data: MockClientDbRow[] | null; error: null }) => void) => {
           if (isDelete) {
-            const initialLen = dbClients.length;
             dbClients = dbClients.filter((c) => {
               const match = filters.every((f) => (c as unknown as Record<string, unknown>)[f.col] === f.val);
               return !match;
             });
-            const deletedCount = initialLen - dbClients.length;
             return resolve({ data: null, error: null });
           }
           const data = executeQuery();
@@ -306,7 +304,7 @@ describe("[UNIT-CLIENTS] Módulo de Carteira de Clientes", () => {
     const res = await saveClientAction({
       name: "", // Inválido: < 2 caracteres
       phone: "123", // Inválido: < 8 dígitos
-    } as any);
+    } as unknown as Parameters<typeof saveClientAction>[0]);
 
     expect(res.success).toBe(false);
     expect(res.error).toBeDefined();

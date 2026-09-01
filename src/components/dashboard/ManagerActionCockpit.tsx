@@ -62,7 +62,7 @@ export interface SellerAction {
   phone: string;
 }
 
-const DEFAULT_BOTTLENECK_METRICS: BottleneckMetric[] = [
+export const DEFAULT_BOTTLENECK_METRICS: BottleneckMetric[] = [
   {
     id: "sem-retorno",
     count: 12,
