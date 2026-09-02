@@ -102,6 +102,7 @@ const plans: Plan[] = [
 function BillingContent() {
   const searchParams = useSearchParams();
   const isExpired = searchParams.get("expired") === "true";
+  const isBlocked = searchParams.get("status") === "blocked";
   const { role, isDemoMode } = useDemoRole();
   const effectiveRole = normalizeRole(role);
   const canManageBilling = canManageIntegrationsAndBilling(effectiveRole);
@@ -178,6 +179,22 @@ function BillingContent() {
         />
       )}
       <div className="max-w-6xl mx-auto space-y-8">
+        {/* Alerta de Acesso Bloqueado / Suspenso */}
+        {isBlocked && (
+          <div
+            data-testid="billing-blocked-alert"
+            className="rounded-xl border border-red-500/40 bg-gradient-to-r from-red-950/80 via-red-900/40 to-red-950/70 p-4 text-center text-red-200 shadow-lg shadow-red-950/30 animate-in fade-in slide-in-from-top-3 max-w-3xl mx-auto"
+          >
+            <div className="flex items-center justify-center gap-2 font-bold text-red-400 mb-1">
+              <AlertCircle className="h-5 w-5 shrink-0" />
+              <span>Acesso Suspenso</span>
+            </div>
+            <p className="text-xs sm:text-sm text-red-200/90 font-medium">
+              Seu acesso aos recursos do CRM está suspenso temporariamente. Regularize sua fatura abaixo para liberar a operação imediatamente.
+            </p>
+          </div>
+        )}
+
         {/* Cabeçalho Condicional: Paywall Expirado vs Gestão de Faturamento */}
         <div className="text-center max-w-3xl mx-auto space-y-3">
           {isExpired ? (

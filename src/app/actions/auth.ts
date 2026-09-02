@@ -22,6 +22,7 @@ import {
   getOrganizationAccessStatus,
   type OrganizationAccessStatus,
 } from "@/lib/auth/subscription";
+import { isSubscriptionValid } from "@/lib/auth/subscription-guard";
 
 export interface RegisterDealershipInput {
   storeName: string;
@@ -664,6 +665,44 @@ export async function getSubscriptionStatusAction(): Promise<OrganizationAccessS
     tenantContext.organization,
     tenantContext.profile?.role
   );
+}
+
+/**
+ * Verifica se a organização ativa possui assinatura válida ('active' ou 'trialing').
+ * Usuários bloqueados ('overdue', 'canceled', 'inactive', ou sem status) devem ser redirecionados para /billing?status=blocked.
+ */
+export async function checkUserSubscriptionGuardAction(): Promise<{
+  isValid: boolean;
+  status: string | null;
+  isDemo: boolean;
+}> {
+  const tenantContext = await resolveUserTenantContext();
+
+  if (tenantContext.isDemo) {
+    return {
+      isValid: true,
+      status: "trialing",
+      isDemo: true,
+    };
+  }
+
+  // Superadmin bypass total
+  if (tenantContext.profile?.role?.toLowerCase() === "superadmin") {
+    return {
+      isValid: true,
+      status: "active",
+      isDemo: false,
+    };
+  }
+
+  const status = tenantContext.organization?.subscription_status ?? null;
+  const isValid = isSubscriptionValid(status);
+
+  return {
+    isValid,
+    status,
+    isDemo: false,
+  };
 }
 
 export interface PasswordResetResult {

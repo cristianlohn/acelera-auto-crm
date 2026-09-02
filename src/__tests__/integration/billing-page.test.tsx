@@ -104,4 +104,21 @@ describe("[IT-BILL] Página de Planos, Assinatura e Paywall (BillingPage)", () =
       fireEvent.click(proButton);
     });
   });
+
+  it("[IT-BILL.6] Deve exibir o alerta destacado de acesso bloqueado quando status=blocked", () => {
+    // Arrange
+    mockSearchParams = new URLSearchParams("status=blocked");
+
+    // Act
+    render(<BillingPage />);
+
+    // Assert
+    expect(screen.getByTestId("billing-blocked-alert")).toBeInTheDocument();
+    expect(screen.getByText(/acesso suspenso/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /seu acesso aos recursos do crm está suspenso temporariamente\. regularize sua fatura abaixo para liberar a operação imediatamente\./i
+      )
+    ).toBeInTheDocument();
+  });
 });

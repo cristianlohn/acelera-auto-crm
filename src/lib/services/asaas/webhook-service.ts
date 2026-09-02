@@ -8,6 +8,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import type { Database } from "@/types/database.types";
+import { resolvePeriodEndDate } from "./subscription-service";
+
+export { resolvePeriodEndDate };
 
 type OrganizationUpdate = Database["public"]["Tables"]["organizations"]["Update"];
 
@@ -294,6 +297,9 @@ export async function processAsaasWebhookEvent(
     case "PAYMENT_RECEIVED": {
       actionTaken = "payment_confirmed_subscription_activated";
 
+      const dueDate = payment?.dueDate || subscription?.nextDueDate;
+      const currentPeriodEnd = resolvePeriodEndDate(dueDate);
+
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
           const supabaseAdmin = createAdminClient();
@@ -301,6 +307,7 @@ export async function processAsaasWebhookEvent(
             plan: "pro",
             subscription_status: "active",
             trial_ends_at: null,
+            current_period_end: currentPeriodEnd,
             updated_at: new Date().toISOString(),
           };
 

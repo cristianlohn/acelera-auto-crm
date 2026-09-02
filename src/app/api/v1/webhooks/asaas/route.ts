@@ -304,6 +304,7 @@ export async function POST(request: NextRequest) {
       paymentId: body.payment?.id,
       subscriptionId: body.subscription?.id,
       customer: body.payment?.customer || body.subscription?.customer,
+      dueDate: body.payment?.dueDate,
     });
 
     // 4. Processamento Idempotente do Evento de Faturamento

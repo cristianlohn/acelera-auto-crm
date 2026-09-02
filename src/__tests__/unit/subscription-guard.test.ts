@@ -13,6 +13,7 @@
 
 import { describe, it, expect } from "vitest";
 import { getOrganizationAccessStatus } from "@/lib/auth/subscription";
+import { isSubscriptionValid } from "@/lib/auth/subscription-guard";
 import type { Organization } from "@/types/crm";
 
 describe("[UT-SUB] Guard de Assinatura e Ciclo de Vida (getOrganizationAccessStatus)", () => {
@@ -146,5 +147,25 @@ describe("[UT-SUB] Guard de Assinatura e Ciclo de Vida (getOrganizationAccessSta
     expect(status.hasAccess).toBe(true);
     expect(status.reason).toBe("PAST_DUE_GRACE");
     expect(status.warning).toBe(true);
+  });
+});
+
+describe("[UT-SUB-GUARD] Helper isSubscriptionValid", () => {
+  it("Deve retornar true para 'active' e 'trialing'", () => {
+    expect(isSubscriptionValid("active")).toBe(true);
+    expect(isSubscriptionValid("trialing")).toBe(true);
+    expect(isSubscriptionValid("ACTIVE")).toBe(true);
+    expect(isSubscriptionValid("TRIALING")).toBe(true);
+    expect(isSubscriptionValid(" active ")).toBe(true);
+  });
+
+  it("Deve retornar false para 'overdue', 'canceled', null e undefined", () => {
+    expect(isSubscriptionValid("overdue")).toBe(false);
+    expect(isSubscriptionValid("canceled")).toBe(false);
+    expect(isSubscriptionValid("inactive")).toBe(false);
+    expect(isSubscriptionValid("past_due")).toBe(false);
+    expect(isSubscriptionValid(null)).toBe(false);
+    expect(isSubscriptionValid(undefined)).toBe(false);
+    expect(isSubscriptionValid("")).toBe(false);
   });
 });

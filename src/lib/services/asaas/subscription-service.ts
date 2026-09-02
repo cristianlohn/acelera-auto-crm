@@ -112,6 +112,35 @@ function getAsaasConfig(): { apiUrl: string; apiKey: string } {
 }
 
 /**
+ * Ancola o término do ciclo atual (current_period_end) no final do dia de vencimento oficial da fatura.
+ * Garante que pagamentos antecipados não roubem dias de vigência do cliente.
+ *
+ * @param dueDateStr Data de vencimento no formato "YYYY-MM-DD" ou ISO string.
+ * @returns Data ISO correspondente ao final do dia UTC (YYYY-MM-DDT23:59:59.999Z).
+ */
+export function resolvePeriodEndDate(dueDateStr?: string): string {
+  if (!dueDateStr) {
+    // Fallback apenas se o gateway não enviar dueDate (+30 dias)
+    const fallbackDate = new Date();
+    fallbackDate.setDate(fallbackDate.getDate() + 30);
+    return fallbackDate.toISOString();
+  }
+
+  const datePart = dueDateStr.includes("T") ? dueDateStr.split("T")[0] : dueDateStr;
+  const [year, month, day] = datePart.split("-").map(Number);
+
+  if (!year || !month || !day || isNaN(year) || isNaN(month) || isNaN(day)) {
+    const fallbackDate = new Date();
+    fallbackDate.setDate(fallbackDate.getDate() + 30);
+    return fallbackDate.toISOString();
+  }
+
+  // Ancoragem: final do dia do vencimento oficial UTC
+  const anchoredDate = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  return anchoredDate.toISOString();
+}
+
+/**
  * Busca cliente existente no Asaas pelo número de CPF ou CNPJ.
  */
 export async function findCustomerByCpfCnpj(
