@@ -9,8 +9,10 @@ import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant
 import {
   createAsaasSubscription,
   getAsaasSubscriptionDetails,
+  getAsaasSubscriptionInvoices,
   BILLING_PLANS_CONFIG,
   type CreateSubscriptionResult,
+  type SubscriptionInvoice,
 } from "@/lib/services/asaas/subscription-service";
 import { isValidDocument, sanitizeDigits } from "@/lib/validations/document";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
@@ -19,7 +21,8 @@ import { canManageIntegrationsAndBilling } from "@/lib/permissions";
 
 export interface CreateSubscriptionInput {
   planId: string;
-  billingCycle?: "mensal" | "anual";
+  billingCycle?: "mensal" | "anual" | string;
+  cycle?: "MONTHLY" | "YEARLY" | "mensal" | "anual" | string;
   documentType?: "CPF" | "CNPJ";
   document?: string;
   cpfCnpj?: string;
@@ -37,13 +40,27 @@ export interface CreateSubscriptionInput {
 export async function getBillingInitialDataAction() {
   try {
     const tenantContext = await resolveUserTenantContext();
-    if (!canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
+    if (!tenantContext.isDemo && !canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
       return {
         success: false,
         data: null,
         error: "Acesso restrito: Apenas administradores ou proprietários têm acesso ao faturamento.",
       };
     }
+
+    if (tenantContext.isDemo) {
+      return {
+        success: true,
+        data: {
+          name: "Concessionária Acelera Auto Prime",
+          email: "financeiro@aceleraautoprime.com.br",
+          phone: "11988887777",
+          document: "12.345.678/0001-90",
+          documentType: "CNPJ" as const,
+        },
+      };
+    }
+
     const org = tenantContext.organization;
     const profile = tenantContext.profile;
     const doc = org?.document || "";
@@ -68,7 +85,7 @@ export async function getBillingInitialDataAction() {
 export async function createSubscriptionCheckoutAction(
   input: CreateSubscriptionInput
 ): Promise<CreateSubscriptionResult> {
-  const { planId, billingCycle = "mensal" } = input;
+  const { planId } = input;
 
   try {
     // 1. Resolve o contexto de organização do usuário e valida RBAC imediatamente
@@ -159,6 +176,17 @@ export async function createSubscriptionCheckoutAction(
       }
     }
 
+    // Normalização do ciclo de faturamento para os valores canônicos da API v3 do Asaas (MONTHLY | YEARLY)
+    const rawCycle = (input.cycle || input.billingCycle || "mensal").toString();
+    const asaasCycle: "MONTHLY" | "YEARLY" =
+      rawCycle.toUpperCase() === "YEARLY" ||
+      rawCycle.toUpperCase() === "ANNUALLY" ||
+      rawCycle.toLowerCase() === "anual" ||
+      rawCycle.toLowerCase() === "annual" ||
+      rawCycle.toLowerCase() === "yearly"
+        ? "YEARLY"
+        : "MONTHLY";
+
     // 3. Dispara a criação real no Asaas (SEM MOCKS OU FALLBACKS FICTÍCIOS)
     const result = await createAsaasSubscription({
       organizationId: orgId,
@@ -176,7 +204,8 @@ export async function createSubscriptionCheckoutAction(
       cpfCnpj: effectiveDoc,
       currentAsaasCustomerId,
       planId,
-      billingCycle,
+      billingCycle: asaasCycle === "YEARLY" ? "anual" : "mensal",
+      cycle: asaasCycle,
     });
 
     if (!result.success || !result.checkoutUrl) {
@@ -240,7 +269,7 @@ export interface SubscriptionOverviewResult {
 export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverviewResult> {
   try {
     const tenantContext = await resolveUserTenantContext();
-    if (!canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
+    if (!tenantContext.isDemo && !canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
       return {
         success: false,
         error: "Acesso restrito: Apenas administradores ou proprietários têm acesso ao faturamento.",
@@ -367,6 +396,97 @@ export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverv
     return {
       success: false,
       error: "Falha ao consolidar visão geral da assinatura.",
+    };
+  }
+}
+
+export type { SubscriptionInvoice };
+
+export interface GetInvoicesResult {
+  success: boolean;
+  data: SubscriptionInvoice[];
+  error?: string;
+}
+
+/**
+ * Consulta o histórico de faturas/cobranças emitidas no Asaas para a organização ativa.
+ * Restrito a administradores e proprietários. Suporta modo demo com mock realista.
+ */
+export async function getSubscriptionInvoicesAction(): Promise<GetInvoicesResult> {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    if (!tenantContext.isDemo && !canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
+      return {
+        success: false,
+        data: [],
+        error: "Acesso restrito: Apenas administradores ou proprietários têm acesso ao faturamento.",
+      };
+    }
+
+    // Histórico enriquecido para o modo demonstração
+    if (tenantContext.isDemo) {
+      const now = new Date();
+      const d1 = new Date(now.getFullYear(), now.getMonth(), 15);
+      const d2 = new Date(now.getFullYear(), now.getMonth() - 1, 15);
+      const d3 = new Date(now.getFullYear(), now.getMonth() - 2, 15);
+
+      return {
+        success: true,
+        data: [
+          {
+            id: "pay_demo_01",
+            dueDate: d1.toISOString().split("T")[0],
+            paymentDate: d1.toISOString().split("T")[0],
+            value: 597,
+            billingType: "CREDIT_CARD",
+            status: "RECEIVED",
+            invoiceUrl: "https://sandbox.asaas.com/i/demo01",
+            receiptUrl: "https://sandbox.asaas.com/comprovante/demo01",
+          },
+          {
+            id: "pay_demo_02",
+            dueDate: d2.toISOString().split("T")[0],
+            paymentDate: d2.toISOString().split("T")[0],
+            value: 597,
+            billingType: "CREDIT_CARD",
+            status: "RECEIVED",
+            invoiceUrl: "https://sandbox.asaas.com/i/demo02",
+            receiptUrl: "https://sandbox.asaas.com/comprovante/demo02",
+          },
+          {
+            id: "pay_demo_03",
+            dueDate: d3.toISOString().split("T")[0],
+            paymentDate: d3.toISOString().split("T")[0],
+            value: 597,
+            billingType: "PIX",
+            status: "RECEIVED",
+            invoiceUrl: "https://sandbox.asaas.com/i/demo03",
+            receiptUrl: "https://sandbox.asaas.com/comprovante/demo03",
+          },
+        ],
+      };
+    }
+
+    const org = tenantContext.organization;
+    if (!org) {
+      return { success: true, data: [] };
+    }
+
+    const invoices = await getAsaasSubscriptionInvoices(
+      org.asaas_subscription_id,
+      org.asaas_customer_id
+    );
+
+    return {
+      success: true,
+      data: invoices,
+    };
+  } catch (error) {
+    console.error("[getSubscriptionInvoicesAction Error]", error);
+    return {
+      success: false,
+      data: [],
+      error: "Falha ao consultar histórico de faturas.",
     };
   }
 }

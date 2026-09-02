@@ -300,38 +300,31 @@ export function FAQSection() {
         </div>
 
         {/* Card de Ajuda Adicional / Central Completa */}
-        <div className="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6 text-center sm:flex sm:items-center sm:justify-between gap-4">
+        <div className="mt-10 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50/80 dark:bg-zinc-900/40 p-5 sm:p-6 text-center sm:flex sm:items-center sm:justify-between gap-4">
           <div className="text-center sm:text-left">
-            <h3 className="text-sm sm:text-base font-bold text-white">
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">
               Ainda ficou com alguma dúvida sobre o Acelera Auto CRM?
             </h3>
-            <p className="mt-1 text-xs text-zinc-400">
+            <p className="mt-1 text-xs text-slate-600 dark:text-zinc-400">
               Acesse a Central de Ajuda completa ou fale diretamente com nossos especialistas.
             </p>
           </div>
           <div className="mt-4 sm:mt-0 flex flex-col sm:flex-row gap-2.5 justify-center">
-            <Link href="/ajuda">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full sm:w-auto border-zinc-700 text-xs text-white hover:bg-zinc-800 gap-1.5"
-              >
-                <span>Central de Ajuda</span>
-                <ArrowRight className="h-3.5 w-3.5 text-orange-400" />
-              </Button>
+            <Link
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors border bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:text-slate-900 hover:border-slate-300 dark:bg-slate-900/90 dark:text-slate-100 dark:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-white dark:hover:border-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+              href="/ajuda"
+            >
+              <span>Central de Ajuda</span>
+              <ArrowRight className="w-4 h-4 text-orange-500 dark:text-orange-400 shrink-0" />
             </Link>
             <a
               href="https://wa.me/5511988887777?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20o%20Acelera%20Auto%20CRM"
               target="_blank"
               rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
             >
-              <Button
-                size="sm"
-                className="w-full sm:w-auto bg-green-600 text-white hover:bg-green-500 text-xs gap-1.5"
-              >
-                <MessageCircle className="h-3.5 w-3.5" />
-                <span>Chamar no WhatsApp</span>
-              </Button>
+              <MessageCircle className="w-4 h-4 shrink-0" />
+              <span>Chamar no WhatsApp</span>
             </a>
           </div>
         </div>

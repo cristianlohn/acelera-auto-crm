@@ -33,6 +33,7 @@ import type { SubscriptionOverviewData } from "@/app/actions/billing-actions";
 export interface SubscriptionManagementCardProps {
   subscription: SubscriptionOverviewData;
   onChangePlan?: () => void;
+  onOpenChangePlan?: () => void;
   onPayOverdue?: () => void;
   className?: string;
 }
@@ -58,9 +59,11 @@ export function formatToDateBR(dateInput?: string | Date | null): string {
 export function SubscriptionManagementCard({
   subscription,
   onChangePlan,
+  onOpenChangePlan,
   onPayOverdue,
   className,
 }: SubscriptionManagementCardProps) {
+  const handleChangePlan = onOpenChangePlan || onChangePlan;
   const {
     planName,
     status,
@@ -306,9 +309,9 @@ export function SubscriptionManagementCard({
             </Button>
           )}
 
-          {onChangePlan && (
+          {handleChangePlan && (
             <Button
-              onClick={onChangePlan}
+              onClick={handleChangePlan}
               variant={status === "overdue" ? "outline" : "default"}
               data-testid="btn-change-plan"
               className={cn(

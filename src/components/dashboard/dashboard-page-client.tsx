@@ -7,7 +7,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { ChevronRight, LayoutDashboard, UserCheck, Shield } from "lucide-react";
+import { ChevronRight, LayoutDashboard, UserCheck, ShieldCheck } from "lucide-react";
 import { useDemoRole } from "@/context/demo-role-context";
 import { normalizeRole, type NormalizedRole } from "@/lib/permissions";
 import type { ManagerCockpitMetrics } from "@/lib/crm/analytics";
@@ -79,30 +79,28 @@ export function DashboardPageClient({
   return (
     <div className="flex-1 space-y-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
       {/* Cabeçalho Executivo */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-white/10 pb-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              Cockpit do Gestor
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Cockpit Geral
             </h1>
-            <span className="rounded-full bg-orange-500/20 border border-orange-500/30 px-2.5 py-0.5 text-xs font-bold text-orange-400 flex items-center gap-1">
-              <Shield className="h-3.5 w-3.5" />
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60">
+              <ShieldCheck className="w-3.5 h-3.5" />
               Visão Executiva
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Monitoramento em tempo real de pipeline comercial, estouro de SLAs e distribuição da Roleta.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <Link
-            href="/leads"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 px-3.5 py-2 text-xs font-bold text-white transition-all shadow-sm"
-          >
-            <span>Abrir Funil Kanban</span>
-            <ChevronRight className="h-4 w-4" />
-          </Link>
+        {/* Ações contextuais ou data/hora de sincronização (remover caixas vazias) */}
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Tempo real
+          </span>
         </div>
       </div>
 

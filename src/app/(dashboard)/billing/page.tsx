@@ -25,10 +25,13 @@ import {
   ArrowRight,
   AlertCircle,
   Zap,
+  Building2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BillingCheckoutDialog } from "@/components/billing/billing-checkout-dialog";
 import { SubscriptionManagementCard } from "@/components/billing/subscription-management-card";
+import { SubscriptionInvoicesTable } from "@/components/billing/subscription-invoices-table";
+import { ChangePlanModal } from "@/components/billing/change-plan-modal";
 import { cn } from "@/lib/utils";
 import { useDemoRole } from "@/context/demo-role-context";
 import { normalizeRole, canManageIntegrationsAndBilling } from "@/lib/permissions";
@@ -115,6 +118,7 @@ function BillingContent() {
 
   const [billingCycle, setBillingCycle] = useState<"mensal" | "anual">("mensal");
   const [isCheckoutDialogOpen, setIsCheckoutDialogOpen] = useState(false);
+  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
   const [selectedPlanDetails, setSelectedPlanDetails] = useState<{
     id: string;
     name: string;
@@ -156,6 +160,7 @@ function BillingContent() {
   }, []);
 
   const isAnnual = billingCycle === "anual";
+  const isSubscriber = subscriptionOverview?.status === "active";
 
   if (!isDemoMode && !canManageBilling) {
     return (
@@ -196,6 +201,7 @@ function BillingContent() {
           planName={selectedPlanDetails.name}
           planPrice={selectedPlanDetails.price}
           billingCycle={billingCycle}
+          cycle={billingCycle === "anual" ? "YEARLY" : "MONTHLY"}
           initialData={initialBillingData}
         />
       )}
@@ -216,196 +222,276 @@ function BillingContent() {
           </div>
         )}
 
-        {/* Cockpit de Gestão de Assinatura Ativa / Trial / Vencida */}
-        {subscriptionOverview &&
-          (subscriptionOverview.status === "active" ||
-            subscriptionOverview.status === "trialing" ||
-            subscriptionOverview.status === "overdue") && (
+        {/* VISÃO CONDICIONAL: Assinante Ativo vs. Trial / Pendente */}
+        {isSubscriber && subscriptionOverview ? (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
+            {/* Cockpit de Gestão de Assinatura */}
             <SubscriptionManagementCard
               subscription={subscriptionOverview}
-              onChangePlan={() => {
-                document.getElementById("plans-section")?.scrollIntoView({ behavior: "smooth" });
-              }}
+              onChangePlan={() => setIsPlanModalOpen(true)}
+              onOpenChangePlan={() => setIsPlanModalOpen(true)}
               onPayOverdue={() => handleOpenCheckout(subscriptionOverview.planId)}
             />
-          )}
 
-        {/* Cabeçalho Condicional: Paywall Expirado vs Gestão de Faturamento */}
-        <div id="plans-section" className="text-center max-w-3xl mx-auto space-y-3">
-          {isExpired ? (
-            <div className="space-y-2 animate-in fade-in slide-in-from-top-4">
-              <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-950/40 px-3.5 py-1 text-xs font-bold text-red-400">
-                <AlertCircle className="h-4 w-4" />
-                <span>Período de Testes Expirado</span>
+            {/* Tabela de Histórico de Faturas */}
+            <SubscriptionInvoicesTable
+              organizationId={subscriptionOverview.asaasSubscriptionId || undefined}
+            />
+
+            {/* Rodapé: Dados Cadastrais de Cobrança da Loja */}
+            <div
+              data-testid="billing-customer-info-card"
+              className="rounded-2xl border border-white/10 bg-[#121218]/80 p-5 sm:p-6 shadow-xl backdrop-blur-sm space-y-4"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      Dados Cadastrais de Cobrança
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Informações fiscais vinculadas ao gateway de pagamentos para emissão de comprovantes.
+                    </p>
+                  </div>
+                </div>
               </div>
-              <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-                Seu período de teste grátis chegou ao fim
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-400">
-                Para continuar recebendo leads na roleta e acelerando suas vendas sem interrupções, selecione seu plano abaixo.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-950/40 px-3.5 py-1 text-xs font-bold text-orange-400">
-                <Sparkles className="h-4 w-4" />
-                <span>Gestão de Planos & Assinatura</span>
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-                Escolha o plano ideal para a sua concessionária
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-400">
-                Aumente a capacidade da sua equipe e acelere a conversão de leads com ferramentas profissionais.
-              </p>
-            </div>
-          )}
 
-          {/* Toggle Mensal / Anual */}
-          <div className="pt-4 flex items-center justify-center">
-            <div className="relative inline-flex items-center rounded-full bg-zinc-900 p-1 border border-white/10 shadow-inner">
-              <button
-                type="button"
-                onClick={() => setBillingCycle("mensal")}
-                className={cn(
-                  "px-5 py-2 text-xs sm:text-sm font-semibold rounded-full transition-all",
-                  !isAnnual
-                    ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md"
-                    : "text-zinc-400 hover:text-white"
-                )}
-              >
-                Mensal
-              </button>
-              <button
-                type="button"
-                onClick={() => setBillingCycle("anual")}
-                className={cn(
-                  "px-5 py-2 text-xs sm:text-sm font-semibold rounded-full transition-all flex items-center gap-1.5",
-                  isAnnual
-                    ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md"
-                    : "text-zinc-400 hover:text-white"
-                )}
-              >
-                <span>Anual</span>
-                <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold uppercase">
-                  2 Meses Grátis
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Grade de Planos */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-          {plans.map((plan) => {
-            const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
-
-            return (
-              <div
-                key={plan.id}
-                className={cn(
-                  "relative flex flex-col justify-between rounded-3xl p-6 sm:p-8 transition-all duration-300",
-                  plan.popular
-                    ? "border-2 border-orange-500 bg-gradient-to-b from-orange-950/30 via-[#131118] to-[#09090b] shadow-2xl shadow-orange-950/40 scale-[1.02]"
-                    : "border border-white/10 bg-[#121218]/80 hover:border-white/20"
-                )}
-              >
-                {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-orange-500 to-red-600 px-3.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-md">
-                    {plan.badge}
-                  </div>
-                )}
-
-                <div>
-                  <h3 className="text-lg font-bold text-white">{plan.name}</h3>
-                  <p className="mt-1 text-xs text-zinc-400 min-h-[32px]">{plan.description}</p>
-
-                  {/* Capacidade */}
-                  <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-orange-300 border border-orange-500/20">
-                    <Zap className="h-3.5 w-3.5 text-orange-400" />
-                    <span>{plan.sellersLimit}</span>
-                  </div>
-
-                  {/* Preço */}
-                  <div className="mt-6">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl sm:text-4xl font-black text-white">
-                        R$ {price.toLocaleString("pt-BR")}
-                      </span>
-                      <span className="text-xs text-zinc-400">
-                        {isAnnual ? "/ano" : "/mês"}
-                      </span>
-                    </div>
-                    {isAnnual && (
-                      <p className="mt-1 text-[11px] font-medium text-emerald-400">
-                        Equivale a R$ {Math.round(price / 12).toLocaleString("pt-BR")}/mês
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Benefícios */}
-                  <ul className="mt-6 space-y-3 text-xs text-zinc-300">
-                    {plan.features.map((feat, idx) => (
-                      <li key={idx} className="flex items-start gap-2.5">
-                        <Check className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{feat}</span>
-                      </li>
-                    ))}
-                  </ul>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1 text-sm">
+                <div className="rounded-xl border border-white/5 bg-zinc-950/40 p-4 space-y-1">
+                  <span className="text-xs font-medium text-zinc-400">Razão Social / Loja</span>
+                  <p className="font-semibold text-white truncate">
+                    {initialBillingData?.name || "Concessionária Acelera Auto"}
+                  </p>
                 </div>
 
-                {/* Ação de Contratação */}
-                <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
-                  <Button
+                <div className="rounded-xl border border-white/5 bg-zinc-950/40 p-4 space-y-1">
+                  <span className="text-xs font-medium text-zinc-400">CNPJ / CPF</span>
+                  <p className="font-semibold text-white">
+                    {initialBillingData?.document || "Não informado"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-white/5 bg-zinc-950/40 p-4 space-y-1">
+                  <span className="text-xs font-medium text-zinc-400">E-mail Financeiro</span>
+                  <p className="font-semibold text-white truncate">
+                    {initialBillingData?.email || "financeiro@concessionaria.com.br"}
+                  </p>
+                  <p className="text-[10px] text-zinc-500">Destinatário oficial dos comprovantes</p>
+                </div>
+              </div>
+
+              <div className="pt-2 text-xs text-zinc-500 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span>Para atualizar seus dados fiscais ou CNPJ de faturamento, acione o suporte financeiro.</span>
+              </div>
+            </div>
+
+            {/* Modal de Troca de Plano / Upgrade */}
+            <ChangePlanModal
+              isOpen={isPlanModalOpen}
+              onClose={() => setIsPlanModalOpen(false)}
+              currentPlan={subscriptionOverview.planId}
+              onSelectPlan={(newPlanId) => {
+                handleOpenCheckout(newPlanId);
+              }}
+            />
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Cockpit de Gestão para Trial ou Vencida */}
+            {subscriptionOverview &&
+              (subscriptionOverview.status === "trialing" ||
+                subscriptionOverview.status === "overdue") && (
+                <SubscriptionManagementCard
+                  subscription={subscriptionOverview}
+                  onChangePlan={() => {
+                    document.getElementById("plans-section")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  onPayOverdue={() => handleOpenCheckout(subscriptionOverview.planId)}
+                />
+              )}
+
+            {/* Cabeçalho: Paywall Expirado vs Gestão de Faturamento */}
+            <div id="plans-section" className="text-center max-w-3xl mx-auto space-y-3">
+              {isExpired ? (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-4">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-950/40 px-3.5 py-1 text-xs font-bold text-red-400">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>Período de Testes Expirado</span>
+                  </div>
+                  <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+                    Seu período de teste grátis chegou ao fim
+                  </h1>
+                  <p className="text-xs sm:text-sm text-zinc-400">
+                    Para continuar recebendo leads na roleta e acelerando suas vendas sem interrupções, selecione seu plano abaixo.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-950/40 px-3.5 py-1 text-xs font-bold text-orange-400">
+                    <Sparkles className="h-4 w-4" />
+                    <span>Gestão de Planos & Assinatura</span>
+                  </div>
+                  <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+                    Escolha o plano ideal para a sua concessionária
+                  </h1>
+                  <p className="text-xs sm:text-sm text-zinc-400">
+                    Aumente a capacidade da sua equipe e acelere a conversão de leads com ferramentas profissionais.
+                  </p>
+                </div>
+              )}
+
+              {/* Toggle Mensal / Anual */}
+              <div className="pt-4 flex items-center justify-center">
+                <div className="relative inline-flex items-center rounded-full bg-zinc-900 p-1 border border-white/10 shadow-inner">
+                  <button
                     type="button"
-                    onClick={() => handleOpenCheckout(plan.id)}
-                    data-testid={plan.id === "pro" ? "subscribe-pro-btn" : `btn-subscribe-${plan.id}`}
+                    onClick={() => setBillingCycle("mensal")}
                     className={cn(
-                      "w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-lg transition-all",
-                      plan.popular
-                        ? "bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-orange-500/25"
-                        : "bg-white/10 hover:bg-white/15 text-white"
+                      "px-5 py-2 text-xs sm:text-sm font-semibold rounded-full transition-all",
+                      !isAnnual
+                        ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md"
+                        : "text-zinc-400 hover:text-white"
                     )}
                   >
-                    <span>{`Assinar ${plan.name}`}</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                  <p className="text-center text-[10px] text-zinc-500 flex items-center justify-center gap-1">
-                    <Lock className="h-3 w-3" />
-                    <span>Pagamento Seguro Asaas (Pix ou Cartão)</span>
+                    Mensal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillingCycle("anual")}
+                    className={cn(
+                      "px-5 py-2 text-xs sm:text-sm font-semibold rounded-full transition-all flex items-center gap-1.5",
+                      isAnnual
+                        ? "bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md"
+                        : "text-zinc-400 hover:text-white"
+                    )}
+                  >
+                    <span>Anual</span>
+                    <span className="rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold uppercase">
+                      2 Meses Grátis
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Grade de Planos */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+              {plans.map((plan) => {
+                const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
+
+                return (
+                  <div
+                    key={plan.id}
+                    className={cn(
+                      "relative flex flex-col justify-between rounded-3xl p-6 sm:p-8 transition-all duration-300",
+                      plan.popular
+                        ? "border-2 border-orange-500 bg-gradient-to-b from-orange-950/30 via-[#131118] to-[#09090b] shadow-2xl shadow-orange-950/40 scale-[1.02]"
+                        : "border border-white/10 bg-[#121218]/80 hover:border-white/20"
+                    )}
+                  >
+                    {plan.badge && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-orange-500 to-red-600 px-3.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white shadow-md">
+                        {plan.badge}
+                      </div>
+                    )}
+
+                    <div>
+                      <h3 className="text-lg font-bold text-white">{plan.name}</h3>
+                      <p className="mt-1 text-xs text-zinc-400 min-h-[32px]">{plan.description}</p>
+
+                      {/* Capacidade */}
+                      <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-orange-300 border border-orange-500/20">
+                        <Zap className="h-3.5 w-3.5 text-orange-400" />
+                        <span>{plan.sellersLimit}</span>
+                      </div>
+
+                      {/* Preço */}
+                      <div className="mt-6">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl sm:text-4xl font-black text-white">
+                            R$ {price.toLocaleString("pt-BR")}
+                          </span>
+                          <span className="text-xs text-zinc-400">
+                            {isAnnual ? "/ano" : "/mês"}
+                          </span>
+                        </div>
+                        {isAnnual && (
+                          <p className="mt-1 text-[11px] font-medium text-emerald-400">
+                            Equivale a R$ {Math.round(price / 12).toLocaleString("pt-BR")}/mês
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Benefícios */}
+                      <ul className="mt-6 space-y-3 text-xs text-zinc-300">
+                        {plan.features.map((feat, idx) => (
+                          <li key={idx} className="flex items-start gap-2.5">
+                            <Check className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                            <span>{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Ação de Contratação */}
+                    <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
+                      <Button
+                        type="button"
+                        onClick={() => handleOpenCheckout(plan.id)}
+                        data-testid={plan.id === "pro" ? "subscribe-pro-btn" : `btn-subscribe-${plan.id}`}
+                        className={cn(
+                          "w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-lg transition-all",
+                          plan.popular
+                            ? "bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-orange-500/25"
+                            : "bg-white/10 hover:bg-white/15 text-white"
+                        )}
+                      >
+                        <span>{`Assinar ${plan.name}`}</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                      <p className="text-center text-[10px] text-zinc-500 flex items-center justify-center gap-1">
+                        <Lock className="h-3 w-3" />
+                        <span>Pagamento Seguro Asaas (Pix ou Cartão)</span>
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Ambiente Seguro & Métodos de Pagamento */}
+            <div className="rounded-2xl border border-white/10 bg-[#121218]/50 p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-white">
+                    Ambiente Seguro • Ativação Imediata via Pix ou Cartão de Crédito
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    Faturamento transparente e liberação instantânea de todos os recursos processados via gateway Asaas.
                   </p>
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Ambiente Seguro & Métodos de Pagamento */}
-        <div className="rounded-2xl border border-white/10 bg-[#121218]/50 p-5 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white">
-                Ambiente Seguro • Ativação Imediata via Pix ou Cartão de Crédito
-              </p>
-              <p className="text-xs text-zinc-400">
-                Faturamento transparente e liberação instantânea de todos os recursos processados via gateway Asaas.
-              </p>
+              <div className="flex items-center gap-2.5 text-xs text-zinc-300 bg-white/5 border border-white/10 px-4 py-2 rounded-xl shrink-0">
+                <div className="flex items-center gap-1.5">
+                  <CreditCard className="h-4 w-4 text-orange-400" />
+                  <span>Cartão de Crédito</span>
+                </div>
+                <span className="text-zinc-600">•</span>
+                <div className="flex items-center gap-1.5 text-emerald-400">
+                  <QrCode className="h-4 w-4" />
+                  <span className="font-semibold">Pix Instantâneo</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2.5 text-xs text-zinc-300 bg-white/5 border border-white/10 px-4 py-2 rounded-xl shrink-0">
-            <div className="flex items-center gap-1.5">
-              <CreditCard className="h-4 w-4 text-orange-400" />
-              <span>Cartão de Crédito</span>
-            </div>
-            <span className="text-zinc-600">•</span>
-            <div className="flex items-center gap-1.5 text-emerald-400">
-              <QrCode className="h-4 w-4" />
-              <span className="font-semibold">Pix Instantâneo</span>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

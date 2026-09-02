@@ -66,7 +66,8 @@ export interface CreateSubscriptionParams {
   billingPhone?: string | null;
   currentAsaasCustomerId?: string | null;
   planId: string;
-  billingCycle?: "mensal" | "anual";
+  billingCycle?: "mensal" | "anual" | string;
+  cycle?: "MONTHLY" | "YEARLY" | string;
   name?: string;
   email?: string;
   phone?: string | null;
@@ -183,6 +184,62 @@ export async function getAsaasSubscriptionDetails(
     };
   } catch {
     return null;
+  }
+}
+
+export interface SubscriptionInvoice {
+  id: string;
+  dueDate: string;
+  paymentDate?: string | null;
+  value: number;
+  billingType: "PIX" | "BOLETO" | "CREDIT_CARD" | "UNDEFINED" | string;
+  status: "RECEIVED" | "CONFIRMED" | "PENDING" | "OVERDUE" | "REFUNDED" | string;
+  invoiceUrl?: string | null;
+  bankSlipUrl?: string | null;
+  receiptUrl?: string | null;
+}
+
+/**
+ * Consulta o histórico de cobranças/faturas associadas à assinatura ou cliente no Asaas.
+ */
+export async function getAsaasSubscriptionInvoices(
+  subscriptionId?: string | null,
+  customerId?: string | null
+): Promise<SubscriptionInvoice[]> {
+  if (!subscriptionId && !customerId) return [];
+
+  try {
+    const { apiUrl, apiKey } = getAsaasConfig();
+    const url = subscriptionId
+      ? `${apiUrl}/subscriptions/${subscriptionId}/payments?limit=15`
+      : `${apiUrl}/payments?customer=${customerId}&limit=15`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        access_token: apiKey,
+      },
+      signal: AbortSignal.timeout(4000),
+    });
+
+    if (!res.ok) return [];
+    const json = await res.json();
+    const items = Array.isArray(json.data) ? json.data : [];
+
+    return items.map((p: Record<string, unknown>) => ({
+      id: String(p.id || ""),
+      dueDate: String(p.dueDate || ""),
+      paymentDate: p.paymentDate ? String(p.paymentDate) : p.clientPaymentDate ? String(p.clientPaymentDate) : null,
+      value: Number(p.value || 0),
+      billingType: String(p.billingType || "PIX"),
+      status: String(p.status || "PENDING"),
+      invoiceUrl: p.invoiceUrl ? String(p.invoiceUrl) : p.bankSlipUrl ? String(p.bankSlipUrl) : null,
+      bankSlipUrl: p.bankSlipUrl ? String(p.bankSlipUrl) : null,
+      receiptUrl: p.transactionReceiptUrl ? String(p.transactionReceiptUrl) : null,
+    }));
+  } catch {
+    return [];
   }
 }
 
@@ -466,9 +523,18 @@ export async function createAsaasSubscription(
   try {
     const { apiUrl, apiKey } = getAsaasConfig();
     const plan = BILLING_PLANS_CONFIG[params.planId] || BILLING_PLANS_CONFIG.pro;
-    const isAnnual = params.billingCycle === "anual";
+    const rawCycle = (params.cycle || params.billingCycle || "mensal").toString();
+    const asaasCycle: "MONTHLY" | "YEARLY" =
+      rawCycle.toUpperCase() === "YEARLY" ||
+      rawCycle.toUpperCase() === "ANNUALLY" ||
+      rawCycle.toLowerCase() === "anual" ||
+      rawCycle.toLowerCase() === "annual" ||
+      rawCycle.toLowerCase() === "yearly"
+        ? "YEARLY"
+        : "MONTHLY";
+
+    const isAnnual = asaasCycle === "YEARLY";
     const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
-    const cycle = isAnnual ? "ANNUALLY" : "MONTHLY";
 
     // Data de vencimento: hoje + 1 dia (formato yyyy-MM-dd)
     const nextDueDate = new Date(Date.now() + 24 * 60 * 60 * 1000)
@@ -496,7 +562,7 @@ export async function createAsaasSubscription(
 
     // 2. Normaliza o nome do plano para evitar "Plano Plano"
     const cleanPlanName = plan.name.replace(/^Plano\s+/i, "");
-    const cycleLabel = params.billingCycle === "anual" ? "Anual" : "Mensal";
+    const cycleLabel = isAnnual ? "Anual" : "Mensal";
     const description = `Assinatura Plano ${cleanPlanName} (${cycleLabel})`;
 
     // 3. Cria a Assinatura via POST /v3/subscriptions
@@ -505,7 +571,7 @@ export async function createAsaasSubscription(
       billingType: "UNDEFINED", // Permite ao cliente escolher Pix, Cartão ou Boleto
       value: price,
       nextDueDate,
-      cycle,
+      cycle: asaasCycle,
       description,
       externalReference: params.organizationId,
     };

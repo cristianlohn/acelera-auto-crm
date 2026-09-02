@@ -13,9 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Building2,
@@ -41,7 +39,8 @@ export interface BillingCheckoutDialogProps {
   planId: string;
   planName: string;
   planPrice: number;
-  billingCycle: "mensal" | "anual";
+  billingCycle?: "mensal" | "anual" | "MONTHLY" | "YEARLY" | string;
+  cycle?: "MONTHLY" | "YEARLY" | "mensal" | "anual" | string;
   initialData?: {
     name?: string;
     email?: string;
@@ -55,7 +54,8 @@ interface BillingCheckoutFormProps {
   planId: string;
   planName: string;
   planPrice: number;
-  billingCycle: "mensal" | "anual";
+  billingCycle?: "mensal" | "anual" | "MONTHLY" | "YEARLY" | string;
+  cycle?: "MONTHLY" | "YEARLY" | "mensal" | "anual" | string;
   initialData?: BillingCheckoutDialogProps["initialData"];
   onCancel: () => void;
 }
@@ -65,9 +65,20 @@ function BillingCheckoutFormContent({
   planName,
   planPrice,
   billingCycle,
+  cycle,
   initialData,
   onCancel,
 }: BillingCheckoutFormProps) {
+  const selectedCycle = (cycle || billingCycle || "mensal").toString();
+  const resolvedCycle: "MONTHLY" | "YEARLY" =
+    selectedCycle.toLowerCase() === "anual" ||
+    selectedCycle.toLowerCase() === "annual" ||
+    selectedCycle.toLowerCase() === "annually" ||
+    selectedCycle.toLowerCase() === "yearly" ||
+    selectedCycle.toUpperCase() === "YEARLY"
+      ? "YEARLY"
+      : "MONTHLY";
+
   const defaultDocType: "CPF" | "CNPJ" =
     initialData?.documentType ||
     (initialData?.document && sanitizeDigits(initialData.document).length <= 11
@@ -136,7 +147,8 @@ function BillingCheckoutFormContent({
     try {
       const result = await createSubscriptionCheckoutAction({
         planId,
-        billingCycle,
+        billingCycle: resolvedCycle === "YEARLY" ? "anual" : "mensal",
+        cycle: resolvedCycle,
         documentType,
         document: cleanDoc,
         cpfCnpj: cleanDoc,
@@ -187,7 +199,7 @@ function BillingCheckoutFormContent({
           Você está assinando o <strong className="text-white">{planName}</strong> por{" "}
           <span className="text-emerald-400 font-bold">
             R$ {planPrice.toLocaleString("pt-BR")}
-            {billingCycle === "anual" ? "/ano" : "/mês"}
+            {resolvedCycle === "YEARLY" ? "/ano" : "/mês"}
           </span>
           .
         </DialogDescription>
@@ -314,40 +326,42 @@ function BillingCheckoutFormContent({
           </div>
         </div>
 
-        <DialogFooter className="pt-4 flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 sm:justify-end">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onCancel}
-            disabled={isSubmitting}
-            className="border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 text-xs h-11"
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            data-testid="checkout-confirm-btn"
-            className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-bold text-xs sm:text-sm h-11 gap-2 shadow-lg shadow-orange-500/20"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Gerando fatura no Asaas...</span>
-              </>
-            ) : (
-              <>
-                <span>Continuar para Pagamento Seguro</span>
-                <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </Button>
-        </DialogFooter>
+        {/* Rodapé da Modal: Ações e Aviso de Segurança (Sem Barra Cinza) */}
+        <div className="mt-6 flex flex-col gap-3">
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSubmitting}
+              className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors focus-visible:outline-none"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              data-testid="checkout-confirm-btn"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold bg-orange-600 hover:bg-orange-500 text-white shadow-lg transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Processando...</span>
+                </>
+              ) : (
+                <>
+                  <span>Continuar para Pagamento Seguro</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
 
-        <p className="text-center text-[10px] text-zinc-500 flex items-center justify-center gap-1.5 pt-1">
-          <Lock className="h-3 w-3" />
-          <span>Fatura oficial emitida com segurança pelo gateway Asaas (Pix / Cartão).</span>
-        </p>
+          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <Lock className="w-3.5 h-3.5" />
+            <span>Fatura oficial emitida com segurança pelo gateway Asaas (Pix / Cartão)</span>
+          </div>
+        </div>
       </form>
     </>
   );
@@ -360,6 +374,7 @@ export function BillingCheckoutDialog({
   planName,
   planPrice,
   billingCycle,
+  cycle,
   initialData,
 }: BillingCheckoutDialogProps) {
   return (
@@ -372,6 +387,7 @@ export function BillingCheckoutDialog({
             planName={planName}
             planPrice={planPrice}
             billingCycle={billingCycle}
+            cycle={cycle}
             initialData={initialData}
             onCancel={() => onOpenChange(false)}
           />

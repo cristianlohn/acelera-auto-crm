@@ -15,17 +15,30 @@
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import {
   getSubscriptionOverviewAction,
   createSubscriptionCheckoutAction,
+  type SubscriptionInvoice,
 } from "@/app/actions/billing-actions";
+import * as billingActions from "@/app/actions/billing-actions";
 import { getNavItemsForRole } from "@/components/layout/sidebar";
 import {
   SubscriptionManagementCard,
   formatToDateBR,
 } from "@/components/billing/subscription-management-card";
+import { SubscriptionInvoicesTable } from "@/components/billing/subscription-invoices-table";
+import { ChangePlanModal } from "@/components/billing/change-plan-modal";
+import BillingPage from "@/app/(dashboard)/billing/page";
 import * as tenantModule from "@/lib/auth/tenant";
+
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+  }),
+}));
 
 type MockProfile = NonNullable<tenantModule.TenantContextResult["profile"]>;
 type MockOrg = NonNullable<tenantModule.TenantContextResult["organization"]>;
@@ -246,6 +259,149 @@ describe("[UNIT-BILLING-MANAGEMENT] Governança RBAC e Cockpit de Assinatura", (
       expect(formatToDateBR("2026-10-15T23:59:59.999Z")).toBe("15/10/2026");
       expect(formatToDateBR(null)).toBe("--/--/----");
       expect(formatToDateBR(undefined)).toBe("--/--/----");
+    });
+  });
+
+  describe("4. Componente SubscriptionInvoicesTable", () => {
+    it("[TEST-BILL-INV-1] deve renderizar tabela de faturas com dados formatados e botão de comprovante", () => {
+      const mockInvoices: SubscriptionInvoice[] = [
+        {
+          id: "inv-1",
+          dueDate: "2026-09-15",
+          paymentDate: "2026-09-15",
+          value: 597,
+          billingType: "CREDIT_CARD",
+          status: "RECEIVED",
+          receiptUrl: "https://asaas.com/recibo/1",
+        },
+      ];
+
+      render(<SubscriptionInvoicesTable initialInvoices={mockInvoices} />);
+
+      expect(screen.getByText("Histórico de Faturas & Pagamentos")).toBeInTheDocument();
+      expect(screen.getByText("15/09/2026")).toBeInTheDocument();
+      expect(screen.getByText(/r\$\s*597,00/i)).toBeInTheDocument();
+      expect(screen.getByText("Cartão")).toBeInTheDocument();
+      expect(screen.getByText("Pago")).toBeInTheDocument();
+      expect(screen.getByText(/pdf \/ recibo/i)).toBeInTheDocument();
+    });
+
+    it("[TEST-BILL-INV-2] deve exibir empty state amigável quando não houver faturas registradas", () => {
+      render(<SubscriptionInvoicesTable initialInvoices={[]} />);
+
+      expect(screen.getByTestId("invoices-empty-state")).toBeInTheDocument();
+      expect(screen.getByText(/nenhuma fatura anterior registrada/i)).toBeInTheDocument();
+    });
+  });
+
+  describe("5. Componente ChangePlanModal", () => {
+    it("[TEST-BILL-MODAL-1] deve exibir plano atual com badge e botão desabilitado, e botão de upgrade para planos superiores", () => {
+      const selectSpy = vi.fn();
+      render(
+        <ChangePlanModal
+          isOpen={true}
+          onClose={vi.fn()}
+          currentPlan="pro"
+          onSelectPlan={selectSpy}
+        />
+      );
+
+      expect(screen.getByText("Trocar de Plano ou Fazer Upgrade")).toBeInTheDocument();
+      expect(screen.getByTestId("badge-current-plan")).toBeInTheDocument();
+      expect(screen.getByTestId("btn-current-pro")).toBeDisabled();
+
+      const upgradeBtn = screen.getByTestId("btn-upgrade-enterprise");
+      expect(upgradeBtn).toHaveTextContent(/fazer upgrade/i);
+      fireEvent.click(upgradeBtn);
+      expect(selectSpy).toHaveBeenCalledWith("enterprise");
+    });
+  });
+
+  describe("6. Renderização Condicional da Página de Faturamento (BillingPage)", () => {
+    it("[TEST-BILL-COND-1] deve confirmar que a vitrine de planos NÃO é renderizada quando subscription_status === 'active'", async () => {
+      vi.spyOn(billingActions, "getSubscriptionOverviewAction").mockResolvedValue({
+        success: true,
+        data: {
+          planId: "pro",
+          planName: "Plano Pro",
+          status: "active",
+          billingCycle: "mensal",
+          price: 597,
+          nextDueDate: "2026-10-15T23:59:59.999Z",
+          daysRemaining: 20,
+          paymentMethod: { type: "credit_card", brand: "Visa", last4: "1234" },
+        },
+      });
+
+      vi.spyOn(billingActions, "getBillingInitialDataAction").mockResolvedValue({
+        success: true,
+        data: {
+          name: "Auto Prime Motors",
+          email: "financeiro@autoprime.com.br",
+          phone: "11988887777",
+          document: "12.345.678/0001-90",
+          documentType: "CNPJ",
+        },
+      });
+
+      render(<BillingPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("subscription-management-card")).toBeInTheDocument();
+      });
+
+      // NÃO deve exibir a vitrine pública de planos
+      expect(screen.queryByText(/escolha o plano ideal para a sua concessionária/i)).not.toBeInTheDocument();
+      expect(screen.queryByTestId("subscribe-pro-btn")).not.toBeInTheDocument();
+    });
+
+    it("[TEST-BILL-COND-2] deve confirmar que a tabela de faturas e dados de cobrança são renderizados para assinante ativo", async () => {
+      vi.spyOn(billingActions, "getSubscriptionOverviewAction").mockResolvedValue({
+        success: true,
+        data: {
+          planId: "pro",
+          planName: "Plano Pro",
+          status: "active",
+          billingCycle: "mensal",
+          price: 597,
+          nextDueDate: "2026-10-15T23:59:59.999Z",
+          daysRemaining: 20,
+        },
+      });
+
+      vi.spyOn(billingActions, "getSubscriptionInvoicesAction").mockResolvedValue({
+        success: true,
+        data: [],
+      });
+
+      render(<BillingPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("subscription-invoices-table")).toBeInTheDocument();
+        expect(screen.getByTestId("billing-customer-info-card")).toBeInTheDocument();
+      });
+    });
+
+    it("[TEST-BILL-COND-3] deve confirmar que a vitrine de planos PERMANECE visível quando em 'trialing' ou sem assinatura", async () => {
+      vi.spyOn(billingActions, "getSubscriptionOverviewAction").mockResolvedValue({
+        success: true,
+        data: {
+          planId: "pro",
+          planName: "Plano Pro",
+          status: "trialing",
+          billingCycle: "mensal",
+          price: 597,
+          nextDueDate: "2026-09-10T23:59:59.999Z",
+          daysRemaining: 7,
+        },
+      });
+
+      render(<BillingPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/escolha o plano ideal para a sua concessionária/i)).toBeInTheDocument();
+        expect(screen.getByTestId("subscribe-pro-btn")).toBeInTheDocument();
+      });
     });
   });
 });

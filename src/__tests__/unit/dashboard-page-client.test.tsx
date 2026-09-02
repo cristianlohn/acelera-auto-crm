@@ -70,7 +70,7 @@ describe("[UT-COCKPIT-RBAC] Renderização Condicional do Cockpit por Papel (Ven
     );
 
     // Deve exibir elementos executivos do gestor
-    expect(screen.getByRole("heading", { level: 1, name: "Cockpit do Gestor" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /cockpit (geral|do gestor)/i })).toBeInTheDocument();
     expect(screen.getByText(/visão executiva/i)).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /quem está deixando dinheiro na mesa\?/i })
