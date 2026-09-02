@@ -67,6 +67,10 @@ export interface CreateSubscriptionParams {
   currentAsaasCustomerId?: string | null;
   planId: string;
   billingCycle?: "mensal" | "anual";
+  name?: string;
+  email?: string;
+  phone?: string | null;
+  cpfCnpj?: string | null;
 }
 
 export interface CreateSubscriptionResult {
@@ -108,15 +112,71 @@ function getAsaasConfig(): { apiUrl: string; apiKey: string } {
 }
 
 /**
- * Cria ou recupera o ID de cliente real no Asaas.
+ * Busca cliente existente no Asaas pelo número de CPF ou CNPJ.
+ */
+export async function findCustomerByCpfCnpj(
+  cpfCnpj?: string | null
+): Promise<{ id: string; name?: string; email?: string; phone?: string } | null> {
+  if (!cpfCnpj) return null;
+  const cleanDoc = cpfCnpj.replace(/\D/g, "");
+  if (!cleanDoc) return null;
+
+  try {
+    const { apiUrl, apiKey } = getAsaasConfig();
+    const res = await fetch(
+      `${apiUrl}/customers?cpfCnpj=${encodeURIComponent(cleanDoc)}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          access_token: apiKey,
+        },
+      }
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+        return {
+          id: data.data[0].id,
+          name: data.data[0].name,
+          email: data.data[0].email,
+          phone: data.data[0].phone || data.data[0].mobilePhone,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[Asaas findCustomerByCpfCnpj] Falha ao consultar cliente por CPF/CNPJ:", err);
+  }
+
+  return null;
+}
+
+/**
+ * Cria ou recupera o ID de cliente real no Asaas realizando Upsert:
+ * Se o cliente já existir (por CPF/CNPJ, ID, externalReference ou e-mail),
+ * atualiza seus dados via PUT /customers/{id} com o nome, e-mail e telefone informados no formulário.
  */
 export async function createOrGetAsaasCustomer(
   input: AsaasCustomerInput
 ): Promise<{ customerId: string }> {
   const { apiUrl, apiKey } = getAsaasConfig();
 
-  // 1. Se já tiver customer ID salvo no banco, valida se ele existe no Asaas
-  if (input.currentAsaasCustomerId && input.currentAsaasCustomerId.startsWith("cus_")) {
+  const rawName = (input.billingName || input.name || "Concessionária Acelera Auto").trim();
+  const rawEmail = (input.billingEmail || input.email || "contato@aceleraautocrm.com.br").trim();
+  const rawPhone = (input.billingPhone || input.phone || "").trim();
+  const cleanPhone = rawPhone ? rawPhone.replace(/\D/g, "") : undefined;
+  const rawDoc = (input.document || "").replace(/\D/g, "");
+
+  // 1. Busca prioritária por CPF/CNPJ no Asaas
+  let existingCustomer = rawDoc ? await findCustomerByCpfCnpj(rawDoc) : null;
+
+  // 2. Se não encontrou por CPF/CNPJ, valida se já possui customer ID salvo
+  if (
+    !existingCustomer &&
+    input.currentAsaasCustomerId &&
+    input.currentAsaasCustomerId.startsWith("cus_")
+  ) {
     try {
       const checkRes = await fetch(`${apiUrl}/customers/${input.currentAsaasCustomerId}`, {
         method: "GET",
@@ -129,7 +189,12 @@ export async function createOrGetAsaasCustomer(
       if (checkRes.ok) {
         const checkData = await checkRes.json();
         if (checkData.id) {
-          return { customerId: checkData.id };
+          existingCustomer = {
+            id: checkData.id,
+            name: checkData.name,
+            email: checkData.email,
+            phone: checkData.phone,
+          };
         }
       }
     } catch (err) {
@@ -137,34 +202,41 @@ export async function createOrGetAsaasCustomer(
     }
   }
 
-  // 2. Busca por externalReference no Asaas
-  try {
-    const searchRes = await fetch(
-      `${apiUrl}/customers?externalReference=${encodeURIComponent(input.organizationId)}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          access_token: apiKey,
-        },
-      }
-    );
+  // 3. Se não achou, busca por externalReference no Asaas
+  if (!existingCustomer && input.organizationId) {
+    try {
+      const searchRes = await fetch(
+        `${apiUrl}/customers?externalReference=${encodeURIComponent(input.organizationId)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            access_token: apiKey,
+          },
+        }
+      );
 
-    if (searchRes.ok) {
-      const searchData = await searchRes.json();
-      if (searchData.data && searchData.data.length > 0) {
-        return { customerId: searchData.data[0].id };
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        if (searchData.data && searchData.data.length > 0) {
+          existingCustomer = {
+            id: searchData.data[0].id,
+            name: searchData.data[0].name,
+            email: searchData.data[0].email,
+            phone: searchData.data[0].phone,
+          };
+        }
       }
+    } catch (err) {
+      console.warn("[Asaas Customer Lookup] Falha ao buscar cliente por externalReference:", err);
     }
-  } catch (err) {
-    console.warn("[Asaas Customer Lookup] Falha ao buscar cliente por externalReference:", err);
   }
 
-  // 3. Busca por email no Asaas
-  if (input.email) {
+  // 4. Se não achou, busca por email no Asaas
+  if (!existingCustomer && rawEmail) {
     try {
       const emailSearchRes = await fetch(
-        `${apiUrl}/customers?email=${encodeURIComponent(input.email.trim())}`,
+        `${apiUrl}/customers?email=${encodeURIComponent(rawEmail)}`,
         {
           method: "GET",
           headers: {
@@ -177,7 +249,12 @@ export async function createOrGetAsaasCustomer(
       if (emailSearchRes.ok) {
         const emailData = await emailSearchRes.json();
         if (emailData.data && emailData.data.length > 0) {
-          return { customerId: emailData.data[0].id };
+          existingCustomer = {
+            id: emailData.data[0].id,
+            name: emailData.data[0].name,
+            email: emailData.data[0].email,
+            phone: emailData.data[0].phone,
+          };
         }
       }
     } catch (err) {
@@ -185,57 +262,124 @@ export async function createOrGetAsaasCustomer(
     }
   }
 
-  // 4. Criação de novo cliente no Asaas
-  const rawName = input.billingName || input.name || "Concessionária Acelera Auto";
-  const rawEmail = input.billingEmail || input.email || "contato@aceleraautocrm.com.br";
-  const rawPhone = input.billingPhone || input.phone;
-  const cleanPhone = rawPhone ? rawPhone.replace(/\D/g, "") : undefined;
-  const rawDoc = input.document ? input.document.replace(/\D/g, "") : "";
-  const isSandboxOrDev =
-    process.env.NODE_ENV === "development" ||
-    process.env.NODE_ENV === "test" ||
-    apiUrl.includes("sandbox.asaas.com");
+  let customerId: string;
 
-  let cpfCnpj: string | undefined = rawDoc || undefined;
-  if (!cpfCnpj) {
-    if (isSandboxOrDev) {
-      cpfCnpj = "00000000000191"; // CNPJ válido para testes em Sandbox
-    } else {
-      throw new Error(
-        "Cadastre o CNPJ ou CPF da concessionária nas Configurações da Loja antes de assinar um plano."
-      );
+  if (existingCustomer) {
+    customerId = existingCustomer.id;
+
+    // Atualiza os dados no Asaas via PUT /customers/{id} para refletir exatamente o que o usuário preencheu agora
+    try {
+      const updatePayload: Record<string, unknown> = {
+        name: rawName,
+        email: rawEmail,
+        company: rawName,
+      };
+      if (cleanPhone) {
+        updatePayload.phone = cleanPhone;
+        updatePayload.mobilePhone = cleanPhone;
+      }
+      if (rawDoc) {
+        updatePayload.cpfCnpj = rawDoc;
+      }
+      if (input.organizationId) {
+        updatePayload.externalReference = input.organizationId;
+      }
+
+      const updateRes = await fetch(`${apiUrl}/customers/${customerId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          access_token: apiKey,
+        },
+        body: JSON.stringify(updatePayload),
+      });
+
+      if (!updateRes.ok) {
+        const errJson = await updateRes.json().catch(() => ({}));
+        console.warn("[Asaas Customer Update Warning] Falha ao atualizar dados do cliente via PUT:", errJson);
+      } else {
+        console.log(`[Asaas Customer Update] Cliente ${customerId} atualizado com sucesso no Asaas:`, {
+          name: rawName,
+          email: rawEmail,
+        });
+      }
+    } catch (updateErr) {
+      console.warn("[Asaas Customer Update Error]", updateErr);
     }
+  } else {
+    // 5. Criação de novo cliente no Asaas
+    const isSandboxOrDev =
+      process.env.NODE_ENV === "development" ||
+      process.env.NODE_ENV === "test" ||
+      apiUrl.includes("sandbox.asaas.com");
+
+    let cpfCnpj: string | undefined = rawDoc || undefined;
+    if (!cpfCnpj) {
+      if (isSandboxOrDev) {
+        cpfCnpj = "00000000000191"; // CNPJ válido para testes em Sandbox
+      } else {
+        throw new Error(
+          "Cadastre o CNPJ ou CPF da concessionária nas Configurações da Loja antes de assinar um plano."
+        );
+      }
+    }
+
+    const payload = {
+      name: rawName,
+      email: rawEmail,
+      phone: cleanPhone || undefined,
+      mobilePhone: cleanPhone || undefined,
+      cpfCnpj,
+      company: rawName,
+      externalReference: input.organizationId,
+      notificationDisabled: false,
+    };
+
+    const createRes = await fetch(`${apiUrl}/customers`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        access_token: apiKey,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!createRes.ok) {
+      const errData = await createRes.json().catch(() => ({}));
+
+      // Caso falhe porque o cliente já existe, tenta recuperar por CPF/CNPJ e atualizar via PUT
+      if (cpfCnpj) {
+        const fallbackExisting = await findCustomerByCpfCnpj(cpfCnpj);
+        if (fallbackExisting) {
+          await fetch(`${apiUrl}/customers/${fallbackExisting.id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              access_token: apiKey,
+            },
+            body: JSON.stringify({
+              name: rawName,
+              email: rawEmail,
+              phone: cleanPhone || undefined,
+              mobilePhone: cleanPhone || undefined,
+              company: rawName,
+            }),
+          }).catch(() => {});
+          return { customerId: fallbackExisting.id };
+        }
+      }
+
+      const errMsg =
+        errData?.errors?.[0]?.description ||
+        `Erro ao cadastrar cliente no Asaas (HTTP ${createRes.status})`;
+      throw new Error(errMsg);
+    }
+
+    const createdData = await createRes.json();
+    customerId = createdData.id;
   }
 
-  const payload = {
-    name: rawName,
-    email: rawEmail,
-    phone: cleanPhone || undefined,
-    mobilePhone: cleanPhone || undefined,
-    cpfCnpj,
-    externalReference: input.organizationId,
-    notificationDisabled: false,
-  };
-
-  const createRes = await fetch(`${apiUrl}/customers`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      access_token: apiKey,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!createRes.ok) {
-    const errData = await createRes.json().catch(() => ({}));
-    const errMsg =
-      errData?.errors?.[0]?.description ||
-      `Erro ao cadastrar cliente no Asaas (HTTP ${createRes.status})`;
-    throw new Error(errMsg);
-  }
-
-  const createdData = await createRes.json();
-  return { customerId: createdData.id };
+  return { customerId };
 }
 
 /**
@@ -256,28 +400,38 @@ export async function createAsaasSubscription(
       .toISOString()
       .split("T")[0];
 
-    // 1. Garante a existência do cliente no Asaas
+    // 1. Garante a existência do cliente no Asaas e atualiza os dados para refletir o formulário
+    const rawName = params.billingName || params.name || params.organizationName;
+    const rawEmail = params.billingEmail || params.email || params.organizationEmail;
+    const rawPhone = params.billingPhone || params.phone || params.organizationPhone;
+    const rawDoc = params.cpfCnpj || params.organizationDocument;
+
     const { customerId } = await createOrGetAsaasCustomer({
       organizationId: params.organizationId,
-      name: params.billingName || params.organizationName,
-      email: params.billingEmail || params.organizationEmail,
-      phone: params.billingPhone || params.organizationPhone,
-      document: params.organizationDocument,
+      name: rawName,
+      email: rawEmail,
+      phone: rawPhone,
+      document: rawDoc,
       documentType: params.documentType,
-      billingName: params.billingName,
-      billingEmail: params.billingEmail,
-      billingPhone: params.billingPhone,
+      billingName: rawName,
+      billingEmail: rawEmail,
+      billingPhone: rawPhone,
       currentAsaasCustomerId: params.currentAsaasCustomerId,
     });
 
-    // 2. Cria a Assinatura via POST /v3/subscriptions
+    // 2. Normaliza o nome do plano para evitar "Plano Plano"
+    const cleanPlanName = plan.name.replace(/^Plano\s+/i, "");
+    const cycleLabel = params.billingCycle === "anual" ? "Anual" : "Mensal";
+    const description = `Assinatura Plano ${cleanPlanName} (${cycleLabel})`;
+
+    // 3. Cria a Assinatura via POST /v3/subscriptions
     const subPayload = {
       customer: customerId,
       billingType: "UNDEFINED", // Permite ao cliente escolher Pix, Cartão ou Boleto
       value: price,
       nextDueDate,
       cycle,
-      description: `Assinatura Plano ${plan.name} (${params.billingCycle === "anual" ? "Anual" : "Mensal"})`,
+      description,
       externalReference: params.organizationId,
     };
 

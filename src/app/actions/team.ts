@@ -264,6 +264,7 @@ export async function inviteTeamMember(
           redirectTo,
           data: {
             full_name: input.fullName.trim(),
+            organization_id: orgId,
             phone: input.phone.replace(/\D/g, ""),
             role: input.role || "vendedor",
           },

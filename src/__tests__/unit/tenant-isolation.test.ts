@@ -226,4 +226,172 @@ describe("[IT-TENANT] Isolamento Estrito de Tenant (Demo vs Usuários Reais)", (
     expect(context.organizationId).toBeNull();
     expect(context.needsOnboarding).toBe(false);
   });
+
+  it("[IT-TENANT.6] Usuário Convidado: herda organization_id da loja convidante e NUNCA cria nova organização", async () => {
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+    mockCookieStore.get.mockReturnValue(undefined);
+
+    const mockUser = {
+      id: "vendedor_convidado_123",
+      email: "vendedor.cris@acelera.com.br",
+      user_metadata: {
+        full_name: "Cris Test of",
+        organization_id: "org-loja-mae-001",
+        role: "seller",
+      },
+    };
+
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: mockUser },
+          error: null,
+        }),
+      },
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      })),
+    };
+
+    const mockInsertOrg = vi.fn();
+    const mockUpsertProfile = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: "vendedor_convidado_123",
+            organization_id: "org-loja-mae-001",
+            full_name: "Cris Test of",
+            role: "seller",
+          },
+        }),
+      }),
+    });
+
+    const mockAdminSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "organizations") {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { id: "org-loja-mae-001", name: "Concessionária Mãe" },
+                }),
+              }),
+            }),
+            insert: mockInsertOrg,
+          };
+        }
+        if (table === "profiles") {
+          return {
+            upsert: mockUpsertProfile,
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+            }),
+          }),
+        };
+      }),
+    };
+
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
+      mockSupabase as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>
+    );
+
+    const adminModule = await import("@/lib/supabase/admin");
+    vi.spyOn(adminModule, "createAdminClient").mockReturnValue(
+      mockAdminSupabase as unknown as ReturnType<typeof adminModule.createAdminClient>
+    );
+
+    // Act
+    const context = await resolveUserTenantContext();
+
+    // Assert
+    expect(context.isDemo).toBe(false);
+    expect(context.organizationId).toBe("org-loja-mae-001");
+    expect(context.needsOnboarding).toBe(false);
+
+    // CRÍTICO: NUNCA deve criar uma nova organização
+    expect(mockInsertOrg).not.toHaveBeenCalled();
+    expect(mockUpsertProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organization_id: "org-loja-mae-001",
+        role: "vendedor",
+      })
+    );
+  });
+
+  it("[IT-TENANT.7] Vendedor sem organização vinculada: NUNCA cria nova organização e marca needsOnboarding: true", async () => {
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+    mockCookieStore.get.mockReturnValue(undefined);
+
+    const mockUser = {
+      id: "vendedor_sem_convite_456",
+      email: "vendedor.avulso@acelera.com.br",
+      user_metadata: {
+        full_name: "Vendedor Avulso",
+        role: "seller",
+      },
+    };
+
+    const mockSupabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: mockUser },
+          error: null,
+        }),
+      },
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          }),
+        }),
+      })),
+    };
+
+    const mockInsertOrg = vi.fn();
+    const mockAdminSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "organizations") {
+          return { insert: mockInsertOrg };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockReturnValue({
+                limit: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: null }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }),
+    };
+
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
+      mockSupabase as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>
+    );
+
+    const adminModule = await import("@/lib/supabase/admin");
+    vi.spyOn(adminModule, "createAdminClient").mockReturnValue(
+      mockAdminSupabase as unknown as ReturnType<typeof adminModule.createAdminClient>
+    );
+
+    // Act
+    const context = await resolveUserTenantContext();
+
+    // Assert
+    expect(context.isDemo).toBe(false);
+    expect(context.organizationId).toBeNull();
+    expect(context.needsOnboarding).toBe(true);
+    expect(mockInsertOrg).not.toHaveBeenCalled();
+  });
 });

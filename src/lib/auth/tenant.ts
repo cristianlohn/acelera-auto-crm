@@ -74,58 +74,158 @@ export async function resolveUserTenantContext(): Promise<TenantContextResult> {
           .eq("id", user.id)
           .single();
 
-        // Se o usuário não tiver profile ou organization_id, auto-provisiona com Admin Client
+        // Se o usuário não tiver profile ou organization_id, verifica se veio de convite antes de provisionar
         if (!profile || !profile.organization_id) {
           try {
             const adminClient = createAdminClient();
-            const storeName =
-              (user.user_metadata?.dealership_name ||
-                user.user_metadata?.store_name ||
-                user.user_metadata?.full_name ||
-                "Minha Concessionária") as string;
-            const slug = `${storeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") || "loja"}-${Math.random().toString(36).substring(2, 7)}`;
 
-            const now = new Date();
-            const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+            // 1. VERIFICA SE O USUÁRIO VEIO DE CONVITE (Metadata ou Tabela organization_invites)
+            const cleanEmail = user.email?.trim().toLowerCase() || "";
+            const metadataOrgId = (
+              user.user_metadata?.organization_id ||
+              user.app_metadata?.organization_id
+            ) as string | undefined;
 
-            const { data: newOrg } = await adminClient
-              .from("organizations")
-              .insert({
-                name: storeName,
-                slug,
-                plan: "trial",
-                subscription_status: "trialing",
-                trial_ends_at: trialEndsAt,
-              })
-              .select()
-              .single();
+            let inheritedOrgId = metadataOrgId;
+            let inheritedRole = (user.user_metadata?.role || "seller") as string;
+            let inheritedName = (user.user_metadata?.full_name || "") as string;
+            let inheritedPhone = (user.user_metadata?.phone || null) as string | null;
 
-            if (newOrg) {
-              const { data: newProfile } = await adminClient
-                .from("profiles")
-                .upsert({
-                  id: user.id,
-                  organization_id: newOrg.id,
-                  full_name:
-                    (user.user_metadata?.full_name ||
+            // Se não estiver no metadata, busca na tabela organization_invites pelo e-mail
+            if (!inheritedOrgId && cleanEmail && typeof adminClient?.from === "function") {
+              try {
+                const { data: pendingInvite } = (await adminClient
+                  .from("organization_invites")
+                  ?.select?.("id, organization_id, role, full_name, phone, status")
+                  ?.eq?.("email", cleanEmail)
+                  ?.order?.("created_at", { ascending: false })
+                  ?.limit?.(1)
+                  ?.maybeSingle?.()) || { data: null };
+
+                if (pendingInvite?.organization_id) {
+                  inheritedOrgId = pendingInvite.organization_id;
+                  if (pendingInvite.role) inheritedRole = pendingInvite.role;
+                  if (pendingInvite.full_name) inheritedName = pendingInvite.full_name;
+                  if (pendingInvite.phone) inheritedPhone = pendingInvite.phone;
+
+                  // Marca o convite como aceito
+                  try {
+                    await adminClient
+                      .from("organization_invites")
+                      ?.update?.({ status: "accepted", updated_at: new Date().toISOString() })
+                      ?.eq?.("id", pendingInvite.id);
+                  } catch {}
+                }
+              } catch {}
+            }
+
+            // SE HOUVER ORGANIZAÇÃO HERDADA (VENDEDOR/MEMBRO CONVIDADO):
+            // O usuário herda a organização da loja convidante e NUNCA cria nova organização.
+            if (inheritedOrgId) {
+              const { data: hostOrg } = await adminClient
+                .from("organizations")
+                .select("*")
+                .eq("id", inheritedOrgId)
+                .maybeSingle();
+
+              if (hostOrg) {
+                const { data: newProfile } = await adminClient
+                  .from("profiles")
+                  .upsert({
+                    id: user.id,
+                    organization_id: hostOrg.id,
+                    full_name:
+                      inheritedName ||
+                      user.user_metadata?.full_name ||
                       user.email?.split("@")[0] ||
-                      "Gestor") as string,
-                  email: user.email || "",
-                  role: "admin",
-                  phone: (user.user_metadata?.phone || null) as string | null,
-                })
-                .select()
-                .single();
+                      "Vendedor",
+                    email: user.email || "",
+                    role: (inheritedRole === "admin" || inheritedRole === "gerente" ? inheritedRole : "vendedor"),
+                    phone: inheritedPhone || (user.user_metadata?.phone as string | null) || null,
+                  })
+                  .select()
+                  .single();
 
+                return {
+                  isDemo: false,
+                  userId: user.id,
+                  userEmail: user.email || null,
+                  organizationId: hostOrg.id,
+                  profile: (newProfile as Profile) || null,
+                  organization: (hostOrg as Organization) || null,
+                  needsOnboarding: false,
+                };
+              }
+            }
+
+            // 2. SE FOR VENDEDOR/MEMBRO CONVIDADO SEM ORGANIZAÇÃO, NUNCA CRIA UMA NOVA ORGANIZAÇÃO
+            const isSellerRole =
+              user.user_metadata?.role === "seller" ||
+              user.user_metadata?.role === "vendedor" ||
+              user.user_metadata?.role === "sdr";
+
+            if (isSellerRole) {
               return {
                 isDemo: false,
                 userId: user.id,
                 userEmail: user.email || null,
-                organizationId: newOrg.id,
-                profile: (newProfile as Profile) || null,
-                organization: (newOrg as Organization) || null,
-                needsOnboarding: false,
+                organizationId: null,
+                profile: (profile as Profile) || null,
+                organization: null,
+                needsOnboarding: true,
               };
+            }
+
+            // 3. APENAS SIGN-UPS ISOLADOS COM LOJA EXPLÍCITA CRIAM NOVA ORGANIZAÇÃO TRIAL
+            const storeName = (
+              user.user_metadata?.dealership_name ||
+              user.user_metadata?.store_name
+            ) as string | undefined;
+
+            if (storeName && storeName.trim()) {
+              const slug = `${storeName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "") || "loja"}-${Math.random().toString(36).substring(2, 7)}`;
+              const now = new Date();
+              const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
+              const { data: newOrg } = await adminClient
+                .from("organizations")
+                .insert({
+                  name: storeName.trim(),
+                  slug,
+                  plan: "trial",
+                  subscription_status: "trialing",
+                  trial_ends_at: trialEndsAt,
+                })
+                .select()
+                .single();
+
+              if (newOrg) {
+                const { data: newProfile } = await adminClient
+                  .from("profiles")
+                  .upsert({
+                    id: user.id,
+                    organization_id: newOrg.id,
+                    full_name:
+                      (user.user_metadata?.full_name ||
+                        user.email?.split("@")[0] ||
+                        "Gestor") as string,
+                    email: user.email || "",
+                    role: "admin",
+                    phone: (user.user_metadata?.phone || null) as string | null,
+                  })
+                  .select()
+                  .single();
+
+                return {
+                  isDemo: false,
+                  userId: user.id,
+                  userEmail: user.email || null,
+                  organizationId: newOrg.id,
+                  profile: (newProfile as Profile) || null,
+                  organization: (newOrg as Organization) || null,
+                  needsOnboarding: false,
+                };
+              }
             }
           } catch (provisionError) {
             console.error("[Tenant Context Auto-Provisioning Error]", provisionError);

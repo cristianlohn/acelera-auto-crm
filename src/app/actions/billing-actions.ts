@@ -20,9 +20,37 @@ export interface CreateSubscriptionInput {
   billingCycle?: "mensal" | "anual";
   documentType?: "CPF" | "CNPJ";
   document?: string;
+  cpfCnpj?: string;
+  name?: string;
   billingName?: string;
+  email?: string;
   billingEmail?: string;
+  phone?: string;
   billingPhone?: string;
+}
+
+/**
+ * Retorna os dados cadastrais prévios da concessionária e do usuário para preenchimento ágil do checkout.
+ */
+export async function getBillingInitialDataAction() {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    const org = tenantContext.organization;
+    const profile = tenantContext.profile;
+    const doc = org?.document || "";
+    return {
+      success: true,
+      data: {
+        name: org?.name || profile?.full_name || "",
+        email: tenantContext.userEmail || profile?.email || "",
+        phone: (org as unknown as { phone?: string })?.phone || profile?.phone || "",
+        document: doc,
+        documentType: (doc && sanitizeDigits(doc).length > 11 ? "CNPJ" : "CPF") as "CPF" | "CNPJ",
+      },
+    };
+  } catch {
+    return { success: false, data: null };
+  }
 }
 
 /**
@@ -67,6 +95,13 @@ export async function createSubscriptionCheckoutAction(
     const orgDoc = org?.document || null;
     const currentAsaasCustomerId = org?.asaas_customer_id || null;
 
+    const rawName = (input.billingName || input.name || orgName).trim();
+    const rawEmail = (input.billingEmail || input.email || orgEmail).trim();
+    const rawPhone = (input.billingPhone || input.phone || orgPhone || "").trim();
+    const inputDoc = input.cpfCnpj || input.document;
+    const cleanDoc = inputDoc ? sanitizeDigits(inputDoc) : "";
+    const effectiveDoc = cleanDoc || orgDoc;
+
     const apiUrl = (process.env.ASAAS_API_URL || "https://sandbox.asaas.com/api/v3").toLowerCase();
     const isSandboxOrDev =
       process.env.NODE_ENV === "development" ||
@@ -75,11 +110,10 @@ export async function createSubscriptionCheckoutAction(
 
     const docType =
       input.documentType ||
-      (input.document && sanitizeDigits(input.document).length > 11 ? "CNPJ" : "CPF");
-    const cleanDoc = sanitizeDigits(input.document);
+      (effectiveDoc && effectiveDoc.length > 11 ? "CNPJ" : "CPF");
 
     // Valida o documento fiscal fornecido no input
-    if (input.document && !isValidDocument(input.document, docType)) {
+    if (inputDoc && !isValidDocument(inputDoc, docType)) {
       return {
         success: false,
         error: `Documento fiscal (${docType}) inválido. Verifique os dígitos informados.`,
@@ -94,21 +128,15 @@ export async function createSubscriptionCheckoutAction(
       };
     }
 
-    // 2. Atualiza os dados fiscais e de faturamento na organização no Supabase
-    const effectiveDoc = cleanDoc || orgDoc;
-    if (isSupabaseServerConfigured() && orgId) {
+    // 2. Atualiza o documento na organização no Supabase se um novo documento foi informado
+    if (isSupabaseServerConfigured() && orgId && cleanDoc) {
       try {
         const supabaseAdmin = createAdminClient();
-        const updateData: Record<string, unknown> = {
-          updated_at: new Date().toISOString(),
-        };
-        if (cleanDoc) updateData.document = cleanDoc;
-        if (input.billingName) updateData.billing_name = input.billingName.trim();
-        if (input.billingEmail) updateData.billing_email = input.billingEmail.trim();
-        if (input.billingPhone) updateData.billing_phone = input.billingPhone.trim();
-
         await (supabaseAdmin.from("organizations") as unknown as { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } })
-          .update(updateData)
+          .update({
+            document: cleanDoc,
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", orgId);
       } catch (dbErr) {
         console.warn("[Billing Org Update Warning]", dbErr);
@@ -118,14 +146,18 @@ export async function createSubscriptionCheckoutAction(
     // 3. Dispara a criação real no Asaas (SEM MOCKS OU FALLBACKS FICTÍCIOS)
     const result = await createAsaasSubscription({
       organizationId: orgId,
-      organizationName: orgName,
-      organizationEmail: orgEmail,
-      organizationPhone: orgPhone,
+      organizationName: rawName,
+      organizationEmail: rawEmail,
+      organizationPhone: rawPhone,
       organizationDocument: effectiveDoc,
       documentType: docType,
-      billingName: input.billingName || orgName,
-      billingEmail: input.billingEmail || orgEmail,
-      billingPhone: input.billingPhone || orgPhone,
+      name: rawName,
+      billingName: rawName,
+      email: rawEmail,
+      billingEmail: rawEmail,
+      phone: rawPhone,
+      billingPhone: rawPhone,
+      cpfCnpj: effectiveDoc,
       currentAsaasCustomerId,
       planId,
       billingCycle,

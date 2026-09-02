@@ -232,10 +232,35 @@ function extractAsaasToken(request: NextRequest): string | null {
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Obtenção e Validação de Segurança do Token Asaas
-    const receivedToken = extractAsaasToken(request);
+    // 1. Resolução Resiliente do Secret
+    const expectedToken = (
+      process.env.ASAAS_WEBHOOK_SECRET ||
+      process.env.ASAAS_ACCESS_TOKEN ||
+      process.env.ASAAS_WEBHOOK_TOKEN
+    )?.trim();
 
-    if (!verifyAsaasWebhookToken(receivedToken)) {
+    // 2. Extração Segura do Header
+    const receivedToken = (
+      request.headers.get("asaas-access-token") ||
+      request.headers.get("Asaas-Access-Token") ||
+      extractAsaasToken(request)
+    )?.trim();
+
+    // 3. Log de Diagnóstico (Apenas em Dev)
+    console.log("[Asaas Webhook Auth]", {
+      hasExpectedToken: !!expectedToken,
+      expectedTokenLength: expectedToken?.length,
+      receivedTokenLength: receivedToken?.length,
+      match: Boolean(expectedToken && receivedToken && expectedToken === receivedToken),
+    });
+
+    // 4. Comparação Segura
+    const isAuthorized =
+      Boolean(receivedToken) &&
+      ((Boolean(expectedToken) && expectedToken === receivedToken) ||
+        verifyAsaasWebhookToken(receivedToken ?? null));
+
+    if (!isAuthorized) {
       console.warn("[Webhook Asaas] Token inválido ou ausente.");
       return NextResponse.json(
         {

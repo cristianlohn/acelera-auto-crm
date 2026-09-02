@@ -59,6 +59,49 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
       const response = await POST(request);
       expect(response.status).toBe(401);
     });
+
+    it("deve aceitar header asaas-access-token configurado no env ou fallback dev", async () => {
+      const request = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": "token_secreto_para_validar_webhook_acelera",
+        },
+        body: JSON.stringify({
+          event: "PAYMENT_CONFIRMED",
+          payment: { id: "pay_demo_test" },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      expect(json.received).toBe(true);
+    });
+
+    it("deve aceitar header em formato Pascal-Case 'Asaas-Access-Token' e token com espaços (trim)", async () => {
+      const originalSecret = process.env.ASAAS_WEBHOOK_SECRET;
+      process.env.ASAAS_WEBHOOK_SECRET = "  meu_secret_customizado_123  ";
+
+      try {
+        const request = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Asaas-Access-Token": "  meu_secret_customizado_123  ",
+          },
+          body: JSON.stringify({
+            event: "PAYMENT_CONFIRMED",
+            payment: { id: "pay_demo_test" },
+          }),
+        });
+
+        const response = await POST(request);
+        expect(response.status).toBe(200);
+      } finally {
+        process.env.ASAAS_WEBHOOK_SECRET = originalSecret;
+      }
+    });
   });
 
   describe("[TEST-ASAAS-PAYMENT-CONFIRMED] Confirmação de Pagamento & Ativação", () => {
@@ -121,7 +164,9 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           subscription_status: "active",
+          plan: "pro",
           plan_status: "active",
+          trial_ends_at: null,
           asaas_customer_id: "cus_000001",
           asaas_subscription_id: "sub_000001",
         })

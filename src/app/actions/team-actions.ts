@@ -627,6 +627,7 @@ export async function inviteTeamMemberAction(
           redirectTo,
           data: {
             full_name: validData.name,
+            organization_id: orgId,
             phone: validData.phone.replace(/\D/g, ""),
             role: validData.role || "seller",
           },
@@ -828,19 +829,20 @@ export async function resendInviteEmailAction(
 
   try {
     const supabaseAdmin = createAdminClient();
+    const orgId = tenantContext.organizationId;
 
-    if (typeof supabaseAdmin.from === "function") {
+    if (tenantContext.organizationId && typeof supabaseAdmin?.from === "function") {
       try {
-        const { data: profileRow } = await supabaseAdmin
+        const { data: profileRow } = (await supabaseAdmin
           .from("profiles")
-          .select("organization_id")
-          .eq("email", cleanEmail)
-          .maybeSingle();
+          ?.select?.("organization_id")
+          ?.eq?.("email", cleanEmail)
+          ?.maybeSingle?.()) || { data: null };
 
         const effectiveOrgId = profileRow?.organization_id || tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
         // 1. Registra o token único na tabela organization_invites como pending
-        await supabaseAdmin.from("organization_invites").upsert(
+        await supabaseAdmin.from("organization_invites")?.upsert?.(
           {
             organization_id: effectiveOrgId,
             email: cleanEmail,
@@ -862,6 +864,7 @@ export async function resendInviteEmailAction(
       redirectTo,
       data: {
         full_name: name || "Colaborador",
+        organization_id: orgId,
         role: role || "seller",
       },
     });

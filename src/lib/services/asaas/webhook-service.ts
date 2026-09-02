@@ -7,6 +7,9 @@ import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import type { Database } from "@/types/database.types";
+
+type OrganizationUpdate = Database["public"]["Tables"]["organizations"]["Update"];
 
 export type AsaasWebhookEvent =
   | "PAYMENT_CREATED"
@@ -101,6 +104,7 @@ const VALID_DEV_WEBHOOK_SECRETS = new Set([
   "asaas_webhook_secret_live",
   "test_asaas_secret",
   "asaas_token_demo_123",
+  "token_secreto_para_validar_webhook_acelera",
 ]);
 
 /** Cache de Idempotência em memória para deduplicação rápida */
@@ -119,16 +123,19 @@ function safeTimingCompare(a: string, b: string): boolean {
 /**
  * Valida o token de segurança do webhook do Asaas usando comparação em tempo constante.
  */
-export function verifyAsaasWebhookToken(token: string | null): boolean {
+export function verifyAsaasWebhookToken(token: string | null | undefined): boolean {
   if (!token || !token.trim()) return false;
   const cleanToken = token.trim();
 
-  const configuredSecret =
+  const configuredSecret = (
     process.env.ASAAS_WEBHOOK_SECRET ||
+    process.env.ASAAS_ACCESS_TOKEN ||
+    process.env.ASAAS_WEBHOOK_TOKEN ||
     process.env.ASAAS_WEBHOOK_ACCESS_TOKEN ||
-    process.env.ASAAS_API_KEY;
+    process.env.ASAAS_API_KEY
+  )?.trim();
 
-  if (configuredSecret && safeTimingCompare(cleanToken, configuredSecret.trim())) {
+  if (configuredSecret && safeTimingCompare(cleanToken, configuredSecret)) {
     return true;
   }
 
@@ -296,23 +303,30 @@ export async function processAsaasWebhookEvent(
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
           const supabaseAdmin = createAdminClient();
-          const updateData: Record<string, unknown> = {
+          const updateData: OrganizationUpdate = {
             subscription_status: "active",
             plan_status: "active",
             plan: "pro",
+            plan_tier: "pro",
             trial_ends_at: null,
             current_period_end: periodEnd,
             updated_at: new Date().toISOString(),
           };
           if (customerId) updateData.asaas_customer_id = customerId;
           if (subscriptionId) updateData.asaas_subscription_id = subscriptionId;
-          if (payment?.billingType) {
-            updateData.payment_method = payment.billingType.toLowerCase();
-          }
 
-          await (supabaseAdmin.from("organizations") as unknown as { update: (data: Record<string, unknown>) => { eq: (col: string, val: string) => Promise<unknown> } })
+          const { error: updateError } = await supabaseAdmin
+            .from("organizations")
             .update(updateData)
             .eq("id", targetOrgId);
+
+          if (updateError) {
+            console.error("[Asaas Webhook] Erro ao atualizar organização para 'active' e 'pro':", updateError);
+          } else {
+            console.log(
+              `[Asaas Webhook] Organização ${targetOrgId} ativada com sucesso: plan='pro', subscription_status='active'`
+            );
+          }
         } catch (err) {
           console.warn("[Asaas Webhook] Falha ao atualizar organization no Supabase:", err);
         }
@@ -369,20 +383,29 @@ export async function processAsaasWebhookEvent(
 
       const nextDue = subscription?.nextDueDate;
       const periodEnd = nextDue ? new Date(nextDue).toISOString() : null;
+      const isActive = subscription?.status === "ACTIVE";
 
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
           const supabaseAdmin = createAdminClient();
+          const updateData: OrganizationUpdate = {
+            subscription_status: isActive ? "active" : "inactive",
+            plan_status: isActive ? "active" : "inactive",
+            asaas_customer_id: customerId || null,
+            asaas_subscription_id: subscriptionId || null,
+            current_period_end: periodEnd,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (isActive) {
+            updateData.plan = "pro";
+            updateData.plan_tier = "pro";
+            updateData.trial_ends_at = null;
+          }
+
           await supabaseAdmin
             .from("organizations")
-            .update({
-              subscription_status: subscription?.status === "ACTIVE" ? "active" : "inactive",
-              plan_status: subscription?.status === "ACTIVE" ? "active" : "inactive",
-              asaas_customer_id: customerId || null,
-              asaas_subscription_id: subscriptionId || null,
-              current_period_end: periodEnd,
-              updated_at: new Date().toISOString(),
-            })
+            .update(updateData)
             .eq("id", targetOrgId);
         } catch (err) {
           console.warn("[Asaas Webhook] Falha ao sincronizar assinatura:", err);

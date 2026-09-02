@@ -329,4 +329,133 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
     expect(requestBody.cpfCnpj).toBe("33000167000101");
     expect(requestBody.phone).toBe("11988889999");
   });
+
+  it("[TEST-ASAAS-SUB-8] deve atualizar dados do cliente existente via PUT /customers/{id} quando localizado por CPF/CNPJ", async () => {
+    interface AsaasCustomerPayload {
+      name?: string;
+      email?: string;
+      cpfCnpj?: string;
+      phone?: string;
+      company?: string;
+    }
+
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      // Busca por CPF/CNPJ encontra cliente existente
+      if (url.includes("/customers?cpfCnpj=12345678000199") && options?.method === "GET") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: "cus_existing_papai",
+                name: "teste sandbox asaas",
+                email: "teste@mail.com",
+                cpfCnpj: "12345678000199",
+              },
+            ],
+          }),
+        } as Response);
+      }
+
+      // Atualização do cliente via PUT
+      if (url.includes("/customers/cus_existing_papai") && options?.method === "PUT") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: "cus_existing_papai",
+            name: "PAPAI CRISTIAN",
+            email: "cristian@papai.com.br",
+          }),
+        } as Response);
+      }
+
+      return Promise.resolve({ ok: false } as Response);
+    });
+
+    globalThis.fetch = mockFetch;
+
+    const result = await createOrGetAsaasCustomer({
+      organizationId: "org-papai-123",
+      name: "PAPAI CRISTIAN",
+      email: "cristian@papai.com.br",
+      phone: "47999998888",
+      document: "12.345.678/0001-99",
+    });
+
+    expect(result.customerId).toBe("cus_existing_papai");
+
+    const putCall = mockFetch.mock.calls.find(
+      (call: unknown[]) =>
+        typeof call[0] === "string" &&
+        (call[0] as string).includes("/customers/cus_existing_papai") &&
+        (call[1] as RequestInit | undefined)?.method === "PUT"
+    );
+    expect(putCall).toBeDefined();
+
+    const putBody = JSON.parse(
+      ((putCall?.[1] as RequestInit | undefined)?.body as string) || "{}"
+    ) as AsaasCustomerPayload;
+
+    expect(putBody.name).toBe("PAPAI CRISTIAN");
+    expect(putBody.email).toBe("cristian@papai.com.br");
+    expect(putBody.company).toBe("PAPAI CRISTIAN");
+    expect(putBody.phone).toBe("47999998888");
+  });
+
+  it("[TEST-ASAAS-SUB-9] deve normalizar a descrição para 'Assinatura Plano Pro (Mensal)' sem duplicar 'Plano Plano'", async () => {
+    let capturedSubscriptionPayload: { description?: string } | null = null;
+
+    const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
+      if (url.includes("/customers")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ id: "cus_sub_norm" }),
+        } as Response);
+      }
+
+      if (url.endsWith("/subscriptions") && options?.method === "POST") {
+        capturedSubscriptionPayload = JSON.parse(
+          (options?.body as string) || "{}"
+        );
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: "sub_norm_123",
+            status: "PENDING",
+          }),
+        } as Response);
+      }
+
+      if (url.includes("/subscriptions/sub_norm_123/payments")) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            data: [
+              {
+                id: "pay_norm_001",
+                invoiceUrl: "https://sandbox.asaas.com/i/pay_norm_001",
+              },
+            ],
+          }),
+        } as Response);
+      }
+
+      return Promise.resolve({ ok: false } as Response);
+    });
+
+    globalThis.fetch = mockFetch;
+
+    const result = await createAsaasSubscription({
+      organizationId: "org-norm-desc",
+      organizationName: "Auto Prime Motors",
+      planId: "pro",
+      billingCycle: "mensal",
+    });
+
+    expect(result.success).toBe(true);
+    expect(capturedSubscriptionPayload).not.toBeNull();
+    const payload = capturedSubscriptionPayload as { description?: string } | null;
+    expect(payload?.description).toBe("Assinatura Plano Pro (Mensal)");
+    expect(payload?.description).not.toContain("Plano Plano");
+  });
 });

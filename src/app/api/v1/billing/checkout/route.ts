@@ -154,7 +154,8 @@ export async function POST(request: NextRequest) {
     const rawCycle = String(body.cycle || body.billingCycle || "MONTHLY").toUpperCase().trim();
     const billingCycle = rawCycle === "YEARLY" || rawCycle === "ANUAL" ? "anual" : "mensal";
 
-    const document = body.document ? String(body.document).trim() : undefined;
+    const rawDoc = body.cpfCnpj || body.document;
+    const document = rawDoc ? String(rawDoc).trim() : undefined;
     const documentType = body.documentType
       ? (String(body.documentType).toUpperCase().trim() as "CPF" | "CNPJ")
       : document && sanitizeDigits(document).length > 11
@@ -172,14 +173,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const rawName = body.name || body.billingName ? String(body.name || body.billingName).trim() : undefined;
+    const rawEmail = body.email || body.billingEmail ? String(body.email || body.billingEmail).trim() : undefined;
+    const rawPhone = body.phone || body.billingPhone ? String(body.phone || body.billingPhone).trim() : undefined;
+
     const result = await createSubscriptionCheckoutAction({
       planId,
       billingCycle,
       document,
       documentType,
-      billingName: body.billingName ? String(body.billingName).trim() : undefined,
-      billingEmail: body.billingEmail ? String(body.billingEmail).trim() : undefined,
-      billingPhone: body.billingPhone ? String(body.billingPhone).trim() : undefined,
+      cpfCnpj: document,
+      name: rawName,
+      billingName: rawName,
+      email: rawEmail,
+      billingEmail: rawEmail,
+      phone: rawPhone,
+      billingPhone: rawPhone,
     });
 
     if (!result.success) {

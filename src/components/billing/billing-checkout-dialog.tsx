@@ -139,8 +139,12 @@ function BillingCheckoutFormContent({
         billingCycle,
         documentType,
         document: cleanDoc,
+        cpfCnpj: cleanDoc,
+        name: billingName.trim(),
         billingName: billingName.trim(),
+        email: billingEmail.trim(),
         billingEmail: billingEmail.trim(),
+        phone: billingPhone.trim(),
         billingPhone: billingPhone.trim(),
       });
 

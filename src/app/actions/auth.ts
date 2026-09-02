@@ -29,6 +29,7 @@ export interface RegisterDealershipInput {
   email: string;
   phone: string;
   password: string;
+  inviteToken?: string;
 }
 
 export interface RegisterResult {
@@ -49,15 +50,14 @@ function generateSlug(storeName: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "");
-  const suffix = Math.random().toString(36).substring(2, 7);
-  return `${base || "loja"}-${suffix}`;
+
+  const randomSuffix = Math.random().toString(36).substring(2, 6);
+  return `${base || "concessionaria"}-${randomSuffix}`;
 }
 
 /**
- * Provisiona uma nova concessionária com tenant limpo e usuário administrador.
- *
- * Executa com privilégios administrativos (service_role) para contornar bloqueios de RLS
- * durante a fase de cadastro inicial, enviando metadados completos no Supabase Auth.
+ * Registra uma nova concessionária (organização) ou associa usuário a convite existente,
+ * criando o perfil correspondente via Supabase Admin.
  *
  * @param input Dados do formulário de cadastro.
  * @returns Resultado com status de sucesso ou mensagem de erro tratada.
@@ -65,10 +65,10 @@ function generateSlug(storeName: string): string {
 export async function registerNewDealership(
   input: RegisterDealershipInput
 ): Promise<RegisterResult> {
-  const { storeName, fullName, email, phone, password } = input;
+  const { storeName, fullName, email, phone, password, inviteToken } = input;
 
   // Validação básica dos campos obrigatórios
-  if (!storeName?.trim()) {
+  if (!storeName?.trim() && !inviteToken) {
     return { success: false, error: "Informe o nome da concessionária ou loja." };
   }
   if (!fullName?.trim()) {
@@ -124,8 +124,8 @@ export async function registerNewDealership(
       options: {
         data: {
           full_name: fullName.trim(),
-          dealership_name: storeName.trim(),
-          store_name: storeName.trim(),
+          dealership_name: storeName?.trim() || "",
+          store_name: storeName?.trim() || "",
           phone: formattedPhone,
         },
       },
@@ -154,55 +154,103 @@ export async function registerNewDealership(
 
     const adminClient = createAdminClient();
     const userId = authData.user.id;
-    const slug = generateSlug(storeName);
+    const cleanEmail = email.trim().toLowerCase();
 
-    // 2. Cria a organização via adminClient (evita bloqueio de RLS) com 14 dias de teste gratuito
-    const now = new Date();
-    const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
-
-    const { data: orgData, error: orgError } = await adminClient
-      .from("organizations")
-      .insert({
-        name: storeName.trim(),
-        slug,
-        plan: "trial",
-        subscription_status: "trialing",
-        trial_ends_at: trialEndsAt,
-      })
-      .select("id")
-      .single();
-
-    if (orgError || !orgData) {
+    // 2. Verifica se este usuário veio de convite (inviteToken explícito ou convite pendente por e-mail)
+    let invite = null;
+    if (typeof adminClient?.from === "function") {
       try {
-        await adminClient.auth.admin.deleteUser(userId);
-      } catch {
-        // Ignora caso deleteUser falhe
-      }
-      return {
-        success: false,
-        error: `Erro ao provisionar a concessionária: ${orgError?.message || "falha ao criar organização"}`,
-      };
+        if (inviteToken?.trim()) {
+          const { data: inviteByToken } = (await adminClient
+            .from("organization_invites")
+            ?.select?.("*")
+            ?.eq?.("token", inviteToken.trim())
+            ?.maybeSingle?.()) || { data: null };
+          invite = inviteByToken;
+        }
+
+        if (!invite) {
+          const { data: inviteByEmail } = (await adminClient
+            .from("organization_invites")
+            ?.select?.("*")
+            ?.eq?.("email", cleanEmail)
+            ?.eq?.("status", "pending")
+            ?.order?.("created_at", { ascending: false })
+            ?.limit?.(1)
+            ?.maybeSingle?.()) || { data: null };
+          invite = inviteByEmail;
+        }
+      } catch {}
     }
 
-    // 3. Cria ou atualiza o perfil do usuário como admin via adminClient
+    let targetOrgId: string;
+    let targetRole: "admin" | "gerente" | "vendedor" = "admin";
+    let isNewOrganizationCreated = false;
+
+    if (invite?.organization_id) {
+      // Usuário convidado: herda a organização da loja convidante e NUNCA cria nova organização
+      targetOrgId = invite.organization_id;
+      targetRole = invite.role === "admin" || invite.role === "gerente" ? invite.role : "vendedor";
+
+      try {
+        await adminClient
+          .from("organization_invites")
+          .update({ status: "accepted", updated_at: new Date().toISOString() })
+          .eq("id", invite.id);
+      } catch {}
+    } else {
+      // APENAS SIGN-UPS ISOLADOS (SEM CONVITE) CRIAM UMA NOVA ORGANIZAÇÃO DE TESTE
+      const effectiveStoreName = storeName?.trim() || "Minha Concessionária";
+      const slug = generateSlug(effectiveStoreName);
+      const now = new Date();
+      const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: orgData, error: orgError } = await adminClient
+        .from("organizations")
+        .insert({
+          name: effectiveStoreName,
+          slug,
+          plan: "trial",
+          subscription_status: "trialing",
+          trial_ends_at: trialEndsAt,
+        })
+        .select("id")
+        .single();
+
+      if (orgError || !orgData) {
+        try {
+          await adminClient.auth.admin.deleteUser(userId);
+        } catch {}
+        return {
+          success: false,
+          error: `Erro ao provisionar a concessionária: ${orgError?.message || "falha ao criar organização"}`,
+        };
+      }
+
+      targetOrgId = orgData.id;
+      targetRole = "admin";
+      isNewOrganizationCreated = true;
+    }
+
+    // 3. Cria ou atualiza o perfil do usuário vinculado à organização correspondente
     const { error: profileError } = await adminClient.from("profiles").upsert({
       id: userId,
-      organization_id: orgData.id,
+      organization_id: targetOrgId,
       full_name: fullName.trim(),
       email: email.trim(),
-      role: "admin",
+      role: targetRole,
       phone: formattedPhone,
       avatar_url: null,
     });
 
     if (profileError) {
-      // Rollback da organização e do usuário em caso de falha no perfil
-      await adminClient.from("organizations").delete().eq("id", orgData.id);
+      // Rollback apenas se uma nova organização tiver sido criada nesta operação
+      if (isNewOrganizationCreated) {
+        await adminClient.from("organizations").delete().eq("id", targetOrgId);
+      }
       try {
         await adminClient.auth.admin.deleteUser(userId);
-      } catch {
-        // Ignora caso deleteUser falhe
-      }
+      } catch {}
       return {
         success: false,
         error: `Erro ao associar perfil administrativo: ${profileError.message}`,
@@ -847,9 +895,28 @@ export async function updateUserPassword(
               try {
                 await adminClient
                   .from("organization_invites")
-                  .update({ status: "accepted" })
+                  .update({ status: "accepted", updated_at: new Date().toISOString() })
                   .eq("id", invite.id);
-              } catch {}
+
+                // Garante que o profile do usuário seja criado ou associado à organização do convite
+                await adminClient.from("profiles").upsert({
+                  id: targetUser.id,
+                  organization_id: invite.organization_id,
+                  full_name:
+                    (targetUser.user_metadata?.full_name ||
+                      (invite as unknown as { full_name?: string })?.full_name ||
+                      targetEmail.split("@")[0] ||
+                      "Vendedor") as string,
+                  email: targetEmail,
+                  role: (() => {
+                    const r = targetUser.user_metadata?.role || (invite as unknown as { role?: string })?.role;
+                    return r === "admin" || r === "gerente" ? r : "vendedor";
+                  })(),
+                  phone: (targetUser.user_metadata?.phone || (invite as unknown as { phone?: string })?.phone || null) as string | null,
+                });
+              } catch (inviteSyncErr) {
+                console.warn("[updateUserPassword] Falha ao sincronizar profile do convite:", inviteSyncErr);
+              }
             }
 
             return { success: true };

@@ -12,7 +12,7 @@
 
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -31,6 +31,7 @@ import { BillingCheckoutDialog } from "@/components/billing/billing-checkout-dia
 import { cn } from "@/lib/utils";
 import { useDemoRole } from "@/context/demo-role-context";
 import { normalizeRole, canManageIntegrationsAndBilling } from "@/lib/permissions";
+import { getBillingInitialDataAction } from "@/app/actions/billing-actions";
 
 interface Plan {
   id: string;
@@ -112,6 +113,25 @@ function BillingContent() {
     name: string;
     price: number;
   } | null>(null);
+  const [initialBillingData, setInitialBillingData] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    document?: string;
+    documentType?: "CPF" | "CNPJ";
+  } | undefined>(undefined);
+
+  useEffect(() => {
+    let isMounted = true;
+    getBillingInitialDataAction().then((res) => {
+      if (isMounted && res.success && res.data) {
+        setInitialBillingData(res.data);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const isAnnual = billingCycle === "anual";
 
@@ -154,6 +174,7 @@ function BillingContent() {
           planName={selectedPlanDetails.name}
           planPrice={selectedPlanDetails.price}
           billingCycle={billingCycle}
+          initialData={initialBillingData}
         />
       )}
       <div className="max-w-6xl mx-auto space-y-8">
