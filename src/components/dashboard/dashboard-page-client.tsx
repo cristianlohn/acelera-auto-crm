@@ -83,7 +83,7 @@ export function DashboardPageClient({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-              Cockpit Geral
+              Cockpit do Gestor
             </h1>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800/60">
               <ShieldCheck className="w-3.5 h-3.5" />

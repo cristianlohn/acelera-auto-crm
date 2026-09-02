@@ -35,9 +35,12 @@ export async function getManagerCockpitMetrics(
       sellerName: l.sellerName,
       vehicleInterest: l.vehicleInterest,
       lastContactAt: l.lastContactAt,
-      createdAt: l.lastContactAt || new Date(Date.now() - 3600000).toISOString(),
+      createdAt: l.createdAt || l.lastContactAt || new Date(Date.now() - 3600000).toISOString(),
+      estimatedValue: l.estimatedValue,
+      notes: l.notes,
+      proposalFi: l.proposalFi,
     }));
-    return calculateManagerCockpitMetrics(demoLeadsInput, { defaultTicket: 120000 });
+    return calculateManagerCockpitMetrics(demoLeadsInput, { defaultTicket: 140000, isDemo: true });
   }
 
   const targetOrgId = explicitOrgId || tenantContext.organizationId;

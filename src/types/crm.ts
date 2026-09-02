@@ -69,6 +69,14 @@ export interface Lead {
   origin: LeadOrigin;
   /** Identificador UUID da organização / tenant proprietário */
   organizationId?: string;
+  /** Valor monetário estimado da oportunidade (R$) */
+  estimatedValue?: number;
+  /** Anotações ou histórico de negociação */
+  notes?: string;
+  /** Data/hora de criação do lead (ISO 8601) */
+  createdAt?: string;
+  /** Indicador de proposta em análise de financiamento / F&I */
+  proposalFi?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +122,21 @@ export interface Vehicle {
 
   /** URL da imagem principal do veículo. */
   imageUrl: string;
+
+  /** Dias em estoque desde a entrada no pátio. */
+  daysInStock?: number;
+
+  /** Preço de referência da Tabela FIPE (R$). */
+  fipePrice?: number;
+
+  /** Margem de lucro bruta estimada (R$). */
+  estimatedMargin?: number;
+
+  /** Tipo de combustível (Flex, Gasolina, Híbrido, Diesel). */
+  fuel?: string;
+
+  /** Tipo de transmissão / câmbio. */
+  transmission?: string;
 }
 
 // ---------------------------------------------------------------------------

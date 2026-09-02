@@ -185,12 +185,15 @@ export function VehiclesPageClient({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const cleanQ = q.replace(/[^a-z0-9]/g, "");
     return vehicles.filter((v) => {
+      const cleanPlate = v.plate.toLowerCase().replace(/[^a-z0-9]/g, "");
       const matchSearch =
         q === "" ||
         v.make.toLowerCase().includes(q) ||
         v.model.toLowerCase().includes(q) ||
         v.plate.toLowerCase().includes(q) ||
+        (cleanQ.length > 0 && cleanPlate.includes(cleanQ)) ||
         v.version.toLowerCase().includes(q);
       const matchStatus =
         statusFilter === "todos" || v.status === statusFilter;

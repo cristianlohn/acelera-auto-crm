@@ -57,15 +57,17 @@ export function SellerActionCockpit({
 
   const sellerMetric = metrics?.sellerRanking.find(
     (s) => s.sellerName.toLowerCase().trim() === activeSellerName.toLowerCase().trim()
-  ) || (metrics?.sellerRanking.length === 1 && isDemo ? metrics.sellerRanking[0] : undefined);
+  );
 
-  // Conexão dos KPIs com dados reais ou zeros estruturados (12 e 1.480.000 exclusivo para demo)
-  const myPendingLeadsCount = isDemo ? 12 : (sellerMetric?.activeDeals ?? sellerMetric?.leadsCount ?? 0);
-  const myPendingPipelineValue = isDemo ? 1480000 : (sellerMetric?.pipelineValue ?? 0);
-  const myMonthlyWonDeals = isDemo ? 6 : (sellerMetric?.wonDeals ?? 0);
-  const myMonthlyRevenue = isDemo ? 420000 : (sellerMetric?.revenue ?? 0);
-  const myAverageSlaMinutes = isDemo ? 6.2 : (sellerMetric?.avgResponseMinutes ?? 0.0);
-  const mySlaComplianceRate = isDemo ? 94 : (sellerMetric ? (sellerMetric.avgResponseMinutes <= 15 ? 100 : 50) : 100);
+  // Conexão dos KPIs com métricas do vendedor ou fallback simulado de demo
+  const myPendingLeadsCount = sellerMetric?.activeDeals ?? (isDemo ? 12 : 0);
+  const myPendingPipelineValue = sellerMetric?.pipelineValue ?? (isDemo ? 1480000 : 0);
+  const myMonthlyWonDeals = sellerMetric?.wonDeals ?? (isDemo ? 4 : 0);
+  const myMonthlyRevenue = sellerMetric?.revenue ?? (isDemo ? 480000 : 0);
+  const myAverageSlaMinutes = sellerMetric?.avgResponseMinutes ?? (isDemo ? 6.0 : 0.0);
+  const mySlaComplianceRate = sellerMetric
+    ? (sellerMetric.avgResponseMinutes <= 15 ? 94 : 50)
+    : (isDemo ? 94 : 100);
 
   // Ações e alertas: apenas no modo de demonstração
   const myActions: {
@@ -81,36 +83,36 @@ export function SellerActionCockpit({
     ? [
         {
           id: "seller-act-1",
-          leadName: "Carlos Mendonça",
-          vehicle: "Honda Civic EXL 2023",
-          actionText: "Aguardando 1º contato há 18 min",
-          timeText: "Há 18 min",
+          leadName: "João Ferreira",
+          vehicle: "Jeep Compass Longitude 2023",
+          actionText: "Aguardando 1º contato há 22 min",
+          timeText: "Há 22 min",
           urgency: "critico" as const,
-          phone: "5511987654321",
+          phone: "5511988887777",
           defaultMessage:
-            "Olá Carlos, tudo bem? Sou o consultor da concessionária. Vi seu interesse no Honda Civic EXL 2023. Como posso te ajudar hoje?",
+            "Olá João Ferreira! Sou o consultor Rafael Alves da concessionária. Vi seu interesse no Jeep Compass Longitude 2023. Como posso te auxiliar?",
         },
         {
           id: "seller-act-2",
-          leadName: "Patrícia Vieira",
-          vehicle: "Renault Kwid Intense",
-          actionText: "Proposta de financiamento enviada há 4h",
-          timeText: "Há 4h",
+          leadName: "Thiago Ribeiro",
+          vehicle: "Chevrolet Tracker Premier 2023",
+          actionText: "Ficha bancária em análise no Banco Santander",
+          timeText: "Há 3h",
           urgency: "medio" as const,
-          phone: "5591889765432",
+          phone: "5511977773333",
           defaultMessage:
-            "Oi Patrícia! Passando para checar se você conseguiu analisar a simulação de parcelas do Kwid. Quer que eu ajuste a entrada?",
+            "Oi Thiago! Rafael aqui. Sua ficha da Tracker Premier já está na mesa de crédito do Santander. Assim que liberar te aviso de imediato!",
         },
         {
           id: "seller-act-3",
-          leadName: "Mariana Souza",
-          vehicle: "Corolla Cross XRE",
-          actionText: "Cliente compradora com interesse em troca",
-          timeText: "Há 1 dia",
+          leadName: "Carlos Mendonça",
+          vehicle: "Honda Civic EXL 2023",
+          actionText: "Interesse confirmado aguardando proposta",
+          timeText: "Há 5h",
           urgency: "info" as const,
-          phone: "5547998877665",
+          phone: "5511987654321",
           defaultMessage:
-            "Olá Mariana! Chegou uma nova unidade de Corolla Cross com condições exclusivas de avaliação do seu seminovo. Vamos agendar uma visita?",
+            "Olá Carlos! Rafael da concessionária. Consegui uma condição especial na avaliação do seu usado na troca pelo Civic EXL 2023. Podemos alinhar?",
         },
       ]
     : [];

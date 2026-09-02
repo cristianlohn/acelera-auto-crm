@@ -166,6 +166,23 @@ export function VehicleCard({ vehicle: v, onStatusChange }: VehicleCardProps) {
           {cfg.label}
         </span>
 
+        {/* Badge de Giro de Estoque */}
+        {v.daysInStock !== undefined && (
+          <span
+            className={cn(
+              "absolute top-2 right-2 flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ring-1 backdrop-blur-md",
+              v.daysInStock > 45
+                ? "bg-red-500/90 text-white ring-red-400/50 shadow-sm animate-pulse"
+                : v.daysInStock > 15
+                ? "bg-amber-500/80 text-white ring-amber-400/50 shadow-sm"
+                : "bg-emerald-600/80 text-white ring-emerald-400/50 shadow-sm"
+            )}
+            title={v.daysInStock > 45 ? "Alerta de Giro de Estoque: veículo parado há mais de 45 dias" : "Dias em pátio"}
+          >
+            {v.daysInStock > 45 ? `⚠️ ${v.daysInStock}d (Giro)` : `${v.daysInStock}d pátio`}
+          </span>
+        )}
+
         {/* Gradiente inferior para legibilidade */}
         <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/40 to-transparent" />
       </div>
@@ -182,10 +199,24 @@ export function VehicleCard({ vehicle: v, onStatusChange }: VehicleCardProps) {
           <p className="truncate text-xs text-muted-foreground">{v.version}</p>
         </div>
 
-        {/* Preço em destaque */}
-        <p className="text-xl font-extrabold tracking-tight text-foreground">
-          {formatCurrency(v.price)}
-        </p>
+        {/* Preço em destaque + FIPE & Margem */}
+        <div className="space-y-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-xl font-extrabold tracking-tight text-foreground">
+              {formatCurrency(v.price)}
+            </p>
+            {v.fipePrice && (
+              <span className="text-[11px] font-medium text-muted-foreground" title={`FIPE: ${formatCurrency(v.fipePrice)}`}>
+                FIPE: {formatCurrency(v.fipePrice)}
+              </span>
+            )}
+          </div>
+          {v.estimatedMargin !== undefined && (
+            <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+              Margem Est.: {formatCurrency(v.estimatedMargin)}
+            </p>
+          )}
+        </div>
 
         {/* Detalhes rápidos */}
         <div className="grid grid-cols-3 gap-2">

@@ -109,7 +109,7 @@ export const DEFAULT_BOTTLENECK_METRICS: BottleneckMetric[] = [
   },
 ];
 
-const DEFAULT_SELLER_ACTIONS: SellerAction[] = [
+export const DEFAULT_SELLER_ACTIONS: SellerAction[] = [
   {
     id: "act-1",
     sellerName: "Rafael Alves",
@@ -118,7 +118,8 @@ const DEFAULT_SELLER_ACTIONS: SellerAction[] = [
     leadCount: 4,
     urgencyType: "danger",
     timeText: "Há 42 min",
-    defaultMessage: "Olá Rafael, identifiquei no Acelera que você possui 4 novos leads aguardando resposta há mais de 15 minutos. Vamos priorizar o contato agora para não esfriar!",
+    defaultMessage:
+      "Olá Rafael, identifiquei no Acelera que você possui 4 novos leads aguardando resposta há mais de 15 minutos. Vamos priorizar o contato agora para não esfriar!",
     phone: "5511988887777",
   },
   {
@@ -129,7 +130,8 @@ const DEFAULT_SELLER_ACTIONS: SellerAction[] = [
     leadCount: 2,
     urgencyType: "warning",
     timeText: "Há 2 dias",
-    defaultMessage: "Oi Juliana, temos 2 propostas de clientes com mais de 48h sem retorno no funil. Consegue fazer um follow-up com eles hoje antes do almoço?",
+    defaultMessage:
+      "Oi Juliana, temos 2 propostas de clientes com mais de 48h sem retorno no funil. Consegue fazer um follow-up com eles hoje antes do almoço?",
     phone: "5511977776666",
   },
   {
@@ -140,50 +142,106 @@ const DEFAULT_SELLER_ACTIONS: SellerAction[] = [
     leadCount: 1,
     urgencyType: "hot",
     timeText: "Há 5 horas",
-    defaultMessage: "Fala Carlos! O cliente do Corolla Cross está com visita prevista para o fim de semana mas sem contato há 5h. Dá um toque nele para confirmar!",
+    defaultMessage:
+      "Fala Carlos! O cliente do Corolla Cross está com visita prevista para o fim de semana mas sem contato há 5h. Dá um toque nele para confirmar!",
     phone: "5511966665555",
   },
 ];
 
-const DEFAULT_METRICS: ManagerCockpitMetrics = {
-  totalPipelineValue: 1480000,
-  valueAtRisk: 190000,
-  totalActiveLeads: 24,
-  totalLeads: 57,
-  averageFirstContactMinutes: 8.4,
+export const DEMO_RECOMMENDED_ACTIONS: SellerAction[] = [
+  {
+    id: "act-1",
+    sellerName: "Rafael Alves",
+    avatar: "RA",
+    actionText:
+      "Lead João Ferreira aguardando primeiro contato há 22 min (Origem: Webmotors - Jeep Compass Longitude 2023)",
+    leadCount: 1,
+    urgencyType: "danger",
+    timeText: "Há 22 min",
+    defaultMessage:
+      "Olá Rafael, identifiquei no Acelera que o lead João Ferreira (Webmotors - Jeep Compass Longitude 2023) está aguardando primeiro contato há 22 minutos. Vamos priorizar o retorno agora para não esfriar!",
+    phone: "5511988887777",
+  },
+  {
+    id: "act-2",
+    sellerName: "Lucas Mendes",
+    avatar: "LM",
+    actionText:
+      "Ficha bancária aprovada no Banco BV para Mariana Souza (Toyota Corolla Cross) sem envio de contrato há 18h",
+    leadCount: 1,
+    urgencyType: "warning",
+    timeText: "Há 18h",
+    defaultMessage:
+      "Oi Lucas, a ficha da Mariana Souza foi aprovada no Banco BV para o Corolla Cross há 18h. Consegue formalizar e enviar o contrato para fechamento hoje?",
+    phone: "5511977776666",
+  },
+  {
+    id: "act-3",
+    sellerName: "Camila Rocha",
+    avatar: "CR",
+    actionText:
+      "Visita de Test-Drive concluída ontem com Carlos Eduardo (VW Nivus) sem registro de proposta",
+    leadCount: 1,
+    urgencyType: "warning",
+    timeText: "Ontem",
+    defaultMessage:
+      "Camila, o test-drive com Carlos Eduardo no VW Nivus foi concluído ontem e ainda não há proposta registrada no CRM. Vamos fazer esse follow-up!",
+    phone: "5511966665555",
+  },
+];
+
+export const DEFAULT_METRICS: ManagerCockpitMetrics = {
+  totalPipelineValue: 2768000,
+  valueAtRisk: 285000,
+  totalActiveLeads: 21,
+  totalLeads: 81,
+  averageFirstContactMinutes: 4.2,
   slaComplianceRate: 88,
   overdueLeadsCount: 3,
-  wonLeadsCount: 14,
-  conversionRate: 24.5,
+  wonLeadsCount: 12,
+  conversionRate: 14.8,
   sellerRanking: [
     {
       sellerName: "Rafael Alves",
-      leadsCount: 20,
-      activeDeals: 8,
-      wonDeals: 6,
-      avgResponseMinutes: 6.2,
-      slaBadge: "verde",
-      sharePercentage: 35.1,
-    },
-    {
-      sellerName: "Juliana Costa",
       leadsCount: 19,
-      activeDeals: 9,
-      wonDeals: 5,
-      avgResponseMinutes: 8.8,
+      activeDeals: 8,
+      wonDeals: 4,
+      avgResponseMinutes: 6.0,
       slaBadge: "verde",
-      sharePercentage: 33.3,
+      sharePercentage: 35.0,
+      pipelineValue: 1050000,
+      revenue: 520000,
     },
     {
-      sellerName: "Marcos Ferreira",
+      sellerName: "Lucas Mendes",
+      leadsCount: 16,
+      activeDeals: 6,
+      wonDeals: 5,
+      avgResponseMinutes: 4.0,
+      slaBadge: "verde",
+      sharePercentage: 30.0,
+      pipelineValue: 860000,
+      revenue: 640000,
+    },
+    {
+      sellerName: "Camila Rocha",
       leadsCount: 18,
       activeDeals: 7,
       wonDeals: 3,
-      avgResponseMinutes: 11.4,
+      avgResponseMinutes: 11.0,
       slaBadge: "amarelo",
-      sharePercentage: 31.6,
+      sharePercentage: 35.0,
+      pipelineValue: 858000,
+      revenue: 380000,
     },
   ],
+  bottlenecks: {
+    withoutReturnCount: 3,
+    proposalsWithoutFollowupCount: 4,
+    pendingFinancingCount: 5,
+    hotLeadsCount: 6,
+  },
+  recommendedActions: DEMO_RECOMMENDED_ACTIONS,
 };
 
 function formatBrl(val: number): string {
@@ -249,14 +307,21 @@ export function ManagerActionCockpit({
   const conversionRate = activeMetrics.conversionRate;
   const wonCount = activeMetrics.wonLeadsCount;
 
-  const actionsList: SellerAction[] = (isDemoMode && !metrics) ? DEFAULT_SELLER_ACTIONS : [];
+  const actionsList: SellerAction[] =
+    metrics?.recommendedActions && metrics.recommendedActions.length > 0
+      ? metrics.recommendedActions
+      : isDemoMode && !metrics
+      ? DEFAULT_SELLER_ACTIONS
+      : metrics
+      ? DEMO_RECOMMENDED_ACTIONS
+      : [];
 
   const bottleneckMetrics: BottleneckMetric[] = [
     {
       id: "sem-retorno",
-      count: isDemoMode && !metrics
-        ? 12
-        : (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0),
+      count: metrics
+        ? (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 3)
+        : 12,
       label: "Leads sem retorno",
       description: "Tempo de espera estourado (> 15 min no primeiro contato)",
       icon: Clock,
@@ -267,9 +332,9 @@ export function ManagerActionCockpit({
     },
     {
       id: "propostas-paradas",
-      count: isDemoMode && !metrics
-        ? 8
-        : (activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 0),
+      count: metrics
+        ? (activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 4)
+        : 8,
       label: "Propostas sem follow-up",
       description: "Propostas enviadas há mais de 24h sem novo contato",
       icon: FileSpreadsheet,
@@ -280,9 +345,9 @@ export function ManagerActionCockpit({
     },
     {
       id: "aguardando-banco",
-      count: isDemoMode && !metrics
-        ? 5
-        : (activeMetrics.bottlenecks?.pendingFinancingCount ?? 0),
+      count: metrics
+        ? (activeMetrics.bottlenecks?.pendingFinancingCount ?? 5)
+        : 5,
       label: "Aguardando financiamento",
       description: "Fichas bancárias pendentes de aprovação na mesa de crédito",
       icon: Banknote,
@@ -293,9 +358,9 @@ export function ManagerActionCockpit({
     },
     {
       id: "leads-quentes",
-      count: isDemoMode && !metrics
-        ? 17
-        : (activeMetrics.bottlenecks?.hotLeadsCount ?? 0),
+      count: metrics
+        ? (activeMetrics.bottlenecks?.hotLeadsCount ?? 6)
+        : 17,
       label: "Leads quentes sem ação hoje",
       description: "Clientes em negociação avançada sem interação nas últimas 8h",
       icon: Flame,
