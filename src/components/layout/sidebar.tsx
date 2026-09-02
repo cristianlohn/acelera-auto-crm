@@ -22,6 +22,7 @@ import {
   Settings,
   HelpCircle,
   Zap,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserNav } from "@/components/layout/user-nav";
@@ -51,6 +52,7 @@ export const navItems: NavItem[] = [
   { href: "/vehicles", label: "Estoque", icon: Car },
   { href: "/reports", label: "Relatórios", icon: BarChart3 },
   { href: "/settings", label: "Configurações", icon: Settings },
+  { href: "/billing", label: "Faturamento", icon: CreditCard },
   {
     href: "/ajuda",
     label: "Central de Ajuda",
@@ -119,6 +121,15 @@ export function getNavItemsForRole(role?: string | null): NavItem[] {
       href: "/settings",
       label: "Configurações",
       icon: Settings,
+    });
+  }
+
+  // Faturamento & Assinatura (Owner, Admin, Superadmin)
+  if (canManageIntegrationsAndBilling(norm)) {
+    items.push({
+      href: "/billing",
+      label: "Faturamento",
+      icon: CreditCard,
     });
   }
 

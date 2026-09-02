@@ -140,6 +140,52 @@ export function resolvePeriodEndDate(dueDateStr?: string): string {
   return anchoredDate.toISOString();
 }
 
+export interface AsaasSubscriptionDetails {
+  id: string;
+  status: string;
+  value: number;
+  nextDueDate: string | null;
+  cycle: "MONTHLY" | "YEARLY" | string;
+  billingType: "CREDIT_CARD" | "PIX" | "BOLETO" | "UNDEFINED" | string;
+  creditCard?: {
+    creditCardBrand?: string;
+    creditCardNumber?: string;
+  };
+}
+
+/**
+ * Consulta os detalhes consolidados de uma assinatura diretamente no Asaas.
+ */
+export async function getAsaasSubscriptionDetails(
+  subscriptionId: string
+): Promise<AsaasSubscriptionDetails | null> {
+  try {
+    const { apiUrl, apiKey } = getAsaasConfig();
+    const res = await fetch(`${apiUrl}/subscriptions/${subscriptionId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        access_token: apiKey,
+      },
+      signal: AbortSignal.timeout(4000),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    return {
+      id: data.id,
+      status: data.status,
+      value: data.value,
+      nextDueDate: data.nextDueDate || null,
+      cycle: data.cycle,
+      billingType: data.billingType,
+      creditCard: data.creditCard,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Busca cliente existente no Asaas pelo número de CPF ou CNPJ.
  */

@@ -8,12 +8,14 @@
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import {
   createAsaasSubscription,
+  getAsaasSubscriptionDetails,
   BILLING_PLANS_CONFIG,
   type CreateSubscriptionResult,
 } from "@/lib/services/asaas/subscription-service";
 import { isValidDocument, sanitizeDigits } from "@/lib/validations/document";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { canManageIntegrationsAndBilling } from "@/lib/permissions";
 
 export interface CreateSubscriptionInput {
   planId: string;
@@ -35,6 +37,13 @@ export interface CreateSubscriptionInput {
 export async function getBillingInitialDataAction() {
   try {
     const tenantContext = await resolveUserTenantContext();
+    if (!canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
+      return {
+        success: false,
+        data: null,
+        error: "Acesso restrito: Apenas administradores ou proprietários têm acesso ao faturamento.",
+      };
+    }
     const org = tenantContext.organization;
     const profile = tenantContext.profile;
     const doc = org?.document || "";
@@ -61,31 +70,38 @@ export async function createSubscriptionCheckoutAction(
 ): Promise<CreateSubscriptionResult> {
   const { planId, billingCycle = "mensal" } = input;
 
-  console.log(
-    "[Asaas Service] ASAAS_API_KEY presente:",
-    !!process.env.ASAAS_API_KEY,
-    "URL:",
-    process.env.ASAAS_API_URL
-  );
-
-  if (!process.env.ASAAS_API_KEY) {
-    return {
-      success: false,
-      error:
-        "Chave de API do Asaas não encontrada no servidor. Verifique o .env.local e reinicie o servidor.",
-    };
-  }
-
-  if (!BILLING_PLANS_CONFIG[planId]) {
-    return {
-      success: false,
-      error: `Plano '${planId}' inválido. Escolha entre Starter, Pro ou Enterprise.`,
-    };
-  }
-
   try {
-    // 1. Resolve o contexto de organização do usuário
+    // 1. Resolve o contexto de organização do usuário e valida RBAC imediatamente
     const tenantContext = await resolveUserTenantContext();
+
+    if (!canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
+      return {
+        success: false,
+        error: "Acesso restrito: Apenas administradores ou proprietários podem contratar ou alterar planos.",
+      };
+    }
+
+    console.log(
+      "[Asaas Service] ASAAS_API_KEY presente:",
+      !!process.env.ASAAS_API_KEY,
+      "URL:",
+      process.env.ASAAS_API_URL
+    );
+
+    if (!process.env.ASAAS_API_KEY) {
+      return {
+        success: false,
+        error:
+          "Chave de API do Asaas não encontrada no servidor. Verifique o .env.local e reinicie o servidor.",
+      };
+    }
+
+    if (!BILLING_PLANS_CONFIG[planId]) {
+      return {
+        success: false,
+        error: `Plano '${planId}' inválido. Escolha entre Starter, Pro ou Enterprise.`,
+      };
+    }
 
     const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
     const org = tenantContext.organization;
@@ -190,6 +206,167 @@ export async function createSubscriptionCheckoutAction(
     return {
       success: false,
       error: message,
+    };
+  }
+}
+
+export interface SubscriptionOverviewData {
+  planId: string;
+  planName: string;
+  status: "active" | "trialing" | "overdue" | "canceled" | "inactive";
+  billingCycle: "mensal" | "anual";
+  price: number;
+  nextDueDate: string | null;
+  daysRemaining: number | null;
+  paymentMethod?: {
+    type: "credit_card" | "pix" | "boleto" | "unknown";
+    brand?: string;
+    last4?: string;
+  };
+  asaasSubscriptionId?: string | null;
+  asaasCustomerId?: string | null;
+}
+
+export interface SubscriptionOverviewResult {
+  success: boolean;
+  data?: SubscriptionOverviewData;
+  error?: string;
+}
+
+/**
+ * Retorna os dados consolidados da assinatura atual da organização ativa para exibição no Cockpit de Faturamento.
+ * Restrito estritamente a usuários com role 'owner' ou 'admin' (e superadmin).
+ */
+export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverviewResult> {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    if (!canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
+      return {
+        success: false,
+        error: "Acesso restrito: Apenas administradores ou proprietários têm acesso ao faturamento.",
+      };
+    }
+
+    // Modo Demonstração com dados enriquecidos
+    if (tenantContext.isDemo) {
+      const demoDue = new Date();
+      demoDue.setDate(demoDue.getDate() + 18);
+      return {
+        success: true,
+        data: {
+          planId: "pro",
+          planName: "Plano Pro",
+          status: "active",
+          billingCycle: "mensal",
+          price: 597,
+          nextDueDate: demoDue.toISOString(),
+          daysRemaining: 18,
+          paymentMethod: {
+            type: "credit_card",
+            brand: "Mastercard",
+            last4: "4242",
+          },
+          asaasSubscriptionId: "sub_demo_active",
+          asaasCustomerId: "cus_demo_active",
+        },
+      };
+    }
+
+    const org = tenantContext.organization;
+    if (!org) {
+      return {
+        success: false,
+        error: "Organização não localizada para a sessão atual.",
+      };
+    }
+
+    const now = Date.now();
+    let nextDueDate: string | null = null;
+    let daysRemaining: number | null = null;
+
+    if (org.current_period_end) {
+      nextDueDate = org.current_period_end;
+      daysRemaining = Math.max(0, Math.ceil((new Date(org.current_period_end).getTime() - now) / 86400000));
+    } else if (org.trial_ends_at) {
+      nextDueDate = org.trial_ends_at;
+      daysRemaining = Math.max(0, Math.ceil((new Date(org.trial_ends_at).getTime() - now) / 86400000));
+    }
+
+    let status: SubscriptionOverviewData["status"] = "inactive";
+    const rawStatus = (org.subscription_status || "").toLowerCase().trim();
+    if (rawStatus === "active") status = "active";
+    else if (rawStatus === "trialing" || rawStatus === "trial") status = "trialing";
+    else if (rawStatus === "overdue" || rawStatus === "past_due") status = "overdue";
+    else if (rawStatus === "canceled") status = "canceled";
+    else if (org.trial_ends_at && new Date(org.trial_ends_at).getTime() > now) status = "trialing";
+
+    const rawPlan = (org.plan || "starter").toLowerCase();
+    const planConfig = BILLING_PLANS_CONFIG[rawPlan] || BILLING_PLANS_CONFIG.pro;
+
+    let billingCycle: "mensal" | "anual" = "mensal";
+    let price = planConfig.monthlyPrice;
+    let paymentMethod: SubscriptionOverviewData["paymentMethod"] = {
+      type: "pix",
+    };
+
+    if (org.asaas_subscription_id) {
+      try {
+        const subDetails = await getAsaasSubscriptionDetails(org.asaas_subscription_id);
+        if (subDetails) {
+          if (subDetails.cycle === "YEARLY") {
+            billingCycle = "anual";
+            price = subDetails.value || planConfig.annualPrice;
+          } else {
+            billingCycle = "mensal";
+            price = subDetails.value || planConfig.monthlyPrice;
+          }
+
+          if (subDetails.nextDueDate) {
+            nextDueDate = subDetails.nextDueDate;
+            daysRemaining = Math.max(0, Math.ceil((new Date(subDetails.nextDueDate).getTime() - now) / 86400000));
+          }
+
+          if (subDetails.billingType === "CREDIT_CARD") {
+            paymentMethod = {
+              type: "credit_card",
+              brand: subDetails.creditCard?.creditCardBrand || "Cartão",
+              last4: subDetails.creditCard?.creditCardNumber || "4242",
+            };
+          } else if (subDetails.billingType === "BOLETO") {
+            paymentMethod = {
+              type: "boleto",
+            };
+          } else {
+            paymentMethod = {
+              type: "pix",
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("[getSubscriptionOverviewAction] Erro ao buscar dados no Asaas:", err);
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        planId: planConfig.id,
+        planName: planConfig.name,
+        status,
+        billingCycle,
+        price,
+        nextDueDate,
+        daysRemaining,
+        paymentMethod,
+        asaasSubscriptionId: org.asaas_subscription_id,
+        asaasCustomerId: org.asaas_customer_id,
+      },
+    };
+  } catch (error) {
+    console.error("[getSubscriptionOverviewAction Error]", error);
+    return {
+      success: false,
+      error: "Falha ao consolidar visão geral da assinatura.",
     };
   }
 }

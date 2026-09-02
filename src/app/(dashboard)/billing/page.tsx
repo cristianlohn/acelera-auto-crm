@@ -14,7 +14,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   Check,
   Sparkles,
@@ -28,10 +28,15 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BillingCheckoutDialog } from "@/components/billing/billing-checkout-dialog";
+import { SubscriptionManagementCard } from "@/components/billing/subscription-management-card";
 import { cn } from "@/lib/utils";
 import { useDemoRole } from "@/context/demo-role-context";
 import { normalizeRole, canManageIntegrationsAndBilling } from "@/lib/permissions";
-import { getBillingInitialDataAction } from "@/app/actions/billing-actions";
+import {
+  getBillingInitialDataAction,
+  getSubscriptionOverviewAction,
+  type SubscriptionOverviewData,
+} from "@/app/actions/billing-actions";
 
 interface Plan {
   id: string;
@@ -100,6 +105,7 @@ const plans: Plan[] = [
 ];
 
 function BillingContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const isExpired = searchParams.get("expired") === "true";
   const isBlocked = searchParams.get("status") === "blocked";
@@ -121,6 +127,14 @@ function BillingContent() {
     document?: string;
     documentType?: "CPF" | "CNPJ";
   } | undefined>(undefined);
+  const [subscriptionOverview, setSubscriptionOverview] = useState<SubscriptionOverviewData | null>(null);
+
+  // Redirecionamento amigável de usuários não autorizados (ex: sellers, members) para o Cockpit
+  useEffect(() => {
+    if (!isDemoMode && !canManageBilling) {
+      router.replace("/dashboard?error=unauthorized_billing");
+    }
+  }, [isDemoMode, canManageBilling, router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -129,6 +143,13 @@ function BillingContent() {
         setInitialBillingData(res.data);
       }
     });
+
+    getSubscriptionOverviewAction().then((res) => {
+      if (isMounted && res.success && res.data) {
+        setSubscriptionOverview(res.data);
+      }
+    });
+
     return () => {
       isMounted = false;
     };
@@ -144,11 +165,11 @@ function BillingContent() {
         </div>
         <h2 className="text-xl font-bold text-white">Acesso Restrito</h2>
         <p className="mt-2 max-w-md text-sm text-zinc-400">
-          A gestão de planos, faturamento e assinaturas é exclusiva para Administradores da concessionária.
+          A gestão de planos, faturamento e assinaturas é exclusiva para Administradores e Proprietários da concessionária.
         </p>
         <div className="mt-6 flex gap-3">
           <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white">
-            <Link href="/leads">Voltar para o Funil de Leads</Link>
+            <Link href="/dashboard">Voltar para o Cockpit</Link>
           </Button>
         </div>
       </div>
@@ -195,8 +216,22 @@ function BillingContent() {
           </div>
         )}
 
+        {/* Cockpit de Gestão de Assinatura Ativa / Trial / Vencida */}
+        {subscriptionOverview &&
+          (subscriptionOverview.status === "active" ||
+            subscriptionOverview.status === "trialing" ||
+            subscriptionOverview.status === "overdue") && (
+            <SubscriptionManagementCard
+              subscription={subscriptionOverview}
+              onChangePlan={() => {
+                document.getElementById("plans-section")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              onPayOverdue={() => handleOpenCheckout(subscriptionOverview.planId)}
+            />
+          )}
+
         {/* Cabeçalho Condicional: Paywall Expirado vs Gestão de Faturamento */}
-        <div className="text-center max-w-3xl mx-auto space-y-3">
+        <div id="plans-section" className="text-center max-w-3xl mx-auto space-y-3">
           {isExpired ? (
             <div className="space-y-2 animate-in fade-in slide-in-from-top-4">
               <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-950/40 px-3.5 py-1 text-xs font-bold text-red-400">

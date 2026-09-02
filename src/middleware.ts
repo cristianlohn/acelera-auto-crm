@@ -138,6 +138,33 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl);
     }
 
+    // Bloqueio de acesso a /billing para papéis não-administrativos (Sellers/Members)
+    if (isBillingRoute && user) {
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        const role = profile?.role?.toLowerCase()?.trim();
+        const isAdminOrOwner =
+          role === "admin" ||
+          role === "owner" ||
+          role === "superadmin" ||
+          role === "proprietario" ||
+          role === "dono";
+
+        if (!isAdminOrOwner) {
+          const dashboardUrl = new URL("/dashboard", request.url);
+          dashboardUrl.searchParams.set("error", "unauthorized_billing");
+          return NextResponse.redirect(dashboardUrl);
+        }
+      } catch (err) {
+        console.error("[Middleware Billing RBAC Error]", err);
+      }
+    }
+
     // Validação de assinatura em rotas autenticadas (exceto /billing)
     if (isProtectedRoute && user && !isBillingRoute) {
       try {
