@@ -34,7 +34,7 @@ export const mockVehicles: Vehicle[] = [
     price: 149900,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1588258952541-23bcfc53ce82?w=800&q=80",
+      "https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?auto=format&fit=crop&w=800&q=80",
     daysInStock: 12,
     fipePrice: 148000,
     estimatedMargin: 14500,
@@ -53,7 +53,7 @@ export const mockVehicles: Vehicle[] = [
     price: 134900,
     status: "reservado",
     imageUrl:
-      "https://images.unsplash.com/photo-1623869675781-80aa31012a5a?w=800&q=80",
+      "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?auto=format&fit=crop&w=800&q=80",
     daysInStock: 8,
     fipePrice: 133500,
     estimatedMargin: 12000,
@@ -72,7 +72,7 @@ export const mockVehicles: Vehicle[] = [
     price: 168000,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1536700503405-7ba39f5b6b4c?w=800&q=80",
+      "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
     daysInStock: 42,
     fipePrice: 166000,
     estimatedMargin: 16000,
@@ -91,7 +91,7 @@ export const mockVehicles: Vehicle[] = [
     price: 129900,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1550355291-bbee04a92027?w=800&q=80",
+      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
     daysInStock: 15,
     fipePrice: 128000,
     estimatedMargin: 11500,
@@ -110,7 +110,7 @@ export const mockVehicles: Vehicle[] = [
     price: 98500,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
+      "https://images.unsplash.com/photo-1559416523-140ddc3d238c?auto=format&fit=crop&w=800&q=80",
     daysInStock: 68,
     fipePrice: 97000,
     estimatedMargin: 9800,
@@ -129,7 +129,7 @@ export const mockVehicles: Vehicle[] = [
     price: 84900,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1619682817481-e994891cd1f5?w=800&q=80",
+      "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80",
     daysInStock: 24,
     fipePrice: 83000,
     estimatedMargin: 8200,
@@ -148,7 +148,7 @@ export const mockVehicles: Vehicle[] = [
     price: 144000,
     status: "reservado",
     imageUrl:
-      "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80",
+      "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80",
     daysInStock: 19,
     fipePrice: 142000,
     estimatedMargin: 13800,
@@ -167,7 +167,7 @@ export const mockVehicles: Vehicle[] = [
     price: 139900,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=800&q=80",
+      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
     daysInStock: 10,
     fipePrice: 138500,
     estimatedMargin: 12900,
@@ -186,7 +186,7 @@ export const mockVehicles: Vehicle[] = [
     price: 162000,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1623869675781-80aa31012a5a?w=800&q=80",
+      "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
     daysInStock: 65,
     fipePrice: 160000,
     estimatedMargin: 15000,
@@ -205,7 +205,7 @@ export const mockVehicles: Vehicle[] = [
     price: 178000,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1536700503405-7ba39f5b6b4c?w=800&q=80",
+      "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
     daysInStock: 35,
     fipePrice: 175000,
     estimatedMargin: 17500,
@@ -224,7 +224,7 @@ export const mockVehicles: Vehicle[] = [
     price: 128000,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1550355291-bbee04a92027?w=800&q=80",
+      "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80",
     daysInStock: 7,
     fipePrice: 126000,
     estimatedMargin: 11000,
@@ -243,7 +243,7 @@ export const mockVehicles: Vehicle[] = [
     price: 119900,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1619682817481-e994891cd1f5?w=800&q=80",
+      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
     daysInStock: 48,
     fipePrice: 118000,
     estimatedMargin: 10500,
@@ -262,7 +262,7 @@ export const mockVehicles: Vehicle[] = [
     price: 136000,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80",
+      "https://images.unsplash.com/photo-1559416523-140ddc3d238c?auto=format&fit=crop&w=800&q=80",
     daysInStock: 14,
     fipePrice: 134000,
     estimatedMargin: 13000,
@@ -281,7 +281,7 @@ export const mockVehicles: Vehicle[] = [
     price: 118000,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=800&q=80",
+      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
     daysInStock: 29,
     fipePrice: 116000,
     estimatedMargin: 10200,
@@ -300,7 +300,7 @@ export const mockVehicles: Vehicle[] = [
     price: 269000,
     status: "disponivel",
     imageUrl:
-      "https://images.unsplash.com/photo-1588258952541-23bcfc53ce82?w=800&q=80",
+      "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80",
     daysInStock: 52,
     fipePrice: 265000,
     estimatedMargin: 24000,
@@ -319,7 +319,7 @@ export const mockVehicles: Vehicle[] = [
     price: 59900,
     status: "vendido",
     imageUrl:
-      "https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=800&q=80",
+      "https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=800&q=80",
     daysInStock: 60,
     fipePrice: 58500,
     estimatedMargin: 6500,
@@ -627,9 +627,9 @@ export const mockLeads: Lead[] = [
   },
   {
     id: "l-017",
-    name: "Mariana Souza",
+    name: "Mariana Albuquerque",
     phone: "47998877665",
-    email: "mariana.souza@gmail.com",
+    email: "mariana.albuquerque@gmail.com",
     vehicleInterest: "Toyota Corolla Altis Hybrid",
     status: "proposta",
     sellerName: "Lucas Mendes",

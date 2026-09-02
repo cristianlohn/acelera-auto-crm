@@ -12,14 +12,16 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+import { siteConfig } from "@/config/site";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://aceleraautocrm.com.br"),
+  metadataBase: new URL(siteConfig.url),
   alternates: {
-    canonical: "https://aceleraautocrm.com.br",
+    canonical: siteConfig.url,
   },
   title: {
-    default: "Acelera Auto CRM | CRM Automotivo de Alta Velocidade",
-    template: "%s | Acelera Auto CRM",
+    default: `${siteConfig.name} | CRM Automotivo de Alta Velocidade`,
+    template: `%s | ${siteConfig.name}`,
   },
   description:
     "CRM e Funil de Vendas projetado para lojas de veículos e concessionárias. Acelere o atendimento de leads do WhatsApp, organize o pátio e aumente o giro do estoque.",
@@ -35,30 +37,30 @@ export const metadata: Metadata = {
   creator: "Catuto Soluções Digitais",
   publisher: "Catuto Soluções Digitais",
   openGraph: {
-    title: "Acelera Auto CRM | CRM Automotivo de Alta Velocidade",
+    title: `${siteConfig.name} | CRM Automotivo de Alta Velocidade`,
     description:
       "O CRM que acelera o fechamento de vendas de veículos. Funil Kanban integrado ao WhatsApp, gestão de pátio e métricas em tempo real.",
-    url: "https://aceleraautocrm.com.br",
-    siteName: "Acelera Auto CRM",
+    url: siteConfig.url,
+    siteName: siteConfig.name,
     locale: "pt_BR",
     type: "website",
     images: [
       {
-        url: "https://aceleraautocrm.com.br/og-image.png",
-        secureUrl: "https://aceleraautocrm.com.br/og-image.png",
+        url: `${siteConfig.url}/og-image.png`,
+        secureUrl: `${siteConfig.url}/og-image.png`,
         width: 1200,
         height: 630,
         type: "image/png",
-        alt: "Acelera Auto CRM Preview",
+        alt: `${siteConfig.name} Preview`,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Acelera Auto CRM | CRM Automotivo de Alta Velocidade",
+    title: `${siteConfig.name} | CRM Automotivo de Alta Velocidade`,
     description:
       "Acelere o fechamento de vendas de veículos e gerencie seus leads em tempo real.",
-    images: ["https://aceleraautocrm.com.br/og-image.png"],
+    images: [`${siteConfig.url}/og-image.png`],
   },
   icons: {
     icon: [
@@ -89,34 +91,34 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Organization",
-      "@id": "https://aceleraautocrm.com.br/#organization",
+      "@id": `${siteConfig.url}/#organization`,
       name: "Catuto Soluções Digitais",
-      legalName: "Catuto Soluções Digitais",
-      url: "https://aceleraautocrm.com.br",
+      legalName: siteConfig.company.legalName,
+      url: siteConfig.url,
       logo: {
         "@type": "ImageObject",
-        url: "https://aceleraautocrm.com.br/logo.png",
+        url: `${siteConfig.url}/logo.png`,
         width: 512,
         height: 512,
       },
       contactPoint: {
         "@type": "ContactPoint",
-        email: "contato@aceleraautocrm.com.br",
+        email: siteConfig.company.supportEmail,
         contactType: "customer service",
         availableLanguage: ["Portuguese"],
       },
     },
     {
       "@type": "SoftwareApplication",
-      "@id": "https://aceleraautocrm.com.br/#software",
-      name: "Acelera Auto CRM",
+      "@id": `${siteConfig.url}/#software`,
+      name: siteConfig.name,
       applicationCategory: "BusinessApplication",
       operatingSystem: "Web Browser",
-      url: "https://aceleraautocrm.com.br",
+      url: siteConfig.url,
       description:
         "CRM e Funil de Vendas projetado para lojas de veículos e concessionárias. Acelere o atendimento de leads do WhatsApp e controle seu estoque.",
       publisher: {
-        "@id": "https://aceleraautocrm.com.br/#organization",
+        "@id": `${siteConfig.url}/#organization`,
       },
       offers: {
         "@type": "AggregateOffer",

@@ -53,12 +53,12 @@ export const DEFAULT_RECOMMENDED_ACTIONS: CockpitActionItem[] = [
     sellerName: "Lucas Mendes",
     avatar: "LM",
     actionText:
-      "Ficha bancária aprovada no Banco BV para Mariana Souza (Toyota Corolla Cross) sem envio de contrato há 18h",
+      "Ficha bancária aprovada no Banco BV para Mariana Albuquerque (Toyota Corolla Cross) sem envio de contrato há 18h",
     leadCount: 1,
     urgencyType: "warning",
     timeText: "Há 18h",
     defaultMessage:
-      "Oi Lucas, a ficha da Mariana Souza foi aprovada no Banco BV para o Corolla Cross há 18h. Favor enviar o contrato para formalização ainda hoje!",
+      "Oi Lucas, a ficha da Mariana Albuquerque foi aprovada no Banco BV para o Corolla Cross há 18h. Favor enviar o contrato para formalização ainda hoje!",
     phone: "5511977776666",
   },
   {

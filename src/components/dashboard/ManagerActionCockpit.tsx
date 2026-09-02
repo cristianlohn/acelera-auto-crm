@@ -167,12 +167,12 @@ export const DEMO_RECOMMENDED_ACTIONS: SellerAction[] = [
     sellerName: "Lucas Mendes",
     avatar: "LM",
     actionText:
-      "Ficha bancária aprovada no Banco BV para Mariana Souza (Toyota Corolla Cross) sem envio de contrato há 18h",
+      "Ficha bancária aprovada no Banco BV para Mariana Albuquerque (Toyota Corolla Cross) sem envio de contrato há 18h",
     leadCount: 1,
     urgencyType: "warning",
     timeText: "Há 18h",
     defaultMessage:
-      "Oi Lucas, a ficha da Mariana Souza foi aprovada no Banco BV para o Corolla Cross há 18h. Consegue formalizar e enviar o contrato para fechamento hoje?",
+      "Oi Lucas, a ficha da Mariana Albuquerque foi aprovada no Banco BV para o Corolla Cross há 18h. Consegue formalizar e enviar o contrato para fechamento hoje?",
     phone: "5511977776666",
   },
   {

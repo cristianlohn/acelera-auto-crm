@@ -9,10 +9,8 @@
  * - Rodapé com informações institucionais, segurança de dados e links rápidos.
  */
 
-import Image from "next/image";
-import Link from "next/link";
-import { ShieldCheck, Database } from "lucide-react";
 import { MarketingHeader } from "@/components/layout/marketing-header";
+import { LandingFooter } from "@/components/landing/footer";
 
 export const metadata = {
   title: "Acelera Auto CRM — O CRM Automotivo de Alta Velocidade",
@@ -33,137 +31,8 @@ export default function MarketingLayout({
       {/* Conteúdo Principal */}
       <main className="flex-1">{children}</main>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Footer Institucional                                               */}
-      {/* ------------------------------------------------------------------ */}
-      <footer className="border-t border-white/10 bg-[#050507] py-12 text-xs text-zinc-400">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
-            {/* Coluna 1: Sobre */}
-            <div className="space-y-3 md:col-span-1">
-              <div className="flex items-center gap-2">
-                <Image
-                  src="/logo.png"
-                  alt="Acelera Auto CRM"
-                  width={140}
-                  height={36}
-                  className="h-8 md:h-9 w-auto object-contain"
-                />
-              </div>
-              <p className="text-zinc-400 leading-relaxed">
-                Plataforma de alta performance desenvolvida para acelerar a
-                gestão de leads, giro de pátio e produtividade em concessionárias
-                e revendas.
-              </p>
-              <div className="flex items-center gap-2 text-zinc-400 pt-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                <span>Criptografia ponta a ponta & RLS</span>
-              </div>
-            </div>
-
-            {/* Coluna 2: Produto */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                Produto
-              </h3>
-              <ul className="space-y-1.5">
-                <li>
-                  <a href="#recursos" className="hover:text-white transition">
-                    Funil Kanban de Leads
-                  </a>
-                </li>
-                <li>
-                  <a href="#recursos" className="hover:text-white transition">
-                    Gestão de Estoque e Pátio
-                  </a>
-                </li>
-                <li>
-                  <a href="#recursos" className="hover:text-white transition">
-                    Integração WhatsApp Direta
-                  </a>
-                </li>
-                <li>
-                  <a href="#recursos" className="hover:text-white transition">
-                    Relatórios & Indicadores
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            {/* Coluna 3: Empresa & Segurança */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                Infraestrutura & Segurança
-              </h3>
-              <ul className="space-y-1.5">
-                <li className="flex items-center gap-1.5">
-                  <Database className="h-3.5 w-3.5 text-orange-400" />
-                  <span>PostgreSQL & Supabase Realtime</span>
-                </li>
-                <li>
-                  <Link href="/privacidade" className="hover:text-white transition">
-                    Conformidade LGPD & Privacidade
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/termos" className="hover:text-white transition">
-                    Termos de Licenciamento (SaaS)
-                  </Link>
-                </li>
-                <li>
-                  <span className="hover:text-white">Backup Automatizado</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Coluna 4: Acesso Rápido */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                Acesso
-              </h3>
-              <ul className="space-y-1.5">
-                <li>
-                  <Link href="/leads" className="hover:text-white transition">
-                    Acessar Demonstração Gratuita
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/login" className="hover:text-white transition">
-                    Login no Sistema
-                  </Link>
-                </li>
-                <li>
-                  <a href="#planos" className="hover:text-white transition">
-                    Tabela de Preços
-                  </a>
-                </li>
-                <li>
-                  <a href="#calculadora" className="hover:text-white transition">
-                    Calculadora de ROI
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="mt-8 border-t border-white/5 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px] text-zinc-400">
-            <p>
-              © {new Date().getFullYear()} Acelera Auto CRM. Um produto operado por Catuto Soluções Digitais.
-            </p>
-            <div className="flex gap-4">
-              <Link href="/termos" className="hover:text-zinc-300 transition-colors">
-                Termos de Uso
-              </Link>
-              <Link href="/privacidade" className="hover:text-zinc-300 transition-colors">
-                Política de Privacidade
-              </Link>
-              <Link href="/ajuda" className="hover:text-zinc-300 transition-colors">
-                Central de Ajuda
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Footer Institucional */}
+      <LandingFooter />
     </div>
   );
 }

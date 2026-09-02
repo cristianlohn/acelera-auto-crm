@@ -422,9 +422,9 @@ const enrichedMemoryKanbanLeads: KanbanLead[] = [
   {
     id: "lead-k-117",
     organization_id: DEFAULT_DEMO_ORG_ID,
-    name: "Mariana Souza",
+    name: "Mariana Albuquerque",
     phone: "+5547998877665",
-    email: "mariana.souza@gmail.com",
+    email: "mariana.albuquerque@gmail.com",
     source: "webmotors",
     vehicle_of_interest: "Toyota Corolla Altis Hybrid",
     assigned_to: {

@@ -110,9 +110,6 @@ export interface VehicleCardProps {
 // Componente
 // ---------------------------------------------------------------------------
 
-/**
- * Card de veículo com imagem, badge de status, preço, detalhes e ações.
- */
 export function VehicleCard({ vehicle: v, onStatusChange }: VehicleCardProps) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
