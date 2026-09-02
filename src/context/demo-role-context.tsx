@@ -10,7 +10,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 
 export type DemoRole = "vendedor" | "gerente" | "admin" | "superadmin" | "seller" | "manager";
 
@@ -74,6 +74,8 @@ export const ROLE_CONFIGS: Record<DemoRole, RoleConfig> = {
   },
 };
 
+import { getCurrentUserProfileAction } from "@/app/actions/auth";
+
 export interface DemoRoleContextType {
   role: DemoRole;
   setRole: (role: DemoRole) => void;
@@ -83,6 +85,12 @@ export interface DemoRoleContextType {
   setIsDemoMode: (isDemo: boolean) => void;
   notification: string | null;
   clearNotification: () => void;
+  currentUser?: {
+    id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+  } | null;
 }
 
 const DemoRoleContext = createContext<DemoRoleContextType | undefined>(undefined);
@@ -116,6 +124,33 @@ export function DemoRoleProvider({
     return false;
   });
   const [notification, setNotification] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!isDemoMode) {
+      getCurrentUserProfileAction()
+        .then((p) => {
+          if (isMounted && p && !p.isDemo) {
+            setCurrentUser({
+              id: p.userId || undefined,
+              name: p.fullName,
+              email: p.email,
+              role: p.role,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isDemoMode]);
 
   const setRole = useCallback((newRole: DemoRole) => {
     setRoleState(newRole);
@@ -130,6 +165,9 @@ export function DemoRoleProvider({
   }, []);
 
   const roleConfig = ROLE_CONFIGS[role];
+  const sellerName = isDemoMode
+    ? roleConfig.name
+    : (currentUser?.name || currentUser?.email || "Vendedor");
 
   return (
     <DemoRoleContext.Provider
@@ -137,11 +175,12 @@ export function DemoRoleProvider({
         role,
         setRole,
         roleConfig,
-        sellerName: roleConfig.name,
+        sellerName,
         isDemoMode,
         setIsDemoMode,
         notification,
         clearNotification,
+        currentUser,
       }}
     >
       {children}

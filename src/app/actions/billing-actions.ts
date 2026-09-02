@@ -145,6 +145,9 @@ export async function createSubscriptionCheckoutAction(
       invoiceUrl: result.checkoutUrl,
       subscriptionId: result.subscriptionId,
       customerId: result.customerId,
+      pixQrCode: result.pixQrCode,
+      pixCopyPaste: result.pixCopyPaste,
+      bankSlipBarcode: result.bankSlipBarcode,
     };
   } catch (error) {
     console.error("[Asaas Billing Error] Exceção capturada ao processar checkout:", error);

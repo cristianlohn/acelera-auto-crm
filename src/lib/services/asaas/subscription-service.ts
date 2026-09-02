@@ -75,6 +75,9 @@ export interface CreateSubscriptionResult {
   invoiceUrl?: string;
   subscriptionId?: string;
   customerId?: string;
+  pixQrCode?: string;
+  pixCopyPaste?: string;
+  bankSlipBarcode?: string;
   error?: string;
 }
 

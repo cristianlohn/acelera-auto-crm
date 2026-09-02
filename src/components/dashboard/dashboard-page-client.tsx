@@ -69,6 +69,7 @@ export function DashboardPageClient({
         <SellerActionCockpit
           metrics={initialMetrics}
           sellerName={activeSellerName}
+          isDemo={isDemo}
         />
       </div>
     );

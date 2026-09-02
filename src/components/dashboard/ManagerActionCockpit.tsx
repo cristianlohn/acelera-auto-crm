@@ -215,7 +215,7 @@ export function ManagerActionCockpit({
   const isVendedor = role === "vendedor" || role === "seller";
 
   if (isVendedor) {
-    return <SellerActionCockpit className={className} metrics={metrics} />;
+    return <SellerActionCockpit className={className} metrics={metrics} isDemo={isDemoMode} />;
   }
 
   const activeMetrics: ManagerCockpitMetrics =

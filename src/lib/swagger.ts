@@ -64,6 +64,11 @@ export function getApiDocs(): ReturnType<typeof createSwaggerSpec> {
           description: "Endpoints de autenticação, sessão e gerenciamento de usuários",
         },
         {
+          name: "Billing & Assinaturas",
+          description:
+            "Gestão de planos, assinaturas, checkout com Pix/Cartão/Boleto e webhooks do gateway Asaas",
+        },
+        {
           name: "Leads",
           description: "Gestão de oportunidades comerciais, funil Kanban e histórico de interações",
         },

@@ -40,6 +40,7 @@ describe("[UNIT-SWAGGER] OpenAPI 3.0 Specification & Swagger Config", () => {
     // Verifica Tags
     const tagNames = spec.tags?.map((t) => t.name) || [];
     expect(tagNames).toContain("Auth");
+    expect(tagNames).toContain("Billing & Assinaturas");
     expect(tagNames).toContain("Leads");
     expect(tagNames).toContain("Webhooks & Ingestão");
     expect(tagNames).toContain("Distribuição & Roleta");
@@ -104,5 +105,40 @@ describe("[UNIT-SWAGGER] OpenAPI 3.0 Specification & Swagger Config", () => {
     const json = await res.json();
     expect(json.openapi).toBe("3.0.0");
     expect(json.info.title).toBe("Acelera Auto CRM - API Specification");
+  });
+
+  it("deve documentar os endpoints de Billing & Assinaturas (/api/v1/webhooks/asaas e /api/v1/billing/checkout)", () => {
+    const spec = getApiDocs() as unknown as {
+      paths: Record<
+        string,
+        Record<
+          string,
+          {
+            tags?: string[];
+            summary?: string;
+            parameters?: { name: string; in: string }[];
+            responses?: Record<string, unknown>;
+          }
+        >
+      >;
+    };
+
+    expect(spec.paths).toBeDefined();
+
+    // 1. Webhook Asaas
+    const asaasWebhook = spec.paths["/api/v1/webhooks/asaas"]?.post;
+    expect(asaasWebhook).toBeDefined();
+    expect(asaasWebhook?.tags).toContain("Billing & Assinaturas");
+    expect(asaasWebhook?.parameters?.some((p) => p.name === "asaas-access-token")).toBe(true);
+    expect(asaasWebhook?.responses?.["200"]).toBeDefined();
+    expect(asaasWebhook?.responses?.["400"]).toBeDefined();
+    expect(asaasWebhook?.responses?.["401"]).toBeDefined();
+
+    // 2. Checkout de Assinatura
+    const billingCheckout = spec.paths["/api/v1/billing/checkout"]?.post;
+    expect(billingCheckout).toBeDefined();
+    expect(billingCheckout?.tags).toContain("Billing & Assinaturas");
+    expect(billingCheckout?.responses?.["200"]).toBeDefined();
+    expect(billingCheckout?.responses?.["400"]).toBeDefined();
   });
 });

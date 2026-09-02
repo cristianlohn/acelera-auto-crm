@@ -26,12 +26,20 @@ export default async function LeadsPage() {
     resolveUserTenantContext(),
   ]);
 
+  const rawRole = tenantContext.profile?.role;
+  const userName =
+    tenantContext.profile?.full_name?.trim() ||
+    (tenantContext.userEmail
+      ? tenantContext.userEmail.split("@")[0].replace(/[._-]/g, " ")
+      : undefined);
+
   return (
     <LeadsPageClient
       initialLeads={leads}
       initialTeamMembers={teamMembers}
       initialOrganizationId={tenantContext.organizationId || null}
-      userRole={tenantContext.profile?.role || (tenantContext.isDemo ? undefined : "admin")}
+      userRole={rawRole || (tenantContext.isDemo ? undefined : "admin")}
+      userName={userName}
     />
   );
 }

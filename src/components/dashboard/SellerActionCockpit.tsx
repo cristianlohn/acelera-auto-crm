@@ -35,34 +35,39 @@ export interface SellerActionCockpitProps {
   className?: string;
   metrics?: ManagerCockpitMetrics;
   sellerName?: string;
+  isDemo?: boolean;
 }
 
 export function SellerActionCockpit({
   className,
   metrics,
   sellerName: propSellerName,
+  isDemo: propIsDemo,
 }: SellerActionCockpitProps) {
   const { sellerName: demoSellerName, isDemoMode } = useDemoRole();
+  const isDemo = propIsDemo !== undefined ? propIsDemo : isDemoMode;
   const [isExpanded, setIsExpanded] = useState(true);
   const [notifiedActions, setNotifiedActions] = useState<Set<string>>(new Set());
 
-  const activeSellerName =
-    propSellerName ||
-    (isDemoMode ? demoSellerName : "Vendedor");
+  const activeSellerName = isDemo
+    ? (propSellerName || demoSellerName || "Rafael Alves")
+    : (propSellerName && propSellerName !== "Roberto Silva" && propSellerName !== "Rafael Alves"
+        ? propSellerName
+        : "Vendedor");
 
   const sellerMetric = metrics?.sellerRanking.find(
     (s) => s.sellerName.toLowerCase().trim() === activeSellerName.toLowerCase().trim()
-  ) || (metrics?.sellerRanking.length === 1 ? metrics.sellerRanking[0] : undefined);
+  ) || (metrics?.sellerRanking.length === 1 && isDemo ? metrics.sellerRanking[0] : undefined);
 
-  // Métricas do vendedor (Rafael Alves ou vendedor logado)
-  const myPendingLeadsCount = (isDemoMode && !metrics) ? 4 : (sellerMetric?.leadsCount ?? 0);
-  const myPendingPipelineValue = (isDemoMode && !metrics) ? 680000 : (sellerMetric && metrics ? (metrics.totalPipelineValue || 0) : 0);
-  const myMonthlyWonDeals = (isDemoMode && !metrics) ? 6 : (sellerMetric?.wonDeals ?? 0);
-  const myMonthlyRevenue = (isDemoMode && !metrics) ? 420000 : 0;
-  const myAverageSlaMinutes = (isDemoMode && !metrics) ? 6.2 : (sellerMetric?.avgResponseMinutes ?? 0.0);
-  const mySlaComplianceRate = (isDemoMode && !metrics) ? 94 : (sellerMetric ? (sellerMetric.avgResponseMinutes <= 15 ? 100 : 50) : 100);
+  // Conexão dos KPIs com dados reais ou zeros estruturados (12 e 1.480.000 exclusivo para demo)
+  const myPendingLeadsCount = isDemo ? 12 : (sellerMetric?.activeDeals ?? sellerMetric?.leadsCount ?? 0);
+  const myPendingPipelineValue = isDemo ? 1480000 : (sellerMetric?.pipelineValue ?? 0);
+  const myMonthlyWonDeals = isDemo ? 6 : (sellerMetric?.wonDeals ?? 0);
+  const myMonthlyRevenue = isDemo ? 420000 : (sellerMetric?.revenue ?? 0);
+  const myAverageSlaMinutes = isDemo ? 6.2 : (sellerMetric?.avgResponseMinutes ?? 0.0);
+  const mySlaComplianceRate = isDemo ? 94 : (sellerMetric ? (sellerMetric.avgResponseMinutes <= 15 ? 100 : 50) : 100);
 
-  // Ações e alertas estritamente do próprio vendedor
+  // Ações e alertas: apenas no modo de demonstração
   const myActions: {
     id: string;
     leadName: string;
@@ -72,7 +77,7 @@ export function SellerActionCockpit({
     urgency: "critico" | "medio" | "info";
     phone: string;
     defaultMessage: string;
-  }[] = (isDemoMode && !metrics)
+  }[] = isDemo
     ? [
         {
           id: "seller-act-1",
@@ -83,7 +88,7 @@ export function SellerActionCockpit({
           urgency: "critico" as const,
           phone: "5511987654321",
           defaultMessage:
-            "Olá Carlos, tudo bem? Sou o Rafael da Acelera Auto. Vi seu interesse no Honda Civic EXL 2023. Como posso te ajudar hoje?",
+            "Olá Carlos, tudo bem? Sou o consultor da concessionária. Vi seu interesse no Honda Civic EXL 2023. Como posso te ajudar hoje?",
         },
         {
           id: "seller-act-2",

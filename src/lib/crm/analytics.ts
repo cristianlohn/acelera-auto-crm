@@ -11,6 +11,8 @@ export interface SellerPerformanceMetric {
   avgResponseMinutes: number;
   slaBadge: "verde" | "amarelo" | "vermelho";
   sharePercentage: number;
+  pipelineValue?: number;
+  revenue?: number;
 }
 
 export interface BottleneckStats {
@@ -148,6 +150,8 @@ export function calculateManagerCockpitMetrics(
       activeDeals: number;
       wonDeals: number;
       responseTimes: number[];
+      pipelineValue: number;
+      revenue: number;
     }
   > = {};
 
@@ -169,6 +173,8 @@ export function calculateManagerCockpitMetrics(
         activeDeals: 0,
         wonDeals: 0,
         responseTimes: [],
+        pipelineValue: 0,
+        revenue: 0,
       };
     }
     sellerGroups[seller].leadsCount++;
@@ -177,11 +183,13 @@ export function calculateManagerCockpitMetrics(
       totalActiveLeads++;
       totalPipelineValue += val;
       sellerGroups[seller].activeDeals++;
+      sellerGroups[seller].pipelineValue += val;
     }
 
     if (isWon) {
       wonLeadsCount++;
       sellerGroups[seller].wonDeals++;
+      sellerGroups[seller].revenue += val;
     }
 
     // SLA & Risco
@@ -306,6 +314,8 @@ export function calculateManagerCockpitMetrics(
         avgResponseMinutes: avgResp,
         slaBadge,
         sharePercentage,
+        pipelineValue: data.pipelineValue,
+        revenue: data.revenue,
       };
     }
   ).sort((a, b) => b.wonDeals - a.wonDeals || a.avgResponseMinutes - b.avgResponseMinutes);

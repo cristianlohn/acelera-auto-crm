@@ -761,6 +761,7 @@ export interface LeadsPageClientProps {
   initialTeamMembers?: TeamMember[];
   initialOrganizationId?: string | null;
   userRole?: string;
+  userName?: string;
 }
 
 export function LeadsPageClient({
@@ -768,8 +769,10 @@ export function LeadsPageClient({
   initialTeamMembers,
   initialOrganizationId,
   userRole,
+  userName,
 }: LeadsPageClientProps = {}) {
-  const { role, sellerName, isDemoMode } = useDemoRole();
+  const { role, sellerName: demoSellerName, isDemoMode, currentUser } = useDemoRole();
+  const [authenticatedName, setAuthenticatedName] = useState<string | null>(userName || null);
   const effectiveRole = normalizeRole(isDemoMode ? role : (userRole || role));
   const isVendedorRole = effectiveRole === "seller";
   const canConfigureIntegrations = canManageIntegrationsAndBilling(effectiveRole);
@@ -805,16 +808,25 @@ export function LeadsPageClient({
   }, [isDemoMode, initialTeamMembers]);
 
   useEffect(() => {
-    if (initialLeads !== undefined || isDemoMode) return;
+    if (isDemoMode) return;
 
     let isMounted = true;
     getCurrentUserProfileAction()
       .then((profile) => {
-        if (isMounted && profile.organizationId) {
-          setOrganizationId(profile.organizationId);
+        if (isMounted) {
+          if (profile.fullName) {
+            setAuthenticatedName(profile.fullName);
+          } else if (profile.email) {
+            setAuthenticatedName(profile.email.split("@")[0]);
+          }
+          if (profile.organizationId) {
+            setOrganizationId(profile.organizationId);
+          }
         }
       })
       .catch(() => {});
+
+    if (initialLeads !== undefined) return;
 
     getLeads()
       .then((fetchedLeads) => {
@@ -907,18 +919,22 @@ export function LeadsPageClient({
     onPollSync: handlePollSync,
   });
 
+  const effectiveSellerName = isDemoMode
+    ? demoSellerName
+    : (authenticatedName?.trim() || userName?.trim() || currentUser?.name || null);
+
   const allowAllLeads = canViewAllLeads(effectiveRole);
   const visibleLeads = !allowAllLeads && isDemoMode
     ? leads.filter(
         (l) =>
-          l.sellerName === sellerName ||
+          l.sellerName === demoSellerName ||
           l.sellerName?.toLowerCase().includes("rafael") ||
           l.sellerName?.toLowerCase().includes("vendedor")
       )
     : !allowAllLeads && !isDemoMode
     ? leads.filter(
         (l) =>
-          (sellerName && l.sellerName === sellerName) ||
+          (effectiveSellerName && l.sellerName === effectiveSellerName) ||
           l.sellerName === "Vendedor de Plantão" ||
           l.sellerName === "Roleta Automática" ||
           !l.sellerName
@@ -1064,7 +1080,7 @@ export function LeadsPageClient({
                 className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:bg-orange-950/60 dark:text-orange-300"
               >
                 <User className="h-3 w-3" />
-                Meus Leads ({sellerName})
+                {effectiveSellerName ? `Meus Leads (${effectiveSellerName})` : "Meus Leads"}
               </span>
             )}
           </div>

@@ -46,13 +46,13 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     role?: string;
   } | null>(null);
   const [, startTransition] = useTransition();
-  const { role, sellerName, isDemoMode } = useDemoRole();
+  const { role, sellerName, isDemoMode, currentUser } = useDemoRole();
   const isVendedor = isDemoMode
     ? !canViewAllLeads(role)
     : currentUserProfile?.role === "seller" || currentUserProfile?.role === "vendedor";
   const effectiveSellerName = isDemoMode
     ? sellerName
-    : currentUserProfile?.name;
+    : (currentUserProfile?.name || currentUser?.name || (sellerName !== "Roberto Silva" && sellerName !== "Rafael Alves" ? sellerName : undefined));
 
   if (initialLeads !== prevInitialLeads) {
     setPrevInitialLeads(initialLeads);
