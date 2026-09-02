@@ -496,8 +496,6 @@ export async function createAsaasSubscription(
             asaas_customer_id: customerId,
             asaas_subscription_id: subscriptionId,
             plan: plan.id,
-            plan_tier: plan.id,
-            plan_status: "pending",
             subscription_status: "pending",
             updated_at: new Date().toISOString(),
           })

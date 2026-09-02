@@ -294,30 +294,26 @@ export async function processAsaasWebhookEvent(
     case "PAYMENT_RECEIVED": {
       actionTaken = "payment_confirmed_subscription_activated";
 
-      // Calcula término do período (+30 dias ou data de vencimento)
-      const nextDue = subscription?.nextDueDate || payment?.dueDate;
-      const periodEnd = nextDue
-        ? new Date(nextDue).toISOString()
-        : new Date(Date.now() + 30 * 86_400_000).toISOString();
-
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
           const supabaseAdmin = createAdminClient();
-          const updateData: OrganizationUpdate = {
-            subscription_status: "active",
-            plan_status: "active",
+          const updatePayload: OrganizationUpdate = {
             plan: "pro",
-            plan_tier: "pro",
+            subscription_status: "active",
             trial_ends_at: null,
-            current_period_end: periodEnd,
             updated_at: new Date().toISOString(),
           };
-          if (customerId) updateData.asaas_customer_id = customerId;
-          if (subscriptionId) updateData.asaas_subscription_id = subscriptionId;
+
+          if (subscriptionId) {
+            updatePayload.asaas_subscription_id = subscriptionId;
+          }
+          if (customerId) {
+            updatePayload.asaas_customer_id = customerId;
+          }
 
           const { error: updateError } = await supabaseAdmin
             .from("organizations")
-            .update(updateData)
+            .update(updatePayload)
             .eq("id", targetOrgId);
 
           if (updateError) {
@@ -345,7 +341,6 @@ export async function processAsaasWebhookEvent(
             .from("organizations")
             .update({
               subscription_status: "inactive",
-              plan_status: "inactive",
               updated_at: new Date().toISOString(),
             })
             .eq("id", targetOrgId);
@@ -366,7 +361,6 @@ export async function processAsaasWebhookEvent(
             .from("organizations")
             .update({
               subscription_status: "past_due",
-              plan_status: "past_due",
               updated_at: new Date().toISOString(),
             })
             .eq("id", targetOrgId);
@@ -388,24 +382,23 @@ export async function processAsaasWebhookEvent(
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
           const supabaseAdmin = createAdminClient();
-          const updateData: OrganizationUpdate = {
+          const updatePayload: OrganizationUpdate = {
             subscription_status: isActive ? "active" : "inactive",
-            plan_status: isActive ? "active" : "inactive",
-            asaas_customer_id: customerId || null,
-            asaas_subscription_id: subscriptionId || null,
             current_period_end: periodEnd,
             updated_at: new Date().toISOString(),
           };
 
+          if (customerId) updatePayload.asaas_customer_id = customerId;
+          if (subscriptionId) updatePayload.asaas_subscription_id = subscriptionId;
+
           if (isActive) {
-            updateData.plan = "pro";
-            updateData.plan_tier = "pro";
-            updateData.trial_ends_at = null;
+            updatePayload.plan = "pro";
+            updatePayload.trial_ends_at = null;
           }
 
           await supabaseAdmin
             .from("organizations")
-            .update(updateData)
+            .update(updatePayload)
             .eq("id", targetOrgId);
         } catch (err) {
           console.warn("[Asaas Webhook] Falha ao sincronizar assinatura:", err);
@@ -425,7 +418,6 @@ export async function processAsaasWebhookEvent(
             .from("organizations")
             .update({
               subscription_status: "canceled",
-              plan_status: "canceled",
               updated_at: new Date().toISOString(),
             })
             .eq("id", targetOrgId);

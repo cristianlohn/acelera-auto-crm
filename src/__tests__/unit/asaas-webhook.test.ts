@@ -165,7 +165,6 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
         expect.objectContaining({
           subscription_status: "active",
           plan: "pro",
-          plan_status: "active",
           trial_ends_at: null,
           asaas_customer_id: "cus_000001",
           asaas_subscription_id: "sub_000001",
@@ -227,7 +226,6 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           subscription_status: "past_due",
-          plan_status: "past_due",
         })
       );
     });
@@ -285,7 +283,6 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           subscription_status: "canceled",
-          plan_status: "canceled",
         })
       );
     });
@@ -467,7 +464,6 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
       expect(mockUpdate).toHaveBeenCalledWith(
         expect.objectContaining({
           subscription_status: "inactive",
-          plan_status: "inactive",
         })
       );
     });

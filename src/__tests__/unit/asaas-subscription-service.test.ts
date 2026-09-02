@@ -160,7 +160,6 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
         asaas_customer_id: "cus_sub_789",
         asaas_subscription_id: "sub_asaas_789",
         plan: "pro",
-        plan_status: "pending",
         subscription_status: "pending",
       })
     );
