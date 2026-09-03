@@ -83,6 +83,19 @@ export interface Lead {
 // Vehicle
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Lead – Origens Manuais vs Externas
+// ---------------------------------------------------------------------------
+
+export const MANUAL_LEAD_SOURCES = [
+  { value: "patio", label: "Pátio / Showroom Presencial" },
+  { value: "whatsapp_direto", label: "WhatsApp Direto" },
+  { value: "telefone", label: "Telefone / Ligação" },
+  { value: "indicacao", label: "Indicação" },
+] as const;
+
+export type ManualLeadSource = (typeof MANUAL_LEAD_SOURCES)[number]["value"];
+
 /** Status operacional de um veículo no estoque. */
 export type VehicleStatus = "disponivel" | "reservado" | "vendido";
 
@@ -93,8 +106,12 @@ export interface Vehicle {
   /** Identificador único do veículo. */
   id: string;
 
+  /** Identificador da organização/tenant proprietário. */
+  organizationId?: string;
+
   /** Marca (ex: "Honda", "Toyota"). */
   make: string;
+  brand?: string;
 
   /** Modelo (ex: "Civic", "Corolla"). */
   model: string;
@@ -107,12 +124,15 @@ export interface Vehicle {
 
   /** Ano do modelo (ex: 2023). */
   yearModel: number;
+  year?: string | number;
 
-  /** Placa do veículo (ex: "ABC1D23"). */
+  /** Placa do veículo (ex: "ABC1D23" ou "D23"). */
   plate: string;
+  plateEnd?: string;
 
   /** Quilometragem registrada no odômetro. */
   km: number;
+  mileage?: number;
 
   /** Preço de venda em Reais (BRL). */
   price: number;
@@ -120,8 +140,11 @@ export interface Vehicle {
   /** Status atual do veículo no estoque. */
   status: VehicleStatus;
 
-  /** URL da imagem principal do veículo. */
+  /** URL da imagem principal do veículo (retrocompatível). */
   imageUrl: string;
+
+  /** Galeria completa de fotos do veículo (WebP otimizado). */
+  images?: string[];
 
   /** Dias em estoque desde a entrada no pátio. */
   daysInStock?: number;
@@ -137,6 +160,12 @@ export interface Vehicle {
 
   /** Tipo de transmissão / câmbio. */
   transmission?: string;
+
+  /** Cor externa do veículo. */
+  color?: string;
+
+  /** Observações técnicas e notas do anúncio. */
+  notes?: string;
 }
 
 // ---------------------------------------------------------------------------

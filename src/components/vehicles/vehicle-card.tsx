@@ -23,6 +23,10 @@ import {
   Check,
   ChevronDown,
   CircleDot,
+  Pencil,
+  ChevronLeft,
+  ChevronRight,
+  ImageIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +39,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatKm } from "@/lib/mock-data";
+import { VehicleFormModal } from "@/components/vehicles/vehicle-form-modal";
 import type { Vehicle, VehicleStatus } from "@/types/crm";
 
 // ---------------------------------------------------------------------------
@@ -104,17 +109,30 @@ export interface VehicleCardProps {
   vehicle: Vehicle;
   /** Callback chamado quando o status for alterado pelo dropdown. */
   onStatusChange: (id: string, status: VehicleStatus) => void;
+  /** Callback opcional chamado ao editar o veículo. */
+  onEdit?: (vehicle: Vehicle) => void;
+  /** Callback opcional chamado após atualização bem-sucedida. */
+  onUpdate?: (vehicle: Vehicle) => void;
 }
 
 // ---------------------------------------------------------------------------
 // Componente
 // ---------------------------------------------------------------------------
 
-export function VehicleCard({ vehicle: v, onStatusChange }: VehicleCardProps) {
+export function VehicleCard({
+  vehicle: v,
+  onStatusChange,
+  onEdit,
+  onUpdate,
+}: VehicleCardProps) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const cfg = STATUS_CONFIG[v.status];
+  const allImages = v.images && v.images.length > 0 ? v.images : (v.imageUrl ? [v.imageUrl] : []);
+  const currentPhoto = allImages[photoIndex] || v.imageUrl || "/vehicles/civic.jpg";
 
   /** Copia a ficha técnica para a área de transferência. */
   const handleCopy = useCallback(async () => {
@@ -123,200 +141,273 @@ export function VehicleCard({ vehicle: v, onStatusChange }: VehicleCardProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback silencioso — sem toast por ora
+      // Fallback silencioso
     }
   }, [v]);
 
+  const handlePrevPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev > 0 ? prev - 1 : allImages.length - 1));
+    setImgError(false);
+  };
+
+  const handleNextPhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setPhotoIndex((prev) => (prev < allImages.length - 1 ? prev + 1 : 0));
+    setImgError(false);
+  };
+
+  const handleVehicleUpdated = (updated: Vehicle) => {
+    onUpdate?.(updated);
+    onEdit?.(updated);
+  };
+
   return (
-    <article
-      className="group relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
-      aria-label={`${v.make} ${v.model} ${v.yearFab}`}
-    >
-      {/* ----------------------------------------------------------------- */}
-      {/* Imagem                                                              */}
-      {/* ----------------------------------------------------------------- */}
-      <div className="relative aspect-video w-full overflow-hidden bg-muted">
-        {!imgError && v.imageUrl ? (
-          <Image
-            src={v.imageUrl}
-            alt={`${v.make} ${v.model}`}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          /* Fallback quando a imagem falha ou não foi informada */
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-            <span className="text-4xl opacity-30">🚗</span>
-          </div>
-        )}
-
-        {/* Badge de status flutuante */}
-        <span
-          className={cn(
-            "absolute top-2 left-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 backdrop-blur-sm",
-            cfg.badgeCn
+    <>
+      <article
+        className="group relative flex flex-col overflow-hidden rounded-xl border bg-card shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+        aria-label={`${v.make} ${v.model} ${v.yearFab}`}
+      >
+        {/* ----------------------------------------------------------------- */}
+        {/* Imagem / Carrossel                                                 */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="relative aspect-video w-full overflow-hidden bg-muted">
+          {!imgError && currentPhoto ? (
+            <Image
+              src={currentPhoto}
+              alt={`${v.make} ${v.model}`}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            /* Fallback quando a imagem falha ou não foi informada */
+            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+              <span className="text-4xl opacity-30">🚗</span>
+            </div>
           )}
-        >
-          <span className={cn("h-1.5 w-1.5 animate-pulse rounded-full", cfg.dotCn)} />
-          {cfg.label}
-        </span>
 
-        {/* Badge de Giro de Estoque */}
-        {v.daysInStock !== undefined && (
+          {/* Navegação de Fotos do Carrossel */}
+          {allImages.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={handlePrevPhoto}
+                aria-label="Foto anterior"
+                className="absolute left-1.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextPhoto}
+                aria-label="Próxima foto"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black/90"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+                <ImageIcon className="h-3 w-3" />
+                {photoIndex + 1}/{allImages.length}
+              </span>
+            </>
+          )}
+
+          {/* Badge de status flutuante */}
           <span
             className={cn(
-              "absolute top-2 right-2 flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ring-1 backdrop-blur-md",
-              v.daysInStock > 45
-                ? "bg-red-500/90 text-white ring-red-400/50 shadow-sm animate-pulse"
-                : v.daysInStock > 15
-                ? "bg-amber-500/80 text-white ring-amber-400/50 shadow-sm"
-                : "bg-emerald-600/80 text-white ring-emerald-400/50 shadow-sm"
+              "absolute top-2 left-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 backdrop-blur-sm",
+              cfg.badgeCn
             )}
-            title={v.daysInStock > 45 ? "Alerta de Giro de Estoque: veículo parado há mais de 45 dias" : "Dias em pátio"}
           >
-            {v.daysInStock > 45 ? `⚠️ ${v.daysInStock}d (Giro)` : `${v.daysInStock}d pátio`}
+            <span className={cn("h-1.5 w-1.5 animate-pulse rounded-full", cfg.dotCn)} />
+            {cfg.label}
           </span>
-        )}
 
-        {/* Gradiente inferior para legibilidade */}
-        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/40 to-transparent" />
-      </div>
-
-      {/* ----------------------------------------------------------------- */}
-      {/* Corpo do card                                                       */}
-      {/* ----------------------------------------------------------------- */}
-      <div className="flex flex-1 flex-col gap-3 p-4">
-        {/* Nome + Versão */}
-        <div>
-          <h3 className="truncate text-sm font-bold text-foreground">
-            {v.make} {v.model}
-          </h3>
-          <p className="truncate text-xs text-muted-foreground">{v.version}</p>
-        </div>
-
-        {/* Preço em destaque + FIPE & Margem */}
-        <div className="space-y-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="text-xl font-extrabold tracking-tight text-foreground">
-              {formatCurrency(v.price)}
-            </p>
-            {v.fipePrice && (
-              <span className="text-[11px] font-medium text-muted-foreground" title={`FIPE: ${formatCurrency(v.fipePrice)}`}>
-                FIPE: {formatCurrency(v.fipePrice)}
-              </span>
-            )}
-          </div>
-          {v.estimatedMargin !== undefined && (
-            <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-              Margem Est.: {formatCurrency(v.estimatedMargin)}
-            </p>
+          {/* Badge de Giro de Estoque */}
+          {v.daysInStock !== undefined && (
+            <span
+              className={cn(
+                "absolute top-2 right-2 flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold ring-1 backdrop-blur-md",
+                v.daysInStock > 45
+                  ? "bg-red-500/90 text-white ring-red-400/50 shadow-sm animate-pulse"
+                  : v.daysInStock > 15
+                  ? "bg-amber-500/80 text-white ring-amber-400/50 shadow-sm"
+                  : "bg-emerald-600/80 text-white ring-emerald-400/50 shadow-sm"
+              )}
+              title={v.daysInStock > 45 ? "Alerta de Giro de Estoque: veículo parado há mais de 45 dias" : "Dias em pátio"}
+            >
+              {v.daysInStock > 45 ? `⚠️ ${v.daysInStock}d (Giro)` : `${v.daysInStock}d pátio`}
+            </span>
           )}
+
+          {/* Gradiente inferior para legibilidade */}
+          <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/40 to-transparent" />
         </div>
 
-        {/* Detalhes rápidos */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="flex flex-col items-center gap-0.5 rounded-lg bg-muted/60 px-2 py-1.5">
-            <Calendar className="h-3.5 w-3.5 text-orange-500" />
-            <span className="text-[10px] font-semibold text-foreground">
-              {v.yearFab}/{v.yearModel}
-            </span>
-            <span className="text-[9px] text-muted-foreground">Ano Fab/Mod</span>
+        {/* ----------------------------------------------------------------- */}
+        {/* Corpo do card                                                       */}
+        {/* ----------------------------------------------------------------- */}
+        <div className="flex flex-1 flex-col gap-3 p-4">
+          {/* Nome + Versão */}
+          <div>
+            <h3 className="truncate text-sm font-bold text-foreground">
+              {v.make} {v.model}
+            </h3>
+            <p className="truncate text-xs text-muted-foreground">{v.version}</p>
           </div>
-          <div className="flex flex-col items-center gap-0.5 rounded-lg bg-muted/60 px-2 py-1.5">
-            <Gauge className="h-3.5 w-3.5 text-blue-500" />
-            <span className="text-[10px] font-semibold text-foreground">
-              {formatKm(v.km)}
-            </span>
-            <span className="text-[9px] text-muted-foreground">Quilômetros</span>
-          </div>
-          <div className="flex flex-col items-center gap-0.5 rounded-lg bg-muted/60 px-2 py-1.5">
-            <CreditCard className="h-3.5 w-3.5 text-violet-500" />
-            <span className="text-[10px] font-semibold text-foreground">
-              ...{v.plate.slice(-3)}
-            </span>
-            <span className="text-[9px] text-muted-foreground">Final placa</span>
-          </div>
-        </div>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Ações                                                              */}
-        {/* ---------------------------------------------------------------- */}
-        <div className="flex gap-2 pt-1">
-          {/* Copiar ficha técnica */}
-          <Button
-            id={`copy-${v.id}`}
-            variant="outline"
-            size="sm"
-            className="flex-1 gap-1.5 text-xs"
-            onClick={handleCopy}
-            aria-label="Copiar ficha técnica para WhatsApp"
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-green-500" />
-                Copiado!
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5" />
-                Copiar Ficha
-              </>
+          {/* Preço em destaque + FIPE & Margem */}
+          <div className="space-y-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-xl font-extrabold tracking-tight text-foreground">
+                {formatCurrency(v.price)}
+              </p>
+              {v.fipePrice && (
+                <span className="text-[11px] font-medium text-muted-foreground" title={`FIPE: ${formatCurrency(v.fipePrice)}`}>
+                  FIPE: {formatCurrency(v.fipePrice)}
+                </span>
+              )}
+            </div>
+            {v.estimatedMargin !== undefined && (
+              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                Margem Est.: {formatCurrency(v.estimatedMargin)}
+              </p>
             )}
-          </Button>
+          </div>
 
-          {/* Dropdown de status */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                id={`status-${v.id}`}
-                variant="outline"
-                size="sm"
-                className="gap-1 px-2.5 text-xs"
-                aria-label="Alterar status do veículo"
-              >
-                <CircleDot className="h-3.5 w-3.5" />
-                Status
-                <ChevronDown className="h-3 w-3 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[160px]">
-              <DropdownMenuLabel className="text-xs">
-                Alterar status
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {(
-                [
-                  "disponivel",
-                  "reservado",
-                  "vendido",
-                ] as VehicleStatus[]
-              ).map((s) => {
-                const sCfg = STATUS_CONFIG[s];
-                const Icon = sCfg.icon;
-                return (
-                  <DropdownMenuItem
-                    key={s}
-                    id={`status-${v.id}-${s}`}
-                    className={cn(
-                      "gap-2 text-xs",
-                      v.status === s && "font-semibold"
-                    )}
-                    onSelect={() => onStatusChange(v.id, s)}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {sCfg.label}
-                    {v.status === s && (
-                      <Check className="ml-auto h-3 w-3 text-orange-500" />
-                    )}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Detalhes rápidos */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col items-center gap-0.5 rounded-lg bg-muted/60 px-2 py-1.5">
+              <Calendar className="h-3.5 w-3.5 text-orange-500" />
+              <span className="text-[10px] font-semibold text-foreground">
+                {v.yearFab}/{v.yearModel}
+              </span>
+              <span className="text-[9px] text-muted-foreground">Ano Fab/Mod</span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5 rounded-lg bg-muted/60 px-2 py-1.5">
+              <Gauge className="h-3.5 w-3.5 text-blue-500" />
+              <span className="text-[10px] font-semibold text-foreground">
+                {formatKm(v.km)}
+              </span>
+              <span className="text-[9px] text-muted-foreground">Quilômetros</span>
+            </div>
+            <div className="flex flex-col items-center gap-0.5 rounded-lg bg-muted/60 px-2 py-1.5">
+              <CreditCard className="h-3.5 w-3.5 text-violet-500" />
+              <span className="text-[10px] font-semibold text-foreground">
+                ...{v.plate.slice(-3)}
+              </span>
+              <span className="text-[9px] text-muted-foreground">Final placa</span>
+            </div>
+          </div>
+
+          {/* ---------------------------------------------------------------- */}
+          {/* Ações                                                              */}
+          {/* ---------------------------------------------------------------- */}
+          <div className="flex items-center gap-2 pt-1">
+            {/* Copiar ficha técnica */}
+            <Button
+              id={`copy-${v.id}`}
+              variant="outline"
+              size="sm"
+              className="flex-1 gap-1.5 text-xs"
+              onClick={handleCopy}
+              aria-label="Copiar ficha técnica para WhatsApp"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-green-500" />
+                  Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5" />
+                  Copiar Ficha
+                </>
+              )}
+            </Button>
+
+            {/* Botão Editar Veículo */}
+            <Button
+              id={`edit-${v.id}`}
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs gap-1 text-muted-foreground hover:text-foreground hover:border-orange-500/40"
+              onClick={() => {
+                if (onEdit) {
+                  onEdit(v);
+                } else {
+                  setIsEditOpen(true);
+                }
+              }}
+              aria-label="Editar dados do veículo"
+            >
+              <Pencil className="h-3.5 w-3.5 text-orange-500" />
+              <span className="hidden xs:inline">Editar</span>
+            </Button>
+
+            {/* Dropdown de status */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  id={`status-${v.id}`}
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 px-2.5 text-xs"
+                  aria-label="Alterar status do veículo"
+                >
+                  <CircleDot className="h-3.5 w-3.5" />
+                  Status
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[160px]">
+                <DropdownMenuLabel className="text-xs">
+                  Alterar status
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {(
+                  [
+                    "disponivel",
+                    "reservado",
+                    "vendido",
+                  ] as VehicleStatus[]
+                ).map((s) => {
+                  const sCfg = STATUS_CONFIG[s];
+                  const Icon = sCfg.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={s}
+                      id={`status-${v.id}-${s}`}
+                      className={cn(
+                        "gap-2 text-xs",
+                        v.status === s && "font-semibold"
+                      )}
+                      onSelect={() => onStatusChange(v.id, s)}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {sCfg.label}
+                      {v.status === s && (
+                        <Check className="ml-auto h-3 w-3 text-orange-500" />
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </div>
-    </article>
+      </article>
+
+      {/* Modal de Edição */}
+      <VehicleFormModal
+        mode="edit"
+        initialVehicle={v}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        onSuccess={handleVehicleUpdated}
+      />
+    </>
   );
 }

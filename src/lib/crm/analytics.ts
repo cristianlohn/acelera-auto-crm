@@ -105,6 +105,8 @@ export interface LeadAnalyticsInput {
   price?: number;
   created_at?: string;
   createdAt?: string;
+  first_contact_at?: string | null;
+  firstContactAt?: string | null;
   last_contact_at?: string | null;
   lastContactAt?: string | null;
   organization_id?: string;
@@ -179,6 +181,79 @@ const WON_STATUSES = new Set(["fechado", "ganho", "vendido", "won"]);
 /**
  * Função pura e determinística de cálculo de métricas executivas do Cockpit do Gestor.
  */
+/**
+ * Função utilitária pura para cálculo de SLA de Primeiro Atendimento (Tempo Real + Histórico).
+ */
+export function calculateCockpitMetrics(
+  leads: LeadAnalyticsInput[],
+  slaLimitMinutes = 15
+) {
+  const now = Date.now();
+
+  let answeredCount = 0;
+  let answeredOnTimeCount = 0;
+  let totalResponseTimeMinutes = 0;
+
+  let openBreachedCount = 0;
+  let totalOpenWaitingTimeMinutes = 0;
+  let openPendingCount = 0;
+
+  leads.forEach((lead) => {
+    const createdAtStr = lead.createdAt || lead.created_at;
+    const createdAt = createdAtStr ? new Date(createdAtStr).getTime() : now;
+
+    const contactStr =
+      lead.firstContactAt ||
+      lead.first_contact_at ||
+      lead.lastContactAt ||
+      lead.last_contact_at;
+
+    if (contactStr) {
+      answeredCount++;
+      const responseMinutes = Math.max(
+        0,
+        Math.round((new Date(contactStr).getTime() - createdAt) / 60000)
+      );
+      totalResponseTimeMinutes += responseMinutes;
+      if (responseMinutes <= slaLimitMinutes) {
+        answeredOnTimeCount++;
+      }
+    } else {
+      openPendingCount++;
+      const waitingMinutes = Math.max(
+        0,
+        Math.round((now - createdAt) / 60000)
+      );
+      totalOpenWaitingTimeMinutes += waitingMinutes;
+      if (waitingMinutes > slaLimitMinutes) {
+        openBreachedCount++;
+      }
+    }
+  });
+
+  const totalEvaluated = answeredCount + openBreachedCount;
+  const slaPercentage =
+    totalEvaluated > 0
+      ? Math.round((answeredOnTimeCount / totalEvaluated) * 100)
+      : 100;
+
+  const averageResponseMinutes =
+    answeredCount > 0
+      ? Math.round(totalResponseTimeMinutes / answeredCount)
+      : openPendingCount > 0
+      ? Math.round(totalOpenWaitingTimeMinutes / openPendingCount)
+      : 0;
+
+  return {
+    slaPercentage,
+    averageResponseMinutes,
+    unansweredLeadsCount: openBreachedCount,
+  };
+}
+
+/**
+ * Função pura e determinística de cálculo de métricas executivas do Cockpit do Gestor.
+ */
 export function calculateManagerCockpitMetrics(
   leads: LeadAnalyticsInput[],
   options?: {
@@ -187,10 +262,12 @@ export function calculateManagerCockpitMetrics(
     recommendedActions?: CockpitActionItem[];
     isDemo?: boolean;
     cycleTotalLeads?: number;
+    slaLimitMinutes?: number;
   }
 ): ManagerCockpitMetrics {
   const now = options?.now || new Date();
   const nowTime = now.getTime();
+  const slaLimit = options?.slaLimitMinutes ?? 15;
 
   let totalPipelineValue = 0;
   let valueAtRisk = 0;
@@ -203,9 +280,13 @@ export function calculateManagerCockpitMetrics(
   let pendingFinancingCount = 0;
   let hotLeadsCount = 0;
 
+  let answeredCount = 0;
+  let answeredOnTimeCount = 0;
   const contactResponseTimes: number[] = [];
-  let compliantContactCount = 0;
-  let totalEvaluatedForSLA = 0;
+
+  let openBreachedCount = 0;
+  let openPendingCount = 0;
+  const openWaitingTimes: number[] = [];
 
   const sellerGroups: Record<
     string,
@@ -214,6 +295,7 @@ export function calculateManagerCockpitMetrics(
       activeDeals: number;
       wonDeals: number;
       responseTimes: number[];
+      waitingTimes: number[];
       pipelineValue: number;
       revenue: number;
     }
@@ -223,7 +305,6 @@ export function calculateManagerCockpitMetrics(
     const rawStatus = (lead.status || "novo").toLowerCase();
     const isActive = ACTIVE_STATUSES.has(rawStatus);
     const isWon = WON_STATUSES.has(rawStatus);
-    const isNew = rawStatus === "novo" || rawStatus === "new";
     const val = estimateLeadVehicleValue(lead, options?.defaultTicket ?? 0);
 
     const seller =
@@ -237,6 +318,7 @@ export function calculateManagerCockpitMetrics(
         activeDeals: 0,
         wonDeals: 0,
         responseTimes: [],
+        waitingTimes: [],
         pipelineValue: 0,
         revenue: 0,
       };
@@ -259,34 +341,53 @@ export function calculateManagerCockpitMetrics(
     // SLA & Risco
     const createdAtStr = lead.createdAt || lead.created_at;
     const createdAtTime = createdAtStr ? new Date(createdAtStr).getTime() : nowTime;
-    const minutesSinceCreation = Math.max(0, (nowTime - createdAtTime) / 60000);
+    const contactStr =
+      lead.firstContactAt ||
+      lead.first_contact_at ||
+      lead.lastContactAt ||
+      lead.last_contact_at;
+    const hasContact = Boolean(contactStr);
 
-    const lastContactStr = lead.lastContactAt || lead.last_contact_at;
-    const hasContact = Boolean(lastContactStr);
+    if (hasContact && contactStr) {
+      answeredCount++;
+      const contactTime = new Date(contactStr).getTime();
+      const diffMinutes = Math.max(0, (contactTime - createdAtTime) / 60000);
+      contactResponseTimes.push(diffMinutes);
+      sellerGroups[seller].responseTimes.push(diffMinutes);
 
-    let isOverdue = false;
-
-    if (isNew) {
-      if (minutesSinceCreation > 15) {
-        isOverdue = true;
-        overdueLeadsCount++;
-        withoutReturnCount++;
-        valueAtRisk += val;
+      if (diffMinutes <= slaLimit) {
+        answeredOnTimeCount++;
       }
-    } else if (isActive) {
+
       // Se está em etapa ativa mas sem contato há mais de 48 horas
-      if (lastContactStr) {
-        const hoursSinceLastContact = (nowTime - new Date(lastContactStr).getTime()) / 3600000;
+      if (isActive) {
+        const lastContactTime = lead.lastContactAt || lead.last_contact_at
+          ? new Date(lead.lastContactAt || lead.last_contact_at!).getTime()
+          : contactTime;
+        const hoursSinceLastContact = (nowTime - lastContactTime) / 3600000;
         if (hoursSinceLastContact > 48) {
           valueAtRisk += val;
         }
+      }
+    } else {
+      // Lead em aberto (sem primeiro contato)
+      openPendingCount++;
+      const waitingMinutes = Math.max(0, (nowTime - createdAtTime) / 60000);
+      openWaitingTimes.push(waitingMinutes);
+      sellerGroups[seller].waitingTimes.push(waitingMinutes);
+
+      if (waitingMinutes > slaLimit) {
+        openBreachedCount++;
+        overdueLeadsCount++;
+        withoutReturnCount++;
+        valueAtRisk += val;
       }
     }
 
     // Indicadores de Gargalo adicionais
     if (
       (rawStatus === "proposta" || rawStatus === "proposal" || rawStatus === "proposta_enviada") &&
-      (!lastContactStr || (nowTime - new Date(lastContactStr).getTime()) > 24 * 3600000)
+      (!contactStr || (nowTime - new Date(contactStr).getTime()) > 24 * 3600000)
     ) {
       proposalsWithoutFollowupCount++;
     }
@@ -319,43 +420,32 @@ export function calculateManagerCockpitMetrics(
     if (
       (rawStatus === "atendimento" || rawStatus === "in_contact" || rawStatus === "visita" || rawStatus === "test_drive") &&
       hasContact &&
-      (nowTime - new Date(lastContactStr!).getTime()) <= 24 * 3600000
+      (nowTime - new Date(contactStr!).getTime()) <= 24 * 3600000
     ) {
       hotLeadsCount++;
     }
-
-    // Cálculo do tempo de primeiro atendimento
-    if (hasContact && lastContactStr) {
-      const contactTime = new Date(lastContactStr).getTime();
-      const diffMinutes = Math.max(0, (contactTime - createdAtTime) / 60000);
-      contactResponseTimes.push(diffMinutes);
-      sellerGroups[seller].responseTimes.push(diffMinutes);
-      totalEvaluatedForSLA++;
-      if (diffMinutes <= 15) {
-        compliantContactCount++;
-      }
-    } else if (isNew) {
-      totalEvaluatedForSLA++;
-      if (!isOverdue) {
-        compliantContactCount++;
-      }
-    }
   }
 
+  const totalEvaluatedForSLA = answeredCount + openBreachedCount;
+  const slaComplianceRate =
+    totalEvaluatedForSLA > 0
+      ? Number(((answeredOnTimeCount / totalEvaluatedForSLA) * 100).toFixed(1))
+      : 100;
+
   const averageFirstContactMinutes =
-    contactResponseTimes.length > 0
+    answeredCount > 0
       ? Number(
           (
-            contactResponseTimes.reduce((a, b) => a + b, 0) /
-            contactResponseTimes.length
+            contactResponseTimes.reduce((a, b) => a + b, 0) / answeredCount
+          ).toFixed(1)
+        )
+      : openPendingCount > 0
+      ? Number(
+          (
+            openWaitingTimes.reduce((a, b) => a + b, 0) / openPendingCount
           ).toFixed(1)
         )
       : 0;
-
-  const slaComplianceRate =
-    totalEvaluatedForSLA > 0
-      ? Number(((compliantContactCount / totalEvaluatedForSLA) * 100).toFixed(1))
-      : 100;
 
   const totalLeads = leads.length;
   const conversionRate =
@@ -366,18 +456,25 @@ export function calculateManagerCockpitMetrics(
   // Ranking de Vendedores
   const sellerRanking: SellerPerformanceMetric[] = Object.entries(sellerGroups).map(
     ([sellerName, data]) => {
-      const avgResp =
-        data.responseTimes.length > 0
-          ? Number(
-              (
-                data.responseTimes.reduce((a, b) => a + b, 0) /
-                data.responseTimes.length
-              ).toFixed(1)
-            )
-          : averageFirstContactMinutes;
+      let avgResp = 0.0;
+      if (data.responseTimes.length > 0) {
+        avgResp = Number(
+          (
+            data.responseTimes.reduce((a, b) => a + b, 0) /
+            data.responseTimes.length
+          ).toFixed(1)
+        );
+      } else if (data.waitingTimes.length > 0) {
+        avgResp = Number(
+          (
+            data.waitingTimes.reduce((a, b) => a + b, 0) /
+            data.waitingTimes.length
+          ).toFixed(1)
+        );
+      }
 
       let slaBadge: "verde" | "amarelo" | "vermelho" = "verde";
-      if (avgResp > 15) {
+      if (avgResp > slaLimit) {
         slaBadge = "vermelho";
       } else if (avgResp >= 10) {
         slaBadge = "amarelo";

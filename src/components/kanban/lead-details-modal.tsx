@@ -26,10 +26,12 @@ import {
   Save,
   CheckCircle2,
   Send,
+  ArrowRightLeft,
 } from "lucide-react";
 import type { KanbanLead, LeadStage } from "@/types/kanban";
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import { cn } from "@/lib/utils";
+import { TransferLeadModal } from "@/components/leads/transfer-lead-modal";
 
 export interface LeadDetailsModalProps {
   isOpen: boolean;
@@ -79,12 +81,14 @@ export function LeadDetailsModal({
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
   const [isChangingSeller, setIsChangingSeller] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
 
   if (lead && lead.id !== prevLeadId) {
     setPrevLeadId(lead.id);
     setNotes(lead.notes || "");
     setNotesSaved(false);
     setIsChangingSeller(false);
+    setIsTransferModalOpen(false);
   }
 
   // Listener para tecla Escape
@@ -436,7 +440,17 @@ export function LeadDetailsModal({
         </div>
 
         {/* Rodapé do Modal */}
-        <div className="flex items-center justify-end gap-2 border-t border-slate-200 dark:border-slate-800/80 p-4 bg-slate-50/50 dark:bg-zinc-900/50">
+        <div className="flex items-center justify-between gap-2 border-t border-slate-200 dark:border-slate-800/80 p-4 bg-slate-50/50 dark:bg-zinc-900/50">
+          <button
+            type="button"
+            onClick={() => setIsTransferModalOpen(true)}
+            data-testid="btn-open-transfer-lead"
+            className="flex items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs font-semibold text-orange-400 hover:bg-orange-500/20 transition-all"
+          >
+            <ArrowRightLeft className="h-3.5 w-3.5" />
+            <span>Transferir Lead</span>
+          </button>
+
           <button
             type="button"
             onClick={onClose}
@@ -446,6 +460,20 @@ export function LeadDetailsModal({
           </button>
         </div>
       </div>
+
+      {/* Modal de Transferência de Titularidade */}
+      {lead && (
+        <TransferLeadModal
+          isOpen={isTransferModalOpen}
+          onClose={() => setIsTransferModalOpen(false)}
+          lead={lead}
+          availableSellers={availableSellers}
+          onTransferred={(leadId, newSeller) => {
+            onReassignSeller?.(leadId, newSeller.name, newSeller.id);
+            setIsTransferModalOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

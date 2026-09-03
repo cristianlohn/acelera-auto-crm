@@ -175,6 +175,12 @@ export function VehiclesPageClient({
     }).catch(() => {});
   }, []);
 
+  const handleUpdate = useCallback((updatedVehicle: Vehicle) => {
+    setVehicles((prev) =>
+      prev.map((v) => (v.id === updatedVehicle.id ? { ...v, ...updatedVehicle } : v))
+    );
+  }, []);
+
   const handleStatusChange = useCallback(
     (id: string, status: VehicleStatus) => {
       setVehicles((prev) => updateVehicleStatus(prev, id, status));
@@ -390,6 +396,7 @@ export function VehiclesPageClient({
                 key={vehicle.id}
                 vehicle={vehicle}
                 onStatusChange={handleStatusChange}
+                onUpdate={handleUpdate}
               />
             ))}
           </div>
