@@ -11,9 +11,12 @@ export interface LeadAlertData {
   phone: string;
   interest_vehicle?: string;
   vehicleInterest?: string;
+  vehicle_name?: string;
   source?: string;
   origin?: string;
   email?: string | null;
+  short_code?: string;
+  shortCode?: string;
 }
 
 export interface SalespersonData {
@@ -31,19 +34,29 @@ export function buildNewLeadAlertMessage(
   appUrl: string = process.env.NEXT_PUBLIC_APP_URL || "https://aceleraautocrm.com.br"
 ): string {
   const clientName = lead.name || "Cliente";
-  const vehicle = lead.interest_vehicle || lead.vehicleInterest || "Veículo de Interesse";
+  const vehicle = lead.vehicle_name || lead.interest_vehicle || lead.vehicleInterest || "Veículo de Interesse";
   const origin = lead.source || lead.origin || "Canal Digital";
   const clientPhone = lead.phone || "";
   const sanitizedClientPhone = sanitizeWhatsAppPhone(clientPhone);
   const sellerName = salesperson.name || salesperson.full_name || "Vendedor";
   const leadId = lead.id || "";
+  const shortCode = lead.short_code || lead.shortCode;
 
-  const cleanAppUrl = appUrl.replace(/\/$/, "");
-  const crmLink = leadId ? `${cleanAppUrl}/leads?lead_id=${leadId}` : `${cleanAppUrl}/leads`;
+  const appDomain = (appUrl || "https://aceleraautocrm.com.br")
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
 
-  const greeting = `Olá ${clientName}, tudo bem? Sou ${sellerName} da concessionária. Vi seu interesse no ${vehicle}. Como posso te ajudar hoje?`;
-  const encodedGreeting = encodeURIComponent(greeting);
-  const waDirectLink = `https://wa.me/${sanitizedClientPhone}?text=${encodedGreeting}`;
+  const crmLink = shortCode
+    ? `https://${appDomain}/c/${shortCode}`
+    : leadId
+    ? `https://${appDomain}/leads?lead_id=${leadId}`
+    : `https://${appDomain}/leads`;
+
+  const waDirectLink = shortCode
+    ? `https://${appDomain}/w/${shortCode}`
+    : `https://wa.me/${sanitizedClientPhone}?text=${encodeURIComponent(
+        `Olá ${clientName}, tudo bem? Sou ${sellerName} da concessionária. Vi seu interesse no ${vehicle}. Como posso te ajudar hoje?`
+      )}`;
 
   return [
     `🎯 *NOVO LEAD NA SUA VEZ - ACELERA AUTO*`,
@@ -60,3 +73,4 @@ export function buildNewLeadAlertMessage(
     waDirectLink,
   ].join("\n");
 }
+

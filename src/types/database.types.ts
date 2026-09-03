@@ -231,8 +231,10 @@ export interface Database {
           vehicle_interest: string;
           status: LeadStatus;
           origin: LeadOrigin;
+          first_contact_at?: string | null;
           last_contact_at: string | null;
           notes: string | null;
+          short_code?: string | null;
           custom_fields?: Json | null;
           created_at: string;
           updated_at: string;
@@ -249,8 +251,10 @@ export interface Database {
           vehicle_interest: string;
           status?: LeadStatus;
           origin?: LeadOrigin;
+          first_contact_at?: string | null;
           last_contact_at?: string | null;
           notes?: string | null;
+          short_code?: string | null;
           custom_fields?: Json | null;
           created_at?: string;
           updated_at?: string;
@@ -267,8 +271,10 @@ export interface Database {
           vehicle_interest?: string;
           status?: LeadStatus;
           origin?: LeadOrigin;
+          first_contact_at?: string | null;
           last_contact_at?: string | null;
           notes?: string | null;
+          short_code?: string | null;
           custom_fields?: Json | null;
           created_at?: string;
           updated_at?: string;
@@ -493,6 +499,34 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+
+      lead_history: {
+        Row: {
+          id: string;
+          lead_id: string;
+          organization_id: string;
+          action: string;
+          description: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          lead_id: string;
+          organization_id: string;
+          action: string;
+          description?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          lead_id?: string;
+          organization_id?: string;
+          action?: string;
+          description?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
       };
 
       whatsapp_instances: {

@@ -44,6 +44,7 @@ export interface KanbanLead {
   lost_reason?: string;
   segment?: "new_cars" | "used_cars" | "f_and_i" | "all";
   notes?: string;
+  short_code?: string;
 }
 
 export interface KanbanColumnConfig {

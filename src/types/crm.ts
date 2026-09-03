@@ -81,6 +81,9 @@ export interface Lead {
   createdAt?: string;
   /** Indicador de proposta em análise de financiamento / F&I */
   proposalFi?: boolean;
+  /** Código único curto de identificação do lead (ex: 6 caracteres para rotas /w/ e /c/) */
+  short_code?: string;
+  shortCode?: string;
 }
 
 export interface CreateLeadInput {
@@ -104,6 +107,8 @@ export interface CreateLeadInput {
   stage?: string;
   segment?: string;
   notes?: string;
+  short_code?: string;
+  shortCode?: string;
 }
 
 // ---------------------------------------------------------------------------

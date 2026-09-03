@@ -113,6 +113,27 @@ describe("[UNIT-WHATSAPP] Serviço Modular de WhatsApp", () => {
       expect(message).toContain("📍 *Origem:* Canal Digital");
       expect(message).toContain("https://aceleraautocrm.com.br/leads");
     });
+
+    it("deve gerar links encurtados /c/[code] e /w/[code] quando short_code estiver presente", () => {
+      const lead = {
+        id: "lead_999",
+        name: "Mariana Souza",
+        phone: "(11) 98888-2222",
+        interest_vehicle: "Toyota Corolla Cross",
+        source: "Meta Ads",
+        short_code: "k9Xp2A",
+      };
+
+      const salesperson = {
+        full_name: "Lucas Mendes",
+        phone: "11988887777",
+      };
+
+      const message = buildNewLeadAlertMessage(lead, salesperson, "https://aceleraautocrm.com.br");
+
+      expect(message).toContain("https://aceleraautocrm.com.br/c/k9Xp2A");
+      expect(message).toContain("https://aceleraautocrm.com.br/w/k9Xp2A");
+    });
   });
 
   describe("[TEST-WHATSAPP-GRACEFUL-FALLBACK] Fallback Gracioso e Resiliência", () => {

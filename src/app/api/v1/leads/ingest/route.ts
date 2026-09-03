@@ -19,6 +19,7 @@ import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { generateShortCode } from "@/lib/utils/nanoid";
 
 async function getSupabaseForIngest() {
   if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -157,6 +158,7 @@ export async function POST(request: NextRequest) {
             })
             .eq("id", leadId);
         } else {
+          const shortCode = generateShortCode(6);
           const { error: insertError } = await adminSupabase.from("leads").insert({
             id: leadId,
             organization_id: organizationId,
@@ -170,6 +172,7 @@ export async function POST(request: NextRequest) {
             seller_id: assignedSeller?.id || null,
             seller_name: assignedSeller?.name || "Fila de Atendimento",
             notes: payload.notes || null,
+            short_code: shortCode,
             last_contact_at: null,
             created_at: nowIso,
             updated_at: nowIso,
@@ -189,6 +192,7 @@ export async function POST(request: NextRequest) {
               seller_id: assignedSeller?.id || null,
               seller_name: assignedSeller?.name || "Fila de Atendimento",
               notes: payload.notes || null,
+              short_code: shortCode,
               last_contact_at: null,
               created_at: nowIso,
               updated_at: nowIso,

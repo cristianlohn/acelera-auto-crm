@@ -13,6 +13,7 @@ import {
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { mockLeads } from "@/lib/mock-data";
 import { getTeamMembersAction } from "@/app/actions/team-actions";
+import { generateShortCode } from "@/lib/utils/nanoid";
 import type { CreateLeadInput, LeadOrigin } from "@/types/crm";
 import type { KanbanLead } from "@/types/kanban";
 
@@ -103,6 +104,8 @@ export async function createLeadAction(
 
     const finalNotes = [vehicleHistoryNote, input.notes?.trim()].filter(Boolean).join("\n") || undefined;
 
+    const shortCode = input.short_code || input.shortCode || generateShortCode(6);
+
     const newLead: KanbanLead = {
       id: `lead-k-${Date.now()}`,
       organization_id: orgId,
@@ -127,6 +130,7 @@ export async function createLeadAction(
       estimated_value: estimatedValue,
       segment: (input.segment as KanbanLead["segment"]) || "all",
       notes: finalNotes,
+      short_code: shortCode,
     };
 
     if (tenantContext.isDemo || !isSupabaseServerConfigured() || !tenantContext.organizationId) {
@@ -145,6 +149,7 @@ export async function createLeadAction(
         lastContactAt: firstContactAt,
         origin: input.source as LeadOrigin,
         notes: finalNotes,
+        short_code: shortCode,
       });
 
       try {
@@ -171,6 +176,7 @@ export async function createLeadAction(
         origin: dbOrigin,
         last_contact_at: firstContactAt,
         notes: finalNotes || null,
+        short_code: shortCode,
         custom_fields: {
           vehicle_id: vehicleId,
           vehicle_name: vehicleName,
