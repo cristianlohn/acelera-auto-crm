@@ -80,31 +80,31 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Coluna 2: Produto (2 colunas) */}
-          <div className="md:col-span-2 lg:col-span-2">
+          {/* Coluna 2: Produto (3 colunas) */}
+          <div className="md:col-span-3 lg:col-span-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-white h-10 flex items-center">
               Produto
             </h3>
             <ul className="mt-4 space-y-2.5 text-sm">
               <li>
-                <Link className="hover:text-white transition-colors" href="/leads">
+                <a className="hover:text-white transition-colors whitespace-nowrap" href="#recursos">
                   Funil Kanban de Leads
-                </Link>
+                </a>
               </li>
               <li>
-                <Link className="hover:text-white transition-colors" href="/vehicles">
+                <a className="hover:text-white transition-colors whitespace-nowrap" href="#recursos">
                   Gestão de Estoque e Pátio
-                </Link>
+                </a>
               </li>
               <li>
-                <Link className="hover:text-white transition-colors" href="/ajuda">
+                <a className="hover:text-white transition-colors whitespace-nowrap" href="#recursos">
                   Integração WhatsApp Direta
-                </Link>
+                </a>
               </li>
               <li>
-                <Link className="hover:text-white transition-colors" href="/relatorios">
+                <a className="hover:text-white transition-colors whitespace-nowrap" href="#recursos">
                   Relatórios & Indicadores
-                </Link>
+                </a>
               </li>
             </ul>
           </div>
@@ -116,7 +116,7 @@ export function Footer() {
             </h3>
             <ul className="mt-4 space-y-2.5 text-sm">
               <li>
-                <span className="text-slate-400">PostgreSQL & Supabase Realtime</span>
+                <span className="text-slate-400 whitespace-nowrap">PostgreSQL & Supabase Realtime</span>
               </li>
               <li>
                 <Link className="hover:text-white transition-colors" href="/privacidade">
@@ -129,39 +129,39 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <span className="text-slate-400">Backup Automatizado Diário</span>
+                <span className="text-slate-400 whitespace-nowrap">Backup Automatizado Diário</span>
               </li>
             </ul>
           </div>
 
-          {/* Coluna 4: Acesso (3 colunas) */}
-          <div className="md:col-span-3 lg:col-span-3">
+          {/* Coluna 4: Acesso (2 colunas) */}
+          <div className="md:col-span-2 lg:col-span-2">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-white h-10 flex items-center">
               Acesso
             </h3>
             <ul className="mt-4 space-y-2.5 text-sm">
               <li>
                 <Link
-                  className="text-orange-500 hover:text-orange-400 font-semibold transition-colors"
+                  className="text-orange-500 hover:text-orange-400 font-semibold transition-colors whitespace-nowrap"
                   href="/leads"
                 >
                   Acessar Demonstração
                 </Link>
               </li>
               <li>
-                <Link className="hover:text-white transition-colors" href="/login">
+                <Link className="hover:text-white transition-colors whitespace-nowrap" href="/login">
                   Login no Sistema
                 </Link>
               </li>
               <li>
-                <Link className="hover:text-white transition-colors" href="/billing">
+                <a className="hover:text-white transition-colors whitespace-nowrap" href="#planos">
                   Tabela de Preços
-                </Link>
+                </a>
               </li>
               <li>
-                <Link className="hover:text-white transition-colors" href="/#calculadora">
+                <a className="hover:text-white transition-colors whitespace-nowrap" href="#calculadora">
                   Calculadora de ROI
-                </Link>
+                </a>
               </li>
             </ul>
           </div>

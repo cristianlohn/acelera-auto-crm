@@ -15,7 +15,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
     "generate:api-types": "openapi-typescript http://localhost:3000/api/doc -o src/types/api.ts",
-    "generate:api-types:local": "tsx scripts/generate-api-types.ts"
+    "generate:api-types:local": "tsx scripts/generate-api-types.ts",
+    "download:vehicles": "node scripts/download-vehicle-images.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

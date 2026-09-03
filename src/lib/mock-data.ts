@@ -33,8 +33,7 @@ export const mockVehicles: Vehicle[] = [
     km: 18500,
     price: 149900,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/civic.jpg",
     daysInStock: 12,
     fipePrice: 148000,
     estimatedMargin: 14500,
@@ -52,8 +51,7 @@ export const mockVehicles: Vehicle[] = [
     km: 34200,
     price: 134900,
     status: "reservado",
-    imageUrl:
-      "https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/corolla.jpg",
     daysInStock: 8,
     fipePrice: 133500,
     estimatedMargin: 12000,
@@ -71,8 +69,7 @@ export const mockVehicles: Vehicle[] = [
     km: 21000,
     price: 168000,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/compass.jpg",
     daysInStock: 42,
     fipePrice: 166000,
     estimatedMargin: 16000,
@@ -90,8 +87,7 @@ export const mockVehicles: Vehicle[] = [
     km: 22100,
     price: 129900,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/tcross.jpg",
     daysInStock: 15,
     fipePrice: 128000,
     estimatedMargin: 11500,
@@ -109,8 +105,7 @@ export const mockVehicles: Vehicle[] = [
     km: 19500,
     price: 98500,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1559416523-140ddc3d238c?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/pulse.jpg",
     daysInStock: 68,
     fipePrice: 97000,
     estimatedMargin: 9800,
@@ -128,8 +123,7 @@ export const mockVehicles: Vehicle[] = [
     km: 41000,
     price: 84900,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/onix.jpg",
     daysInStock: 24,
     fipePrice: 83000,
     estimatedMargin: 8200,
@@ -147,8 +141,7 @@ export const mockVehicles: Vehicle[] = [
     km: 27400,
     price: 144000,
     status: "reservado",
-    imageUrl:
-      "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/creta.jpg",
     daysInStock: 19,
     fipePrice: 142000,
     estimatedMargin: 13800,
@@ -166,8 +159,7 @@ export const mockVehicles: Vehicle[] = [
     km: 25800,
     price: 139900,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/hrv.jpg",
     daysInStock: 10,
     fipePrice: 138500,
     estimatedMargin: 12900,
@@ -185,8 +177,7 @@ export const mockVehicles: Vehicle[] = [
     km: 31000,
     price: 162000,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/corolla-cross.jpg",
     daysInStock: 65,
     fipePrice: 160000,
     estimatedMargin: 15000,
@@ -204,8 +195,7 @@ export const mockVehicles: Vehicle[] = [
     km: 38000,
     price: 178000,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/commander.jpg",
     daysInStock: 35,
     fipePrice: 175000,
     estimatedMargin: 17500,
@@ -223,8 +213,7 @@ export const mockVehicles: Vehicle[] = [
     km: 26300,
     price: 128000,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/nivus.jpg",
     daysInStock: 7,
     fipePrice: 126000,
     estimatedMargin: 11000,
@@ -242,8 +231,7 @@ export const mockVehicles: Vehicle[] = [
     km: 22000,
     price: 119900,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/tracker.jpg",
     daysInStock: 48,
     fipePrice: 118000,
     estimatedMargin: 10500,
@@ -261,8 +249,7 @@ export const mockVehicles: Vehicle[] = [
     km: 18200,
     price: 136000,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1559416523-140ddc3d238c?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/fastback.jpg",
     daysInStock: 14,
     fipePrice: 134000,
     estimatedMargin: 13000,
@@ -280,8 +267,7 @@ export const mockVehicles: Vehicle[] = [
     km: 36500,
     price: 118000,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/kicks.jpg",
     daysInStock: 29,
     fipePrice: 116000,
     estimatedMargin: 10200,
@@ -299,8 +285,7 @@ export const mockVehicles: Vehicle[] = [
     km: 29000,
     price: 269000,
     status: "disponivel",
-    imageUrl:
-      "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/bmw320i.jpg",
     daysInStock: 52,
     fipePrice: 265000,
     estimatedMargin: 24000,
@@ -318,8 +303,7 @@ export const mockVehicles: Vehicle[] = [
     km: 52300,
     price: 59900,
     status: "vendido",
-    imageUrl:
-      "https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=800&q=80",
+    imageUrl: "/vehicles/kwid.jpg",
     daysInStock: 60,
     fipePrice: 58500,
     estimatedMargin: 6500,
