@@ -13,27 +13,12 @@ import {
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { mockLeads } from "@/lib/mock-data";
 import { getTeamMembersAction } from "@/app/actions/team-actions";
-import type { LeadOrigin, ManualLeadSource } from "@/types/crm";
+import type { CreateLeadInput, LeadOrigin } from "@/types/crm";
 import type { KanbanLead } from "@/types/kanban";
 
 const memoryLocalLeads: KanbanLead[] = [];
 
-export interface CreateLeadInput {
-  name: string;
-  phone: string;
-  email?: string;
-  source: ManualLeadSource | string;
-  vehicle_of_interest?: string;
-  vehicleInterest?: string;
-  assignedTo?: string;
-  assigned_to?: string;
-  seller_id?: string;
-  sellerName?: string;
-  notes?: string;
-  value?: number;
-  stage?: string;
-  segment?: string;
-}
+export type { CreateLeadInput };
 
 export interface TransferLeadResult {
   success: boolean;
@@ -87,9 +72,36 @@ export async function createLeadAction(
       }
     }
 
-    const vehicleInterest = input.vehicle_of_interest || input.vehicleInterest || "Interesse Geral";
+    const vehicleId = input.vehicleId || input.vehicle_id;
+    const vehicleName =
+      input.vehicleName ||
+      input.vehicle_name ||
+      input.vehicle_of_interest ||
+      input.vehicleInterest ||
+      "Interesse Geral";
+    const estimatedValue =
+      typeof input.estimatedValue === "number" && !isNaN(input.estimatedValue)
+        ? input.estimatedValue
+        : typeof input.estimated_value === "number" && !isNaN(input.estimated_value)
+        ? input.estimated_value
+        : typeof input.value === "number" && !isNaN(input.value)
+        ? input.value
+        : undefined;
+
     const nowIso = new Date().toISOString();
     const firstContactAt = input.source === "patio" ? nowIso : null;
+
+    // Se o veículo foi informado, registra nota inicial de histórico
+    const vehicleHistoryNote =
+      vehicleName && vehicleName !== "Interesse Geral"
+        ? `Interesse registrado no veículo: ${vehicleName}${
+            estimatedValue && estimatedValue > 0
+              ? ` - R$ ${Number(estimatedValue).toLocaleString("pt-BR")}`
+              : ""
+          }`
+        : undefined;
+
+    const finalNotes = [vehicleHistoryNote, input.notes?.trim()].filter(Boolean).join("\n") || undefined;
 
     const newLead: KanbanLead = {
       id: `lead-k-${Date.now()}`,
@@ -97,7 +109,9 @@ export async function createLeadAction(
       name: input.name.trim(),
       phone: input.phone.trim(),
       email: input.email?.trim() || undefined,
-      vehicle_of_interest: vehicleInterest,
+      vehicle_of_interest: vehicleName,
+      vehicle_id: vehicleId,
+      vehicle_name: vehicleName,
       source: input.source,
       stage: (input.stage as KanbanLead["stage"]) || "new",
       assigned_to_name: finalAssignedToName,
@@ -109,9 +123,10 @@ export async function createLeadAction(
       sla_minutes_elapsed: 0,
       created_at: nowIso,
       updated_at: nowIso,
-      value: input.value,
+      value: estimatedValue,
+      estimated_value: estimatedValue,
       segment: (input.segment as KanbanLead["segment"]) || "all",
-      notes: input.notes?.trim() || undefined,
+      notes: finalNotes,
     };
 
     if (tenantContext.isDemo || !isSupabaseServerConfigured() || !tenantContext.organizationId) {
@@ -122,10 +137,14 @@ export async function createLeadAction(
         phone: newLead.phone,
         email: newLead.email,
         vehicleInterest: newLead.vehicle_of_interest,
+        vehicleId: vehicleId,
+        vehicleName: vehicleName,
+        estimatedValue: estimatedValue,
         status: "novo",
         sellerName: newLead.assigned_to_name,
         lastContactAt: firstContactAt,
         origin: input.source as LeadOrigin,
+        notes: finalNotes,
       });
 
       try {
@@ -145,13 +164,18 @@ export async function createLeadAction(
         name: input.name.trim(),
         phone: input.phone.trim(),
         email: input.email?.trim() || null,
-        vehicle_interest: vehicleInterest,
+        vehicle_interest: vehicleName,
         status: "novo",
         seller_name: finalAssignedToName,
         seller_id: finalAssignedToId.length === 36 ? finalAssignedToId : null,
         origin: dbOrigin,
         last_contact_at: firstContactAt,
-        notes: input.notes?.trim() || null,
+        notes: finalNotes || null,
+        custom_fields: {
+          vehicle_id: vehicleId,
+          vehicle_name: vehicleName,
+          estimated_value: estimatedValue,
+        },
       })
       .select()
       .single();

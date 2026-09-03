@@ -1,12 +1,12 @@
 /**
  * @file create-lead-modal.tsx
- * @description Modal de cadastro manual de novo lead com restrição de origens presenciais e atribuição direta por RBAC.
+ * @description Modal de cadastro manual de novo lead com vinculação a veículo do estoque, valor estimado e atribuição direta por RBAC.
  */
 
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, User, Phone, Mail, Car, Compass, FileText, UserCheck, ShieldCheck } from "lucide-react";
+import { Plus, User, Phone, Mail, Car, Compass, FileText, UserCheck, ShieldCheck, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,10 +18,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatPhone } from "@/lib/validations/document";
-import { createLeadAction, type CreateLeadInput } from "@/app/actions/lead-actions";
+import { createLeadAction } from "@/app/actions/lead-actions";
 import { getTeamMembersAction } from "@/app/actions/team-actions";
+import { getVehicles } from "@/app/actions/vehicles";
 import { useDemoRole } from "@/context/demo-role-context";
-import { MANUAL_LEAD_SOURCES } from "@/types/crm";
+import { ALLOWED_MANUAL_SOURCES, type CreateLeadInput, type Vehicle } from "@/types/crm";
 import type { KanbanLead } from "@/types/kanban";
 import type { TeamMember } from "@/types/team";
 
@@ -30,6 +31,7 @@ export interface CreateLeadModalProps {
   triggerClassName?: string;
   triggerLabel?: string;
   availableSellers?: { id: string; name: string }[];
+  availableVehicles?: Vehicle[];
 }
 
 export function CreateLeadModal({
@@ -37,10 +39,12 @@ export function CreateLeadModal({
   triggerClassName,
   triggerLabel = "Novo Lead",
   availableSellers,
+  availableVehicles: propVehicles,
 }: CreateLeadModalProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [team, setTeam] = useState<TeamMember[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(propVehicles || []);
   const { role, sellerName } = useDemoRole();
 
   const isSeller = role === "vendedor";
@@ -51,6 +55,10 @@ export function CreateLeadModal({
     phone: "",
     email: "",
     vehicle_of_interest: "",
+    vehicleId: "",
+    vehicleName: "",
+    estimatedValue: undefined,
+    value: undefined,
     source: "patio",
     assignedTo: isSeller ? currentUserName : "",
     sellerName: isSeller ? currentUserName : "",
@@ -66,10 +74,60 @@ export function CreateLeadModal({
         }
       })
       .catch(() => {});
+
+    if (!propVehicles || propVehicles.length === 0) {
+      getVehicles()
+        .then((vList) => {
+          if (isMounted && vList) {
+            setVehicles(vList);
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [propVehicles]);
+
+  const stockVehicles = React.useMemo(() => {
+    return vehicles.filter(
+      (v) =>
+        v.status === "disponivel" ||
+        (v.status as string) === "available" ||
+        !v.status
+    );
+  }, [vehicles]);
+
+  const handleVehicleSelect = (vehicleId: string) => {
+    if (!vehicleId) {
+      setForm((prev) => ({
+        ...prev,
+        vehicleId: "",
+        vehicleName: "",
+        vehicle_of_interest: "",
+        estimatedValue: undefined,
+        value: undefined,
+      }));
+      return;
+    }
+
+    const selected = stockVehicles.find((v) => v.id === vehicleId);
+    if (selected) {
+      const brand = selected.brand || selected.make;
+      const fullModel = `${brand} ${selected.model} ${selected.version || ""}`.trim();
+      const priceNum = Number(selected.price);
+
+      setForm((prev) => ({
+        ...prev,
+        vehicleId: selected.id,
+        vehicleName: fullModel,
+        vehicle_of_interest: fullModel,
+        estimatedValue: priceNum,
+        value: priceNum,
+      }));
+    }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -79,6 +137,13 @@ export function CreateLeadModal({
     const { name, value } = e.target;
     if (name === "phone") {
       setForm((prev) => ({ ...prev, phone: formatPhone(value) }));
+    } else if (name === "estimatedValue") {
+      const parsed = Number(value.replace(/\D/g, ""));
+      setForm((prev) => ({
+        ...prev,
+        estimatedValue: isNaN(parsed) ? undefined : parsed,
+        value: isNaN(parsed) ? undefined : parsed,
+      }));
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
@@ -87,7 +152,7 @@ export function CreateLeadModal({
   const isFormValid =
     form.name.trim().length >= 2 &&
     form.phone.trim().length >= 10 &&
-    (form.vehicle_of_interest || "").trim().length >= 2;
+    ((form.vehicle_of_interest || "").trim().length >= 2 || Boolean(form.vehicleId));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,6 +172,10 @@ export function CreateLeadModal({
           phone: "",
           email: "",
           vehicle_of_interest: "",
+          vehicleId: "",
+          vehicleName: "",
+          estimatedValue: undefined,
+          value: undefined,
           source: "patio",
           assignedTo: isSeller ? currentUserName : "",
           sellerName: isSeller ? currentUserName : "",
@@ -258,15 +327,51 @@ export function CreateLeadModal({
             </div>
           </div>
 
-          {/* Veículo de Interesse e Origem Restrita */}
+          {/* Veículo de Interesse (Estoque) */}
+          <div className="grid gap-1.5">
+            <label
+              htmlFor="stock-vehicle-select"
+              className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300"
+            >
+              <Car className="h-3.5 w-3.5 text-orange-400" />
+              Veículo de Interesse (Estoque)
+            </label>
+            <select
+              id="stock-vehicle-select"
+              data-testid="stock-vehicle-select"
+              value={form.vehicleId || ""}
+              onChange={(e) => handleVehicleSelect(e.target.value)}
+              className="h-9 w-full rounded-xl border border-white/10 bg-zinc-900 px-2.5 text-xs font-medium text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+            >
+              <option value="" className="bg-zinc-900 text-zinc-400">
+                Nenhum veículo vinculado no momento
+              </option>
+              {stockVehicles.map((v) => {
+                const brand = v.brand || v.make;
+                const year = v.yearModel || v.year || v.yearFab;
+                const formattedPrice = Number(v.price).toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                  maximumFractionDigits: 0,
+                });
+                return (
+                  <option key={v.id} value={v.id} className="bg-zinc-950 text-white">
+                    🚗 {brand} {v.model} {v.version || ""} ({year}) — {formattedPrice}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Modelo Personalizado e Valor do Negócio */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <label
                 htmlFor="lead-vehicle"
                 className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300"
               >
-                <Car className="h-3.5 w-3.5 text-orange-400" />
-                Veículo de Interesse *
+                <Car className="h-3.5 w-3.5 text-zinc-400" />
+                Modelo / Descrição *
               </label>
               <Input
                 id="lead-vehicle"
@@ -279,6 +384,39 @@ export function CreateLeadModal({
               />
             </div>
 
+            {/* Valor do Negócio (R$) */}
+            <div className="grid gap-1.5">
+              <label
+                htmlFor="lead-value"
+                className="flex items-center justify-between text-xs font-semibold text-zinc-300"
+              >
+                <span className="flex items-center gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5 text-emerald-400" />
+                  Valor Estimado (R$)
+                </span>
+                {form.estimatedValue && form.estimatedValue > 0 && (
+                  <span className="text-[10px] text-emerald-400 font-bold">
+                    Preço de Tabela
+                  </span>
+                )}
+              </label>
+              <Input
+                id="lead-value"
+                name="estimatedValue"
+                value={
+                  form.estimatedValue
+                    ? Number(form.estimatedValue).toLocaleString("pt-BR")
+                    : ""
+                }
+                onChange={handleChange}
+                placeholder="R$ 0"
+                className="bg-white/5 border-white/10 text-emerald-400 font-bold placeholder:text-zinc-500 text-xs rounded-xl focus-visible:ring-orange-500"
+              />
+            </div>
+          </div>
+
+          {/* Origem Restrita e Vendedor Responsável */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {/* Dropdown de Origens Manuais */}
             <div className="grid gap-1.5">
               <label
@@ -295,59 +433,59 @@ export function CreateLeadModal({
                 onChange={handleChange}
                 className="h-9 w-full rounded-xl border border-white/10 bg-white/5 px-2.5 text-xs font-medium text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
               >
-                {MANUAL_LEAD_SOURCES.map((src) => (
+                {ALLOWED_MANUAL_SOURCES.map((src) => (
                   <option key={src.value} value={src.value} className="bg-zinc-900 text-white">
                     {src.label}
                   </option>
                 ))}
               </select>
             </div>
-          </div>
 
-          {/* Vendedor Responsável (RBAC: Auto-atribuição para vendedor ou Seletor para Gestor) */}
-          <div className="grid gap-1.5">
-            <label
-              htmlFor="lead-seller"
-              className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300"
-            >
-              <UserCheck className="h-3.5 w-3.5 text-orange-400" />
-              Vendedor Responsável
-            </label>
-
-            {isSeller ? (
-              <div className="flex h-9 items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs text-zinc-300">
-                <span className="font-semibold text-white">👤 {currentUserName}</span>
-                <span className="flex items-center gap-1 text-[11px] text-orange-400 font-medium">
-                  <ShieldCheck className="h-3 w-3" />
-                  Atribuído diretamente a você
-                </span>
-              </div>
-            ) : (
-              <select
-                id="lead-seller"
-                name="assignedTo"
-                value={form.assignedTo || ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const matched = sellersOptions.find((s) => s.id === val || s.name === val);
-                  setForm((prev) => ({
-                    ...prev,
-                    assignedTo: val,
-                    sellerName: matched?.name || val,
-                  }));
-                }}
-                className="h-9 w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-2.5 text-xs font-semibold text-orange-200 focus:outline-none focus:ring-1 focus:ring-orange-500"
+            {/* Vendedor Responsável (RBAC: Auto-atribuição para vendedor ou Seletor para Gestor) */}
+            <div className="grid gap-1.5">
+              <label
+                htmlFor="lead-seller"
+                className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300"
               >
-                <option value="" className="bg-zinc-900 text-white">
-                  👤 Atribuir ao Gestor ({currentUserName})
-                </option>
-                {sellersOptions.map((s) => (
-                  <option key={s.id || s.name} value={s.id || s.name} className="bg-zinc-900 text-white">
-                    👤 {s.name}
+                <UserCheck className="h-3.5 w-3.5 text-orange-400" />
+                Vendedor Responsável
+              </label>
+
+              {isSeller ? (
+                <div className="flex h-9 items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs text-zinc-300">
+                  <span className="font-semibold text-white truncate">👤 {currentUserName}</span>
+                  <span className="flex items-center gap-1 text-[10px] text-orange-400 font-medium shrink-0">
+                    <ShieldCheck className="h-3 w-3" />
+                    Atribuído a você
+                  </span>
+                </div>
+              ) : (
+                <select
+                  id="lead-seller"
+                  name="assignedTo"
+                  value={form.assignedTo || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const matched = sellersOptions.find((s) => s.id === val || s.name === val);
+                    setForm((prev) => ({
+                      ...prev,
+                      assignedTo: val,
+                      sellerName: matched?.name || val,
+                    }));
+                  }}
+                  className="h-9 w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-2.5 text-xs font-semibold text-orange-200 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                >
+                  <option value="" className="bg-zinc-900 text-white">
+                    👤 Atribuir ao Gestor ({currentUserName})
                   </option>
-                ))}
-              </select>
-            )}
+                  {sellersOptions.map((s) => (
+                    <option key={s.id || s.name} value={s.id || s.name} className="bg-zinc-900 text-white">
+                      👤 {s.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </div>
 
           {/* Observações */}
@@ -365,7 +503,7 @@ export function CreateLeadModal({
               value={form.notes || ""}
               onChange={handleChange}
               rows={2}
-              placeholder="Ex: Cliente esteve na loja física buscando opções de financiamento..."
+              placeholder="Ex: Cliente tem interesse em dar carro na troca e financiar o restante..."
               className="w-full resize-none rounded-xl border border-white/10 bg-white/5 p-2.5 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-orange-500 outline-none"
             />
           </div>

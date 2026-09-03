@@ -69,6 +69,10 @@ export interface Lead {
   origin: LeadOrigin;
   /** Identificador UUID da organização / tenant proprietário */
   organizationId?: string;
+  /** Identificador do veículo em estoque vinculado */
+  vehicleId?: string;
+  /** Nome/modelo do veículo em estoque vinculado */
+  vehicleName?: string;
   /** Valor monetário estimado da oportunidade (R$) */
   estimatedValue?: number;
   /** Anotações ou histórico de negociação */
@@ -77,6 +81,29 @@ export interface Lead {
   createdAt?: string;
   /** Indicador de proposta em análise de financiamento / F&I */
   proposalFi?: boolean;
+}
+
+export interface CreateLeadInput {
+  name: string;
+  phone: string;
+  email?: string;
+  source: 'patio' | 'whatsapp_direto' | ManualLeadSource | string;
+  assignedTo?: string;
+  assigned_to?: string;
+  seller_id?: string;
+  sellerName?: string;
+  vehicleId?: string;
+  vehicle_id?: string;
+  vehicleName?: string;
+  vehicle_name?: string;
+  vehicle_of_interest?: string;
+  vehicleInterest?: string;
+  estimatedValue?: number;
+  estimated_value?: number;
+  value?: number;
+  stage?: string;
+  segment?: string;
+  notes?: string;
 }
 
 // ---------------------------------------------------------------------------

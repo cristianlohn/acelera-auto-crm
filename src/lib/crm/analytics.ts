@@ -102,6 +102,7 @@ export interface LeadAnalyticsInput {
   vehicleInterest?: string;
   estimated_value?: number;
   estimatedValue?: number;
+  value?: number;
   price?: number;
   created_at?: string;
   createdAt?: string;
@@ -146,9 +147,10 @@ const VEHICLE_ESTIMATED_PRICES: Record<string, number> = {
  * Estima o valor monetário do veículo em negociação com base no modelo ou valor explícito.
  */
 export function estimateLeadVehicleValue(lead: LeadAnalyticsInput, defaultTicket = 0): number {
-  if (typeof lead.estimatedValue === "number" && lead.estimatedValue > 0) return lead.estimatedValue;
-  if (typeof lead.estimated_value === "number" && lead.estimated_value > 0) return lead.estimated_value;
-  if (typeof lead.price === "number" && lead.price > 0) return lead.price;
+  if (typeof lead.estimatedValue === "number" && !isNaN(lead.estimatedValue)) return lead.estimatedValue;
+  if (typeof lead.estimated_value === "number" && !isNaN(lead.estimated_value)) return lead.estimated_value;
+  if (typeof lead.value === "number" && !isNaN(lead.value)) return lead.value;
+  if (typeof lead.price === "number" && !isNaN(lead.price)) return lead.price;
 
   const text = (lead.vehicleInterest || lead.vehicle_interest || "").toLowerCase();
   for (const [key, price] of Object.entries(VEHICLE_ESTIMATED_PRICES)) {

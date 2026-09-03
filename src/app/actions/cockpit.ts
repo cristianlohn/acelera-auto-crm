@@ -63,17 +63,36 @@ export async function getManagerCockpitMetrics(
         return calculateManagerCockpitMetrics([], { defaultTicket: 0 });
       }
 
-      const dbLeadsInput: LeadAnalyticsInput[] = data.map((row) => ({
-        id: row.id,
-        name: row.name,
-        phone: row.phone,
-        status: row.status,
-        sellerName: row.seller_name,
-        vehicleInterest: row.vehicle_interest,
-        lastContactAt: row.last_contact_at,
-        createdAt: row.created_at,
-        organizationId: row.organization_id,
-      }));
+      const dbLeadsInput: LeadAnalyticsInput[] = data.map((row) => {
+        const rawRow = row as unknown as Record<string, unknown>;
+        const customFields = (rawRow.custom_fields && typeof rawRow.custom_fields === "object"
+          ? (rawRow.custom_fields as Record<string, unknown>)
+          : {}) as Record<string, unknown>;
+
+        const estVal =
+          typeof rawRow.estimated_value === "number"
+            ? (rawRow.estimated_value as number)
+            : typeof customFields.estimated_value === "number"
+            ? (customFields.estimated_value as number)
+            : typeof rawRow.price === "number"
+            ? (rawRow.price as number)
+            : undefined;
+
+        return {
+          id: row.id,
+          name: row.name,
+          phone: row.phone,
+          status: row.status,
+          sellerName: row.seller_name,
+          vehicleInterest: row.vehicle_interest,
+          firstContactAt: typeof rawRow.first_contact_at === "string" ? rawRow.first_contact_at : undefined,
+          lastContactAt: row.last_contact_at || undefined,
+          createdAt: row.created_at,
+          organizationId: row.organization_id,
+          estimatedValue: estVal,
+          notes: row.notes || undefined,
+        };
+      });
 
       return calculateManagerCockpitMetrics(dbLeadsInput, { defaultTicket: 0 });
     } catch {

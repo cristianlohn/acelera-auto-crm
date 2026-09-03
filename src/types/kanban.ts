@@ -38,6 +38,9 @@ export interface KanbanLead {
   updated_at: string;
   stage_changed_at?: string;
   value?: number;
+  estimated_value?: number;
+  vehicle_id?: string;
+  vehicle_name?: string;
   lost_reason?: string;
   segment?: "new_cars" | "used_cars" | "f_and_i" | "all";
   notes?: string;
