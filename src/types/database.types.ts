@@ -225,6 +225,7 @@ export interface Database {
           tenant_id?: string | null;
           seller_id: string | null;
           seller_name: string;
+          assigned_to?: string | null;
           name: string;
           phone: string;
           email: string | null;
@@ -245,6 +246,7 @@ export interface Database {
           tenant_id?: string | null;
           seller_id?: string | null;
           seller_name?: string;
+          assigned_to?: string | null;
           name: string;
           phone: string;
           email?: string | null;
@@ -265,6 +267,7 @@ export interface Database {
           tenant_id?: string | null;
           seller_id?: string | null;
           seller_name?: string;
+          assigned_to?: string | null;
           name?: string;
           phone?: string;
           email?: string | null;
