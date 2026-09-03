@@ -329,41 +329,55 @@ export function CreateLeadModal({
             </div>
           </div>
 
-          {/* Veículo de Interesse (Estoque) */}
-          <div className="grid gap-1.5">
+          {/* Veículo de Interesse (Estoque da Loja) */}
+          <div className="space-y-1.5">
             <label
-              htmlFor="stock-vehicle-select"
+              htmlFor="vehicleSelect"
               className="flex items-center gap-1.5 text-xs font-semibold text-zinc-300"
             >
               <Car className="h-3.5 w-3.5 text-orange-400" />
-              Veículo de Interesse (Estoque)
+              Veículo de Interesse (Estoque da Loja)
             </label>
             <select
-              id="stock-vehicle-select"
+              id="vehicleSelect"
               data-testid="stock-vehicle-select"
               value={form.vehicleId || ""}
               onChange={(e) => handleVehicleSelect(e.target.value)}
-              className="h-9 w-full rounded-xl border border-white/10 bg-zinc-900 px-2.5 text-xs font-medium text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+              className="w-full px-3 py-2 rounded-lg bg-neutral-900 border border-slate-800 text-xs text-white focus:ring-2 focus:ring-orange-500 focus:outline-none"
             >
               <option value="" className="bg-zinc-900 text-zinc-400">
-                Nenhum veículo vinculado no momento
+                Selecione um veículo do pátio...
               </option>
               {stockVehicles.map((v) => {
                 const brand = v.brand || v.make;
-                const year = v.yearModel || v.year || v.yearFab;
-                const formattedPrice = Number(v.price).toLocaleString("pt-BR", {
+                const plateEnd = v.plateEnd || v.plate?.slice(-3) || "---";
+                const formattedPrice = new Intl.NumberFormat("pt-BR", {
                   style: "currency",
                   currency: "BRL",
                   maximumFractionDigits: 0,
-                });
+                }).format(v.price);
                 return (
                   <option key={v.id} value={v.id} className="bg-zinc-950 text-white">
-                    🚗 {brand} {v.model} {v.version || ""} ({year}) — {formattedPrice}
+                    {brand} {v.model} {v.version} — {formattedPrice} (Placa final: {plateEnd})
                   </option>
                 );
               })}
             </select>
           </div>
+
+          {/* Exibição do Valor Automático Herdado */}
+          {form.estimatedValue && form.estimatedValue > 0 ? (
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs">
+              <span className="text-slate-400">Valor Estimado da Negociação:</span>
+              <span className="font-bold text-orange-400">
+                {new Intl.NumberFormat("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                  maximumFractionDigits: 0,
+                }).format(form.estimatedValue)}
+              </span>
+            </div>
+          ) : null}
 
           {/* Modelo Personalizado e Valor do Negócio */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

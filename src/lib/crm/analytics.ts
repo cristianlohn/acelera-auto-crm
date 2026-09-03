@@ -397,7 +397,11 @@ export function calculateManagerCockpitMetrics(
     const isFinancing =
       rawStatus === "proposta_fi" ||
       rawStatus === "f_and_i" ||
+      rawStatus === "financing" ||
       rawStatus.includes("financiamento") ||
+      (lead as unknown as Record<string, unknown>).stage === "financing" ||
+      (lead as unknown as Record<string, unknown>).stage === "financiamento" ||
+      (lead as unknown as Record<string, unknown>).financing_status === "pending" ||
       Boolean(lead.proposalFi) ||
       Boolean(lead.isFinancing) ||
       Boolean(
@@ -527,3 +531,37 @@ export function calculateManagerCockpitMetrics(
     recommendedActions,
   };
 }
+
+/**
+ * Calcula o total do pipeline de vendas para leads em negociação aberta.
+ * Ignora leads finalizados (ganho / perdido) e retorna 0 se não houver valores.
+ */
+export function calculatePipelineTotal(
+  leads: (LeadAnalyticsInput | Record<string, unknown>)[]
+): number {
+  return leads
+    .filter((lead) => {
+      const rawStatus = String(
+        (lead as LeadAnalyticsInput).status ||
+          (lead as Record<string, unknown>).stage ||
+          ""
+      ).toLowerCase();
+      return (
+        rawStatus !== "won" &&
+        rawStatus !== "lost" &&
+        rawStatus !== "ganho" &&
+        rawStatus !== "perdido"
+      );
+    })
+    .reduce((total, lead) => {
+      const val = Number(
+        (lead as LeadAnalyticsInput).estimated_value ??
+          (lead as LeadAnalyticsInput).estimatedValue ??
+          (lead as LeadAnalyticsInput).value ??
+          (lead as LeadAnalyticsInput).price ??
+          0
+      );
+      return total + (isNaN(val) ? 0 : val);
+    }, 0);
+}
+

@@ -32,6 +32,9 @@ import type { KanbanLead, LeadStage } from "@/types/kanban";
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import { cn } from "@/lib/utils";
 import { TransferLeadModal } from "@/components/leads/transfer-lead-modal";
+import { getVehicles } from "@/app/actions/vehicles";
+import { updateLeadVehicleAction } from "@/app/actions/lead-actions";
+import type { Vehicle } from "@/types/crm";
 
 export interface LeadDetailsModalProps {
   isOpen: boolean;
@@ -40,7 +43,9 @@ export interface LeadDetailsModalProps {
   onUpdateStage: (leadId: string, newStage: LeadStage) => void;
   onUpdateNotes?: (leadId: string, notes: string) => Promise<void> | void;
   onReassignSeller?: (leadId: string, sellerName: string, sellerId?: string) => Promise<void> | void;
+  onUpdateVehicle?: (leadId: string, vehicleId: string, vehicleName: string, estimatedValue: number) => Promise<void> | void;
   availableSellers?: Array<{ id: string; name: string }>;
+  availableVehicles?: Vehicle[];
 }
 
 function formatCurrencyBRL(value?: number): string {
@@ -74,20 +79,41 @@ export function LeadDetailsModal({
   onUpdateStage,
   onUpdateNotes,
   onReassignSeller,
+  onUpdateVehicle,
   availableSellers,
+  availableVehicles: propVehicles,
 }: LeadDetailsModalProps) {
   const [prevLeadId, setPrevLeadId] = useState<string | null>(null);
   const [notes, setNotes] = useState(lead?.notes || "");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [notesSaved, setNotesSaved] = useState(false);
   const [isChangingSeller, setIsChangingSeller] = useState(false);
+  const [isChangingVehicle, setIsChangingVehicle] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(propVehicles || []);
+  const [localVehicleName, setLocalVehicleName] = useState(lead?.vehicle_of_interest || "");
+  const [localVehicleId, setLocalVehicleId] = useState(lead?.vehicle_id || "");
+  const [localValue, setLocalValue] = useState(lead?.value);
+
+  useEffect(() => {
+    if (isOpen && (!propVehicles || propVehicles.length === 0)) {
+      getVehicles()
+        .then((vList) => {
+          if (vList) setVehicles(vList);
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, propVehicles]);
 
   if (lead && lead.id !== prevLeadId) {
     setPrevLeadId(lead.id);
     setNotes(lead.notes || "");
+    setLocalVehicleName(lead.vehicle_of_interest || "");
+    setLocalVehicleId(lead.vehicle_id || "");
+    setLocalValue(lead.value);
     setNotesSaved(false);
     setIsChangingSeller(false);
+    setIsChangingVehicle(false);
     setIsTransferModalOpen(false);
   }
 
@@ -276,34 +302,87 @@ export function LeadDetailsModal({
 
             {/* Veículo de Interesse & Valor */}
             <div className="rounded-xl border border-slate-200 dark:border-slate-800/80 bg-white dark:bg-zinc-900/50 p-3.5 space-y-3">
-              <h3 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider">
-                Veículo de Interesse
-              </h3>
-
-              <div className="space-y-2 text-xs">
-                <div className="flex items-start gap-2 text-slate-900 dark:text-white">
-                  <Car className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
-                  <div>
-                    <span data-testid="lead-details-vehicle" className="font-bold text-sm">
-                      {lead.vehicle_of_interest}
-                    </span>
-                    {lead.segment && (
-                      <span className="block text-[10px] text-slate-500 dark:text-slate-400 capitalize">
-                        Categoria: {lead.segment.replace("_", " ")}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-1">
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Valor Estimado / Pipeline:
-                  </span>
-                  <div className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
-                    {formatCurrencyBRL(lead.value)}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-900 dark:text-slate-200 uppercase tracking-wider">
+                  Veículo de Interesse
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsChangingVehicle(!isChangingVehicle)}
+                  className="text-[10px] font-bold text-orange-500 hover:text-orange-400 hover:underline transition-colors"
+                >
+                  {isChangingVehicle ? "Cancelar" : "Trocar Veículo"}
+                </button>
               </div>
+
+              {isChangingVehicle ? (
+                <div className="space-y-2 pt-1">
+                  <select
+                    id="select-lead-vehicle-stock"
+                    value={localVehicleId || ""}
+                    onChange={async (e) => {
+                      const vId = e.target.value;
+                      if (!vId) return;
+                      const selected = vehicles.find((v) => v.id === vId);
+                      if (selected) {
+                        const brand = selected.brand || selected.make;
+                        const fullModel = `${brand} ${selected.model} ${selected.version || ""}`.trim();
+                        const price = Number(selected.price) || 0;
+                        setLocalVehicleName(fullModel);
+                        setLocalVehicleId(selected.id);
+                        setLocalValue(price);
+                        await updateLeadVehicleAction(lead.id, selected.id, fullModel, price);
+                        onUpdateVehicle?.(lead.id, selected.id, fullModel, price);
+                        setIsChangingVehicle(false);
+                      }
+                    }}
+                    className="w-full rounded border border-orange-500/40 bg-zinc-950 px-2 py-1.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  >
+                    <option value="">Selecione um veículo do pátio...</option>
+                    {vehicles
+                      .filter((v) => v.status === "disponivel" || (v.status as string) === "available" || !v.status)
+                      .map((v) => {
+                        const brand = v.brand || v.make;
+                        const plateEnd = v.plateEnd || v.plate?.slice(-3) || "---";
+                        const formattedPrice = new Intl.NumberFormat("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                          maximumFractionDigits: 0,
+                        }).format(v.price);
+                        return (
+                          <option key={v.id} value={v.id}>
+                            {brand} {v.model} {v.version} — {formattedPrice} (Placa final: {plateEnd})
+                          </option>
+                        );
+                      })}
+                  </select>
+                </div>
+              ) : (
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-start gap-2 text-slate-900 dark:text-white">
+                    <Car className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span data-testid="lead-details-vehicle" className="font-bold text-sm">
+                        {localVehicleName || lead.vehicle_of_interest}
+                      </span>
+                      {lead.segment && (
+                        <span className="block text-[10px] text-slate-500 dark:text-slate-400 capitalize">
+                          Categoria: {lead.segment.replace("_", " ")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-1">
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Valor Estimado / Pipeline:
+                    </span>
+                    <div className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
+                      {formatCurrencyBRL(localValue ?? lead.value)}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

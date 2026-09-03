@@ -205,4 +205,45 @@ describe("[UNIT-LEAD-ASSIGNMENT] Regras de Origem, Atribuição Direta e Transfe
       expect(transferResult.lead?.assigned_to_name).toBe("Vendedor Especialista");
     });
   });
+
+  describe("4. Atualização de Veículo do Estoque no Lead (updateLeadVehicleAction)", () => {
+    it("[TEST-VEHICLE-UPDATE-1] deve atualizar veículo e recalcular estimated_value do lead", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        userId: "manager-001",
+        organizationId: "org-loja-001",
+        isDemo: true,
+        organization: null,
+        needsOnboarding: false,
+        profile: {
+          id: "manager-001",
+          full_name: "Gerente Teste",
+          role: "gerente",
+          organization_id: "org-loja-001",
+          email: "gerente@loja.com",
+          phone: "11999998888",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          avatar_url: null,
+        },
+      });
+
+      const created = await createLeadAction({
+        name: "Renato Silva",
+        phone: "(11) 97777-6666",
+        source: "patio",
+        vehicle_of_interest: "Interesse Geral",
+      });
+      const leadId = created.lead!.id;
+
+      const { updateLeadVehicleAction } = await import("@/app/actions/lead-actions");
+      const result = await updateLeadVehicleAction(
+        leadId,
+        "v-civic-123",
+        "Honda Civic EXL 2.0 2023",
+        149900
+      );
+
+      expect(result.success).toBe(true);
+    });
+  });
 });

@@ -475,9 +475,13 @@ export function ManagerActionCockpit({
                     Dinheiro na Mesa (Pipeline)
                   </span>
                 </div>
-                <div className="mt-2 text-2xl sm:text-3xl font-black text-white tracking-tight">
-                  {formatBrl(totalPipeline)}
-                </div>
+                <p className="mt-2 text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  {new Intl.NumberFormat("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                    maximumFractionDigits: 0,
+                  }).format(totalPipeline || 0)}
+                </p>
               </div>
               <div className="mt-3">
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-md px-2 py-0.5">

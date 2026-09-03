@@ -347,3 +347,76 @@ export async function transferLeadAction(
     return { success: false, error: errorMsg };
   }
 }
+
+/**
+ * Atualiza o veículo vinculado e o valor estimado de um lead no CRM com persistência completa.
+ */
+export async function updateLeadVehicleAction(
+  leadId: string,
+  vehicleId: string,
+  vehicleName: string,
+  estimatedValue?: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    const nowIso = new Date().toISOString();
+
+    if (tenantContext.isDemo || !isSupabaseServerConfigured() || !tenantContext.organizationId) {
+      const memoryLead = memoryLocalLeads.find((l) => l.id === leadId);
+      const mockLead = mockLeads.find((l) => l.id === leadId);
+
+      if (memoryLead) {
+        memoryLead.vehicle_id = vehicleId;
+        memoryLead.vehicle_name = vehicleName;
+        memoryLead.vehicle_of_interest = vehicleName;
+        memoryLead.estimated_value = estimatedValue;
+        memoryLead.value = estimatedValue;
+        memoryLead.updated_at = nowIso;
+      }
+
+      if (mockLead) {
+        mockLead.vehicleId = vehicleId;
+        mockLead.vehicleName = vehicleName;
+        mockLead.vehicleInterest = vehicleName;
+        mockLead.estimatedValue = estimatedValue;
+      }
+
+      try {
+        revalidatePath("/leads");
+        revalidatePath("/dashboard");
+      } catch {}
+
+      return { success: true };
+    }
+
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase
+      .from("leads")
+      .update({
+        vehicle_interest: vehicleName,
+        updated_at: nowIso,
+        custom_fields: {
+          vehicle_id: vehicleId,
+          vehicle_name: vehicleName,
+          estimated_value: estimatedValue,
+        },
+      })
+      .eq("id", leadId)
+      .eq("organization_id", tenantContext.organizationId);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    try {
+      revalidatePath("/leads");
+      revalidatePath("/dashboard");
+    } catch {}
+
+    return { success: true };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Falha ao atualizar veículo do lead.";
+    return { success: false, error: errorMsg };
+  }
+}
+

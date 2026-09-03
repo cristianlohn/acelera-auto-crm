@@ -7,6 +7,7 @@ import { describe, it, expect } from "vitest";
 import {
   calculateManagerCockpitMetrics,
   estimateLeadVehicleValue,
+  calculatePipelineTotal,
   type LeadAnalyticsInput,
 } from "@/lib/crm/analytics";
 
@@ -100,4 +101,18 @@ describe("[UNIT-ANALYTICS-PIPELINE] CÃ¡lculo Estrito do Pipeline Total e PrevenÃ
     const valueInDemo = estimateLeadVehicleValue(leadWithoutExplicitValue, 140000);
     expect(valueInDemo).toBe(145000); // Tabela do Civic
   });
+
+  it("[TEST-PIPELINE-4] calculatePipelineTotal soma estritamente leads em aberto e retorna 0 para lista vazia", () => {
+    expect(calculatePipelineTotal([])).toBe(0);
+
+    const leads = [
+      { status: "novo", estimated_value: 120000 },
+      { status: "proposta", estimatedValue: 180000 },
+      { status: "won", estimated_value: 200000 }, // Ignorado
+      { status: "lost", estimated_value: 90000 }, // Ignorado
+    ];
+
+    expect(calculatePipelineTotal(leads)).toBe(300000);
+  });
 });
+
