@@ -350,14 +350,42 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (insertError) {
-          console.error("[Supabase Insert Error]:", insertError);
-          return NextResponse.json(
-            { success: false, error: `Falha ao salvar no banco: ${insertError.message}` },
-            { status: 500 }
-          );
-        }
+          console.warn("[Ingest Lead Insert] Tentando fallback defensivo para schema legado sem custom_fields:", insertError.message);
 
-        if (newLead?.id) {
+          const fallbackPayload = {
+            organization_id: organizationId,
+            name: normalizedLead.clientName,
+            phone: formattedPhone,
+            email: normalizedLead.clientEmail || null,
+            origin: normalizeLeadOrigin(normalizedLead.source),
+            vehicle_interest: vehicleName,
+            seller_id: assignedSeller?.id || null,
+            seller_name: assignedSeller?.name || "Fila de Atendimento",
+            status: "novo" as const,
+            short_code: shortCode,
+            notes: normalizedLead.message || null,
+            created_at: now,
+            updated_at: now,
+          };
+
+          const { data: fallbackLead, error: fallbackError } = await supabase
+            .from("leads")
+            .insert(fallbackPayload as never)
+            .select("id")
+            .maybeSingle();
+
+          if (fallbackError) {
+            console.error("[Supabase Insert Error]:", fallbackError);
+            return NextResponse.json(
+              { success: false, error: `Falha ao salvar no banco: ${fallbackError.message}` },
+              { status: 500 }
+            );
+          }
+
+          if (fallbackLead?.id) {
+            persistedLeadId = fallbackLead.id;
+          }
+        } else if (newLead?.id) {
           persistedLeadId = newLead.id;
         }
       }
