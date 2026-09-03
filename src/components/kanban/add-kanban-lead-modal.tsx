@@ -21,6 +21,7 @@ import {
 import { formatPhone } from "@/lib/validations/document";
 import { createKanbanLeadAction, type CreateKanbanLeadInput } from "@/app/actions/kanban-actions";
 import { getTeamMembersAction } from "@/app/actions/team-actions";
+import { ALLOWED_MANUAL_SOURCES } from "@/types/crm";
 import type { KanbanLead } from "@/types/kanban";
 import type { TeamMember } from "@/types/team";
 
@@ -275,15 +276,11 @@ export function AddKanbanLeadModal({
                 onChange={handleChange}
                 className="h-9 w-full rounded-xl border border-white/10 bg-white/5 px-2.5 text-xs font-medium text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
               >
-                <option value="patio" className="bg-zinc-900 text-white">🚶 Pátio / Balcão</option>
-                <option value="indicacao" className="bg-zinc-900 text-white">🤝 Indicação do Dono</option>
-                <option value="whatsapp" className="bg-zinc-900 text-white">💬 WhatsApp Direto</option>
-                <option value="site" className="bg-zinc-900 text-white">🌐 Site Oficial</option>
-                <option value="instagram" className="bg-zinc-900 text-white">📸 Instagram Direct</option>
-                <option value="meta_ads" className="bg-zinc-900 text-white">🎯 Meta Ads (Facebook/Insta)</option>
-                <option value="webmotors" className="bg-zinc-900 text-white">🚗 Webmotors</option>
-                <option value="icarros" className="bg-zinc-900 text-white">🚙 iCarros</option>
-                <option value="olx" className="bg-zinc-900 text-white">🏷️ OLX Autos</option>
+                {ALLOWED_MANUAL_SOURCES.map((src) => (
+                  <option key={src.value} value={src.value} className="bg-zinc-900 text-white">
+                    {src.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

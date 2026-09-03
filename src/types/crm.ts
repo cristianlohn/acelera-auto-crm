@@ -87,14 +87,13 @@ export interface Lead {
 // Lead – Origens Manuais vs Externas
 // ---------------------------------------------------------------------------
 
-export const MANUAL_LEAD_SOURCES = [
-  { value: "patio", label: "Pátio / Showroom Presencial" },
-  { value: "whatsapp_direto", label: "WhatsApp Direto" },
-  { value: "telefone", label: "Telefone / Ligação" },
-  { value: "indicacao", label: "Indicação" },
+export const ALLOWED_MANUAL_SOURCES = [
+  { value: "patio", label: "🚶 Pátio / Balcão" },
+  { value: "whatsapp_direto", label: "💬 WhatsApp Direto" },
 ] as const;
 
-export type ManualLeadSource = (typeof MANUAL_LEAD_SOURCES)[number]["value"];
+export const MANUAL_LEAD_SOURCES = ALLOWED_MANUAL_SOURCES;
+export type ManualLeadSource = (typeof ALLOWED_MANUAL_SOURCES)[number]["value"];
 
 /** Status operacional de um veículo no estoque. */
 export type VehicleStatus = "disponivel" | "reservado" | "vendido";

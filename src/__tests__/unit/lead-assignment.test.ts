@@ -18,14 +18,12 @@ describe("[UNIT-LEAD-ASSIGNMENT] Regras de Origem, Atribuição Direta e Transfe
     vi.clearAllMocks();
   });
 
-  describe("1. Restrição de Origens Manuais (MANUAL_LEAD_SOURCES)", () => {
-    it("[TEST-SOURCES-1] deve conter estritamente canais presenciais/diretos e NÃO conter webmotors ou meta_ads", () => {
+  describe("1. Restrição de Origens Manuais (MANUAL_LEAD_SOURCES / ALLOWED_MANUAL_SOURCES)", () => {
+    it("[TEST-SOURCES-1] deve conter estritamente 2 canais (patio e whatsapp_direto) e NÃO conter portais ou ads", () => {
       const values = MANUAL_LEAD_SOURCES.map((s) => s.value);
 
-      expect(values).toContain("patio");
-      expect(values).toContain("whatsapp_direto");
-      expect(values).toContain("telefone");
-      expect(values).toContain("indicacao");
+      expect(values).toHaveLength(2);
+      expect(values).toEqual(["patio", "whatsapp_direto"]);
 
       // Portais automáticos não devem estar presentes na lista manual
       expect(values).not.toContain("webmotors");
@@ -33,6 +31,8 @@ describe("[UNIT-LEAD-ASSIGNMENT] Regras de Origem, Atribuição Direta e Transfe
       expect(values).not.toContain("google_ads");
       expect(values).not.toContain("icarros");
       expect(values).not.toContain("olx");
+      expect(values).not.toContain("indicacao");
+      expect(values).not.toContain("site");
     });
   });
 
@@ -140,7 +140,7 @@ describe("[UNIT-LEAD-ASSIGNMENT] Regras de Origem, Atribuição Direta e Transfe
       const created = await createLeadAction({
         name: "Fernanda Costa",
         phone: "(11) 96666-3333",
-        source: "telefone",
+        source: "whatsapp_direto",
         vehicle_of_interest: "Fiat Pulse",
       });
       const leadId = created.lead!.id;
@@ -194,7 +194,7 @@ describe("[UNIT-LEAD-ASSIGNMENT] Regras de Origem, Atribuição Direta e Transfe
       const created = await createLeadAction({
         name: "Juliana Andrade",
         phone: "(11) 95555-4444",
-        source: "indicacao",
+        source: "patio",
         vehicle_of_interest: "Jeep Compass",
       });
       const leadId = created.lead!.id;
