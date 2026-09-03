@@ -9,9 +9,9 @@ export const siteConfig = {
     "CRM e Roleta Comercial Especializada para Concessionárias e Revendas.",
   url: process.env.NEXT_PUBLIC_APP_URL || "https://aceleraautocrm.com.br",
   company: {
-    legalName: "Catuto Soluções Digitais LTDA",
-    tradeName: "Acelera Auto CRM",
-    cnpj: "00.000.000/0001-00",
+    legalName: "ACELERA AUTO",
+    tradeName: "Acelera Auto",
+    cnpj: "68.903.730/0001-36",
     cityState: "Joinville - SC",
     supportEmail: "contato@aceleraautocrm.com.br",
   },
