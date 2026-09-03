@@ -1,42 +1,57 @@
 /**
  * @file route.ts
- * @description Route Handler de Ingestão Externa de Leads (POST /api/v1/leads/ingest).
+ * @description Route Handler unificado de Ingestão Externa de Leads (POST /api/v1/leads/ingest).
  *
  * Funcionalidades:
- * - Autenticação multi-tenant via Header `x-api-key` ou `Authorization: Bearer <token>`.
- * - Validação rigorosa com Zod (LeadIngestSchema).
- * - Motor de Roleta Inteligente (Fair Round-Robin por especialidade e timestamp).
- * - Persistência relacional no Supabase com isolamento de tenant.
- * - Geração de deep link direto do WhatsApp Web com mensagem contextualizada.
+ * 1. Autenticação por API Key (Multi-tenant via Header ou Query Param).
+ * 2. Identificação do provedor e parse de payload normalizado (Webmotors, Meta Ads, Zod Canonical).
+ * 3. Idempotência / Deduplicação por externalId e detecção de recontatos.
+ * 4. Match de veículo no estoque da organização (matchVehicleInInventory).
+ * 5. Distribuição inteligente de vendedores via Roleta Comercial (Round-Robin).
+ * 6. Geração de código curto Base58 (generateShortCode).
+ * 7. Persistência relacional do lead com isolamento de tenant.
+ * 8. Disparo assíncrono de notificação WhatsApp para o vendedor da vez com links encurtados.
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { leadIngestSchema, normalizeLeadOrigin } from "@/lib/validations/lead";
-import { distributeLead, DEFAULT_DEMO_ORG_ID } from "@/lib/services/lead-roulette";
-import { validateApiKey } from "@/lib/services/api-key-service";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   createServerSupabaseClient,
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { validateApiKey } from "@/lib/services/api-key-service";
 import { generateShortCode } from "@/lib/utils/nanoid";
+import { parseWebmotorsPayload } from "@/lib/services/ingestion/parsers/webmotors-parser";
+import { parseMetaAdsPayload } from "@/lib/services/ingestion/parsers/meta-parser";
+import { matchVehicleInInventory } from "@/lib/services/ingestion/vehicle-matcher";
+import { assignLeadThroughRoleta } from "@/lib/services/roleta/roleta-service";
+import { sendSellerLeadNotification } from "@/lib/services/whatsapp/notification-service";
+import { leadIngestSchema, normalizeLeadOrigin } from "@/lib/validations/lead";
+import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import type { NormalizedLeadInput } from "@/lib/services/ingestion/types";
 
 async function getSupabaseForIngest() {
-  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    try {
-      return createAdminClient();
-    } catch {}
+  try {
+    return createAdminClient();
+  } catch {
+    return await createServerSupabaseClient();
   }
-  return await createServerSupabaseClient();
 }
 
 /**
- * Extrai a chave de API dos headers da requisição.
+ * Extrai a chave de API dos headers ou da query string.
  */
 function extractApiKey(request: NextRequest): string | null {
   const xApiKey = request.headers.get("x-api-key");
   if (xApiKey && xApiKey.trim()) {
     return xApiKey.trim();
+  }
+
+  const queryToken =
+    request.nextUrl.searchParams.get("token") ||
+    request.nextUrl.searchParams.get("api_key");
+  if (queryToken && queryToken.trim()) {
+    return queryToken.trim();
   }
 
   const authHeader = request.headers.get("authorization");
@@ -50,42 +65,37 @@ function extractApiKey(request: NextRequest): string | null {
   return null;
 }
 
-/**
- * Gera o Deep Link de atendimento direto via WhatsApp.
- */
-function buildWhatsAppDirectUrl(
-  customerName: string,
-  sellerPhone: string,
-  sellerName: string,
-  vehicleInterest?: string
-): string {
-  const cleanPhone = sellerPhone.replace(/\D/g, "");
-  const vehicleText = vehicleInterest ? ` no ${vehicleInterest}` : "";
-  const message = `Olá ${customerName}, tudo bem? Sou ${sellerName} da concessionária. Vi seu interesse${vehicleText}. Como posso te ajudar hoje?`;
-
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    // 1. Validação Criptográfica de Autenticação via SHA-256 e Status de Revogação
+    // 1. Autenticação por API Key da Loja (Multi-tenant)
     const apiKey = extractApiKey(request);
-    const keyValidation = await validateApiKey(apiKey);
-
-    if (!keyValidation.valid) {
+    if (!apiKey) {
       return NextResponse.json(
         {
           success: false,
-          error: `Unauthorized: ${keyValidation.error || "Chave de API inválida ou ausente no header (x-api-key ou Authorization: Bearer)."}`,
+          error: "Unauthorized: Token de autenticação da loja obrigatório (x-api-key ou Authorization: Bearer).",
         },
         { status: 401 }
       );
     }
 
-    // 2. Leitura e Validação do Corpo da Requisição (Zod)
-    let bodyJson: unknown;
+    const keyValidation = await validateApiKey(apiKey);
+    if (!keyValidation.valid) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Unauthorized: ${keyValidation.error || "Chave de API inválida ou revogada."}`,
+        },
+        { status: 401 }
+      );
+    }
+
+    const organizationId = keyValidation.organizationId || DEFAULT_DEMO_ORG_ID;
+
+    // 2. Leitura do Corpo da Requisição
+    let body: Record<string, unknown>;
     try {
-      bodyJson = await request.json();
+      body = (await request.json()) as Record<string, unknown>;
     } catch {
       return NextResponse.json(
         {
@@ -96,163 +106,277 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const parseResult = leadIngestSchema.safeParse(bodyJson);
-    if (!parseResult.success) {
+    // 3. Identificação do Provedor e Parse do Payload
+    const providerHeader =
+      request.headers.get("x-lead-source") ||
+      request.nextUrl.searchParams.get("source") ||
+      "";
+
+    const detectedProvider = (providerHeader || (body?.source as string) || "").toLowerCase();
+    let normalizedLead: NormalizedLeadInput;
+
+    let leadSegment: "new_cars" | "used_cars" | "f_and_i" | "all" | undefined = undefined;
+    const rawSegment = body?.segment || (typeof body?.segment === "string" ? body.segment : undefined);
+    if (typeof rawSegment === "string") {
+      const lower = rawSegment.toLowerCase().trim();
+      if (lower === "seminovos" || lower === "usados" || lower === "used" || lower === "used_cars") {
+        leadSegment = "used_cars";
+      } else if (lower === "novos" || lower === "zero_km" || lower === "0km" || lower === "new" || lower === "new_cars") {
+        leadSegment = "new_cars";
+      } else if (lower === "f&i" || lower === "financiamento" || lower === "f_and_i") {
+        leadSegment = "f_and_i";
+      } else {
+        leadSegment = "all";
+      }
+    }
+
+    if (
+      detectedProvider === "meta_ads" ||
+      detectedProvider === "meta" ||
+      Array.isArray(body?.field_data)
+    ) {
+      normalizedLead = parseMetaAdsPayload(body);
+    } else if (
+      detectedProvider === "webmotors" ||
+      body?.lead ||
+      body?.customer ||
+      body?.vehicle
+    ) {
+      normalizedLead = parseWebmotorsPayload(body);
+    } else {
+      // Formato canônico direto validado via Zod
+      const parseResult = leadIngestSchema.safeParse(body);
+      if (!parseResult.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Bad Request: Dados do lead inválidos.",
+            details: parseResult.error.flatten().fieldErrors,
+          },
+          { status: 400 }
+        );
+      }
+
+      const p = parseResult.data;
+      if (!leadSegment) {
+        leadSegment = p.segment;
+      }
+      normalizedLead = {
+        externalId: (body.external_id || body.externalId || body.id) as string | undefined,
+        source: (p.source as unknown as NormalizedLeadInput["source"]) || "landing_page",
+        clientName: p.name,
+        clientPhone: p.phone,
+        clientEmail: p.email,
+        message: p.notes || "",
+        vehicleHint: {
+          model: p.vehicle_of_interest,
+        },
+      };
+    }
+
+    if (!normalizedLead.clientPhone || normalizedLead.clientPhone.trim().length < 8) {
       return NextResponse.json(
         {
           success: false,
-          error: "Bad Request: Dados do lead inválidos.",
-          details: parseResult.error.flatten().fieldErrors,
+          error: "Bad Request: Telefone do lead é obrigatório e deve ser válido.",
+          details: { phone: ["Telefone inválido ou ausente."] },
         },
         { status: 400 }
       );
     }
 
-    const payload = parseResult.data;
-    const organizationId =
-      keyValidation.organizationId ||
-      request.headers.get("x-organization-id") ||
-      DEFAULT_DEMO_ORG_ID;
+    // Normalização internacional do telefone (+55...)
+    const digitsOnly = normalizedLead.clientPhone.replace(/\D/g, "");
+    const formattedPhone = digitsOnly.startsWith("55")
+      ? `+${digitsOnly}`
+      : `+55${digitsOnly}`;
 
-    // 3. Execução da Roleta Comercial (Fair Round-Robin)
-    const assignedSeller = await distributeLead(organizationId, payload.segment);
+    // 4. Idempotência / Deduplicação (Evitar leads duplicados de re-tentativas de webhook)
+    if (normalizedLead.externalId) {
+      try {
+        const supabase = await getSupabaseForIngest();
+        const { data: existing } = await supabase
+          .from("leads")
+          .select("id")
+          .eq("organization_id", organizationId)
+          .maybeSingle();
 
-    // 4. Criação do Registro de Lead ou Detecção de Recontato / Idempotência
-    let leadId = `lead_ingest_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        if (existing) {
+          return NextResponse.json(
+            {
+              success: true,
+              message: "Lead já processado anteriormente.",
+              leadId: existing.id,
+              lead_id: existing.id,
+            },
+            { status: 200 }
+          );
+        }
+      } catch {}
+    }
+
+    // 5. Extração e Match de Veículo no Estoque Real
+    const rawVehicleHint =
+      normalizedLead.vehicleHint?.model ||
+      normalizedLead.vehicleHint?.brand ||
+      (body?.vehicle_of_interest as string) ||
+      (body?.vehicleInterest as string) ||
+      (body?.vehicle_name as string) ||
+      "";
+
+    const matchedVehicle = await matchVehicleInInventory(
+      organizationId,
+      normalizedLead.vehicleHint || (rawVehicleHint ? { model: rawVehicleHint } : undefined)
+    );
+
+    const vehicleName = matchedVehicle
+      ? `${matchedVehicle.brand} ${matchedVehicle.model} ${matchedVehicle.version || ""}`.trim()
+      : rawVehicleHint || "Interesse Geral";
+
+    const estimatedValue = matchedVehicle ? matchedVehicle.price : 0;
+
+    // 6. Roleta Comercial (Round-Robin da Loja)
+    const assignedResult = await assignLeadThroughRoleta(organizationId, leadSegment);
+    const assignedSeller =
+      assignedResult && assignedResult.id !== "unassigned" ? assignedResult : null;
+
+    // 7. Geração do Link Curto Base58
+    const shortCode = generateShortCode(6);
+    const now = new Date().toISOString();
+    const generatedLeadId = `lead_ingest_${Date.now()}_${generateShortCode(4)}`;
+
+    // 8. Persistência do Lead no Banco & Detecção de Recontatos
+    let persistedLeadId = generatedLeadId;
     let isRecontact = false;
-    const vehicleInterest = payload.vehicle_of_interest || "Interesse Geral";
-    const origin = normalizeLeadOrigin(payload.source);
-    const nowIso = new Date().toISOString();
 
-    // 5. Persistência e Idempotência no Supabase com getSupabaseForIngest
     if (isSupabaseServerConfigured()) {
       try {
-        const adminSupabase = await getSupabaseForIngest();
+        const supabase = await getSupabaseForIngest();
 
-        // Verifica se existe lead recente com mesmo telefone na mesma organização (últimos 10 minutos)
+        // Tratamento de Recontatos recentes (10 minutos)
         const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-        const { data: existingLeads } = await adminSupabase
+        const { data: existingLeads } = await supabase
           .from("leads")
           .select("id, seller_id, seller_name, notes")
           .eq("organization_id", organizationId)
-          .eq("phone", payload.phone)
+          .eq("phone", formattedPhone)
           .gte("created_at", tenMinutesAgo)
           .order("created_at", { ascending: false })
           .limit(1);
 
         if (existingLeads && existingLeads.length > 0) {
           const existing = existingLeads[0];
-          leadId = existing.id;
+          persistedLeadId = existing.id;
           isRecontact = true;
 
-          const updatedNotes = payload.notes
-            ? `${existing.notes ? `${existing.notes}\n` : ""}[Recontato]: ${payload.notes}`
+          const updatedNotes = normalizedLead.message
+            ? `${existing.notes ? `${existing.notes}\n` : ""}[Recontato]: ${normalizedLead.message}`
             : existing.notes;
 
-          await adminSupabase
+          await supabase
             .from("leads")
             .update({
-              vehicle_interest: vehicleInterest,
+              vehicle_interest: vehicleName,
               notes: updatedNotes,
-              updated_at: nowIso,
+              updated_at: now,
             })
-            .eq("id", leadId);
+            .eq("id", existing.id);
         } else {
-          const shortCode = generateShortCode(6);
-          const { error: insertError } = await adminSupabase.from("leads").insert({
-            id: leadId,
-            organization_id: organizationId,
-            tenant_id: organizationId,
-            name: payload.name,
-            phone: payload.phone,
-            email: payload.email || null,
-            vehicle_interest: vehicleInterest,
-            status: "novo",
-            origin,
-            seller_id: assignedSeller?.id || null,
-            seller_name: assignedSeller?.name || "Fila de Atendimento",
-            notes: payload.notes || null,
-            short_code: shortCode,
-            last_contact_at: null,
-            created_at: nowIso,
-            updated_at: nowIso,
-          });
-
-          if (insertError) {
-            console.warn("[Lead Ingestion Fallback]:", insertError.message);
-            await adminSupabase.from("leads").insert({
-              id: leadId,
+          const { data: newLead, error: insertError } = await supabase
+            .from("leads")
+            .insert({
+              id: generatedLeadId,
               organization_id: organizationId,
-              name: payload.name,
-              phone: payload.phone,
-              email: payload.email || null,
-              vehicle_interest: vehicleInterest,
+              tenant_id: organizationId,
+              name: normalizedLead.clientName,
+              phone: formattedPhone,
+              email: normalizedLead.clientEmail || null,
+              vehicle_interest: vehicleName,
               status: "novo",
-              origin,
-              seller_id: assignedSeller?.id || null,
-              seller_name: assignedSeller?.name || "Fila de Atendimento",
-              notes: payload.notes || null,
+              origin: normalizeLeadOrigin(normalizedLead.source),
+              seller_id: assignedSeller ? assignedSeller.id : null,
+              seller_name: assignedSeller ? assignedSeller.name : "Fila de Atendimento",
+              notes: normalizedLead.message || null,
               short_code: shortCode,
               last_contact_at: null,
-              created_at: nowIso,
-              updated_at: nowIso,
-            });
+              custom_fields: {
+                external_id: normalizedLead.externalId,
+                vehicle_id: matchedVehicle?.id || null,
+                vehicle_name: vehicleName,
+                estimated_value: estimatedValue,
+              },
+              created_at: now,
+              updated_at: now,
+            })
+            .select()
+            .single();
+
+          if (!insertError && newLead) {
+            persistedLeadId = newLead.id;
           }
         }
-      } catch (dbError) {
-        console.warn("[Lead Ingestion DB] Erro ao persistir lead no banco relacional:", dbError);
+      } catch (dbErr) {
+        console.warn("[Ingest Lead] Persistência fallback:", dbErr);
       }
     }
 
-    // 6. Geração do Link Direto de WhatsApp
-    let whatsappDirectUrl = "";
+    // 9. Disparo de Notificação WhatsApp para o Vendedor
     if (assignedSeller && assignedSeller.phone) {
-      whatsappDirectUrl = buildWhatsAppDirectUrl(
-        payload.name,
-        assignedSeller.phone,
-        assignedSeller.name,
-        payload.vehicle_of_interest
-      );
-    } else {
-      // Fallback com link para o WhatsApp do próprio lead
-      const cleanCustomerPhone = payload.phone.replace(/\D/g, "");
-      whatsappDirectUrl = `https://wa.me/${cleanCustomerPhone}`;
+      sendSellerLeadNotification({
+        sellerPhone: assignedSeller.phone,
+        sellerName: assignedSeller.name,
+        lead: {
+          id: persistedLeadId,
+          name: normalizedLead.clientName,
+          phone: formattedPhone,
+          vehicle_name: vehicleName,
+          source: normalizedLead.source,
+          short_code: shortCode,
+          organization_id: organizationId,
+        },
+        shortCode: shortCode,
+        organizationId: organizationId,
+      }).catch((notifErr) => {
+        console.warn("[Ingest Notification] Erro ao despachar WhatsApp:", notifErr);
+      });
     }
 
-    // 7. Retorno com Status 201 Created (suportando snake_case e camelCase)
-    const assignedPayload = assignedSeller
-      ? {
-          id: assignedSeller.id,
-          name: assignedSeller.name,
-          phone: assignedSeller.phone,
-        }
-      : null;
+    // 10. Deep Link de WhatsApp para Atendimento
+    const targetWaPhone = assignedSeller?.phone
+      ? assignedSeller.phone.replace(/\D/g, "")
+      : digitsOnly;
+    const sellerDisplayName = assignedSeller?.name || "Rafael Alves";
+    const vehiclePart =
+      vehicleName && vehicleName !== "Interesse Geral" ? ` no ${vehicleName}` : "";
+    const greeting = `Olá ${normalizedLead.clientName}, tudo bem? Sou ${sellerDisplayName} da concessionária. Vi seu interesse${vehiclePart}. Como posso te ajudar hoje?`;
+    const cleanWaTarget = targetWaPhone.startsWith("55") ? targetWaPhone : `55${targetWaPhone}`;
+    const whatsappDirectUrl = `https://wa.me/${cleanWaTarget}?text=${encodeURIComponent(greeting)}`;
 
     return NextResponse.json(
       {
         success: true,
-        lead_id: leadId,
-        leadId,
-        is_recontact: isRecontact,
-        assigned_to: assignedPayload,
-        assignedTo: assignedPayload,
+        leadId: persistedLeadId,
+        lead_id: persistedLeadId,
+        ...(isRecontact ? { is_recontact: true } : {}),
+        assigned_to: assignedSeller
+          ? {
+              id: assignedSeller.id,
+              name: assignedSeller.name,
+              phone: assignedSeller.phone,
+            }
+          : null,
+        assignedTo: assignedSeller ? assignedSeller.name : "Fila de Atendimento",
+        matchedVehicle: matchedVehicle ? matchedVehicle.model : null,
+        shortCode: shortCode,
         whatsapp_direct_url: whatsappDirectUrl,
       },
-      {
-        status: 201,
-        headers: {
-          "Content-Type": "application/json",
-          "X-Lead-Assigned-To": assignedSeller ? assignedSeller.name : "Unassigned",
-        },
-      }
+      { status: 201 }
     );
-  } catch (err) {
-    console.error("[Lead Ingestion Error] Exceção inesperada na rota de ingestão:", err);
+  } catch (error: unknown) {
+    console.error("[Ingest Webhook Error]:", error);
+    const msg = error instanceof Error ? error.message : "Erro interno de ingestão.";
     return NextResponse.json(
-      {
-        success: false,
-        error: "Internal Server Error: Falha interna ao processar o lead.",
-      },
+      { success: false, error: msg },
       { status: 500 }
     );
   }

@@ -5,3 +5,4 @@
 
 export * from "./client";
 export * from "./templates";
+export * from "./notification-service";
