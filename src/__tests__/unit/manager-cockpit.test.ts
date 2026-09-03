@@ -67,7 +67,7 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
       expect(metrics.wonLeadsCount).toBe(1);
     });
 
-    it("deve estimar o valor com base no modelo do veículo quando estimatedValue não for fornecido", () => {
+    it("deve retornar 0 quando estimatedValue não for fornecido e respeitar defaultTicket quando informado", () => {
       const leadCompass: LeadAnalyticsInput = {
         status: "atendimento",
         vehicleInterest: "Jeep Compass Série S",
@@ -77,8 +77,8 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
         vehicleInterest: "Fiat Strada Volcano",
       };
 
-      expect(estimateLeadVehicleValue(leadCompass)).toBe(185000);
-      expect(estimateLeadVehicleValue(leadStrada)).toBe(105000);
+      expect(estimateLeadVehicleValue(leadCompass)).toBe(0);
+      expect(estimateLeadVehicleValue(leadStrada, 105000)).toBe(105000);
     });
   });
 

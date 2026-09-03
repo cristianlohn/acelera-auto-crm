@@ -97,9 +97,11 @@ describe("[UNIT-ANALYTICS-PIPELINE] Cálculo Estrito do Pipeline Total e Preven�
       vehicleInterest: "Civic 2020",
     };
 
-    // Quando não especificado, infere a estimativa do modelo
-    const valueInDemo = estimateLeadVehicleValue(leadWithoutExplicitValue, 140000);
-    expect(valueInDemo).toBe(145000); // Tabela do Civic
+    // Quando não especificado, retorna 0 (ou defaultTicket informado)
+    const valueDefaultZero = estimateLeadVehicleValue(leadWithoutExplicitValue, 0);
+    expect(valueDefaultZero).toBe(0);
+    const valueWithDefault = estimateLeadVehicleValue(leadWithoutExplicitValue, 140000);
+    expect(valueWithDefault).toBe(140000);
   });
 
   it("[TEST-PIPELINE-4] calculatePipelineTotal soma estritamente leads em aberto e retorna 0 para lista vazia", () => {

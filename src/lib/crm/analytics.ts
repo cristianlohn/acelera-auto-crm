@@ -96,6 +96,7 @@ export interface LeadAnalyticsInput {
   name?: string;
   phone?: string;
   status: string;
+  stage?: string;
   seller_name?: string;
   sellerName?: string;
   vehicle_interest?: string;
@@ -117,49 +118,62 @@ export interface LeadAnalyticsInput {
   isFinancing?: boolean;
 }
 
-const VEHICLE_ESTIMATED_PRICES: Record<string, number> = {
-  corolla: 175000,
-  compass: 185000,
-  civic: 145000,
-  "hr-v": 160000,
-  hrv: 160000,
-  strada: 105000,
-  nivus: 130000,
-  creta: 140000,
-  onix: 88000,
-  bmw: 320000,
-  song: 230000,
-  ranger: 260000,
-  "t-cross": 135000,
-  tcross: 135000,
-  renegade: 125000,
-  tracker: 128000,
-  kicks: 118000,
-  pulse: 102000,
-  fastback: 138000,
-  polo: 92000,
-  hb20: 86000,
-  mobi: 68000,
-  kwid: 65000,
-};
-
 /**
- * Estima o valor monetário do veículo em negociação com base no modelo ou valor explícito.
+ * Retorna o valor monetário estrito do lead. Se o lead não possui valor explícito nem preço associado, retorna 0 (ou defaultTicket).
  */
 export function estimateLeadVehicleValue(lead: LeadAnalyticsInput, defaultTicket = 0): number {
-  if (typeof lead.estimatedValue === "number" && !isNaN(lead.estimatedValue)) return lead.estimatedValue;
-  if (typeof lead.estimated_value === "number" && !isNaN(lead.estimated_value)) return lead.estimated_value;
-  if (typeof lead.value === "number" && !isNaN(lead.value)) return lead.value;
-  if (typeof lead.price === "number" && !isNaN(lead.price)) return lead.price;
+  if (typeof lead.estimatedValue === "number" && !isNaN(lead.estimatedValue)) return Math.max(0, lead.estimatedValue);
+  if (typeof lead.estimated_value === "number" && !isNaN(lead.estimated_value)) return Math.max(0, lead.estimated_value);
+  if (typeof lead.value === "number" && !isNaN(lead.value)) return Math.max(0, lead.value);
+  if (typeof lead.price === "number" && !isNaN(lead.price)) return Math.max(0, lead.price);
 
-  const text = (lead.vehicleInterest || lead.vehicle_interest || "").toLowerCase();
-  for (const [key, price] of Object.entries(VEHICLE_ESTIMATED_PRICES)) {
-    if (text.includes(key)) {
-      return price;
-    }
-  }
+  const rawVal = lead.estimated_value ?? lead.estimatedValue ?? lead.value ?? lead.price ?? defaultTicket;
+  const num = Number(rawVal);
+  return isNaN(num) ? 0 : Math.max(0, num);
+}
 
-  return defaultTicket;
+/**
+ * Calcula a soma monetária estrita dos leads em etapas ativas no Pipeline (desconsiderando won e lost).
+ */
+export function calculatePipelineTotal(leads: Array<LeadAnalyticsInput | Record<string, unknown>>): number {
+  return leads
+    .filter((l) => {
+      const stage = (((l as LeadAnalyticsInput).stage || (l as LeadAnalyticsInput).status || "") as string).toLowerCase();
+      return (
+        stage !== "won" &&
+        stage !== "lost" &&
+        stage !== "fechado" &&
+        stage !== "ganho" &&
+        stage !== "perdido" &&
+        stage !== "vendido"
+      );
+    })
+    .reduce((acc, lead) => {
+      const rawVal =
+        (lead as LeadAnalyticsInput).estimated_value ??
+        (lead as LeadAnalyticsInput).estimatedValue ??
+        (lead as LeadAnalyticsInput).value ??
+        (lead as LeadAnalyticsInput).price ??
+        0;
+      const val = Number(rawVal);
+      return acc + (isNaN(val) ? 0 : Math.max(0, val));
+    }, 0);
+}
+
+/**
+ * Calcula o valor monetário estrito em risco de leads com SLA estourado.
+ */
+export function calculateRiskPipeline(breachedLeads: Array<LeadAnalyticsInput | Record<string, unknown>>): number {
+  return breachedLeads.reduce((acc, lead) => {
+    const rawVal =
+      (lead as LeadAnalyticsInput).estimated_value ??
+      (lead as LeadAnalyticsInput).estimatedValue ??
+      (lead as LeadAnalyticsInput).value ??
+      (lead as LeadAnalyticsInput).price ??
+      0;
+    const val = Number(rawVal);
+    return acc + (isNaN(val) ? 0 : Math.max(0, val));
+  }, 0);
 }
 
 const ACTIVE_STATUSES = new Set([
@@ -398,37 +412,34 @@ export function calculateManagerCockpitMetrics(
       rawStatus === "proposta_fi" ||
       rawStatus === "f_and_i" ||
       rawStatus === "financing" ||
-      rawStatus.includes("financiamento") ||
       (lead as unknown as Record<string, unknown>).stage === "financing" ||
-      (lead as unknown as Record<string, unknown>).stage === "financiamento" ||
-      (lead as unknown as Record<string, unknown>).financing_status === "pending" ||
+      (lead as unknown as Record<string, unknown>).stage === "proposta_fi" ||
       Boolean(lead.proposalFi) ||
-      Boolean(lead.isFinancing) ||
-      Boolean(
-        lead.notes &&
-          (lead.notes.toLowerCase().includes("financiamento") ||
-            lead.notes.toLowerCase().includes("f&i") ||
-            lead.notes.toLowerCase().includes("banc") ||
-            lead.notes.toLowerCase().includes("crédito") ||
-            lead.notes.toLowerCase().includes("santander") ||
-            lead.notes.toLowerCase().includes("bv") ||
-            lead.notes.toLowerCase().includes("itaú"))
-      ) ||
-      Boolean(
-        lead.vehicleInterest &&
-          lead.vehicleInterest.toLowerCase().includes("financ")
-      );
+      Boolean(lead.isFinancing);
 
     if (isFinancing && isActive) {
       pendingFinancingCount++;
     }
 
-    if (
-      (rawStatus === "atendimento" || rawStatus === "in_contact" || rawStatus === "visita" || rawStatus === "test_drive") &&
-      hasContact &&
-      (nowTime - new Date(contactStr!).getTime()) <= 24 * 3600000
-    ) {
-      hotLeadsCount++;
+    const isHotStage =
+      rawStatus === "atendimento" ||
+      rawStatus === "in_contact" ||
+      rawStatus === "visita" ||
+      rawStatus === "visit_scheduled" ||
+      rawStatus === "test_drive" ||
+      rawStatus === "proposta" ||
+      rawStatus === "proposal";
+
+    if (isHotStage && isActive) {
+      if (!contactStr) {
+        hotLeadsCount++;
+      } else {
+        const lastActionTime = new Date(contactStr).getTime();
+        const hoursWithoutAction = (nowTime - lastActionTime) / 3600000;
+        if (hoursWithoutAction >= 24) {
+          hotLeadsCount++;
+        }
+      }
     }
   }
 
@@ -530,38 +541,5 @@ export function calculateManagerCockpitMetrics(
     },
     recommendedActions,
   };
-}
-
-/**
- * Calcula o total do pipeline de vendas para leads em negociação aberta.
- * Ignora leads finalizados (ganho / perdido) e retorna 0 se não houver valores.
- */
-export function calculatePipelineTotal(
-  leads: (LeadAnalyticsInput | Record<string, unknown>)[]
-): number {
-  return leads
-    .filter((lead) => {
-      const rawStatus = String(
-        (lead as LeadAnalyticsInput).status ||
-          (lead as Record<string, unknown>).stage ||
-          ""
-      ).toLowerCase();
-      return (
-        rawStatus !== "won" &&
-        rawStatus !== "lost" &&
-        rawStatus !== "ganho" &&
-        rawStatus !== "perdido"
-      );
-    })
-    .reduce((total, lead) => {
-      const val = Number(
-        (lead as LeadAnalyticsInput).estimated_value ??
-          (lead as LeadAnalyticsInput).estimatedValue ??
-          (lead as LeadAnalyticsInput).value ??
-          (lead as LeadAnalyticsInput).price ??
-          0
-      );
-      return total + (isNaN(val) ? 0 : val);
-    }, 0);
 }
 
