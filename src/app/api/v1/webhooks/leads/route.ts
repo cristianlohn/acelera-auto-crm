@@ -12,6 +12,7 @@ import {
   notifyAssignedSellerViaWhatsApp,
 } from "@/lib/crm/roleta";
 import { generateShortCode } from "@/lib/utils/nanoid";
+import { matchVehicleInInventory } from "@/lib/services/ingestion/vehicle-matcher";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import {
@@ -304,11 +305,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const data = validation.data;
     const normalizedOrigin = normalizeOrigin(data.origin);
-    const vehicleInterest = data.vehicle_interest || "Interesse Geral";
+    const rawInterest = data.vehicle_interest || "";
+
     const nowIso = new Date().toISOString();
     const initialStatus: LeadStatus = "novo";
+    const shortCode = generateShortCode(6);
 
-    // 3. Distribuição Inteligente por Roleta Comercial com fallback gracioso
+    // 3. Match de Veículo com o Estoque da Loja (Organization / Tenant)
+    const matchedVehicle = await matchVehicleInInventory(
+      tenantId,
+      rawInterest ? { model: rawInterest } : undefined
+    );
+
+    const vehicleName = matchedVehicle
+      ? `${matchedVehicle.brand} ${matchedVehicle.model} ${matchedVehicle.version || ""}`.trim()
+      : rawInterest || "Interesse Geral";
+    const vehicleId = matchedVehicle?.id || null;
+    const estimatedValue = matchedVehicle ? matchedVehicle.price : 0;
+
+    // 4. Distribuição Inteligente por Roleta Comercial com fallback gracioso
     // Sanitização estrita: se seller_id ou seller_name for "string", "null", "" ou indefinido, força undefined
     const sanitizeSellerParam = (val?: unknown): string | undefined => {
       if (typeof val !== "string") return undefined;
@@ -352,12 +367,19 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     let leadId = `lead_gen_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 
-    // 4. Persistência Relacional Segura no Supabase (createAdminClient) vinculada ao Tenant
+    // 5. Persistência Relacional Segura no Supabase (createAdminClient) vinculada ao Tenant
     if (isSupabaseServerConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const adminSupabase = createAdminClient();
 
-        const shortCode = generateShortCode(6);
+        const customFieldsObj = typeof data.custom_fields === "object" && data.custom_fields !== null
+          ? { ...(data.custom_fields as Record<string, unknown>) }
+          : {};
+
+        customFieldsObj.vehicle_id = vehicleId;
+        customFieldsObj.vehicle_name = vehicleName;
+        customFieldsObj.estimated_value = estimatedValue;
+
         const insertPayload: Record<string, unknown> = {
           tenant_id: tenantId,
           organization_id: tenantId,
@@ -365,19 +387,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           phone: data.phone,
           email: data.email || null,
           origin: normalizedOrigin,
-          vehicle_interest: vehicleInterest,
+          vehicle_interest: vehicleName,
           status: initialStatus,
           seller_id: sellerInfo.sellerId || null,
           seller_name: sellerInfo.sellerName,
           notes: data.notes || null,
           short_code: shortCode,
+          custom_fields: customFieldsObj,
           last_contact_at: nowIso,
           created_at: nowIso,
         };
-
-        if (data.custom_fields) {
-          insertPayload.custom_fields = data.custom_fields;
-        }
 
         const { data: inserted, error: insertError } = await adminSupabase
           .from("leads")
@@ -394,7 +413,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             phone: data.phone,
             email: data.email || null,
             origin: normalizedOrigin as Database["public"]["Enums"]["lead_origin"],
-            vehicle_interest: vehicleInterest,
+            vehicle_interest: vehicleName,
             status: initialStatus,
             seller_id: sellerInfo.sellerId || null,
             seller_name: sellerInfo.sellerName,
@@ -433,7 +452,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // 5. Notificação Não-Bloqueante via WhatsApp para o Vendedor Atribuído
+    // 6. Notificação Não-Bloqueante via WhatsApp para o Vendedor Atribuído
     if (sellerInfo.sellerName && sellerInfo.sellerName !== "Fila Geral" && sellerInfo.sellerName !== "Não atribuído") {
       void notifyAssignedSellerViaWhatsApp({
         lead: {
@@ -441,8 +460,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           name: data.name,
           phone: data.phone,
           email: data.email || null,
-          vehicleInterest,
+          vehicle_name: vehicleName,
+          vehicleInterest: vehicleName,
           source: normalizedOrigin,
+          short_code: shortCode,
         },
         sellerName: sellerInfo.sellerName,
         sellerPhone: sellerInfo.sellerPhone,
@@ -450,13 +471,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       });
     }
 
-    // 6. Resposta Padronizada (201 Created)
+    // 7. Resposta Padronizada (201 Created) com short_code
     return NextResponse.json(
       {
         success: true,
         message: "Lead registrado com sucesso.",
         lead_id: leadId,
         tenant_id: tenantId,
+        short_code: shortCode,
         status: "received",
         assigned_to: sellerInfo.sellerName,
       },
