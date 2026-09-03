@@ -235,94 +235,181 @@ export async function POST(request: NextRequest) {
 
     const estimatedValue = matchedVehicle ? matchedVehicle.price : 0;
 
-    // 6. Roleta Comercial (Round-Robin da Loja)
+    // 6. Roleta Comercial (Round-Robin da Loja) com Fallback Defensivo
+    let assignedSeller: { id: string; name: string; phone: string } | null = null;
     const assignedResult = await assignLeadThroughRoleta(organizationId, leadSegment);
-    const assignedSeller =
-      assignedResult && assignedResult.id !== "unassigned" ? assignedResult : null;
+    if (assignedResult && assignedResult.id !== "unassigned") {
+      assignedSeller = {
+        id: assignedResult.id,
+        name: assignedResult.name,
+        phone: assignedResult.phone,
+      };
+    }
+
+    // Se assignedSeller for nulo, busca o primeiro vendedor da loja para não deixar o lead órfão
+    if (!assignedSeller && isSupabaseServerConfigured()) {
+      try {
+        const supabaseAdmin = createAdminClient();
+        const { data: rawSeller } = await (supabaseAdmin as unknown as {
+          from: (table: string) => {
+            select: (cols: string) => {
+              eq: (col: string, val: unknown) => {
+                limit: (n: number) => {
+                  maybeSingle: () => Promise<{ data: unknown }>;
+                };
+              };
+            };
+          };
+        })
+          .from("users")
+          .select("id, name, phone")
+          .eq("organization_id", organizationId)
+          .limit(1)
+          .maybeSingle();
+
+        const fallbackSeller = rawSeller as { id: string; name?: string; full_name?: string; phone?: string } | null;
+
+        if (fallbackSeller) {
+          assignedSeller = {
+            id: fallbackSeller.id,
+            name: fallbackSeller.name || fallbackSeller.full_name || "Vendedor de Plantão",
+            phone: fallbackSeller.phone || "",
+          };
+        }
+      } catch (err) {
+        console.warn("[Ingest Route] Falha ao consultar vendedor fallback:", err);
+      }
+    }
 
     // 7. Geração do Link Curto Base58
     const shortCode = generateShortCode(6);
     const now = new Date().toISOString();
-    const generatedLeadId = `lead_ingest_${Date.now()}_${generateShortCode(4)}`;
 
-    // 8. Persistência do Lead no Banco & Detecção de Recontatos
-    let persistedLeadId = generatedLeadId;
+    // 8. Persistência Obrigatória no Supabase & Detecção de Recontatos
+    let persistedLeadId: string = `lead_ingest_${Date.now()}_${generateShortCode(4)}`;
     let isRecontact = false;
 
     if (isSupabaseServerConfigured()) {
-      try {
-        const supabase = await getSupabaseForIngest();
+      const supabase = await getSupabaseForIngest();
 
-        // Tratamento de Recontatos recentes (10 minutos)
-        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-        const { data: existingLeads } = await supabase
+      // Tratamento de Recontatos recentes (10 minutos)
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const { data: existingLeads } = await supabase
+        .from("leads")
+        .select("id, seller_id, seller_name, notes")
+        .eq("organization_id", organizationId)
+        .eq("phone", formattedPhone)
+        .gte("created_at", tenMinutesAgo)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (existingLeads && existingLeads.length > 0) {
+        const existing = existingLeads[0];
+        persistedLeadId = existing.id;
+        isRecontact = true;
+
+        const updatedNotes = normalizedLead.message
+          ? `${existing.notes ? `${existing.notes}\n` : ""}[Recontato]: ${normalizedLead.message}`
+          : existing.notes;
+
+        const updateRes = await supabase
           .from("leads")
-          .select("id, seller_id, seller_name, notes")
-          .eq("organization_id", organizationId)
-          .eq("phone", formattedPhone)
-          .gte("created_at", tenMinutesAgo)
-          .order("created_at", { ascending: false })
-          .limit(1);
+          .update({
+            vehicle_interest: vehicleName,
+            notes: updatedNotes,
+            updated_at: now,
+          })
+          .eq("id", existing.id);
 
-        if (existingLeads && existingLeads.length > 0) {
-          const existing = existingLeads[0];
-          persistedLeadId = existing.id;
-          isRecontact = true;
-
-          const updatedNotes = normalizedLead.message
-            ? `${existing.notes ? `${existing.notes}\n` : ""}[Recontato]: ${normalizedLead.message}`
-            : existing.notes;
-
-          await supabase
-            .from("leads")
-            .update({
-              vehicle_interest: vehicleName,
-              notes: updatedNotes,
-              updated_at: now,
-            })
-            .eq("id", existing.id);
-        } else {
-          const { data: newLead, error: insertError } = await supabase
-            .from("leads")
-            .insert({
-              id: generatedLeadId,
-              organization_id: organizationId,
-              tenant_id: organizationId,
-              name: normalizedLead.clientName,
-              phone: formattedPhone,
-              email: normalizedLead.clientEmail || null,
-              vehicle_interest: vehicleName,
-              status: "novo",
-              origin: normalizeLeadOrigin(normalizedLead.source),
-              seller_id: assignedSeller ? assignedSeller.id : null,
-              seller_name: assignedSeller ? assignedSeller.name : "Fila de Atendimento",
-              notes: normalizedLead.message || null,
-              short_code: shortCode,
-              last_contact_at: null,
-              custom_fields: {
-                external_id: normalizedLead.externalId,
-                vehicle_id: matchedVehicle?.id || null,
-                vehicle_name: vehicleName,
-                estimated_value: estimatedValue,
-              },
-              created_at: now,
-              updated_at: now,
-            })
-            .select()
-            .single();
-
-          if (!insertError && newLead) {
-            persistedLeadId = newLead.id;
-          }
+        if (updateRes?.error) {
+          console.error("[Supabase Update Error]:", updateRes.error);
+          return NextResponse.json(
+            { success: false, error: `Falha ao atualizar recontato no banco: ${updateRes.error.message}` },
+            { status: 500 }
+          );
         }
-      } catch (dbErr) {
-        console.warn("[Ingest Lead] Persistência fallback:", dbErr);
+      } else {
+        const insertQuery = (supabase as unknown as {
+          from: (table: string) => {
+            insert: (data: unknown) => {
+              select?: () => {
+                single?: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
+                then?: (fn: (res: { data: Array<{ id: string }> | { id: string } | null; error: { message: string } | null }) => void) => Promise<unknown>;
+              };
+              then?: (fn: (res: { data: { id: string } | null; error: { message: string } | null }) => void) => Promise<unknown>;
+            };
+          };
+        }).from("leads").insert({
+          organization_id: organizationId,
+          tenant_id: organizationId,
+          name: normalizedLead.clientName,
+          phone: formattedPhone,
+          email: normalizedLead.clientEmail || null,
+          source: normalizedLead.source || "webmotors",
+          origin: normalizeLeadOrigin(normalizedLead.source),
+          vehicle_id: matchedVehicle?.id || null,
+          vehicle_name: matchedVehicle
+            ? `${matchedVehicle.brand} ${matchedVehicle.model} ${matchedVehicle.version || ""}`.trim()
+            : normalizedLead.vehicleHint?.model || vehicleName,
+          vehicle_interest: vehicleName,
+          estimated_value: estimatedValue,
+          assigned_to: assignedSeller?.id || null,
+          seller_id: assignedSeller?.id || null,
+          seller_name: assignedSeller?.name || "Fila de Atendimento",
+          stage: "new",
+          status: "novo",
+          short_code: shortCode,
+          notes: normalizedLead.message || null,
+          custom_fields: {
+            external_id: normalizedLead.externalId,
+            vehicle_id: matchedVehicle?.id || null,
+            vehicle_name: vehicleName,
+            estimated_value: estimatedValue,
+          },
+          created_at: now,
+          updated_at: now,
+        });
+
+        let newLead: { id: string } | null = null;
+        let insertError: { message: string } | null = null;
+
+        if (insertQuery && typeof insertQuery.select === "function") {
+          const selectBuilder = insertQuery.select();
+          if (selectBuilder && typeof selectBuilder.single === "function") {
+            const res = await selectBuilder.single();
+            newLead = res?.data;
+            insertError = res?.error;
+          } else if (selectBuilder && typeof selectBuilder.then === "function") {
+            const res = await selectBuilder;
+            newLead = Array.isArray((res as { data: Array<{ id: string }> }).data)
+              ? (res as { data: Array<{ id: string }> }).data[0]
+              : (res as { data: { id: string } }).data;
+            insertError = (res as { error: { message: string } | null }).error;
+          }
+        } else if (insertQuery && typeof insertQuery.then === "function") {
+          const res = await insertQuery;
+          newLead = (res as { data: { id: string } | null }).data;
+          insertError = (res as { error: { message: string } | null }).error;
+        }
+
+        if (insertError) {
+          console.error("[Supabase Insert Error]:", insertError);
+          return NextResponse.json(
+            { success: false, error: `Falha ao salvar no banco: ${insertError.message}` },
+            { status: 500 }
+          );
+        }
+
+        if (newLead?.id) {
+          persistedLeadId = newLead.id;
+        }
       }
     }
 
     // 9. Disparo de Notificação WhatsApp para o Vendedor
-    if (assignedSeller && assignedSeller.phone) {
-      sendSellerLeadNotification({
+    if (assignedSeller?.phone) {
+      console.log(`[WhatsApp] Disparando notificação para o vendedor ${assignedSeller.name} (${assignedSeller.phone})`);
+      void sendSellerLeadNotification({
         sellerPhone: assignedSeller.phone,
         sellerName: assignedSeller.name,
         lead: {
@@ -337,8 +424,10 @@ export async function POST(request: NextRequest) {
         shortCode: shortCode,
         organizationId: organizationId,
       }).catch((notifErr) => {
-        console.warn("[Ingest Notification] Erro ao despachar WhatsApp:", notifErr);
+        console.warn("[WhatsApp Notification Warning]:", notifErr);
       });
+    } else {
+      console.warn(`[WhatsApp] Nenhum telefone encontrado para o vendedor ${assignedSeller?.name || "Desconhecido"}`);
     }
 
     // 10. Deep Link de WhatsApp para Atendimento

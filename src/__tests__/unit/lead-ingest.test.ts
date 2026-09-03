@@ -208,6 +208,26 @@ describe("[UNIT-LEAD-INGESTION] Parsers de Portais, Match de Estoque e Ingestão
       const matched = await matchVehicleInInventory("org-loja-001", { model: "Ferrari 488" });
       expect(matched).toBeNull();
     });
+
+    it("[TEST-MATCH-4] deve normalizar acentos para que 'Ká' encontre 'Ka'", async () => {
+      mockVehicleList = [
+        {
+          id: "v-ka-3",
+          make: "Ford",
+          model: "Ka SE",
+          version: "1.0",
+          price: 45000,
+          year_model: 2020,
+          plate_last_digits: "456",
+        },
+      ];
+
+      const matched = await matchVehicleInInventory("org-loja-001", { model: "Ká 2020" });
+      expect(matched).not.toBeNull();
+      expect(matched?.id).toBe("v-ka-3");
+      expect(matched?.model).toBe("Ka SE");
+      expect(matched?.brand).toBe("Ford");
+    });
   });
 
   describe("4. Route Handler Unificado POST /api/v1/leads/ingest", () => {

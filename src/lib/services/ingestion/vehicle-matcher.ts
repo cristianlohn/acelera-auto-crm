@@ -15,10 +15,22 @@ export interface MatchedVehicle {
 }
 
 /**
+ * Remove acentos, caracteres especiais e converte para minúsculas.
+ * Ex: "Ká 2020" -> "ka 2020"
+ */
+export function normalizeText(str: string): string {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
  * Realiza a busca em cascata de veículo no estoque da organização (status = 'disponivel' / 'available').
  *
  * 1. Match por placa / dígitos finais de placa (se houver).
- * 2. Match semântico aproximado por Modelo e Marca.
+ * 2. Match semântico aproximado com normalização de acentos por Modelo e Marca.
  * 3. Fallback Seguro: retorna null caso nenhum veículo seja identificado com segurança.
  */
 export async function matchVehicleInInventory(
@@ -64,15 +76,19 @@ export async function matchVehicleInInventory(
       }
     }
 
-    // 2. Busca por modelo/marca aproximados
-    if (hint.model) {
-      const modelTerms = hint.model.trim().split(" ")[0]; // Ex: "Civic", "Compass", "Corolla"
-      if (modelTerms.length >= 2) {
+    // 2. Busca por modelo/marca aproximados com normalização de acentos (ex: "Ká" <-> "Ka")
+    if (hint.model || hint.brand) {
+      const rawModel = (hint.model || "").trim();
+      const normalizedSearch = normalizeText(rawModel);
+      const firstTerm = normalizedSearch.split(" ")[0]; // Ex: "ka", "civic", "corolla"
+
+      // 2.1 Busca por padrão no banco
+      if (firstTerm.length >= 2) {
         const { data: byModel } = await supabase
           .from("vehicles")
           .select("id, make, model, version, price, year_model")
           .eq("organization_id", organizationId)
-          .ilike("model", `%${modelTerms}%`)
+          .ilike("model", `%${firstTerm}%`)
           .limit(1)
           .maybeSingle();
 
@@ -84,6 +100,49 @@ export async function matchVehicleInInventory(
             version: byModel.version,
             price: Number(byModel.price) || 0,
             year: byModel.year_model,
+          };
+        }
+      }
+
+      // 2.2 Fallback com normalização em memória sobre o estoque da organização
+      const { data: allVehicles } = await supabase
+        .from("vehicles")
+        .select("id, make, model, version, price, year_model")
+        .eq("organization_id", organizationId)
+        .limit(50);
+
+      if (allVehicles && Array.isArray(allVehicles)) {
+        const matched = allVehicles.find((v) => {
+          const vModel = normalizeText(v.model || "");
+          const vMake = normalizeText(v.make || "");
+
+          if (normalizedSearch) {
+            if (vModel.includes(normalizedSearch) || normalizedSearch.includes(vModel)) {
+              return true;
+            }
+            if (firstTerm && firstTerm.length >= 2 && (vModel.includes(firstTerm) || firstTerm.includes(vModel))) {
+              return true;
+            }
+          }
+
+          if (hint.brand) {
+            const normalizedBrand = normalizeText(hint.brand);
+            if (vMake.includes(normalizedBrand) || normalizedBrand.includes(vMake)) {
+              return true;
+            }
+          }
+
+          return false;
+        });
+
+        if (matched) {
+          return {
+            id: matched.id,
+            brand: matched.make,
+            model: matched.model,
+            version: matched.version,
+            price: Number(matched.price) || 0,
+            year: matched.year_model,
           };
         }
       }
