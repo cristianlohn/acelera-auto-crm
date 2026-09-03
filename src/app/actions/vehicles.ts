@@ -19,12 +19,6 @@ import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant
 import { mockVehicles } from "@/lib/mock-data";
 import type { Vehicle, VehicleFormData, VehicleStatus } from "@/types/crm";
 import type { Database } from "@/types/database.types";
-export {
-  uploadVehicleImageAction,
-  updateVehicleAction,
-  createVehicleAction,
-  getVehiclesAction,
-} from "./vehicle-actions";
 
 /**
  * Converte um registro do banco de dados para a entidade Vehicle do domínio.

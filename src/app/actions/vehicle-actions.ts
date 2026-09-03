@@ -15,13 +15,6 @@ import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant
 import { mockVehicles } from "@/lib/mock-data";
 import type { Vehicle, VehicleFormData } from "@/types/crm";
 import type { Database } from "@/types/database.types";
-import {
-  getVehicles,
-  createVehicle,
-  updateVehicleStatus,
-} from "@/app/actions/vehicles";
-
-export { getVehicles, createVehicle, updateVehicleStatus };
 
 /**
  * Converte um registro do banco de dados para a entidade Vehicle do domínio com suporte a galeria.
