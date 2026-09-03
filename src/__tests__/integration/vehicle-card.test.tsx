@@ -67,17 +67,23 @@ const mockVehicleFixture: Vehicle = {
  */
 function renderVehicleCard(
   overrides: Partial<Vehicle> = {},
-  onStatusChange = vi.fn()
+  onStatusChange = vi.fn(),
+  onDelete = vi.fn()
 ) {
   const vehicle: Vehicle = { ...mockVehicleFixture, ...overrides };
   const utils = render(
-    <VehicleCard vehicle={vehicle} onStatusChange={onStatusChange} />
+    <VehicleCard
+      vehicle={vehicle}
+      onStatusChange={onStatusChange}
+      onDelete={onDelete}
+    />
   );
 
   return {
     ...utils,
     vehicle,
     onStatusChange,
+    onDelete,
   };
 }
 
@@ -342,5 +348,51 @@ describe("[IT-05] Alteração Rápida de Status via Dropdown Menu", () => {
 
     // Assert (Então o status 'vendido' deve ser transmitido)
     expect(onStatusChangeSpy).toHaveBeenCalledWith("v-qa-200", "vendido");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// [IT-06] Exclusão de Veículo com Diálogo de Confirmação
+// ---------------------------------------------------------------------------
+
+describe("[IT-06] Exclusão de Veículo com Diálogo de Confirmação", () => {
+  it("[IT-06.1] Deve abrir o diálogo de confirmação ao clicar no botão de lixeira", async () => {
+    // Arrange (Dado o card de veículo)
+    const user = userEvent.setup();
+    const onDeleteSpy = vi.fn();
+    renderVehicleCard({ id: "v-qa-del-1" }, vi.fn(), onDeleteSpy);
+
+    // Act (Clica no botão de exclusão)
+    const deleteBtn = screen.getByRole("button", {
+      name: /excluir veículo do estoque/i,
+    });
+    await user.click(deleteBtn);
+
+    // Assert (O modal de confirmação com título e mensagem destrutiva deve ser aberto)
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /excluir veículo do estoque/i })
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/esta ação removerá o veículo/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("[IT-06.2] Deve cancelar a exclusão ao clicar no botão Cancelar", async () => {
+    // Arrange (Dado o diálogo de exclusão aberto)
+    const user = userEvent.setup();
+    const onDeleteSpy = vi.fn();
+    renderVehicleCard({ id: "v-qa-del-2" }, vi.fn(), onDeleteSpy);
+
+    const deleteBtn = screen.getByRole("button", {
+      name: /excluir veículo do estoque/i,
+    });
+    await user.click(deleteBtn);
+
+    // Act (Clica em Cancelar)
+    const cancelBtn = screen.getByRole("button", { name: /cancelar/i });
+    await user.click(cancelBtn);
+
+    // Assert (O modal deve ser fechado sem acionar onDelete)
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onDeleteSpy).not.toHaveBeenCalled();
   });
 });

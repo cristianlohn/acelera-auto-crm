@@ -1,6 +1,6 @@
 /**
  * @file vehicle-actions-and-upload.test.ts
- * @description Suíte de testes unitários para ações de upload WebP, criação, edição e galeria de veículos.
+ * @description Suíte de testes unitários para ações de upload WebP, criação, edição, galeria e exclusão de veículos.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -9,6 +9,7 @@ import {
   uploadVehicleImageAction,
   createVehicleAction,
   updateVehicleAction,
+  deleteVehicleAction,
   getVehiclesAction,
 } from "@/app/actions/vehicle-actions";
 
@@ -40,12 +41,22 @@ const mockVehicleRow = {
   updated_at: new Date().toISOString(),
 };
 
+let lastUpdatePayload: Record<string, unknown> | null = null;
+let lastDeleteEqCalls: [string, string][] = [];
+
 function createMockQueryBuilder() {
   const builder: Record<string, unknown> = {
     select: vi.fn(() => builder),
     insert: vi.fn(() => builder),
-    update: vi.fn(() => builder),
-    eq: vi.fn(() => builder),
+    update: vi.fn((payload) => {
+      lastUpdatePayload = payload;
+      return builder;
+    }),
+    delete: vi.fn(() => builder),
+    eq: vi.fn((col, val) => {
+      lastDeleteEqCalls.push([col, val]);
+      return builder;
+    }),
     order: vi.fn(() => builder),
     single: vi.fn().mockResolvedValue({ data: mockVehicleRow, error: null }),
     then: (onfulfilled: (res: { data: unknown[]; error: null }) => unknown) =>
@@ -94,6 +105,8 @@ vi.mock("@/lib/supabase/admin", () => ({
 describe("[UNIT-VEHICLE-ACTIONS] Upload e Gestão de Veículos com Galeria WebP", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    lastUpdatePayload = null;
+    lastDeleteEqCalls = [];
   });
 
   describe("1. Utilitário de Conversão WebP (convertImageToWebP)", () => {
@@ -178,9 +191,38 @@ describe("[UNIT-VEHICLE-ACTIONS] Upload e Gestão de Veículos com Galeria WebP"
       expect(result.vehicle).toBeDefined();
       expect(result.vehicle?.id).toBe("v-db-123");
     });
+
+    it("[TEST-UPDATE-2] deve salvar o array de imagens atualizado após uma remoção de foto", async () => {
+      const updateData = {
+        imageUrl: "https://storage.supabase.co/vehicles/org-test-01/foto2.webp",
+        images: ["https://storage.supabase.co/vehicles/org-test-01/foto2.webp"],
+      };
+
+      const result = await updateVehicleAction("v-db-123", updateData);
+
+      expect(result.success).toBe(true);
+      expect(lastUpdatePayload).not.toBeNull();
+      expect(lastUpdatePayload?.photo_url).toBe("https://storage.supabase.co/vehicles/org-test-01/foto2.webp");
+      expect(lastUpdatePayload?.notes).toContain("foto2.webp");
+    });
   });
 
-  describe("5. Server Action de Listagem (getVehiclesAction)", () => {
+  describe("5. Server Action de Exclusão (deleteVehicleAction)", () => {
+    it("[TEST-DELETE-1] deve excluir o registro no Supabase filtrando pelo organization_id correto", async () => {
+      const result = await deleteVehicleAction("v-db-123");
+
+      expect(result.success).toBe(true);
+      // Valida que o filtro do tenant foi aplicado na exclusão
+      expect(lastDeleteEqCalls).toEqual(
+        expect.arrayContaining([
+          ["id", "v-db-123"],
+          ["organization_id", "org-test-01"],
+        ])
+      );
+    });
+  });
+
+  describe("6. Server Action de Listagem (getVehiclesAction)", () => {
     it("[TEST-LIST-1] deve consultar lista de veículos mapeando a galeria de fotos", async () => {
       const vehicles = await getVehiclesAction();
 

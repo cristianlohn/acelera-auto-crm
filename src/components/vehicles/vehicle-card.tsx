@@ -1,11 +1,6 @@
 /**
  * @file vehicle-card.tsx
- * @description Card de veículo para o módulo de Gestão de Estoque.
- *
- * Responsabilidades:
- * - Exibir foto, badge de status, preço em BRL e detalhes técnicos.
- * - Botão "Copiar Ficha Técnica" — copia texto formatado para WhatsApp.
- * - Dropdown para alterar o status do veículo.
+ * @description Card de veículo para o módulo de Gestão de Estoque com ações de edição, cópia de ficha técnica e exclusão com diálogo de confirmação.
  */
 
 "use client";
@@ -28,6 +23,8 @@ import {
   ChevronRight,
   ImageIcon,
   Car,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,9 +35,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { formatCurrency, formatKm } from "@/lib/mock-data";
 import { VehicleFormModal } from "@/components/vehicles/vehicle-form-modal";
+import { deleteVehicleAction } from "@/app/actions/vehicle-actions";
 import type { Vehicle, VehicleStatus } from "@/types/crm";
 
 // ---------------------------------------------------------------------------
@@ -114,6 +119,8 @@ export interface VehicleCardProps {
   onEdit?: (vehicle: Vehicle) => void;
   /** Callback opcional chamado após atualização bem-sucedida. */
   onUpdate?: (vehicle: Vehicle) => void;
+  /** Callback opcional chamado após exclusão do veículo. */
+  onDelete?: (id: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,11 +132,14 @@ export function VehicleCard({
   onStatusChange,
   onEdit,
   onUpdate,
+  onDelete,
 }: VehicleCardProps) {
   const [copied, setCopied] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [photoIndex, setPhotoIndex] = useState(0);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const cfg = STATUS_CONFIG[v.status];
   const allImages = v.images && v.images.length > 0 ? v.images : (v.imageUrl ? [v.imageUrl] : []);
@@ -161,6 +171,19 @@ export function VehicleCard({
   const handleVehicleUpdated = (updated: Vehicle) => {
     onUpdate?.(updated);
     onEdit?.(updated);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      const res = await deleteVehicleAction(v.id);
+      if (res.success) {
+        onDelete?.(v.id);
+        setIsDeleteOpen(false);
+      }
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -306,7 +329,7 @@ export function VehicleCard({
           {/* ---------------------------------------------------------------- */}
           {/* Ações                                                              */}
           {/* ---------------------------------------------------------------- */}
-          <div className="flex items-center gap-2 pt-1">
+          <div className="flex items-center gap-1.5 pt-1">
             {/* Copiar ficha técnica */}
             <Button
               id={`copy-${v.id}`}
@@ -397,9 +420,80 @@ export function VehicleCard({
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Botão Excluir Veículo */}
+            <Button
+              id={`delete-${v.id}`}
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 text-xs text-rose-500 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-500/10"
+              onClick={() => setIsDeleteOpen(true)}
+              aria-label="Excluir veículo do estoque"
+              title="Excluir veículo"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
           </div>
         </div>
       </article>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="sm:max-w-md bg-zinc-950 border-white/10 text-white p-6 shadow-2xl">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-white">
+                  Excluir Veículo do Estoque
+                </DialogTitle>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  Esta ação removerá o veículo do catálogo permanentemente.
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <p className="text-sm text-zinc-300 py-3">
+            Tem certeza que deseja remover o{" "}
+            <strong className="text-white font-semibold">
+              {v.make} {v.model}
+            </strong>? Esta ação removerá o veículo do catálogo permanentemente.
+          </p>
+
+          <DialogFooter className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setIsDeleteOpen(false)}
+              disabled={isDeleting}
+              className="text-xs text-zinc-400 hover:text-white"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-rose-600 hover:bg-rose-500 text-white font-medium text-xs gap-1.5 shadow-md shadow-rose-600/20"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Excluindo...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Confirmar Exclusão</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Edição */}
       <VehicleFormModal
@@ -408,6 +502,7 @@ export function VehicleCard({
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
         onSuccess={handleVehicleUpdated}
+        onDelete={onDelete}
       />
     </>
   );

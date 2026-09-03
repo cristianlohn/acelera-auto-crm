@@ -235,7 +235,8 @@ export async function updateVehicleAction(
     const images = data.images;
 
     if (tenantContext.isDemo || !isSupabaseServerConfigured() || !orgId) {
-      const existing = mockVehicles.find((v) => v.id === vehicleId) || {
+      const idx = mockVehicles.findIndex((v) => v.id === vehicleId);
+      const existing = idx !== -1 ? mockVehicles[idx] : {
         id: vehicleId,
         make: make || "Honda",
         model: data.model || "Civic",
@@ -243,7 +244,7 @@ export async function updateVehicleAction(
         yearFab: data.yearFab || 2023,
         yearModel: data.yearModel || 2024,
         plate: data.plate || "ABC1D23",
-        km: km || 15000,
+        km: km !== undefined ? km : 15000,
         price: data.price || 150000,
         status: data.status || "disponivel",
         imageUrl: imageUrl || "/vehicles/civic.jpg",
@@ -256,11 +257,18 @@ export async function updateVehicleAction(
         brand: make || existing.make,
         km: km !== undefined ? km : existing.km,
         mileage: km !== undefined ? km : existing.km,
-        imageUrl: imageUrl || existing.imageUrl,
-        images: images || existing.images || [imageUrl || existing.imageUrl],
+        imageUrl: imageUrl !== undefined ? imageUrl : existing.imageUrl,
+        images: images !== undefined ? images : (existing.images || [imageUrl || existing.imageUrl]),
       };
 
-      revalidatePath("/vehicles");
+      if (idx !== -1) {
+        mockVehicles[idx] = updatedVehicle;
+      }
+
+      try {
+        revalidatePath("/vehicles");
+        revalidatePath("/dashboard");
+      } catch {}
       return { success: true, vehicle: updatedVehicle };
     }
 
@@ -277,11 +285,11 @@ export async function updateVehicleAction(
     if (data.plate) updatePayload.plate_last_digits = data.plate;
     if (data.color) updatePayload.color = data.color;
     if (data.status) updatePayload.status = data.status;
-    if (imageUrl) updatePayload.photo_url = imageUrl;
+    if (imageUrl !== undefined) updatePayload.photo_url = imageUrl || null;
 
-    if (images || data.notes) {
+    if (images !== undefined || data.notes !== undefined) {
       updatePayload.notes = JSON.stringify({
-        images: images || [imageUrl],
+        images: images !== undefined ? images : (imageUrl ? [imageUrl] : []),
         notes: data.notes || "",
       });
     }
@@ -298,10 +306,58 @@ export async function updateVehicleAction(
       return { success: false, error: error?.message || "Erro ao atualizar veículo." };
     }
 
-    revalidatePath("/vehicles");
+    try {
+      revalidatePath("/vehicles");
+      revalidatePath("/dashboard");
+    } catch {}
     return { success: true, vehicle: mapDbVehicleToDomain(updatedData) };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Falha ao atualizar veículo.";
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
+ * Remove permanentemente um veículo do estoque com isolamento multi-tenant.
+ */
+export async function deleteVehicleAction(
+  vehicleId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    const orgId = tenantContext.organizationId;
+
+    // Modo demonstração ou ambiente sem banco conectado
+    if (tenantContext.isDemo || !isSupabaseServerConfigured() || !orgId) {
+      const idx = mockVehicles.findIndex((v) => v.id === vehicleId);
+      if (idx !== -1) {
+        mockVehicles.splice(idx, 1);
+      }
+      try {
+        revalidatePath("/vehicles");
+        revalidatePath("/dashboard");
+      } catch {}
+      return { success: true };
+    }
+
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase
+      .from("vehicles")
+      .delete()
+      .eq("id", vehicleId)
+      .eq("organization_id", orgId);
+
+    if (error) {
+      return { success: false, error: `Falha ao remover veículo: ${error.message}` };
+    }
+
+    try {
+      revalidatePath("/vehicles");
+      revalidatePath("/dashboard");
+    } catch {}
+    return { success: true };
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : "Falha ao remover veículo.";
     return { success: false, error: errorMsg };
   }
 }

@@ -181,6 +181,10 @@ export function VehiclesPageClient({
     );
   }, []);
 
+  const handleDelete = useCallback((id: string) => {
+    setVehicles((prev) => prev.filter((v) => v.id !== id));
+  }, []);
+
   const handleStatusChange = useCallback(
     (id: string, status: VehicleStatus) => {
       setVehicles((prev) => updateVehicleStatus(prev, id, status));
@@ -397,6 +401,7 @@ export function VehiclesPageClient({
                 vehicle={vehicle}
                 onStatusChange={handleStatusChange}
                 onUpdate={handleUpdate}
+                onDelete={handleDelete}
               />
             ))}
           </div>
