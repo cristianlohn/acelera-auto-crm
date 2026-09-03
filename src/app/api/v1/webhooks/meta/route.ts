@@ -11,6 +11,8 @@ import {
   DEFAULT_DEMO_ORG_ID,
 } from "@/lib/crm/roleta";
 import { generateShortCode } from "@/lib/utils/nanoid";
+import { parseMetaAdsPayload } from "@/lib/services/ingestion/parsers/meta-parser";
+import { matchVehicleInInventory } from "@/lib/services/ingestion/vehicle-matcher";
 import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
@@ -144,9 +146,31 @@ export async function POST(request: NextRequest) {
           notes = `Meta Form ID: ${change.form_id} | Ad ID: ${change.ad_id || "N/A"}`;
         }
       }
+    } else {
+      // Tenta o parser canônico da Meta
+      const parsed = parseMetaAdsPayload(body as Record<string, unknown>);
+      if (parsed.clientName && parsed.clientName !== "Lead Instagram/Facebook") {
+        leadName = parsed.clientName;
+      }
+      if (parsed.clientPhone) leadPhone = parsed.clientPhone;
+      if (parsed.clientEmail) leadEmail = parsed.clientEmail;
+      if (parsed.vehicleHint?.model) vehicleInterest = parsed.vehicleHint.model;
+      if (parsed.message) notes = parsed.message;
     }
 
-    // 2. Distribuição por Roleta Comercial com fallback
+    // 2. Match com Estoque Real
+    const matchedVehicle = await matchVehicleInInventory(
+      organizationId,
+      vehicleInterest && vehicleInterest !== "Campanha Meta Ads" ? { model: vehicleInterest } : undefined
+    );
+
+    const vehicleName = matchedVehicle
+      ? `${matchedVehicle.brand} ${matchedVehicle.model} ${matchedVehicle.version || ""}`.trim()
+      : vehicleInterest;
+    const vehicleId = matchedVehicle?.id || null;
+    const estimatedValue = matchedVehicle ? matchedVehicle.price : 0;
+
+    // 3. Distribuição por Roleta Comercial com fallback
     let sellerInfo = { sellerId: null as string | null, sellerName: "Fila Geral" };
     try {
       const resolved = await resolveAssignedSellerInfo(null, organizationId);
@@ -163,7 +187,7 @@ export async function POST(request: NextRequest) {
     const nowIso = new Date().toISOString();
     const initialStatus: LeadStatus = "novo";
 
-    // 3. Persistência Relacional Segura no Supabase com createAdminClient
+    // 4. Persistência Relacional Segura no Supabase com createAdminClient
     if (isSupabaseServerConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const adminSupabase = createAdminClient();
@@ -175,13 +199,18 @@ export async function POST(request: NextRequest) {
             name: leadName,
             phone: leadPhone,
             email: leadEmail,
-            vehicle_interest: vehicleInterest,
+            vehicle_interest: vehicleName,
             status: initialStatus,
             origin: "instagram",
             seller_name: sellerInfo.sellerName,
             seller_id: sellerInfo.sellerId,
             notes,
             short_code: shortCode,
+            custom_fields: {
+              vehicle_id: vehicleId,
+              vehicle_name: vehicleName,
+              estimated_value: estimatedValue,
+            },
             last_contact_at: nowIso,
             created_at: nowIso,
           })
@@ -197,7 +226,7 @@ export async function POST(request: NextRequest) {
               name: leadName,
               phone: leadPhone,
               email: leadEmail,
-              vehicle_interest: vehicleInterest,
+              vehicle_interest: vehicleName,
               status: initialStatus,
               origin: "instagram",
               seller_name: sellerInfo.sellerName,
@@ -221,14 +250,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Notificação Não-Bloqueante via WhatsApp
+    // 5. Notificação Não-Bloqueante via WhatsApp com Links Curtos
     void notifyAssignedSellerViaWhatsApp({
       lead: {
         id: leadId,
         name: leadName,
         phone: leadPhone,
         email: leadEmail,
-        vehicleInterest,
+        vehicle_name: vehicleName,
+        vehicleInterest: vehicleName,
         source: "instagram",
         short_code: shortCode,
       },
@@ -240,6 +270,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         lead_id: leadId,
+        short_code: shortCode,
         assigned_to: sellerInfo.sellerName,
         message: "Evento Meta Ads processado com sucesso",
       },

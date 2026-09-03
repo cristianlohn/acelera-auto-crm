@@ -11,6 +11,8 @@ import {
   notifyAssignedSellerViaWhatsApp,
 } from "@/lib/crm/roleta";
 import { generateShortCode } from "@/lib/utils/nanoid";
+import { parseWebmotorsPayload } from "@/lib/services/ingestion/parsers/webmotors-parser";
+import { matchVehicleInInventory } from "@/lib/services/ingestion/vehicle-matcher";
 import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = validation.data;
+    const parsedWebmotors = parseWebmotorsPayload(body as Record<string, unknown>);
 
     // 3. Normalização e Mapeamento dos Dados do Veículo e da Proposta
     const vehicleParts: string[] = [];
@@ -149,8 +152,24 @@ export async function POST(request: NextRequest) {
     if (data.veiculo?.versao) vehicleParts.push(data.veiculo.versao);
     if (data.veiculo?.anoModelo) vehicleParts.push(String(data.veiculo.anoModelo));
 
-    const vehicleInterest =
+    const rawVehicleInterest =
       vehicleParts.length > 0 ? vehicleParts.join(" ") : "Interesse Webmotors";
+
+    // Match Inteligente com Estoque
+    const matchedVehicle = await matchVehicleInInventory(organizationId, {
+      plate: parsedWebmotors.vehicleHint?.plate,
+      model: parsedWebmotors.vehicleHint?.model || data.veiculo?.modelo,
+      brand: parsedWebmotors.vehicleHint?.brand || data.veiculo?.marca,
+      version: parsedWebmotors.vehicleHint?.version || data.veiculo?.versao,
+    });
+
+    const vehicleName = matchedVehicle
+      ? `${matchedVehicle.brand} ${matchedVehicle.model} ${matchedVehicle.version || ""}`.trim()
+      : rawVehicleInterest;
+    const vehicleId = matchedVehicle?.id || null;
+    const estimatedValue = matchedVehicle
+      ? matchedVehicle.price
+      : data.veiculo?.preco || data.proposta?.valor || 0;
 
     const noteParts: string[] = [];
     if (data.leadId) noteParts.push(`[Webmotors ID: ${data.leadId}]`);
@@ -191,13 +210,18 @@ export async function POST(request: NextRequest) {
             name: data.nome,
             phone: data.telefone,
             email: data.email || null,
-            vehicle_interest: vehicleInterest,
+            vehicle_interest: vehicleName,
             status: initialStatus,
             origin: "webmotors",
             seller_name: sellerInfo.sellerName,
             seller_id: sellerInfo.sellerId,
             notes,
             short_code: shortCode,
+            custom_fields: {
+              vehicle_id: vehicleId,
+              vehicle_name: vehicleName,
+              estimated_value: estimatedValue,
+            },
             last_contact_at: nowIso,
             created_at: nowIso,
           })
@@ -213,7 +237,7 @@ export async function POST(request: NextRequest) {
               name: data.nome,
               phone: data.telefone,
               email: data.email || null,
-              vehicle_interest: vehicleInterest,
+              vehicle_interest: vehicleName,
               status: initialStatus,
               origin: "webmotors",
               seller_name: sellerInfo.sellerName,
@@ -249,14 +273,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 6. Notificação via WhatsApp
+    // 6. Notificação via WhatsApp com Links Curtos
     void notifyAssignedSellerViaWhatsApp({
       lead: {
         id: leadId,
         name: data.nome,
         phone: data.telefone,
         email: data.email || null,
-        vehicleInterest,
+        vehicle_name: vehicleName,
+        vehicleInterest: vehicleName,
         source: "webmotors",
         short_code: shortCode,
       },
@@ -268,6 +293,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         lead_id: leadId,
+        short_code: shortCode,
         assigned_to: sellerInfo.sellerName,
         portal: "webmotors",
         message: "Proposta Webmotors recebida e processada com sucesso",
