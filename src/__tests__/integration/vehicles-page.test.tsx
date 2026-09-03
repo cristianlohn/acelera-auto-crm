@@ -202,8 +202,8 @@ describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () =>
       await user.click(submitBtn);
     });
 
-    // Assert (O novo carro 'Audi A3 Sedan' deve estar presente no topo do grid)
-    expect(screen.getByText("Audi A3 Sedan")).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s?215\.000/)).toBeInTheDocument();
+    // Assert (O novo carro 'Audi A3 Sedan' deve estar presente no grid)
+    expect(screen.getAllByText(/Audi.*A3 Sedan/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/R\$\s?215\.000/).length).toBeGreaterThanOrEqual(1);
   });
 });

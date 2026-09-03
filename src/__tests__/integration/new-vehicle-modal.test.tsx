@@ -3,15 +3,13 @@
  * @description Suíte de Testes de Integração do Modal de Cadastro de Veículo (NewVehicleModal).
  *
  * ============================================================================
- * ESCOPO DE TESTE & RASTREABILIDADE (SUT: NewVehicleModal)
+ * ESCOPO DE TESTE & RASTREABILIDADE (SUT: NewVehicleModal / VehicleFormModal)
  * ============================================================================
  * Funcionalidades e Interações Testadas:
  *   - Abertura e fechamento do Dialog com controle de foco e acessibilidade.
  *   - Validação em tempo real dos campos obrigatórios (Marca, Modelo, Placa, Preço).
  *   - Habilitação/Desabilitação condicional do botão de submissão.
- *   - Preview reativo da imagem da capa com validação sintática de URL.
- *   - Fallback de erro no carregamento da imagem (`onError`).
- *   - Atalhos de seleção rápida de fotos mock automotivas (Sedã, SUV, Hatch, Pickup).
+ *   - Galeria e seleção rápida de fotos mock automotivas (Sedã, SUV, Hatch, Pickup).
  *   - Submissão com `useTransition` e invocação do callback `onAdd` com entidade `Vehicle`.
  *
  * Padrão Estrutural: AAA (Arrange, Act, Assert)
@@ -20,7 +18,7 @@
  */
 
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NewVehicleModal } from "@/components/vehicles/new-vehicle-modal";
 import type { Vehicle } from "@/types/crm";
@@ -122,78 +120,25 @@ describe("[IT-06] Ciclo de Vida e Formulário do Modal de Veículo", () => {
     renderModal();
     await user.click(screen.getByRole("button", { name: /adicionar novo veículo/i }));
 
-    const urlInput = screen.getByPlaceholderText(/https:\/\/images\.unsplash\.com/i);
+    const urlInput = screen.getByPlaceholderText(/ou cole a url da foto/i);
     expect(urlInput).toHaveValue("");
 
     // Act 1 (Quando o usuário clica no atalho 'SUV')
     const suvButton = screen.getByRole("button", { name: "SUV" });
     await user.click(suvButton);
 
-    // Assert 1 (Então o input de URL deve receber o link mock de SUV)
-    expect(urlInput).toHaveValue("https://images.unsplash.com/photo-1536700503405-7ba39f5b6b4c?w=800&q=80");
+    // Assert 1 (Então o input de URL deve receber o link de SUV)
+    expect(urlInput).toHaveValue("/vehicles/compass.jpg");
 
     // Act 2 (Quando clica no atalho 'Sedã')
     const sedaButton = screen.getByRole("button", { name: "Sedã" });
     await user.click(sedaButton);
 
     // Assert 2 (Então deve trocar a URL para a do Sedã)
-    expect(urlInput).toHaveValue("https://images.unsplash.com/photo-1588258952541-23bcfc53ce82?w=800&q=80");
+    expect(urlInput).toHaveValue("/vehicles/civic.jpg");
   });
 
-  it("[IT-06.6] Deve exibir o preview da imagem quando uma URL válida for informada", async () => {
-    // Arrange (Dado o modal aberto)
-    const user = userEvent.setup();
-    renderModal();
-    await user.click(screen.getByRole("button", { name: /adicionar novo veículo/i }));
-
-    const urlInput = screen.getByPlaceholderText(/https:\/\/images\.unsplash\.com/i);
-
-    // Act (Quando inserimos uma URL válida)
-    await user.type(urlInput, "https://images.unsplash.com/photo-test-car.jpg");
-
-    // Assert (Então a tag <img> de preview deve ser renderizada com o src correspondente)
-    const previewImg = screen.getByAltText(/preview da foto do veículo/i);
-    expect(previewImg).toBeInTheDocument();
-    expect(previewImg).toHaveAttribute("src", "https://images.unsplash.com/photo-test-car.jpg");
-  });
-
-  it("[IT-06.7] Deve exibir mensagem orientativa quando o input contiver texto que não é URL válida", async () => {
-    // Arrange (Dado o modal aberto)
-    const user = userEvent.setup();
-    renderModal();
-    await user.click(screen.getByRole("button", { name: /adicionar novo veículo/i }));
-
-    const urlInput = screen.getByPlaceholderText(/https:\/\/images\.unsplash\.com/i);
-
-    // Act (Quando digitamos um texto arbitrário incompleto)
-    await user.type(urlInput, "foto-carro-invalida");
-
-    // Assert (Então deve exibir feedback de URL inválida)
-    expect(screen.getByText(/digite uma url válida para o preview/i)).toBeInTheDocument();
-    expect(screen.queryByAltText(/preview da foto do veículo/i)).not.toBeInTheDocument();
-  });
-
-  it("[IT-06.8] Deve exibir fallback de erro quando o carregamento da imagem falhar (onError)", async () => {
-    // Arrange (Dado uma imagem de preview renderizada)
-    const user = userEvent.setup();
-    renderModal();
-    await user.click(screen.getByRole("button", { name: /adicionar novo veículo/i }));
-
-    const urlInput = screen.getByPlaceholderText(/https:\/\/images\.unsplash\.com/i);
-    await user.type(urlInput, "https://link-quebrado.com/img.jpg");
-
-    const previewImg = screen.getByAltText(/preview da foto do veículo/i);
-
-    // Act (Quando o evento de erro de carregamento ocorre na imagem)
-    act(() => {
-      fireEvent.error(previewImg);
-    });
-
-    // Assert (Então o aviso de imagem não carregada deve aparecer)
-    expect(screen.getByText(/imagem não carregou\. verifique a url\./i)).toBeInTheDocument();
-  });
-
-  it("[IT-06.9] Deve permitir preenchimento de campos opcionais (versão, km, ano mod, status e notas)", async () => {
+  it("[IT-06.6] Deve permitir preenchimento de campos opcionais (versão, km, combustível, status e notas)", async () => {
     // Arrange (Dado o formulário aberto)
     const user = userEvent.setup();
     renderModal();
@@ -201,9 +146,9 @@ describe("[IT-06] Ciclo de Vida e Formulário do Modal de Veículo", () => {
 
     // Act (Preenchemos campos opcionais)
     const versionInput = screen.getByPlaceholderText(/ex: exl 2\.0 flex aut\./i);
-    const kmInput = screen.getByPlaceholderText(/ex: 18500/i);
-    const statusSelect = screen.getByRole("combobox");
-    const notesInput = screen.getByPlaceholderText(/ex: revisado, único dono/i);
+    const kmInput = screen.getByPlaceholderText(/ex: 45000/i);
+    const statusSelect = screen.getByLabelText(/status comercial/i);
+    const notesInput = screen.getByPlaceholderText(/ex: único dono, todas revisões/i);
 
     await user.type(versionInput, "GTI 2.0 Turbo");
     await user.type(kmInput, "45000");
@@ -217,7 +162,7 @@ describe("[IT-06] Ciclo de Vida e Formulário do Modal de Veículo", () => {
     expect(notesInput).toHaveValue("IPVA 2026 pago, garantia de fábrica");
   });
 
-  it("[IT-06.10] Deve submeter o formulário com sucesso, chamar onAdd com a entidade completa e fechar o modal", async () => {
+  it("[IT-06.7] Deve submeter o formulário com sucesso, chamar onAdd com a entidade completa e fechar o modal", async () => {
     // Arrange (Dado o modal e o spy onAdd)
     const user = userEvent.setup();
     let capturedVehicle: Vehicle | null = null;
@@ -233,9 +178,9 @@ describe("[IT-06] Ciclo de Vida e Formulário do Modal de Veículo", () => {
     await user.type(screen.getByPlaceholderText(/ex: civic/i), "320i");
     await user.type(screen.getByPlaceholderText(/ex: exl 2\.0 flex aut\./i), "M Sport 2.0 Turbo");
     await user.type(screen.getByPlaceholderText(/ex: bra2e22/i), "BMW3I20");
-    await user.type(screen.getByPlaceholderText(/ex: 18500/i), "12000");
+    await user.type(screen.getByPlaceholderText(/ex: 45000/i), "12000");
     await user.type(screen.getByPlaceholderText(/ex: 149900/i), "329900");
-    await user.selectOptions(screen.getByRole("combobox"), "disponivel");
+    await user.selectOptions(screen.getByLabelText(/status comercial/i), "disponivel");
 
     const submitBtn = screen.getByRole("button", { name: /cadastrar veículo/i });
     expect(submitBtn).not.toBeDisabled();

@@ -27,6 +27,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ImageIcon,
+  Car,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -132,7 +133,7 @@ export function VehicleCard({
 
   const cfg = STATUS_CONFIG[v.status];
   const allImages = v.images && v.images.length > 0 ? v.images : (v.imageUrl ? [v.imageUrl] : []);
-  const currentPhoto = allImages[photoIndex] || v.imageUrl || "/vehicles/civic.jpg";
+  const currentPhoto = allImages[photoIndex] || v.imageUrl || "";
 
   /** Copia a ficha técnica para a área de transferência. */
   const handleCopy = useCallback(async () => {
@@ -171,21 +172,21 @@ export function VehicleCard({
         {/* ----------------------------------------------------------------- */}
         {/* Imagem / Carrossel                                                 */}
         {/* ----------------------------------------------------------------- */}
-        <div className="relative aspect-video w-full overflow-hidden bg-muted">
-          {!imgError && currentPhoto ? (
+        <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+          {imgError || !currentPhoto ? (
+            <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 border-b border-slate-800 text-slate-600">
+              <Car className="w-10 h-10 stroke-[1.5] mb-1 text-slate-500" />
+              <span className="text-xs font-medium text-slate-400">Sem fotos cadastradas</span>
+            </div>
+          ) : (
             <Image
               src={currentPhoto}
-              alt={`${v.make} ${v.model}`}
+              alt={`${v.make || v.brand} ${v.model}`}
               fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
               onError={() => setImgError(true)}
             />
-          ) : (
-            /* Fallback quando a imagem falha ou não foi informada */
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted to-muted/50">
-              <span className="text-4xl opacity-30">🚗</span>
-            </div>
           )}
 
           {/* Navegação de Fotos do Carrossel */}

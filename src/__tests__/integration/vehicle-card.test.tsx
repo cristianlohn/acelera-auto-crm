@@ -157,8 +157,8 @@ describe("[IT-01] Renderização das Propriedades Essenciais do Veículo", () =>
       fireEvent.error(imgElement);
     });
 
-    // Assert (Então o fallback com o emoji de carro deve ser renderizado no lugar)
-    expect(screen.getByText("🚗")).toBeInTheDocument();
+    // Assert (Então o fallback com o aviso neutro 'Sem fotos cadastradas' deve ser renderizado no lugar)
+    expect(screen.getByText("Sem fotos cadastradas")).toBeInTheDocument();
   });
 });
 

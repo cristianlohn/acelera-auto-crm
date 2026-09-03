@@ -1,6 +1,6 @@
 /**
  * @file vehicle-form-modal.tsx
- * @description Formulário compartilhado de criação e edição de veículos com upload WebP e galeria de fotos.
+ * @description Formulário compartilhado de criação e edição de veículos com upload WebP, galeria de fotos e seleção interativa de Capa.
  */
 
 "use client";
@@ -16,7 +16,6 @@ import {
   Loader2,
   Upload,
   X,
-  Star,
   Check,
   Fuel,
   Settings2,
@@ -170,7 +169,7 @@ function VehicleFormContent({
     mode === "edit" && initialVehicle ? (initialVehicle.notes || "") : ""
   );
 
-  // Galeria de imagens
+  // Galeria de imagens e Seleção de Capa
   const initialImages =
     mode === "edit" && initialVehicle
       ? initialVehicle.images && initialVehicle.images.length > 0
@@ -181,8 +180,8 @@ function VehicleFormContent({
       : [];
 
   const [images, setImages] = useState<string[]>(initialImages);
-  const [imageUrl, setImageUrl] = useState(
-    mode === "edit" && initialVehicle ? (initialVehicle.imageUrl || initialImages[0] || "") : ""
+  const [coverImageUrl, setCoverImageUrl] = useState<string>(
+    (mode === "edit" && initialVehicle ? (initialVehicle.imageUrl || "") : "") || initialImages[0] || ""
   );
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
@@ -190,15 +189,23 @@ function VehicleFormContent({
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sincroniza imageUrl principal com o primeiro item da lista de images
-  const syncPrimaryImage = useCallback((newImages: string[]) => {
-    setImages(newImages);
-    if (newImages.length > 0) {
-      setImageUrl(newImages[0]);
-    } else {
-      setImageUrl("");
-    }
+  // Define uma URL como foto de capa e reorganiza o array colocando-a em primeiro lugar
+  const handleSetCover = useCallback((url: string) => {
+    setCoverImageUrl(url);
+    setImages((prev) => [url, ...prev.filter((item) => item !== url)]);
   }, []);
+
+  // Remove imagem da galeria
+  const handleRemoveImage = useCallback((index: number) => {
+    setImages((prev) => {
+      const targetUrl = prev[index];
+      const next = prev.filter((_, i) => i !== index);
+      if (coverImageUrl === targetUrl) {
+        setCoverImageUrl(next[0] || "");
+      }
+      return next;
+    });
+  }, [coverImageUrl]);
 
   // Processamento de Upload e Conversão WebP
   const handleFilesSelected = async (files: FileList | File[]) => {
@@ -231,8 +238,13 @@ function VehicleFormContent({
         }
       }
 
-      const updated = [...images, ...uploadedUrls];
-      syncPrimaryImage(updated);
+      setImages((prev) => {
+        const updated = [...prev, ...uploadedUrls];
+        if (!coverImageUrl && updated.length > 0) {
+          setCoverImageUrl(updated[0]);
+        }
+        return updated;
+      });
       setUploadProgress(null);
     } catch (err) {
       console.error("[Upload WebP Error]", err);
@@ -256,20 +268,6 @@ function VehicleFormContent({
     e.stopPropagation();
   };
 
-  // Define imagem como capa
-  const handleSetAsCover = (index: number) => {
-    if (index === 0) return;
-    const target = images[index];
-    const rest = images.filter((_, i) => i !== index);
-    syncPrimaryImage([target, ...rest]);
-  };
-
-  // Remove imagem da galeria
-  const handleRemoveImage = (index: number) => {
-    const next = images.filter((_, i) => i !== index);
-    syncPrimaryImage(next);
-  };
-
   // Validação dos campos mandatórios
   const isFormValid =
     make.trim().length > 0 &&
@@ -283,7 +281,7 @@ function VehicleFormContent({
     if (!isFormValid || isPending) return;
 
     startTransition(async () => {
-      const primaryPhoto = imageUrl || images[0] || "/vehicles/civic.jpg";
+      const primaryPhoto = coverImageUrl || images[0] || "";
       const vehiclePayload: VehicleFormData & { images?: string[]; fipePrice?: number; color?: string; notes?: string } = {
         make: make.trim(),
         model: model.trim(),
@@ -295,7 +293,7 @@ function VehicleFormContent({
         price,
         status,
         imageUrl: primaryPhoto,
-        images: images.length > 0 ? images : [primaryPhoto],
+        images: images.length > 0 ? images : (primaryPhoto ? [primaryPhoto] : []),
         fipePrice: fipePrice > 0 ? fipePrice : undefined,
         fuel,
         transmission,
@@ -309,16 +307,22 @@ function VehicleFormContent({
           ...initialVehicle,
           ...vehiclePayload,
         };
-        onSuccess?.(resolvedVehicle);
-        onAdd?.(resolvedVehicle);
+        if (onSuccess) {
+          onSuccess(resolvedVehicle);
+        } else if (onAdd) {
+          onAdd(resolvedVehicle);
+        }
       } else {
         const res = await createVehicleAction(vehiclePayload);
         const resolvedVehicle = res.vehicle || {
           id: `v-${Date.now()}`,
           ...vehiclePayload,
         };
-        onSuccess?.(resolvedVehicle);
-        onAdd?.(resolvedVehicle);
+        if (onSuccess) {
+          onSuccess(resolvedVehicle);
+        } else if (onAdd) {
+          onAdd(resolvedVehicle);
+        }
       }
 
       onClose();
@@ -331,14 +335,19 @@ function VehicleFormContent({
       {/* SEÇÃO 1: FOTOS & UPLOAD WEBP                                 */}
       {/* ============================================================= */}
       <div className="space-y-3 rounded-xl border border-white/5 bg-black/40 p-4">
-        <div className="flex items-center justify-between">
-          <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-400">
-            <ImageIcon className="h-4 w-4" />
-            <span>Fotos do Veículo (Galeria WebP)</span>
-          </label>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+          <div>
+            <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-orange-400">
+              <ImageIcon className="h-4 w-4" />
+              <span>Fotos do Veículo</span>
+            </label>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Adicione fotos do exterior e interior do veículo. Clique em uma foto para defini-la como Capa.
+            </p>
+          </div>
           {images.length > 0 && (
-            <span className="text-[11px] text-zinc-400">
-              {images.length} foto(s) • A primeira é a Capa
+            <span className="text-[11px] font-medium text-zinc-400 shrink-0">
+              {images.length} foto(s) cadastradas
             </span>
           )}
         </div>
@@ -384,63 +393,61 @@ function VehicleFormContent({
           </p>
         </div>
 
-        {/* Grid de Miniaturas da Galeria */}
+        {/* Grid de Miniaturas da Galeria com seleção interativa de Capa */}
         {images.length > 0 && (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5 pt-2">
-            {images.map((imgSrc, idx) => (
-              <div
-                key={`${imgSrc}-${idx}`}
-                className={cn(
-                  "group relative aspect-video rounded-lg overflow-hidden border bg-zinc-900",
-                  idx === 0
-                    ? "border-orange-500 ring-2 ring-orange-500/30"
-                    : "border-white/10 hover:border-white/30"
-                )}
-              >
-                <Image
-                  src={imgSrc}
-                  alt={`Foto ${idx + 1}`}
-                  fill
-                  unoptimized
-                  className="object-cover"
-                />
-
-                {/* Badge Capa */}
-                {idx === 0 && (
-                  <span className="absolute top-1 left-1 rounded bg-orange-500 text-white text-[9px] font-bold px-1.5 py-0.2 shadow">
-                    Capa
-                  </span>
-                )}
-
-                {/* Overlay de Ações */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
-                  {idx !== 0 && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSetAsCover(idx);
-                      }}
-                      className="p-1 rounded bg-white/20 hover:bg-orange-500 text-white text-[10px] transition-colors"
-                      title="Definir como Capa"
-                    >
-                      <Star className="h-3 w-3" />
-                    </button>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 pt-2">
+            {images.map((imgSrc, idx) => {
+              const isCover = imgSrc === coverImageUrl || (idx === 0 && !coverImageUrl);
+              return (
+                <div
+                  key={`${imgSrc}-${idx}`}
+                  onClick={() => handleSetCover(imgSrc)}
+                  className={cn(
+                    "group relative aspect-video rounded-lg overflow-hidden border bg-zinc-900 cursor-pointer transition-all",
+                    isCover
+                      ? "border-orange-500 ring-2 ring-orange-500/40 shadow-md shadow-orange-500/20"
+                      : "border-white/10 hover:border-white/30"
                   )}
+                >
+                  <Image
+                    src={imgSrc}
+                    alt={`Foto ${idx + 1}`}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+
+                  {/* Badge Capa */}
+                  {isCover && (
+                    <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-600 text-white shadow z-10">
+                      Capa
+                    </span>
+                  )}
+
+                  {/* Overlay no hover para fotos que não são capa */}
+                  {!isCover && (
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1">
+                      <span className="text-[10px] font-bold text-white bg-orange-600/90 hover:bg-orange-600 px-2 py-1 rounded shadow">
+                        Definir como Capa
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Botão Remover Foto */}
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleRemoveImage(idx);
                     }}
-                    className="p-1 rounded bg-white/20 hover:bg-red-500 text-white text-[10px] transition-colors"
+                    className="absolute top-1.5 right-1.5 p-1 rounded bg-black/60 hover:bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-all z-20"
                     title="Remover foto"
                   >
                     <X className="h-3 w-3" />
                   </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -457,10 +464,7 @@ function VehicleFormContent({
                   size="sm"
                   className="h-6 px-2 text-[10px] border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300"
                   onClick={() => {
-                    setImageUrl(p.url);
-                    if (!images.includes(p.url)) {
-                      syncPrimaryImage([p.url, ...images]);
-                    }
+                    handleSetCover(p.url);
                   }}
                 >
                   {p.label}
@@ -473,11 +477,11 @@ function VehicleFormContent({
           <div className="flex items-center gap-2">
             <Input
               id="vehicle-image-url"
-              placeholder="Ou cole a URL da foto: https://images.unsplash.com/..."
-              value={imageUrl}
+              placeholder="Ou cole a URL da foto: https://..."
+              value={coverImageUrl}
               onChange={(e) => {
                 const val = e.target.value;
-                setImageUrl(val);
+                setCoverImageUrl(val);
                 if (val.trim() && !images.includes(val)) {
                   setImages((prev) => [val, ...prev]);
                 }
