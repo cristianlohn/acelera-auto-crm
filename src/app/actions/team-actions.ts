@@ -60,11 +60,11 @@ export async function getTeamMembersAction(explicitOrgId?: string): Promise<Team
   const tenantContext = await resolveUserTenantContext();
   const orgId = explicitOrgId || tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
-  if (tenantContext.isDemo) {
+  if (tenantContext.isDemo || orgId === DEFAULT_DEMO_ORG_ID) {
     return memoryTeamMembers.filter((m) => m.organization_id === DEFAULT_DEMO_ORG_ID);
   }
 
-  if (isSupabaseServerConfigured() && tenantContext.organizationId) {
+  if (isSupabaseServerConfigured() && orgId) {
     try {
       const supabase = await createServerSupabaseClient();
       const { data, error } = await supabase
@@ -152,8 +152,13 @@ export async function getTeamMembersAction(explicitOrgId?: string): Promise<Team
         return members;
       }
     } catch {
-      // Fallback para memória apenas se ocorrer exceção de rede/configuração
+      // Falha de banco para tenant real retorna lista vazia
+      return [];
     }
+  }
+
+  if (!tenantContext.isDemo) {
+    return [];
   }
 
   return memoryTeamMembers.filter((m) => m.organization_id === orgId);

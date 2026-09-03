@@ -197,7 +197,7 @@ export const DEFAULT_METRICS: ManagerCockpitMetrics = {
   totalLeads: 81,
   averageFirstContactMinutes: 4.2,
   slaComplianceRate: 88,
-  overdueLeadsCount: 3,
+  overdueLeadsCount: 12,
   wonLeadsCount: 12,
   conversionRate: 14.8,
   sellerRanking: [
@@ -213,7 +213,7 @@ export const DEFAULT_METRICS: ManagerCockpitMetrics = {
       revenue: 520000,
     },
     {
-      sellerName: "Lucas Mendes",
+      sellerName: "Juliana Lima",
       leadsCount: 16,
       activeDeals: 6,
       wonDeals: 5,
@@ -224,7 +224,7 @@ export const DEFAULT_METRICS: ManagerCockpitMetrics = {
       revenue: 640000,
     },
     {
-      sellerName: "Camila Rocha",
+      sellerName: "Carlos Souza",
       leadsCount: 18,
       activeDeals: 7,
       wonDeals: 3,
@@ -236,12 +236,12 @@ export const DEFAULT_METRICS: ManagerCockpitMetrics = {
     },
   ],
   bottlenecks: {
-    withoutReturnCount: 3,
-    proposalsWithoutFollowupCount: 4,
+    withoutReturnCount: 12,
+    proposalsWithoutFollowupCount: 8,
     pendingFinancingCount: 5,
-    hotLeadsCount: 6,
+    hotLeadsCount: 17,
   },
-  recommendedActions: DEMO_RECOMMENDED_ACTIONS,
+  recommendedActions: DEFAULT_SELLER_ACTIONS,
 };
 
 function formatBrl(val: number): string {
@@ -276,28 +276,27 @@ export function ManagerActionCockpit({
     return <SellerActionCockpit className={className} metrics={metrics} isDemo={isDemoMode} />;
   }
 
-  const activeMetrics: ManagerCockpitMetrics =
-    metrics ||
-    (isDemoMode
-      ? DEFAULT_METRICS
-      : {
-          totalPipelineValue: 0,
-          valueAtRisk: 0,
-          totalActiveLeads: 0,
-          totalLeads: 0,
-          averageFirstContactMinutes: 0,
-          slaComplianceRate: 100,
-          overdueLeadsCount: 0,
-          wonLeadsCount: 0,
-          conversionRate: 0,
-          sellerRanking: [],
-          bottlenecks: {
-            withoutReturnCount: 0,
-            proposalsWithoutFollowupCount: 0,
-            pendingFinancingCount: 0,
-            hotLeadsCount: 0,
-          },
-        });
+  const activeMetrics: ManagerCockpitMetrics = isDemoMode
+    ? (metrics || DEFAULT_METRICS)
+    : (metrics || {
+        totalPipelineValue: 0,
+        valueAtRisk: 0,
+        totalActiveLeads: 0,
+        totalLeads: 0,
+        averageFirstContactMinutes: 0,
+        slaComplianceRate: 100,
+        overdueLeadsCount: 0,
+        wonLeadsCount: 0,
+        conversionRate: 0,
+        sellerRanking: [],
+        bottlenecks: {
+          withoutReturnCount: 0,
+          proposalsWithoutFollowupCount: 0,
+          pendingFinancingCount: 0,
+          hotLeadsCount: 0,
+        },
+        recommendedActions: [],
+      });
 
   const totalPipeline = activeMetrics.totalPipelineValue;
   const valueAtRisk = activeMetrics.valueAtRisk;
@@ -307,21 +306,18 @@ export function ManagerActionCockpit({
   const conversionRate = activeMetrics.conversionRate;
   const wonCount = activeMetrics.wonLeadsCount;
 
-  const actionsList: SellerAction[] =
-    metrics?.recommendedActions && metrics.recommendedActions.length > 0
-      ? metrics.recommendedActions
-      : isDemoMode && !metrics
-      ? DEFAULT_SELLER_ACTIONS
-      : metrics
-      ? DEMO_RECOMMENDED_ACTIONS
-      : [];
+  const actionsList: SellerAction[] = isDemoMode
+    ? (metrics?.recommendedActions && metrics.recommendedActions.length > 0
+        ? metrics.recommendedActions
+        : (activeMetrics.recommendedActions?.length ? activeMetrics.recommendedActions : DEFAULT_SELLER_ACTIONS))
+    : (metrics?.recommendedActions || activeMetrics.recommendedActions || []);
 
   const bottleneckMetrics: BottleneckMetric[] = [
     {
       id: "sem-retorno",
-      count: metrics
-        ? (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 3)
-        : 12,
+      count: isDemoMode
+        ? (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 12)
+        : (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0),
       label: "Leads sem retorno",
       description: "Tempo de espera estourado (> 15 min no primeiro contato)",
       icon: Clock,
@@ -332,9 +328,9 @@ export function ManagerActionCockpit({
     },
     {
       id: "propostas-paradas",
-      count: metrics
-        ? (activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 4)
-        : 8,
+      count: isDemoMode
+        ? (activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 8)
+        : (activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 0),
       label: "Propostas sem follow-up",
       description: "Propostas enviadas há mais de 24h sem novo contato",
       icon: FileSpreadsheet,
@@ -345,9 +341,9 @@ export function ManagerActionCockpit({
     },
     {
       id: "aguardando-banco",
-      count: metrics
+      count: isDemoMode
         ? (activeMetrics.bottlenecks?.pendingFinancingCount ?? 5)
-        : 5,
+        : (activeMetrics.bottlenecks?.pendingFinancingCount ?? 0),
       label: "Aguardando financiamento",
       description: "Fichas bancárias pendentes de aprovação na mesa de crédito",
       icon: Banknote,
@@ -358,9 +354,9 @@ export function ManagerActionCockpit({
     },
     {
       id: "leads-quentes",
-      count: metrics
-        ? (activeMetrics.bottlenecks?.hotLeadsCount ?? 6)
-        : 17,
+      count: isDemoMode
+        ? (activeMetrics.bottlenecks?.hotLeadsCount ?? 17)
+        : (activeMetrics.bottlenecks?.hotLeadsCount ?? 0),
       label: "Leads quentes sem ação hoje",
       description: "Clientes em negociação avançada sem interação nas últimas 8h",
       icon: Flame,
