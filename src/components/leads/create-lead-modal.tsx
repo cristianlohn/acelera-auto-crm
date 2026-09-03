@@ -30,6 +30,7 @@ export interface CreateLeadModalProps {
   onLeadAdded: (lead: KanbanLead) => void;
   triggerClassName?: string;
   triggerLabel?: string;
+  triggerId?: string;
   availableSellers?: { id: string; name: string }[];
   availableVehicles?: Vehicle[];
 }
@@ -38,6 +39,7 @@ export function CreateLeadModal({
   onLeadAdded,
   triggerClassName,
   triggerLabel = "Novo Lead",
+  triggerId,
   availableSellers,
   availableVehicles: propVehicles,
 }: CreateLeadModalProps) {
@@ -231,8 +233,8 @@ export function CreateLeadModal({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
-          id="btn-add-lead-kanban"
-          data-testid="btn-add-lead-kanban"
+          id={triggerId || "btn-add-lead-kanban"}
+          data-testid={triggerId || "btn-add-lead-kanban"}
           className={
             triggerClassName ||
             "gap-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-600 font-bold text-xs"
@@ -246,7 +248,7 @@ export function CreateLeadModal({
 
       <DialogContent
         id="modal-add-kanban-lead"
-        className="max-h-[92vh] overflow-y-auto sm:max-w-lg bg-zinc-950 border-white/10 text-white"
+        className="max-h-[92vh] max-w-[calc(100vw-2rem)] sm:max-w-lg overflow-y-auto bg-zinc-950 border-white/10 text-white p-4 sm:p-6"
       >
         <DialogHeader>
           <div className="flex items-center gap-3">

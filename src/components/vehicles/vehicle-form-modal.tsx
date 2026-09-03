@@ -738,6 +738,8 @@ export function VehicleFormModal({
       ) : mode === "create" ? (
         <DialogTrigger asChild>
           <Button
+            id="btn-new-vehicle"
+            data-testid="btn-new-vehicle"
             size="sm"
             className="text-xs font-semibold bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-md shadow-orange-500/20 gap-1.5"
             aria-label="Adicionar novo veículo ao estoque"
@@ -748,7 +750,11 @@ export function VehicleFormModal({
         </DialogTrigger>
       ) : null}
 
-      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl border border-white/10 bg-[#121216] text-white p-6 shadow-2xl">
+      <DialogContent
+        id="modal-new-vehicle"
+        data-testid="modal-new-vehicle"
+        className="max-h-[92vh] max-w-[calc(100vw-2rem)] sm:max-w-2xl overflow-y-auto border border-white/10 bg-[#121216] text-white p-4 sm:p-6 shadow-2xl"
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-bold text-white">
             <Car className="h-5 w-5 text-orange-500" />
