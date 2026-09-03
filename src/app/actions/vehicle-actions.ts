@@ -398,3 +398,13 @@ export async function getVehiclesAction(explicitOrgId?: string): Promise<Vehicle
 
   return [];
 }
+
+/**
+ * Reativa um veículo vendido de volta para o pátio ativo como disponível.
+ */
+export async function reactivateVehicleAction(
+  vehicleId: string
+): Promise<{ success: boolean; vehicle?: Vehicle; error?: string }> {
+  return updateVehicleAction(vehicleId, { status: "disponivel" });
+}
+

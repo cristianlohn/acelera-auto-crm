@@ -6,13 +6,14 @@
  * ESCOPO DE TESTE & RASTREABILIDADE (SUT: VehiclesPage)
  * ============================================================================
  * Funcionalidades e Fluxos Testados:
- *   - [IT-07.1] Renderização das 4 métricas executivas do pátio (Total, Valor, Reservados, Ticket Médio).
+ *   - [IT-07.1] Renderização das métricas executivas do pátio (Total no Pátio, Valor, Reservados, Ticket Médio).
  *   - [IT-07.2] Grid de listagem populado com múltiplos veículos do mock inicial.
  *   - [IT-07.3] Busca instantânea reativa por Marca, Modelo, Placa e Versão.
  *   - [IT-07.4] Estado vazio contextual (Empty State) para buscas sem resultado.
- *   - [IT-07.5] Filtragem por abas de status (Todos, Disponíveis, Reservados, Vendidos).
- *   - [IT-07.6] Atualização dinâmica de status através do Dropdown do Card com recálculo das métricas.
- *   - [IT-07.7] Cadastro e inserção de novo veículo no topo do grid via NewVehicleModal.
+ *   - [IT-07.5] Filtragem por abas de status do pátio ativo (Todos, Disponíveis, Reservados).
+ *   - [IT-07.6] Navegação entre abas principais (Pátio Ativo e Histórico de Vendas).
+ *   - [IT-07.7] Atualização dinâmica de status através do Dropdown do Card com recálculo das métricas.
+ *   - [IT-07.8] Cadastro e inserção de novo veículo no topo do grid via NewVehicleModal.
  *
  * Padrão Estrutural: AAA (Arrange, Act, Assert)
  * Ambiente de Execução: Happy-DOM / Vitest / Testing Library
@@ -47,14 +48,14 @@ describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () =>
     // Arrange & Act (Dado que a tela de Estoque é montada)
     render(<VehiclesPage />);
 
-    // Assert (Então as 4 métricas devem ser exibidas com seus respectivos títulos)
-    expect(screen.getByText("Total em Estoque")).toBeInTheDocument();
+    // Assert (Então as métricas do pátio ativo devem ser exibidas com seus respectivos títulos)
+    expect(screen.getByText("Total no Pátio")).toBeInTheDocument();
     expect(screen.getByText("Valor Total do Pátio")).toBeInTheDocument();
     expect(screen.getByText("Veículos Reservados")).toBeInTheDocument();
     expect(screen.getByText("Ticket Médio")).toBeInTheDocument();
   });
 
-  it("[IT-07.2] Deve renderizar o grid com todos os veículos da listagem inicial", () => {
+  it("[IT-07.2] Deve renderizar o grid com veículos ativos da listagem inicial", () => {
     // Arrange & Act (Quando a página é carregada)
     render(<VehiclesPage />);
 
@@ -67,7 +68,7 @@ describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () =>
   });
 
   it("[IT-07.3] Deve filtrar a listagem instantaneamente ao digitar no campo de busca", async () => {
-    // Arrange (Dado o catálogo completo exibido)
+    // Arrange (Dado o catálogo ativo exibido)
     const user = userEvent.setup();
     render(<VehiclesPage />);
 
@@ -123,35 +124,26 @@ describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () =>
     expect(screen.queryAllByRole("article")).toHaveLength(0);
   });
 
-  it("[IT-07.6] Deve filtrar os veículos ao alternar entre as abas de status (Disponíveis, Reservados, Vendidos)", async () => {
-    // Arrange (Dado o catálogo com status mistos)
+  it("[IT-07.6] Deve alternar entre as abas superiores de Pátio Ativo e Histórico de Vendas", async () => {
+    // Arrange (Dado o catálogo carregado)
     const user = userEvent.setup();
     render(<VehiclesPage />);
 
-    // Act 1 (Quando o usuário clica na aba 'Reservados')
-    const reservadoTab = screen.getByRole("tab", { name: "Reservados" });
-    await user.click(reservadoTab);
+    // Act 1 (Quando o usuário clica na aba 'Histórico de Vendas')
+    const soldTab = screen.getByRole("tab", { name: /histórico de vendas/i });
+    await user.click(soldTab);
 
-    // Assert 1 (Então veículos disponíveis não devem ser exibidos)
-    expect(screen.getByText("Toyota Corolla")).toBeInTheDocument(); // Corolla é reservado
-    expect(screen.queryByText("Honda Civic")).not.toBeInTheDocument(); // Civic é disponível
+    // Assert 1 (As métricas de vendas e a visão especializada devem ser exibidas)
+    expect(screen.getByText("Veículos Vendidos")).toBeInTheDocument();
+    expect(screen.getByText("Faturamento Realizado")).toBeInTheDocument();
 
-    // Act 2 (Quando clica na aba 'Vendidos')
-    const vendidoTab = screen.getByRole("tab", { name: "Vendidos" });
-    await user.click(vendidoTab);
+    // Act 2 (Quando clica de volta na aba 'Pátio Ativo')
+    const activeTab = screen.getByRole("tab", { name: /pátio ativo/i });
+    await user.click(activeTab);
 
-    // Assert 2 (Apenas veículos vendidos devem ser exibidos)
-    expect(screen.getByText("Renault Kwid")).toBeInTheDocument(); // Kwid é vendido
-    expect(screen.queryByText("Toyota Corolla")).not.toBeInTheDocument();
-
-    // Act 3 (Quando retorna para 'Todos')
-    const todosTab = screen.getByRole("tab", { name: "Todos" });
-    await user.click(todosTab);
-
-    // Assert 3 (Todos voltam a ser listados)
+    // Assert 2 (Volta a exibir as métricas e o grid do pátio ativo)
+    expect(screen.getByText("Total no Pátio")).toBeInTheDocument();
     expect(screen.getByText("Honda Civic")).toBeInTheDocument();
-    expect(screen.getByText("Toyota Corolla")).toBeInTheDocument();
-    expect(screen.getByText("Renault Kwid")).toBeInTheDocument();
   });
 
   it("[IT-07.7] Deve atualizar dinamicamente o status de um veículo pelo dropdown e refletir na listagem", async () => {

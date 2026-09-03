@@ -1,8 +1,6 @@
 /**
  * @file vehicles-page-client.tsx
- * @description Componente Client da Gestão de Estoque de Veículos do Acelera Auto CRM.
- *
- * Recebe initialVehicles via props do servidor (0ms de atraso visual).
+ * @description Componente Client da Gestão de Estoque de Veículos com isolamento de contexto (Pátio Ativo vs Histórico de Vendas) e métricas dinâmicas.
  */
 
 "use client";
@@ -16,10 +14,13 @@ import {
   Search,
   SlidersHorizontal,
   FileSpreadsheet,
+  CheckCircle2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { VehicleCard } from "@/components/vehicles/vehicle-card";
 import { NewVehicleModal } from "@/components/vehicles/new-vehicle-modal";
+import { VehiclesHeaderTabs, type VehiclesViewTab } from "@/components/vehicles/vehicles-header-tabs";
+import { SoldVehiclesView } from "@/components/vehicles/sold-vehicles-view";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   mockVehicles,
@@ -36,15 +37,15 @@ import { cn } from "@/lib/utils";
 import { useDemoRole } from "@/context/demo-role-context";
 import { Button } from "@/components/ui/button";
 
-type StatusFilter = VehicleStatus | "todos";
+type ActiveStatusFilter = "todos" | "disponivel" | "reservado";
 
 interface FilterTab {
-  value: StatusFilter;
+  value: ActiveStatusFilter;
   label: string;
   activeCn: string;
 }
 
-const FILTER_TABS: FilterTab[] = [
+const ACTIVE_FILTER_TABS: FilterTab[] = [
   {
     value: "todos",
     label: "Todos",
@@ -59,11 +60,6 @@ const FILTER_TABS: FilterTab[] = [
     value: "reservado",
     label: "Reservados",
     activeCn: "border-amber-500 text-amber-600 dark:text-amber-400",
-  },
-  {
-    value: "vendido",
-    label: "Vendidos",
-    activeCn: "border-slate-500 text-slate-600 dark:text-slate-400",
   },
 ];
 
@@ -109,18 +105,6 @@ function MetricCard({
   );
 }
 
-function computeMetrics(vehicles: Vehicle[]) {
-  const total = vehicles.length;
-  const valorTotal = vehicles.reduce((acc, v) => acc + v.price, 0);
-  const reservados = vehicles.filter((v) => v.status === "reservado").length;
-  const disponiveis = vehicles.filter((v) => v.status === "disponivel");
-  const ticketMedio =
-    disponiveis.length > 0
-      ? disponiveis.reduce((acc, v) => acc + v.price, 0) / disponiveis.length
-      : 0;
-  return { total, valorTotal, reservados, ticketMedio };
-}
-
 export interface VehiclesPageClientProps {
   initialVehicles?: Vehicle[];
 }
@@ -137,8 +121,9 @@ export function VehiclesPageClient({
     if (isDemoMode) return mockVehicles;
     return [];
   });
+  const [activeTab, setActiveTab] = useState<VehiclesViewTab>("active");
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
+  const [statusFilter, setStatusFilter] = useState<ActiveStatusFilter>("todos");
 
   useEffect(() => {
     if (initialVehicles !== undefined || isDemoMode) return;
@@ -193,10 +178,24 @@ export function VehiclesPageClient({
     []
   );
 
-  const filtered = useMemo(() => {
+  // Separação estrita entre Pátio Ativo e Histórico de Vendas
+  const activeVehicles = useMemo(() => {
+    return vehicles.filter(
+      (v) => v.status !== "vendido" && (v.status as string) !== "sold"
+    );
+  }, [vehicles]);
+
+  const soldVehicles = useMemo(() => {
+    return vehicles.filter(
+      (v) => v.status === "vendido" || (v.status as string) === "sold"
+    );
+  }, [vehicles]);
+
+  // Filtragem dos veículos do Pátio Ativo
+  const filteredActiveVehicles = useMemo(() => {
     const q = search.trim().toLowerCase();
     const cleanQ = q.replace(/[^a-z0-9]/g, "");
-    return vehicles.filter((v) => {
+    return activeVehicles.filter((v) => {
       const cleanPlate = v.plate.toLowerCase().replace(/[^a-z0-9]/g, "");
       const matchSearch =
         q === "" ||
@@ -209,21 +208,53 @@ export function VehiclesPageClient({
         statusFilter === "todos" || v.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [vehicles, search, statusFilter]);
+  }, [activeVehicles, search, statusFilter]);
 
-  const metrics = useMemo(() => computeMetrics(vehicles), [vehicles]);
+  // Métricas do Pátio Ativo
+  const activeMetrics = useMemo(() => {
+    const total = activeVehicles.length;
+    const valorTotal = activeVehicles.reduce((acc, v) => acc + (Number(v.price) || 0), 0);
+    const reservados = activeVehicles.filter((v) => v.status === "reservado").length;
+    const disponiveis = activeVehicles.filter((v) => v.status === "disponivel" || !v.status);
+    const ticketMedio =
+      disponiveis.length > 0
+        ? disponiveis.reduce((acc, v) => acc + (Number(v.price) || 0), 0) / disponiveis.length
+        : 0;
+    return { total, valorTotal, reservados, ticketMedio, disponiveisCount: disponiveis.length };
+  }, [activeVehicles]);
+
+  // Métricas do Histórico de Vendas
+  const soldMetrics = useMemo(() => {
+    const total = soldVehicles.length;
+    const faturamento = soldVehicles.reduce((acc, v) => acc + (Number(v.price) || 0), 0);
+    const margens = soldVehicles
+      .map((v) => v.estimatedMargin)
+      .filter((m): m is number => m !== undefined && !isNaN(m));
+    const margemMedia =
+      margens.length > 0
+        ? margens.reduce((a, b) => a + b, 0) / margens.length
+        : (faturamento > 0 ? faturamento * 0.12 : 0);
+    const giros = soldVehicles
+      .map((v) => v.daysInStock)
+      .filter((d): d is number => d !== undefined && !isNaN(d));
+    const tempoMedioGiro =
+      giros.length > 0
+        ? Math.round(giros.reduce((a, b) => a + b, 0) / giros.length)
+        : 18;
+    return { total, faturamento, margemMedia, tempoMedioGiro };
+  }, [soldVehicles]);
 
   return (
     <div className="flex h-full flex-col">
       <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm">
+        {/* Cabeçalho Principal */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div>
             <h1 className="text-lg font-bold text-foreground sm:text-xl">
               Estoque de Veículos
             </h1>
             <p className="text-xs text-muted-foreground">
-              {vehicles.length} veículo{vehicles.length !== 1 ? "s" : ""} cadastrado
-              {vehicles.length !== 1 ? "s" : ""}
+              {activeVehicles.length} veículo{activeVehicles.length !== 1 ? "s" : ""} no pátio ativo • {soldVehicles.length} no histórico de vendas
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
@@ -241,7 +272,18 @@ export function VehiclesPageClient({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 px-4 pb-4 sm:grid-cols-4 sm:px-6">
+        {/* Abas Superiores de Contexto (Pátio Ativo vs Histórico de Vendas) */}
+        <div className="px-4 sm:px-6">
+          <VehiclesHeaderTabs
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            activeCount={activeVehicles.length}
+            soldCount={soldVehicles.length}
+          />
+        </div>
+
+        {/* Cards de Métricas Dinâmicos */}
+        <div className="grid grid-cols-2 gap-3 px-4 pt-3 pb-4 sm:grid-cols-4 sm:px-6">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div
@@ -255,86 +297,123 @@ export function VehiclesPageClient({
                 </div>
               </div>
             ))
-          ) : (
+          ) : activeTab === "active" ? (
             <>
               <MetricCard
-                label="Total em Estoque"
-                value={metrics.total}
+                label="Total no Pátio"
+                value={activeMetrics.total}
                 icon={Car}
-                sub={`${vehicles.filter((v) => v.status === "disponivel").length} disponíveis`}
+                sub={`${activeMetrics.disponiveisCount} disponíveis • ${activeMetrics.reservados} reservados`}
                 iconBg="bg-blue-100 dark:bg-blue-900/40"
                 iconColor="text-blue-600"
               />
               <MetricCard
                 label="Valor Total do Pátio"
-                value={formatCurrency(metrics.valorTotal)}
+                value={formatCurrency(activeMetrics.valorTotal)}
                 icon={CircleDollarSign}
                 iconBg="bg-green-100 dark:bg-green-900/40"
                 iconColor="text-green-600"
               />
               <MetricCard
                 label="Veículos Reservados"
-                value={metrics.reservados}
+                value={activeMetrics.reservados}
                 icon={Clock}
                 iconBg="bg-amber-100 dark:bg-amber-900/40"
                 iconColor="text-amber-600"
               />
               <MetricCard
                 label="Ticket Médio"
-                value={formatCurrency(metrics.ticketMedio)}
+                value={formatCurrency(activeMetrics.ticketMedio)}
                 icon={TrendingUp}
                 sub="veículos disponíveis"
                 iconBg="bg-violet-100 dark:bg-violet-900/40"
                 iconColor="text-violet-600"
               />
             </>
+          ) : (
+            <>
+              <MetricCard
+                label="Veículos Vendidos"
+                value={soldMetrics.total}
+                icon={CheckCircle2}
+                sub="total histórico fechado"
+                iconBg="bg-emerald-100 dark:bg-emerald-900/40"
+                iconColor="text-emerald-600"
+              />
+              <MetricCard
+                label="Faturamento Realizado"
+                value={formatCurrency(soldMetrics.faturamento)}
+                icon={CircleDollarSign}
+                iconBg="bg-green-100 dark:bg-green-900/40"
+                iconColor="text-green-600"
+              />
+              <MetricCard
+                label="Margem Média Estimada"
+                value={formatCurrency(soldMetrics.margemMedia)}
+                icon={TrendingUp}
+                iconBg="bg-violet-100 dark:bg-violet-900/40"
+                iconColor="text-violet-600"
+              />
+              <MetricCard
+                label="Tempo Médio de Giro"
+                value={`${soldMetrics.tempoMedioGiro} dias`}
+                icon={Clock}
+                sub="até o fechamento da venda"
+                iconBg="bg-amber-100 dark:bg-amber-900/40"
+                iconColor="text-amber-600"
+              />
+            </>
           )}
         </div>
 
-        <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-center sm:px-6">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="vehicle-search"
-              type="search"
-              placeholder="Buscar por marca, modelo ou placa..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
-              aria-label="Buscar veículos"
-            />
-          </div>
+        {/* Barra de Filtros e Busca (Exclusiva do Pátio Ativo) */}
+        {activeTab === "active" && (
+          <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-center sm:px-6">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="vehicle-search"
+                type="search"
+                placeholder="Buscar por marca, modelo ou placa no pátio..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+                aria-label="Buscar veículos"
+              />
+            </div>
 
-          <div
-            className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 overflow-x-auto max-w-full"
-            role="tablist"
-            aria-label="Filtrar por status"
-          >
-            <SlidersHorizontal className="ml-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            {FILTER_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                id={`filter-${tab.value}`}
-                role="tab"
-                aria-selected={statusFilter === tab.value}
-                onClick={() => setStatusFilter(tab.value)}
-                className={cn(
-                  "rounded-md px-2.5 py-1 text-xs font-medium transition-all",
-                  statusFilter === tab.value
-                    ? cn(
-                        "border-b-2 bg-background shadow-sm",
-                        tab.activeCn
-                      )
-                    : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+            <div
+              className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 overflow-x-auto max-w-full"
+              role="tablist"
+              aria-label="Filtrar por status do pátio"
+            >
+              <SlidersHorizontal className="ml-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              {ACTIVE_FILTER_TABS.map((tab) => (
+                <button
+                  key={tab.value}
+                  id={`filter-${tab.value}`}
+                  role="tab"
+                  aria-selected={statusFilter === tab.value}
+                  onClick={() => setStatusFilter(tab.value)}
+                  className={cn(
+                    "rounded-md px-2.5 py-1 text-xs font-medium transition-all",
+                    statusFilter === tab.value
+                      ? cn(
+                          "border-b-2 bg-background shadow-sm",
+                          tab.activeCn
+                        )
+                      : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
+      {/* Conteúdo Principal de Acordo com a Aba Ativa */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {isLoading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -355,18 +434,24 @@ export function VehiclesPageClient({
               </div>
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : activeTab === "sold" ? (
+          <SoldVehiclesView
+            vehicles={soldVehicles}
+            onStatusChange={handleStatusChange}
+            onDelete={handleDelete}
+          />
+        ) : filteredActiveVehicles.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700/60 bg-slate-900/30 p-12 text-center my-8">
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-2xl">
               🚗
             </div>
             <h2 className="mt-4 text-base font-bold text-foreground">
-              {search ? "Nenhum veículo encontrado" : "Nenhum veículo cadastrado no estoque ainda"}
+              {search ? "Nenhum veículo encontrado no pátio" : "Nenhum veículo disponível no pátio ativo"}
             </h2>
             <p className="mt-1 max-w-sm text-xs text-muted-foreground">
               {search
                 ? `Nenhum resultado para "${search}". Tente outra busca.`
-                : "Cadastre os veículos do seu pátio para acompanhar status, preços e envio rápido para clientes no WhatsApp."}
+                : "Cadastre novos veículos no pátio ou consulte o Histórico de Vendas para ver carros já comercializados."}
             </p>
             {search ? (
               <Button
@@ -395,7 +480,7 @@ export function VehiclesPageClient({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((vehicle) => (
+            {filteredActiveVehicles.map((vehicle) => (
               <VehicleCard
                 key={vehicle.id}
                 vehicle={vehicle}
