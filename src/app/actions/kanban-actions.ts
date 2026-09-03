@@ -22,6 +22,7 @@ import {
   leadOriginEnum,
   createKanbanLeadSchema,
 } from "@/lib/validations/lead";
+import { generateShortCode } from "@/lib/utils/nanoid";
 
 export interface CreateKanbanLeadInput {
   name: string;
@@ -1292,6 +1293,7 @@ export async function createKanbanLeadAction(
     sellerInfo.sellerId ||
     (tenantContext.profile?.full_name === resolvedSeller ? tenantContext.userId : undefined);
   const nowIso = new Date().toISOString();
+  const shortCode = generateShortCode(6);
 
   // 2. Normalização e Validação Estrita do Enum de Origem
   const dbOrigin: LeadOrigin = normalizeLeadOrigin(input.source);
@@ -1324,6 +1326,7 @@ export async function createKanbanLeadAction(
     value: typeof input.value === "number" && !isNaN(input.value) ? input.value : undefined,
     segment: input.segment || "all",
     notes: input.notes?.trim() || undefined,
+    short_code: shortCode,
   };
 
   function isValidUUID(val?: string | null): boolean {
@@ -1365,6 +1368,7 @@ export async function createKanbanLeadAction(
       seller_id: safeSellerId,
       origin: dbOrigin,
       notes: input.notes?.trim() || null,
+      short_code: shortCode,
     };
 
     let insertedRecord: { id: string } | null = null;
@@ -1433,6 +1437,7 @@ export async function createKanbanLeadAction(
         email: newKanbanLead.email,
         vehicleInterest: newKanbanLead.vehicle_of_interest,
         source: newKanbanLead.source,
+        short_code: shortCode,
       },
       sellerName: resolvedSeller,
       organizationId: orgId,

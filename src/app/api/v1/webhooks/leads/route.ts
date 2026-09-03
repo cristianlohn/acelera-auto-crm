@@ -11,6 +11,7 @@ import {
   resolveAssignedSellerInfo,
   notifyAssignedSellerViaWhatsApp,
 } from "@/lib/crm/roleta";
+import { generateShortCode } from "@/lib/utils/nanoid";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import {
@@ -356,6 +357,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       try {
         const adminSupabase = createAdminClient();
 
+        const shortCode = generateShortCode(6);
         const insertPayload: Record<string, unknown> = {
           tenant_id: tenantId,
           organization_id: tenantId,
@@ -368,6 +370,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           seller_id: sellerInfo.sellerId || null,
           seller_name: sellerInfo.sellerName,
           notes: data.notes || null,
+          short_code: shortCode,
           last_contact_at: nowIso,
           created_at: nowIso,
         };
@@ -396,6 +399,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             seller_id: sellerInfo.sellerId || null,
             seller_name: sellerInfo.sellerName,
             notes: data.notes || null,
+            short_code: shortCode,
             last_contact_at: nowIso,
             created_at: nowIso,
           };

@@ -327,6 +327,8 @@ export interface SendLeadNotificationParams {
   vehicleInterest?: string;
   origin?: string;
   leadId?: string;
+  short_code?: string;
+  shortCode?: string;
   isDemo?: boolean;
   tenantId?: string;
   organizationId?: string;
@@ -344,17 +346,27 @@ export async function sendLeadNotificationToSeller({
   leadPhone,
   vehicleInterest = "Veículo de Interesse",
   leadId,
+  short_code,
+  shortCode,
   isDemo = false,
   tenantId,
   organizationId,
   appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://aceleraautocrm.com.br",
   provider,
 }: SendLeadNotificationParams): Promise<SendWhatsAppMessageResult> {
-  const cleanAppUrl = appUrl.replace(/\/$/, "");
-  const crmLink = leadId ? `${cleanAppUrl}/leads?lead_id=${leadId}` : `${cleanAppUrl}/leads`;
+  const code = short_code || shortCode;
+  const baseUrl = appUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const crmLink = code
+    ? `https://${baseUrl}/c/${code}`
+    : leadId
+    ? `https://${baseUrl}/leads?lead_id=${leadId}`
+    : `https://${baseUrl}/leads`;
+
   const sanitizedClientPhone = sanitizeWhatsAppPhone(leadPhone);
   const greeting = `Olá ${leadName}, tudo bem? Sou ${sellerName} da concessionária. Vi seu interesse no ${vehicleInterest}. Como posso te ajudar hoje?`;
-  const waDirectLink = `https://wa.me/${sanitizedClientPhone}?text=${encodeURIComponent(greeting)}`;
+  const waDirectLink = code
+    ? `https://${baseUrl}/w/${code}`
+    : `https://wa.me/${sanitizedClientPhone}?text=${encodeURIComponent(greeting)}`;
 
   const messageText = [
     `🚨 *Novo Lead Atribuído!*`,

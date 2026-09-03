@@ -22,6 +22,7 @@ import {
   notifyAssignedSellerViaWhatsApp,
   DEFAULT_DEMO_ORG_ID,
 } from "@/lib/crm/roleta";
+import { generateShortCode } from "@/lib/utils/nanoid";
 
 export { resolveAssignedSeller, resetRoundRobinCursor };
 
@@ -153,6 +154,7 @@ export async function POST(request: NextRequest) {
     const normalizedSource = normalizeOrigin(rawSource);
     const initialStatus: LeadStatus = "novo";
     const nowIso = new Date().toISOString();
+    const shortCode = generateShortCode(6);
     let leadId = `lead_wh_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     // -------------------------------------------------------------------------
@@ -173,6 +175,7 @@ export async function POST(request: NextRequest) {
           seller_name: assignedSeller,
           last_contact_at: nowIso,
           notes,
+          short_code: shortCode,
           created_at: nowIso,
         })
         .select("id")
@@ -202,6 +205,7 @@ export async function POST(request: NextRequest) {
         email,
         vehicleInterest,
         source: normalizedSource,
+        short_code: shortCode,
       },
       sellerName: assignedSeller,
       organizationId: organizationId,

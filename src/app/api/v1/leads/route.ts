@@ -8,6 +8,7 @@ import { getCurrentUserAndTenant } from "@/lib/auth/get-current-user";
 import { leadQuerySchema, createCrmLeadSchema } from "@/lib/validations/crm";
 import { normalizeOrigin } from "@/app/api/webhooks/leads/route";
 import { resolveAssignedSellerInfo } from "@/lib/crm/roleta";
+import { generateShortCode } from "@/lib/utils/nanoid";
 import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
@@ -306,6 +307,7 @@ export async function POST(request: NextRequest) {
     }
 
     const nowIso = new Date().toISOString();
+    const shortCode = generateShortCode(6);
     let leadId = `lead_man_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     if (isSupabaseServerConfigured()) {
@@ -325,6 +327,7 @@ export async function POST(request: NextRequest) {
             seller_name: sellerInfo.sellerName,
             seller_id: sellerInfo.sellerId || null,
             notes: data.notes || null,
+            short_code: shortCode,
             last_contact_at: nowIso,
             created_at: nowIso,
           })
@@ -346,6 +349,7 @@ export async function POST(request: NextRequest) {
               seller_name: sellerInfo.sellerName,
               seller_id: sellerInfo.sellerId || null,
               notes: data.notes || null,
+              short_code: shortCode,
               last_contact_at: nowIso,
               created_at: nowIso,
             })
@@ -370,6 +374,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         lead_id: leadId,
+        short_code: shortCode,
         message: "Lead cadastrado com sucesso",
       },
       { status: 201 }

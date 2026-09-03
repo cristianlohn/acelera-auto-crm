@@ -17,6 +17,7 @@ import {
 } from "@/lib/services/whatsapp/client";
 import {
   buildNewLeadAlertMessage,
+  buildLeadNotificationMessage,
 } from "@/lib/services/whatsapp/templates";
 import {
   notifyAssignedSellerViaWhatsApp,
@@ -133,6 +134,28 @@ describe("[UNIT-WHATSAPP] Serviço Modular de WhatsApp", () => {
 
       expect(message).toContain("https://aceleraautocrm.com.br/c/k9Xp2A");
       expect(message).toContain("https://aceleraautocrm.com.br/w/k9Xp2A");
+    });
+
+    it("buildLeadNotificationMessage deve gerar links estritos /c/[code] e /w/[code]", () => {
+      const formatted = buildLeadNotificationMessage(
+        {
+          name: "João Silva",
+          phone: "11988887777",
+          vehicle_name: "Honda HR-V Touring 2024",
+          source: "site",
+          short_code: "h7Rt9Q",
+        },
+        "https://aceleraautocrm.com.br"
+      );
+
+      expect(formatted).toContain("🎯 *NOVO LEAD NA SUA VEZ - ACELERA AUTO*");
+      expect(formatted).toContain("👤 *Cliente:* João Silva");
+      expect(formatted).toContain("🚗 *Interesse:* Honda HR-V Touring 2024");
+      expect(formatted).toContain("📍 *Origem:* site");
+      expect(formatted).toContain("📱 *Telefone:* 11988887777");
+      expect(formatted).toContain("https://aceleraautocrm.com.br/c/h7Rt9Q");
+      expect(formatted).toContain("https://aceleraautocrm.com.br/w/h7Rt9Q");
+      expect(formatted).not.toContain("https://wa.me/");
     });
   });
 

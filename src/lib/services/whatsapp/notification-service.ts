@@ -3,7 +3,7 @@
  * @description Serviço de despacho de notificações de novos leads para vendedores via WhatsApp.
  */
 
-import { buildNewLeadAlertMessage } from "./templates";
+import { buildNewLeadAlertMessage, buildLeadNotificationMessage } from "./templates";
 import { sendWhatsAppMessage } from "./client";
 
 export interface SellerLeadNotificationParams {
@@ -37,21 +37,33 @@ export async function sendSellerLeadNotification(params: SellerLeadNotificationP
     return { success: true, dispatched: false };
   }
 
-  const messageText = buildNewLeadAlertMessage(
-    {
-      id: lead.id,
-      name: lead.name,
-      phone: lead.phone,
-      vehicle_name: lead.vehicle_name || lead.vehicle_of_interest || lead.vehicleInterest,
-      source: lead.source || lead.origin,
-      short_code: shortCode || lead.short_code || lead.shortCode,
-    },
-    {
-      full_name: sellerName || "Vendedor",
-      phone: sellerPhone,
-    },
-    appUrl
-  );
+  const code = shortCode || lead.short_code || lead.shortCode;
+  const messageText = code
+    ? buildLeadNotificationMessage(
+        {
+          name: lead.name,
+          vehicle_name: lead.vehicle_name || lead.vehicle_of_interest || lead.vehicleInterest,
+          source: lead.source || lead.origin || "site",
+          phone: lead.phone,
+          short_code: code,
+        },
+        appUrl
+      )
+    : buildNewLeadAlertMessage(
+        {
+          id: lead.id,
+          name: lead.name,
+          phone: lead.phone,
+          vehicle_name: lead.vehicle_name || lead.vehicle_of_interest || lead.vehicleInterest,
+          source: lead.source || lead.origin,
+          short_code: code,
+        },
+        {
+          full_name: sellerName || "Vendedor",
+          phone: sellerPhone,
+        },
+        appUrl
+      );
 
   const orgId = organizationId || lead.organization_id;
   const isDemo =

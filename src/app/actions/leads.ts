@@ -29,6 +29,7 @@ import {
   leadOriginEnum,
   normalizeLeadOrigin,
 } from "@/lib/validations/lead";
+import { generateShortCode } from "@/lib/utils/nanoid";
 
 /**
  * Converte um registro do banco de dados para a entidade Lead do domínio.
@@ -229,6 +230,8 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     throw new Error("Canal de origem inválido. Selecione uma opção válida.");
   }
 
+  const shortCode = generateShortCode(6);
+
   const fallbackLead: Lead = {
     id: `l-${Date.now()}`,
     name: input.name,
@@ -239,6 +242,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     sellerName: resolvedSeller,
     lastContactAt: new Date().toISOString(),
     origin: dbOrigin,
+    short_code: shortCode,
   };
 
   function isValidUUID(val?: string | null): boolean {
@@ -258,6 +262,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     seller_id: safeSellerId,
     origin: dbOrigin,
     notes: input.notes || null,
+    short_code: shortCode,
   };
 
   let insertedData: Database["public"]["Tables"]["leads"]["Row"] | null = null;
@@ -331,6 +336,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
         email: domainLead.email,
         vehicleInterest: domainLead.vehicleInterest,
         source: domainLead.origin,
+        short_code: shortCode,
       },
       sellerName: domainLead.sellerName,
       organizationId: orgId,

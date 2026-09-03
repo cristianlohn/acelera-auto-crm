@@ -9,6 +9,7 @@ import {
   buildNewLeadAlertMessage,
   type LeadAlertData,
 } from "@/lib/services/whatsapp";
+import { generateShortCode } from "@/lib/utils/nanoid";
 import { ROULETTE_STATUS_COOKIE, getRouletteStatusMap } from "@/lib/services/team-status";
 import { memoryTeamMembers } from "@/lib/crm/team-memory";
 
@@ -450,6 +451,10 @@ export async function notifyAssignedSellerViaWhatsApp({
     if (!sellerPhone) {
       console.log(`[WhatsApp Notification] Vendedor "${sellerName}" não possui telefone cadastrado.`);
       return { success: true, dispatched: false };
+    }
+
+    if (!lead.short_code && !lead.shortCode) {
+      lead.short_code = generateShortCode(6);
     }
 
     const messageText = buildNewLeadAlertMessage(

@@ -10,6 +10,7 @@ import {
   resolveAssignedSellerInfo,
   notifyAssignedSellerViaWhatsApp,
 } from "@/lib/crm/roleta";
+import { generateShortCode } from "@/lib/utils/nanoid";
 import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
@@ -175,6 +176,7 @@ export async function POST(request: NextRequest) {
       console.warn("[Webmotors Webhook Roleta Warning]:", roletaErr);
     }
 
+    const shortCode = generateShortCode(6);
     let leadId = `lead_wm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     // 5. Persistência no Supabase com createAdminClient
@@ -195,6 +197,7 @@ export async function POST(request: NextRequest) {
             seller_name: sellerInfo.sellerName,
             seller_id: sellerInfo.sellerId,
             notes,
+            short_code: shortCode,
             last_contact_at: nowIso,
             created_at: nowIso,
           })
@@ -216,6 +219,7 @@ export async function POST(request: NextRequest) {
               seller_name: sellerInfo.sellerName,
               seller_id: sellerInfo.sellerId,
               notes,
+              short_code: shortCode,
               last_contact_at: nowIso,
               created_at: nowIso,
             })
@@ -254,6 +258,7 @@ export async function POST(request: NextRequest) {
         email: data.email || null,
         vehicleInterest,
         source: "webmotors",
+        short_code: shortCode,
       },
       sellerName: sellerInfo.sellerName,
       organizationId,

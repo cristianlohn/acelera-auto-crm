@@ -128,6 +128,7 @@ export async function POST(request: NextRequest) {
             email: updated.email,
             vehicleInterest: updated.vehicle_interest,
             source: updated.origin,
+            short_code: updated.short_code || undefined,
           },
           sellerName: sellerInfo.sellerName,
           organizationId,

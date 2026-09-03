@@ -73,4 +73,43 @@ export function buildNewLeadAlertMessage(
     waDirectLink,
   ].join("\n");
 }
+export function buildLeadNotificationMessage(
+  lead: {
+    name: string;
+    vehicle_name?: string;
+    vehicle_of_interest?: string;
+    vehicleInterest?: string;
+    source: string;
+    origin?: string;
+    phone: string;
+    short_code: string;
+  },
+  appUrl?: string
+): string {
+  const baseUrl = (appUrl || process.env.NEXT_PUBLIC_APP_URL || "https://aceleraautocrm.com.br")
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
+
+  const vehicle =
+    lead.vehicle_name ||
+    lead.vehicle_of_interest ||
+    lead.vehicleInterest ||
+    "Em aberto";
+
+  return [
+    `🎯 *NOVO LEAD NA SUA VEZ - ACELERA AUTO*`,
+    ``,
+    `👤 *Cliente:* ${lead.name || "Cliente"}`,
+    `🚗 *Interesse:* ${vehicle}`,
+    `📍 *Origem:* ${lead.source || lead.origin || "site"}`,
+    `📱 *Telefone:* ${lead.phone}`,
+    ``,
+    `👉 *Abrir no CRM:*`,
+    `https://${baseUrl}/c/${lead.short_code}`,
+    ``,
+    `💬 *Chamar no WhatsApp:*`,
+    `https://${baseUrl}/w/${lead.short_code}`,
+  ].join("\n");
+}
+
 
