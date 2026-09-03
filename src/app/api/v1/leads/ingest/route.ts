@@ -250,29 +250,19 @@ export async function POST(request: NextRequest) {
     if (!assignedSeller && isSupabaseServerConfigured()) {
       try {
         const supabaseAdmin = createAdminClient();
-        const { data: rawSeller } = await (supabaseAdmin as unknown as {
-          from: (table: string) => {
-            select: (cols: string) => {
-              eq: (col: string, val: unknown) => {
-                limit: (n: number) => {
-                  maybeSingle: () => Promise<{ data: unknown }>;
-                };
-              };
-            };
-          };
-        })
-          .from("users")
-          .select("id, name, phone")
+        const { data: rawSeller } = await supabaseAdmin
+          .from("profiles" as "leads")
+          .select("id, full_name, phone")
           .eq("organization_id", organizationId)
           .limit(1)
           .maybeSingle();
 
-        const fallbackSeller = rawSeller as { id: string; name?: string; full_name?: string; phone?: string } | null;
+        const fallbackSeller = rawSeller as { id: string; full_name?: string; phone?: string } | null;
 
         if (fallbackSeller) {
           assignedSeller = {
             id: fallbackSeller.id,
-            name: fallbackSeller.name || fallbackSeller.full_name || "Vendedor de Plantão",
+            name: fallbackSeller.full_name || "Vendedor de Plantão",
             phone: fallbackSeller.phone || "",
           };
         }
@@ -312,7 +302,7 @@ export async function POST(request: NextRequest) {
           ? `${existing.notes ? `${existing.notes}\n` : ""}[Recontato]: ${normalizedLead.message}`
           : existing.notes;
 
-        const updateRes = await supabase
+        const { error: updateError } = await supabase
           .from("leads")
           .update({
             vehicle_interest: vehicleName,
@@ -321,25 +311,15 @@ export async function POST(request: NextRequest) {
           })
           .eq("id", existing.id);
 
-        if (updateRes?.error) {
-          console.error("[Supabase Update Error]:", updateRes.error);
+        if (updateError) {
+          console.error("[Supabase Update Error]:", updateError);
           return NextResponse.json(
-            { success: false, error: `Falha ao atualizar recontato no banco: ${updateRes.error.message}` },
+            { success: false, error: `Falha ao atualizar recontato no banco: ${updateError.message}` },
             { status: 500 }
           );
         }
       } else {
-        const insertQuery = (supabase as unknown as {
-          from: (table: string) => {
-            insert: (data: unknown) => {
-              select?: () => {
-                single?: () => Promise<{ data: { id: string } | null; error: { message: string } | null }>;
-                then?: (fn: (res: { data: Array<{ id: string }> | { id: string } | null; error: { message: string } | null }) => void) => Promise<unknown>;
-              };
-              then?: (fn: (res: { data: { id: string } | null; error: { message: string } | null }) => void) => Promise<unknown>;
-            };
-          };
-        }).from("leads").insert({
+        const insertPayload = {
           organization_id: organizationId,
           tenant_id: organizationId,
           name: normalizedLead.clientName,
@@ -368,29 +348,13 @@ export async function POST(request: NextRequest) {
           },
           created_at: now,
           updated_at: now,
-        });
+        };
 
-        let newLead: { id: string } | null = null;
-        let insertError: { message: string } | null = null;
-
-        if (insertQuery && typeof insertQuery.select === "function") {
-          const selectBuilder = insertQuery.select();
-          if (selectBuilder && typeof selectBuilder.single === "function") {
-            const res = await selectBuilder.single();
-            newLead = res?.data;
-            insertError = res?.error;
-          } else if (selectBuilder && typeof selectBuilder.then === "function") {
-            const res = await selectBuilder;
-            newLead = Array.isArray((res as { data: Array<{ id: string }> }).data)
-              ? (res as { data: Array<{ id: string }> }).data[0]
-              : (res as { data: { id: string } }).data;
-            insertError = (res as { error: { message: string } | null }).error;
-          }
-        } else if (insertQuery && typeof insertQuery.then === "function") {
-          const res = await insertQuery;
-          newLead = (res as { data: { id: string } | null }).data;
-          insertError = (res as { error: { message: string } | null }).error;
-        }
+        const { data: newLead, error: insertError } = await supabase
+          .from("leads")
+          .insert(insertPayload as never)
+          .select("id")
+          .maybeSingle();
 
         if (insertError) {
           console.error("[Supabase Insert Error]:", insertError);

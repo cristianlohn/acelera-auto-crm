@@ -133,7 +133,11 @@ describe("[API-V1-LEADS] Ingestão Externa de Leads & Distribuição via Roleta"
     });
 
     it("[API-LEAD-02.3] Deve normalizar o telefone com DDI 55 e caracteres limpos", async () => {
-      const mockInsert = vi.fn().mockResolvedValue({ error: null });
+      const mockInsert = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: "lead_inserted_123" }, error: null }),
+        }),
+      });
       vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
       vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
         from: vi.fn().mockReturnValue({
