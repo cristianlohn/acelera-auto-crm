@@ -1,35 +1,51 @@
 /**
  * @file route.ts
- * @description Endpoint para Webhook do Meta Lead Ads - Facebook & Instagram (GET/POST /api/v1/webhooks/meta).
+ * @description Endpoint oficial para Webhook do Meta Lead Ads - Facebook & Instagram (GET/POST /api/v1/webhooks/meta).
+ *
+ * Funcionalidades:
+ * - GET: Handshake de validação da Meta (hub.mode === 'subscribe' e verificação de token).
+ * - POST: Recepção de eventos de formulários instantâneos com validação HMAC SHA-256 e ingestão via MetaLeadService.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { metaWebhookPayloadSchema } from "@/lib/validations/webhook";
 import {
-  resolveAssignedSellerInfo,
-  notifyAssignedSellerViaWhatsApp,
-  DEFAULT_DEMO_ORG_ID,
-} from "@/lib/crm/roleta";
-import { generateShortCode } from "@/lib/utils/nanoid";
-import { parseMetaAdsPayload } from "@/lib/services/ingestion/parsers/meta-parser";
-import { matchVehicleInInventory } from "@/lib/services/ingestion/vehicle-matcher";
-import {
-  isSupabaseServerConfigured,
-} from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { extractApiKeyFromRequest } from "@/lib/auth/validate-api-key";
-import { validateApiKey } from "@/lib/services/api-key-service";
-import type { LeadStatus } from "@/types/database.types";
+  processMetaLeadgen,
+  type ProcessMetaLeadgenParams,
+} from "@/lib/services/meta/meta-lead-service";
 
-const META_DEFAULT_VERIFY_TOKEN =
-  process.env.META_WEBHOOK_VERIFY_TOKEN || "meta_verify_token_dummy_example";
+/**
+ * Valida a assinatura HMAC SHA-256 enviada pela Meta no cabeçalho `x-hub-signature-256`.
+ */
+function verifyMetaSignature(rawBody: string, signatureHeader: string | null, appSecret: string): boolean {
+  if (!signatureHeader) return false;
+
+  try {
+    const hmac = crypto.createHmac("sha256", appSecret);
+    hmac.update(rawBody);
+    const expectedSignature = `sha256=${hmac.digest("hex")}`;
+
+    const sigBuffer = Buffer.from(signatureHeader);
+    const expectedBuffer = Buffer.from(expectedSignature);
+
+    if (sigBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+  } catch (err) {
+    console.error("[Meta Webhook HMAC Error]", err);
+    return false;
+  }
+}
 
 /**
  * @swagger
  * /api/v1/webhooks/meta:
  *   get:
- *     summary: Verificação de Webhook do Meta (Facebook/Instagram Lead Ads)
- *     description: Endpoint chamado pelos servidores do Meta durante a configuração do Webhook para validação do token de verificação e handshake de segurança.
+ *     summary: Handshake de Verificação da Meta (Facebook/Instagram Lead Ads)
+ *     description: Endpoint chamado pelos servidores da Meta durante a configuração do Webhook para validação do token de verificação e handshake de segurança.
  *     tags:
  *       - Webhooks & Ingestão
  *     parameters:
@@ -44,7 +60,7 @@ const META_DEFAULT_VERIFY_TOKEN =
  *         required: true
  *         schema:
  *           type: string
- *           example: "meta_verify_token_dummy_example"
+ *           example: "acelera_meta_webhook_secret"
  *       - in: query
  *         name: hub.challenge
  *         required: true
@@ -60,42 +76,27 @@ const META_DEFAULT_VERIFY_TOKEN =
  *               type: string
  *       403:
  *         description: Token de verificação inválido ou modo incorreto.
- *   post:
- *     summary: Recepção de Leads do Meta Lead Ads
- *     description: Recebe eventos de novos formulários instantâneos preenchidos no Facebook e Instagram Ads, vinculando-os à loja e distribuindo via Roleta Comercial.
- *     tags:
- *       - Webhooks & Ingestão
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               object:
- *                 type: string
- *                 example: page
- *               entry:
- *                 type: array
- *                 items:
- *                   type: object
- *     responses:
- *       200:
- *         description: Evento de Lead do Meta processado com sucesso.
- *       400:
- *         description: Payload do Meta malformado.
- *       500:
- *         description: Erro interno no processamento do evento.
  */
-
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const mode = searchParams.get("hub.mode");
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  if (mode === "subscribe" && token === META_DEFAULT_VERIFY_TOKEN) {
-    return new Response(challenge || "OK", { status: 200 });
+  const configuredTokens = [
+    process.env.META_VERIFY_TOKEN,
+    process.env.META_WEBHOOK_VERIFY_TOKEN,
+    "acelera_meta_webhook_secret",
+    "meta_verify_token_dummy_example",
+  ].filter(Boolean) as string[];
+
+  const isTokenValid = Boolean(token && configuredTokens.includes(token));
+
+  if (mode === "subscribe" && isTokenValid) {
+    return new Response(challenge || "OK", {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
   }
 
   return NextResponse.json(
@@ -104,21 +105,45 @@ export async function GET(request: NextRequest) {
   );
 }
 
+/**
+ * @swagger
+ * /api/v1/webhooks/meta:
+ *   post:
+ *     summary: Recepção de Leads do Meta Lead Ads
+ *     description: Recebe eventos de novos formulários instantâneos preenchidos no Facebook e Instagram Ads, vinculando-os à loja e distribuindo via Roleta Comercial.
+ *     tags:
+ *       - Webhooks & Ingestão
+ *     responses:
+ *       200:
+ *         description: Evento de Lead do Meta processado com sucesso.
+ *       400:
+ *         description: Payload do Meta malformado.
+ *       401:
+ *         description: Assinatura HMAC inválida.
+ *       500:
+ *         description: Erro interno no processamento do evento.
+ */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Identificação do Tenant (via header x-api-key opcional ou default org)
-    let organizationId = DEFAULT_DEMO_ORG_ID;
-    const apiKey = extractApiKeyFromRequest(request);
-    if (apiKey) {
-      const validation = await validateApiKey(apiKey);
-      if (validation.valid && validation.organizationId) {
-        organizationId = validation.organizationId;
+    const rawBody = await request.text();
+
+    // 1. Validação de Assinatura HMAC SHA-256 se META_APP_SECRET estiver configurado
+    const metaAppSecret = process.env.META_APP_SECRET;
+    if (metaAppSecret) {
+      const signature = request.headers.get("x-hub-signature-256");
+      const isValid = verifyMetaSignature(rawBody, signature, metaAppSecret);
+      if (!isValid) {
+        return NextResponse.json(
+          { error: "Unauthorized: Assinatura HMAC SHA-256 inválida." },
+          { status: 401 }
+        );
       }
     }
 
+    // 2. Leitura e Parse do JSON
     let body: unknown;
     try {
-      body = await request.json();
+      body = JSON.parse(rawBody);
     } catch {
       return NextResponse.json(
         { error: "Bad Request: JSON malformatado." },
@@ -126,153 +151,106 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validation = metaWebhookPayloadSchema.safeParse(body);
-    let leadName = "Lead Meta Ads";
-    let leadPhone = "11999990000";
-    let leadEmail: string | null = null;
-    let vehicleInterest = "Campanha Meta Ads";
-    let notes = "Lead gerado no Meta Lead Ads (Facebook/Instagram)";
+    const payload = (body || {}) as {
+      object?: string;
+      entry?: Array<{
+        id?: string;
+        time?: number;
+        changes?: Array<{
+          field?: string;
+          value?: Record<string, unknown>;
+        }>;
+      }>;
+    };
 
-    if (validation.success && validation.data.entry.length > 0) {
-      const firstEntry = validation.data.entry[0];
-      const change = firstEntry.changes?.[0]?.value;
-
-      if (change) {
-        if (change.name) leadName = change.name;
-        if (change.phone) leadPhone = change.phone;
-        if (change.email) leadEmail = change.email;
-        if (change.vehicle) vehicleInterest = change.vehicle;
-        if (change.form_id) {
-          notes = `Meta Form ID: ${change.form_id} | Ad ID: ${change.ad_id || "N/A"}`;
-        }
-      }
-    } else {
-      // Tenta o parser canônico da Meta
-      const parsed = parseMetaAdsPayload(body as Record<string, unknown>);
-      if (parsed.clientName && parsed.clientName !== "Lead Instagram/Facebook") {
-        leadName = parsed.clientName;
-      }
-      if (parsed.clientPhone) leadPhone = parsed.clientPhone;
-      if (parsed.clientEmail) leadEmail = parsed.clientEmail;
-      if (parsed.vehicleHint?.model) vehicleInterest = parsed.vehicleHint.model;
-      if (parsed.message) notes = parsed.message;
+    // 3. Validação do tipo de objeto (deve ser 'page')
+    if (payload.object && payload.object !== "page") {
+      return NextResponse.json(
+        { success: true, message: "Objeto ignorado (apenas 'page' é processado)." },
+        { status: 200 }
+      );
     }
 
-    // 2. Match com Estoque Real
-    const matchedVehicle = await matchVehicleInInventory(
-      organizationId,
-      vehicleInterest && vehicleInterest !== "Campanha Meta Ads" ? { model: vehicleInterest } : undefined
+    // 4. Extração dos eventos de leadgen
+    const leadgenTasks: ProcessMetaLeadgenParams[] = [];
+    const validation = metaWebhookPayloadSchema.safeParse(body);
+
+    if (validation.success && Array.isArray(validation.data.entry)) {
+      for (const entry of validation.data.entry) {
+        if (Array.isArray(entry.changes)) {
+          for (const change of entry.changes) {
+            if (change.field === "leadgen" && change.value) {
+              const val = change.value;
+              const valRecord = val as Record<string, unknown>;
+              const leadgenId = val.leadgen_id || (valRecord.id as string) || `leadgen_${Date.now()}`;
+              leadgenTasks.push({
+                leadgenId: String(leadgenId),
+                pageId: val.page_id || entry.id,
+                formId: val.form_id,
+                adId: val.ad_id,
+                createdTime: val.created_time,
+                directData: {
+                  name: val.name,
+                  phone: val.phone,
+                  email: val.email,
+                  vehicle: val.vehicle,
+                },
+              });
+            }
+          }
+        }
+      }
+    } else if (Array.isArray(payload.entry)) {
+      // Fallback para payloads customizados / diretos
+      for (const entry of payload.entry) {
+        if (Array.isArray(entry.changes)) {
+          for (const change of entry.changes) {
+            if (change.field === "leadgen" && change.value) {
+              const val = change.value;
+              const leadgenId = val.leadgen_id || (val.id as string) || `leadgen_${Date.now()}`;
+              leadgenTasks.push({
+                leadgenId: String(leadgenId),
+                pageId: (val.page_id as string) || entry.id,
+                formId: val.form_id as string | undefined,
+                adId: val.ad_id as string | undefined,
+                createdTime: val.created_time as number | undefined,
+                directData: val,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Se nenhum leadgen específico foi encontrado no formato changes, verifica payload plano para testes/legado
+    if (leadgenTasks.length === 0 && (payload as Record<string, unknown>).leadgen_id) {
+      const b = payload as Record<string, unknown>;
+      leadgenTasks.push({
+        leadgenId: String(b.leadgen_id),
+        pageId: b.page_id as string | undefined,
+        formId: b.form_id as string | undefined,
+        adId: b.ad_id as string | undefined,
+        directData: b,
+      });
+    }
+
+    // 5. Execução do processamento de Leads (Promise.allSettled)
+    const results = await Promise.allSettled(
+      leadgenTasks.map((task) => processMetaLeadgen(task))
     );
 
-    const vehicleName = matchedVehicle
-      ? `${matchedVehicle.brand} ${matchedVehicle.model} ${matchedVehicle.version || ""}`.trim()
-      : vehicleInterest;
-    const vehicleId = matchedVehicle?.id || null;
-    const estimatedValue = matchedVehicle ? matchedVehicle.price : 0;
-
-    // 3. Distribuição por Roleta Comercial com fallback
-    let sellerInfo = { sellerId: null as string | null, sellerName: "Fila Geral" };
-    try {
-      const resolved = await resolveAssignedSellerInfo(null, organizationId);
-      sellerInfo = {
-        sellerId: resolved.sellerId ?? null,
-        sellerName: resolved.sellerName,
-      };
-    } catch (roletaErr) {
-      console.warn("[Meta Webhook Roleta Warning]:", roletaErr);
-    }
-
-    const shortCode = generateShortCode(6);
-    let leadId = `lead_meta_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const nowIso = new Date().toISOString();
-    const initialStatus: LeadStatus = "novo";
-
-    // 4. Persistência Relacional Segura no Supabase com createAdminClient
-    if (isSupabaseServerConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      try {
-        const adminSupabase = createAdminClient();
-        const { data: inserted, error: insertError } = await adminSupabase
-          .from("leads")
-          .insert({
-            organization_id: organizationId,
-            tenant_id: organizationId,
-            name: leadName,
-            phone: leadPhone,
-            email: leadEmail,
-            vehicle_interest: vehicleName,
-            status: initialStatus,
-            origin: "instagram",
-            seller_name: sellerInfo.sellerName,
-            seller_id: sellerInfo.sellerId,
-            notes,
-            short_code: shortCode,
-            custom_fields: {
-              vehicle_id: vehicleId,
-              vehicle_name: vehicleName,
-              estimated_value: estimatedValue,
-            },
-            last_contact_at: nowIso,
-            created_at: nowIso,
-          })
-          .select("id")
-          .maybeSingle();
-
-        if (insertError) {
-          console.warn("[Meta Webhook DB Insert Fallback]:", insertError.message);
-          const { data: fallbackInserted } = await adminSupabase
-            .from("leads")
-            .insert({
-              organization_id: organizationId,
-              name: leadName,
-              phone: leadPhone,
-              email: leadEmail,
-              vehicle_interest: vehicleName,
-              status: initialStatus,
-              origin: "instagram",
-              seller_name: sellerInfo.sellerName,
-              seller_id: sellerInfo.sellerId,
-              notes,
-              short_code: shortCode,
-              last_contact_at: nowIso,
-              created_at: nowIso,
-            })
-            .select("id")
-            .maybeSingle();
-
-          if (fallbackInserted?.id) {
-            leadId = fallbackInserted.id;
-          }
-        } else if (inserted?.id) {
-          leadId = inserted.id;
-        }
-      } catch (dbErr) {
-        console.error("[Meta Webhook DB Error]:", dbErr);
-      }
-    }
-
-    // 5. Notificação Não-Bloqueante via WhatsApp com Links Curtos
-    void notifyAssignedSellerViaWhatsApp({
-      lead: {
-        id: leadId,
-        name: leadName,
-        phone: leadPhone,
-        email: leadEmail,
-        vehicle_name: vehicleName,
-        vehicleInterest: vehicleName,
-        source: "instagram",
-        short_code: shortCode,
-      },
-      sellerName: sellerInfo.sellerName,
-      organizationId,
-    });
+    const firstSuccess = results.find(
+      (r) => r.status === "fulfilled" && r.value.success
+    ) as PromiseFulfilledResult<Awaited<ReturnType<typeof processMetaLeadgen>>> | undefined;
 
     return NextResponse.json(
       {
         success: true,
-        lead_id: leadId,
-        short_code: shortCode,
-        assigned_to: sellerInfo.sellerName,
         message: "Evento Meta Ads processado com sucesso",
+        lead_id: firstSuccess?.value.leadId,
+        short_code: firstSuccess?.value.shortCode,
+        assigned_to: firstSuccess?.value.assignedTo,
+        organization_id: firstSuccess?.value.organizationId,
       },
       { status: 200 }
     );
@@ -284,3 +262,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

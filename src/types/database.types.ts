@@ -575,6 +575,50 @@ export interface Database {
           },
         ];
       };
+
+      meta_integrations: {
+        Row: {
+          id: string;
+          organization_id: string;
+          page_id: string;
+          page_name: string | null;
+          page_access_token: string;
+          verify_token: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          page_id: string;
+          page_name?: string | null;
+          page_access_token: string;
+          verify_token?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          page_id?: string;
+          page_name?: string | null;
+          page_access_token?: string;
+          verify_token?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "meta_integrations_organization_id_fkey";
+            columns: ["organization_id"];
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -598,4 +642,5 @@ export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
 export type VehicleRow = Database["public"]["Tables"]["vehicles"]["Row"];
+export type MetaIntegrationRow = Database["public"]["Tables"]["meta_integrations"]["Row"];
 
