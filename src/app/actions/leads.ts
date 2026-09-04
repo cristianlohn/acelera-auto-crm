@@ -30,6 +30,7 @@ import {
   normalizeLeadOrigin,
 } from "@/lib/validations/lead";
 import { generateShortCode } from "@/lib/utils/nanoid";
+import { syncVehicleStockOnStageChange } from "@/lib/services/vehicles/vehicle-stock-service";
 
 /**
  * Converte um registro do banco de dados para a entidade Lead do domínio.
@@ -359,30 +360,84 @@ export async function updateLeadStatus(
   id: string,
   status: LeadStatus
 ): Promise<{ success: boolean; id: string; status: LeadStatus }> {
-  // Modo Demonstração: leads são mock data — não existem no banco real
   const tenantContext = await resolveUserTenantContext();
-  if (tenantContext.isDemo) {
-    return { success: true, id, status };
-  }
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
-  if (!isSupabaseServerConfigured()) {
+  // Modo Demonstração: leads são mock data — não existem no banco real
+  if (tenantContext.isDemo || !isSupabaseServerConfigured()) {
+    const mockLead = mockLeads.find((l) => l.id === id);
+    const prevStatus = mockLead?.status;
+    if (mockLead) {
+      mockLead.status = status;
+    }
+
+    await syncVehicleStockOnStageChange({
+      organizationId: orgId,
+      vehicleId: mockLead?.vehicleId,
+      targetStage: status,
+      previousStage: prevStatus,
+      isDemo: true,
+    });
+
+    try {
+      revalidatePath("/vehicles");
+      revalidatePath("/estoque");
+      revalidatePath("/leads");
+      revalidatePath("/dashboard/leads");
+      revalidatePath("/dashboard");
+    } catch {}
+
     return { success: true, id, status };
   }
 
   try {
     const supabase = await createServerSupabaseClient();
+
+    // Consulta estado anterior e vehicle_id do lead
+    let vehicleId: string | null = null;
+    let previousStatus: string | null = null;
+
+    try {
+      const { data: currentLead } = await supabase
+        .from("leads")
+        .select("*" as never)
+        .eq("id", id)
+        .eq("organization_id", orgId)
+        .maybeSingle();
+
+      if (currentLead) {
+        const rawLead = currentLead as unknown as Record<string, unknown>;
+        previousStatus = (rawLead.status as string) || null;
+        vehicleId =
+          (rawLead.vehicle_id as string) ||
+          ((rawLead.custom_fields as Record<string, unknown>)?.vehicle_id as string) ||
+          null;
+      }
+    } catch {}
+
     const { error } = await supabase
       .from("leads")
       .update({
         status,
         last_contact_at: new Date().toISOString(),
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("organization_id", orgId);
 
     if (error) {
       return { success: false, id, status };
     }
 
+    await syncVehicleStockOnStageChange({
+      organizationId: orgId,
+      vehicleId,
+      targetStage: status,
+      previousStage: previousStatus,
+      isDemo: false,
+    });
+
+    revalidatePath("/vehicles");
+    revalidatePath("/estoque");
     revalidatePath("/leads");
     revalidatePath("/dashboard/leads");
     revalidatePath("/dashboard");

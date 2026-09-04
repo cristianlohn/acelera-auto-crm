@@ -12,6 +12,7 @@ import {
 } from "@/lib/supabase/server";
 import { getScopedSupabaseClient } from "@/lib/supabase/authenticated-client";
 import { mockLeads } from "@/lib/mock-data";
+import { syncVehicleStockOnStageChange } from "@/lib/services/vehicles/vehicle-stock-service";
 import type { Database, LeadStatus } from "@/types/database.types";
 
 /**
@@ -192,6 +193,21 @@ export async function PATCH(
     if (isSupabaseServerConfigured()) {
       const supabase = await getScopedSupabaseClient(request);
       if (supabase) {
+        let previousStatus: string | null = null;
+        if (payload.status) {
+          try {
+            const { data: prevLead } = await supabase
+              .from("leads")
+              .select("status")
+              .eq("id", id)
+              .eq("organization_id", organizationId)
+              .maybeSingle();
+            if (prevLead) {
+              previousStatus = prevLead.status;
+            }
+          } catch {}
+        }
+
         const { data, error } = await supabase
           .from("leads")
           .update(updateFields)
@@ -209,8 +225,37 @@ export async function PATCH(
           return NextResponse.json({ error: "Lead não encontrado para atualização." }, { status: 404 });
         }
 
+        if (payload.status) {
+          const leadRow = data as Record<string, unknown>;
+          const vehicleId =
+            (leadRow.vehicle_id as string) ||
+            ((leadRow.custom_fields as Record<string, unknown>)?.vehicle_id as string) ||
+            null;
+
+          await syncVehicleStockOnStageChange({
+            organizationId,
+            vehicleId,
+            targetStage: payload.status,
+            previousStage: previousStatus,
+            isDemo: false,
+          });
+        }
+
         return NextResponse.json({ success: true, data, message: "Lead atualizado com sucesso" }, { status: 200 });
       }
+    }
+
+    const found = mockLeads.find((l) => l.id === id);
+    if (found && payload.status) {
+      const prevStatus = found.status;
+      found.status = payload.status as LeadStatus;
+      await syncVehicleStockOnStageChange({
+        organizationId,
+        vehicleId: found.vehicleId,
+        targetStage: payload.status,
+        previousStage: prevStatus,
+        isDemo: true,
+      });
     }
 
     return NextResponse.json(

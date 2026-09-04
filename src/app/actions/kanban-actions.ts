@@ -23,6 +23,7 @@ import {
   createKanbanLeadSchema,
 } from "@/lib/validations/lead";
 import { generateShortCode } from "@/lib/utils/nanoid";
+import { syncVehicleStockOnStageChange } from "@/lib/services/vehicles/vehicle-stock-service";
 
 export interface CreateKanbanLeadInput {
   name: string;
@@ -967,6 +968,8 @@ export async function updateLeadStageAction(
     };
   }
 
+  const previousStage = memLead?.stage || null;
+  let vehicleId: string | null = memLead?.vehicle_id || null;
   const nowIso = new Date().toISOString();
 
   // Atualiza no registro em memória (demo e fallback)
@@ -984,6 +987,28 @@ export async function updateLeadStageAction(
     try {
       const supabase = await createServerSupabaseClient();
       const dbStatus = mapStageToDbStatus(newStage);
+
+      // Se não temos o vehicleId da memória, busca no banco defensivamente
+      if (!vehicleId) {
+        try {
+          const fromLeads = supabase.from("leads");
+          if (fromLeads && typeof fromLeads.select === "function") {
+            const { data: currentLead } = await fromLeads
+              .select("*" as never)
+              .eq("id", leadId)
+              .eq("organization_id", orgId)
+              .maybeSingle();
+
+            if (currentLead) {
+              const rawLead = currentLead as unknown as Record<string, unknown>;
+              vehicleId =
+                (rawLead.vehicle_id as string) ||
+                ((rawLead.custom_fields as Record<string, unknown>)?.vehicle_id as string) ||
+                null;
+            }
+          }
+        } catch {}
+      }
 
       const updatePayload: {
         status?: LeadStatus;
@@ -1003,12 +1028,25 @@ export async function updateLeadStageAction(
       if (error) {
         return { success: false, error: error.message };
       }
-    } catch (err) {
-      console.warn("[Kanban Update Error] Falha ao atualizar lead no banco:", err);
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : "Falha ao atualizar lead no banco.";
+      console.warn("[Kanban Update Error] Falha ao atualizar lead no banco:", errorMsg);
+      return { success: false, error: errorMsg };
     }
   }
 
+  // 4. Sincronização Automática de Baixa / Rollback de Estoque de Veículos
+  await syncVehicleStockOnStageChange({
+    organizationId: orgId,
+    vehicleId,
+    targetStage: newStage,
+    previousStage,
+    isDemo: tenantContext.isDemo,
+  });
+
   try {
+    revalidatePath("/vehicles");
+    revalidatePath("/estoque");
     revalidatePath("/dashboard/leads");
     revalidatePath("/dashboard");
     revalidatePath("/leads");
