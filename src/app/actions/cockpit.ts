@@ -72,12 +72,10 @@ export async function getManagerCockpitMetrics(
           .select("id, full_name, role")
           .eq("organization_id", targetOrgId);
 
-        if (profilesData && Array.isArray(profilesData) && profilesData.length > 0) {
-          for (const p of profilesData) {
-            const raw = p as Record<string, unknown>;
-            if (raw && raw.role !== "inativo" && typeof raw.full_name === "string" && raw.full_name.trim()) {
-              activeSellerNames.push(raw.full_name.trim());
-            }
+        const rawProfiles = (profilesData || []) as unknown as Array<Record<string, unknown>>;
+        for (const raw of rawProfiles) {
+          if (raw && raw.role !== "inativo" && typeof raw.full_name === "string" && raw.full_name.trim()) {
+            activeSellerNames.push(raw.full_name.trim());
           }
         }
       } catch {

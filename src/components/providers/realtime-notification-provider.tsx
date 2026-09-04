@@ -6,6 +6,7 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -17,6 +18,14 @@ export interface RealtimeNotificationProviderProps {
   children: React.ReactNode;
   organizationId?: string | null;
   userRole?: string | null;
+}
+
+function useSafeRouter() {
+  try {
+    return useRouter();
+  } catch {
+    return null;
+  }
 }
 
 function useSafeQueryClient() {
@@ -32,6 +41,7 @@ export function RealtimeNotificationProvider({
   organizationId,
   userRole,
 }: RealtimeNotificationProviderProps) {
+  const router = useSafeRouter();
   const queryClient = useSafeQueryClient();
   const { isDemoMode, role: demoRole } = useDemoRole();
   const effectiveRole = normalizeRole(isDemoMode ? demoRole : userRole);
@@ -144,7 +154,9 @@ export function RealtimeNotificationProvider({
                 action: {
                   label: "Ver no Kanban",
                   onClick: () => {
-                    window.location.href = "/dashboard/leads?filter=sla_breached";
+                    if (router) {
+                      router.push("/dashboard/leads?filter=sla_breached");
+                    }
                   },
                 },
                 duration: 8000,
