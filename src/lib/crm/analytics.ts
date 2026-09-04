@@ -127,6 +127,13 @@ export function estimateLeadVehicleValue(lead: LeadAnalyticsInput, defaultTicket
   if (typeof lead.value === "number" && !isNaN(lead.value)) return Math.max(0, lead.value);
   if (typeof lead.price === "number" && !isNaN(lead.price)) return Math.max(0, lead.price);
 
+  const customFields = (lead as unknown as Record<string, unknown>).custom_fields as Record<string, unknown> | undefined;
+  if (customFields && typeof customFields === "object") {
+    if (typeof customFields.estimated_value === "number" && !isNaN(customFields.estimated_value)) return Math.max(0, customFields.estimated_value);
+    if (typeof customFields.value === "number" && !isNaN(customFields.value)) return Math.max(0, customFields.value);
+    if (typeof customFields.price === "number" && !isNaN(customFields.price)) return Math.max(0, customFields.price);
+  }
+
   const rawVal = lead.estimated_value ?? lead.estimatedValue ?? lead.value ?? lead.price ?? defaultTicket;
   const num = Number(rawVal);
   return isNaN(num) ? 0 : Math.max(0, num);

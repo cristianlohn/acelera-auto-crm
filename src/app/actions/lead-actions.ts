@@ -396,22 +396,46 @@ export async function updateLeadVehicleAction(
     }
 
     const supabase = await createServerSupabaseClient();
+    const updatePayload = {
+      vehicle_interest: vehicleName,
+      vehicle_id: vehicleId || null,
+      vehicle_name: vehicleName,
+      estimated_value: estimatedValue ?? 0,
+      value: estimatedValue ?? 0,
+      updated_at: nowIso,
+      custom_fields: {
+        vehicle_id: vehicleId,
+        vehicle_name: vehicleName,
+        estimated_value: estimatedValue,
+        value: estimatedValue,
+      },
+    };
+
     const { error } = await supabase
       .from("leads")
-      .update({
-        vehicle_interest: vehicleName,
-        updated_at: nowIso,
-        custom_fields: {
-          vehicle_id: vehicleId,
-          vehicle_name: vehicleName,
-          estimated_value: estimatedValue,
-        },
-      })
+      .update(updatePayload as never)
       .eq("id", leadId)
       .eq("organization_id", tenantContext.organizationId);
 
     if (error) {
-      return { success: false, error: error.message };
+      // Fallback defensivo apenas com campos básicos e custom_fields
+      const { error: fallbackError } = await supabase
+        .from("leads")
+        .update({
+          vehicle_interest: vehicleName,
+          updated_at: nowIso,
+          custom_fields: {
+            vehicle_id: vehicleId,
+            vehicle_name: vehicleName,
+            estimated_value: estimatedValue,
+          },
+        } as never)
+        .eq("id", leadId)
+        .eq("organization_id", tenantContext.organizationId);
+
+      if (fallbackError) {
+        return { success: false, error: fallbackError.message };
+      }
     }
 
     try {

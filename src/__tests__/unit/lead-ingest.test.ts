@@ -17,6 +17,11 @@ let mockVehicleList: Array<Record<string, unknown>> = [];
 let mockLeadList: Array<Record<string, unknown>> = [];
 let lastInsertedLead: Record<string, unknown> | null = null;
 
+vi.mock("@/lib/supabase/server", () => ({
+  isSupabaseServerConfigured: vi.fn(() => true),
+  createServerSupabaseClient: vi.fn(),
+}));
+
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: vi.fn().mockImplementation(() => ({
     from: vi.fn().mockImplementation((table: string) => {
@@ -32,8 +37,12 @@ vi.mock("@/lib/supabase/admin", () => ({
           builder._ilike = { col, pattern: pattern.replace(/%/g, "").toLowerCase() };
           return builder;
         }),
+        gte: vi.fn(() => builder),
+        lte: vi.fn(() => builder),
         limit: vi.fn(() => builder),
         order: vi.fn(() => builder),
+        update: vi.fn(() => builder),
+        then: vi.fn((resolve: (val: unknown) => void) => resolve({ data: table === "leads" ? mockLeadList : [], error: null })),
         single: vi.fn().mockImplementation(async () => {
           if (table === "organizations") {
             return { data: { id: "org-loja-001", name: "Auto Prime Motors" }, error: null };
@@ -65,6 +74,7 @@ vi.mock("@/lib/supabase/admin", () => ({
           return {
             select: vi.fn(() => ({
               single: vi.fn().mockResolvedValue({ data: lastInsertedLead, error: null }),
+              maybeSingle: vi.fn().mockResolvedValue({ data: lastInsertedLead, error: null }),
             })),
           };
         }),
@@ -289,6 +299,9 @@ describe("[UNIT-LEAD-INGESTION] Parsers de Portais, Match de Estoque e Ingestão
       expect(json.matchedVehicle).toBe("Civic Touring");
       expect(json.shortCode).toHaveLength(6);
       expect(json.whatsapp).toEqual({ sent: true, error: null });
+
+      expect(lastInsertedLead?.estimated_value).toBe(160000);
+      expect(lastInsertedLead?.vehicle_id).toBe("v-civic-1");
 
       expect(notificationSpy).toHaveBeenCalled();
     });

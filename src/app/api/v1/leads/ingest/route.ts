@@ -327,6 +327,10 @@ export async function POST(request: NextRequest) {
           email: normalizedLead.clientEmail || null,
           origin: normalizeLeadOrigin(normalizedLead.source),
           vehicle_interest: vehicleName,
+          vehicle_id: matchedVehicle?.id || null,
+          vehicle_name: matchedVehicle ? vehicleName : null,
+          estimated_value: estimatedValue,
+          value: estimatedValue,
           seller_id: assignedSeller?.id || null,
           seller_name: assignedSeller?.name || "Fila de Atendimento",
           status: "novo" as const,
@@ -338,6 +342,8 @@ export async function POST(request: NextRequest) {
             vehicle_id: matchedVehicle?.id || null,
             vehicle_name: vehicleName,
             estimated_value: estimatedValue,
+            value: estimatedValue,
+            price: estimatedValue,
           },
           created_at: now,
           updated_at: now,
@@ -350,40 +356,85 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
 
         if (insertError) {
-          console.warn("[Ingest Lead Insert] Tentando fallback defensivo para schema legado sem custom_fields:", insertError.message);
+          console.warn("[Ingest Lead Insert] Tentando fallback defensivo com custom_fields:", insertError.message);
 
-          const fallbackPayload = {
+          const fallbackWithCustomFields = {
             organization_id: organizationId,
             name: normalizedLead.clientName,
             phone: formattedPhone,
             email: normalizedLead.clientEmail || null,
             origin: normalizeLeadOrigin(normalizedLead.source),
             vehicle_interest: vehicleName,
+            vehicle_id: matchedVehicle?.id || null,
+            vehicle_name: matchedVehicle ? vehicleName : null,
+            estimated_value: estimatedValue,
+            value: estimatedValue,
             seller_id: assignedSeller?.id || null,
             seller_name: assignedSeller?.name || "Fila de Atendimento",
             status: "novo" as const,
             short_code: shortCode,
             notes: normalizedLead.message || null,
+            custom_fields: {
+              external_id: normalizedLead.externalId,
+              source: normalizedLead.source || "webmotors",
+              vehicle_id: matchedVehicle?.id || null,
+              vehicle_name: vehicleName,
+              estimated_value: estimatedValue,
+              value: estimatedValue,
+              price: estimatedValue,
+            },
             created_at: now,
             updated_at: now,
           };
 
-          const { data: fallbackLead, error: fallbackError } = await supabase
+          const { data: fallbackCustomLead, error: fallbackCustomError } = await supabase
             .from("leads")
-            .insert(fallbackPayload as never)
+            .insert(fallbackWithCustomFields as never)
             .select("id")
             .maybeSingle();
 
-          if (fallbackError) {
-            console.error("[Supabase Insert Error]:", fallbackError);
-            return NextResponse.json(
-              { success: false, error: `Falha ao salvar no banco: ${fallbackError.message}` },
-              { status: 500 }
-            );
-          }
+          if (fallbackCustomError) {
+            console.warn("[Ingest Lead Insert] Tentando fallback legado enxuto sem custom_fields:", fallbackCustomError.message);
 
-          if (fallbackLead?.id) {
-            persistedLeadId = fallbackLead.id;
+            const fallbackPayload = {
+              organization_id: organizationId,
+              name: normalizedLead.clientName,
+              phone: formattedPhone,
+              email: normalizedLead.clientEmail || null,
+              origin: normalizeLeadOrigin(normalizedLead.source),
+              vehicle_interest: vehicleName,
+              vehicle_id: matchedVehicle?.id || null,
+              vehicle_name: matchedVehicle ? vehicleName : null,
+              estimated_value: estimatedValue,
+              value: estimatedValue,
+              seller_id: assignedSeller?.id || null,
+              seller_name: assignedSeller?.name || "Fila de Atendimento",
+              status: "novo" as const,
+              short_code: shortCode,
+              notes: normalizedLead.message || null,
+              created_at: now,
+              updated_at: now,
+            };
+
+            const { data: fallbackLead, error: fallbackError } = await supabase
+              .from("leads")
+              .insert(fallbackPayload as never)
+              .select("id")
+              .maybeSingle();
+
+            if (fallbackError) {
+              console.error("[Supabase Insert Error]:", fallbackError);
+              return NextResponse.json(
+                { success: false, error: `Falha ao salvar no banco: ${fallbackError.message}` },
+                { status: 500 }
+              );
+            }
+
+            if (fallbackLead?.id) {
+              persistedLeadId = fallbackLead.id;
+            }
+          } else if (fallbackCustomLead?.id) {
+            persistedLeadId = fallbackCustomLead.id;
           }
         } else if (newLead?.id) {
           persistedLeadId = newLead.id;

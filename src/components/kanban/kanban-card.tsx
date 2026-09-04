@@ -200,9 +200,9 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
             {lead.vehicle_of_interest}
           </span>
         </div>
-        {lead.value && (
+        {(lead.value || lead.estimated_value) && (
           <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 pl-6">
-            {formatCurrencyBRL(lead.value)}
+            {formatCurrencyBRL(lead.value ?? lead.estimated_value)}
           </div>
         )}
       </div>

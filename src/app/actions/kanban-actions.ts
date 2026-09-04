@@ -733,22 +733,7 @@ export async function getKanbanLeadsAction(
       const supabase = await createServerSupabaseClient();
       let query = supabase
         .from("leads")
-        .select(`
-          id,
-          organization_id,
-          name,
-          phone,
-          email,
-          vehicle_interest,
-          status,
-          origin,
-          seller_id,
-          seller_name,
-          notes,
-          created_at,
-          updated_at,
-          last_contact_at
-        `)
+        .select("*")
         .eq("organization_id", orgId);
 
       if (!allowAll) {
@@ -826,6 +811,31 @@ export async function getKanbanLeadsAction(
               }
             }
 
+            const rawRow = row as unknown as Record<string, unknown>;
+            const customFields = (rawRow.custom_fields && typeof rawRow.custom_fields === "object"
+              ? rawRow.custom_fields
+              : {}) as Record<string, unknown>;
+
+            const rawVal =
+              typeof rawRow.value === "number"
+                ? rawRow.value
+                : typeof rawRow.estimated_value === "number"
+                ? rawRow.estimated_value
+                : typeof customFields.estimated_value === "number"
+                ? Number(customFields.estimated_value)
+                : typeof customFields.value === "number"
+                ? Number(customFields.value)
+                : typeof customFields.price === "number"
+                ? Number(customFields.price)
+                : typeof rawRow.price === "number"
+                ? rawRow.price
+                : undefined;
+
+            const leadValue = rawVal !== undefined && !isNaN(Number(rawVal)) ? Number(rawVal) : undefined;
+            const vehicleId = (rawRow.vehicle_id as string) || (customFields.vehicle_id as string) || undefined;
+            const vehicleName = (rawRow.vehicle_name as string) || (customFields.vehicle_name as string) || row.vehicle_interest;
+            const shortCode = (rawRow.short_code as string) || (customFields.short_code as string) || undefined;
+
             return {
               id: row.id,
               organization_id: row.organization_id,
@@ -834,6 +844,10 @@ export async function getKanbanLeadsAction(
               email: row.email || undefined,
               source: row.origin || "site",
               vehicle_of_interest: row.vehicle_interest || "Veículo não especificado",
+              vehicle_id: vehicleId,
+              vehicle_name: vehicleName,
+              value: leadValue,
+              estimated_value: leadValue,
               assigned_to: sellerId || sellerName
                 ? {
                     id: sellerId || `sp-${Date.now()}`,
@@ -847,6 +861,7 @@ export async function getKanbanLeadsAction(
               created_at: row.created_at,
               updated_at: row.updated_at,
               notes: row.notes || undefined,
+              short_code: shortCode,
             };
           })
         );

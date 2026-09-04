@@ -57,20 +57,22 @@ export async function matchVehicleInInventory(
         const plateDigits = cleanPlate.slice(-3);
         const { data: byPlate } = await supabase
           .from("vehicles")
-          .select("id, make, model, version, price, year_model")
+          .select("id, make, model, version, price, year_model, year_fab")
           .eq("organization_id", organizationId)
           .ilike("plate_last_digits", `%${plateDigits}%`)
           .limit(1)
           .maybeSingle();
 
         if (byPlate) {
+          const raw = byPlate as Record<string, unknown>;
+          const price = Number(raw.price ?? raw.sale_price ?? raw.selling_price ?? raw.preco ?? raw.valor ?? 0);
           return {
-            id: byPlate.id,
-            brand: byPlate.make,
-            model: byPlate.model,
-            version: byPlate.version,
-            price: Number(byPlate.price) || 0,
-            year: byPlate.year_model,
+            id: String(raw.id),
+            brand: String(raw.make || raw.brand || ""),
+            model: String(raw.model || ""),
+            version: raw.version ? String(raw.version) : null,
+            price: isNaN(price) ? 0 : price,
+            year: Number(raw.year_model || raw.year_fab || raw.year || 0) || undefined,
           };
         }
       }
@@ -86,20 +88,22 @@ export async function matchVehicleInInventory(
       if (firstTerm.length >= 2) {
         const { data: byModel } = await supabase
           .from("vehicles")
-          .select("id, make, model, version, price, year_model")
+          .select("id, make, model, version, price, year_model, year_fab")
           .eq("organization_id", organizationId)
           .ilike("model", `%${firstTerm}%`)
           .limit(1)
           .maybeSingle();
 
         if (byModel) {
+          const raw = byModel as Record<string, unknown>;
+          const price = Number(raw.price ?? raw.sale_price ?? raw.selling_price ?? raw.preco ?? raw.valor ?? 0);
           return {
-            id: byModel.id,
-            brand: byModel.make,
-            model: byModel.model,
-            version: byModel.version,
-            price: Number(byModel.price) || 0,
-            year: byModel.year_model,
+            id: String(raw.id),
+            brand: String(raw.make || raw.brand || ""),
+            model: String(raw.model || ""),
+            version: raw.version ? String(raw.version) : null,
+            price: isNaN(price) ? 0 : price,
+            year: Number(raw.year_model || raw.year_fab || raw.year || 0) || undefined,
           };
         }
       }
@@ -107,14 +111,15 @@ export async function matchVehicleInInventory(
       // 2.2 Fallback com normalização em memória sobre o estoque da organização
       const { data: allVehicles } = await supabase
         .from("vehicles")
-        .select("id, make, model, version, price, year_model")
+        .select("id, make, model, version, price, year_model, year_fab")
         .eq("organization_id", organizationId)
-        .limit(50);
+        .limit(100);
 
       if (allVehicles && Array.isArray(allVehicles)) {
         const matched = allVehicles.find((v) => {
-          const vModel = normalizeText(v.model || "");
-          const vMake = normalizeText(v.make || "");
+          const raw = v as Record<string, unknown>;
+          const vModel = normalizeText(String(raw.model || ""));
+          const vMake = normalizeText(String(raw.make || raw.brand || ""));
 
           if (normalizedSearch) {
             if (vModel.includes(normalizedSearch) || normalizedSearch.includes(vModel)) {
@@ -136,13 +141,15 @@ export async function matchVehicleInInventory(
         });
 
         if (matched) {
+          const raw = matched as Record<string, unknown>;
+          const price = Number(raw.price ?? raw.sale_price ?? raw.selling_price ?? raw.preco ?? raw.valor ?? 0);
           return {
-            id: matched.id,
-            brand: matched.make,
-            model: matched.model,
-            version: matched.version,
-            price: Number(matched.price) || 0,
-            year: matched.year_model,
+            id: String(raw.id),
+            brand: String(raw.make || raw.brand || ""),
+            model: String(raw.model || ""),
+            version: raw.version ? String(raw.version) : null,
+            price: isNaN(price) ? 0 : price,
+            year: Number(raw.year_model || raw.year_fab || raw.year || 0) || undefined,
           };
         }
       }

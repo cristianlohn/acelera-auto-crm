@@ -110,7 +110,7 @@ export function LeadDetailsModal({
     setNotes(lead.notes || "");
     setLocalVehicleName(lead.vehicle_of_interest || "");
     setLocalVehicleId(lead.vehicle_id || "");
-    setLocalValue(lead.value);
+    setLocalValue(lead.value ?? lead.estimated_value);
     setNotesSaved(false);
     setIsChangingSeller(false);
     setIsChangingVehicle(false);
@@ -378,7 +378,7 @@ export function LeadDetailsModal({
                       Valor Estimado / Pipeline:
                     </span>
                     <div className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
-                      {formatCurrencyBRL(localValue ?? lead.value)}
+                      {formatCurrencyBRL(localValue ?? lead.value ?? lead.estimated_value)}
                     </div>
                   </div>
                 </div>
