@@ -112,7 +112,7 @@ export function KanbanColumn({
       </div>
 
       {/* Lista de Cards da Coluna */}
-      <div className="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-280px)] pr-0.5 custom-scrollbar min-h-[140px]">
+      <div className="flex-1 space-y-3 overflow-y-auto max-h-[calc(100vh-280px)] pt-1 pb-2 pr-0.5 custom-scrollbar min-h-[140px]">
         {column.leads.map((lead) => (
           <KanbanCard
             key={lead.id}

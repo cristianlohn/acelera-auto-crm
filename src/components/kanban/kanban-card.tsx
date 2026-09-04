@@ -152,10 +152,10 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
         slaConfig.isCritical && "ring-1 ring-red-500/40 border-red-500/30"
       )}
     >
-      {/* Alerta de Urgência de SLA */}
+      {/* Alerta de Urgência de SLA (Fluido Interno) */}
       {slaConfig.isCritical && (
-        <div className="absolute -top-2.5 left-4 flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white shadow-md animate-bounce">
-          <AlertTriangle className="h-3 w-3" />
+        <div className="mb-2.5 flex items-center gap-1.5 w-fit rounded-md bg-red-500/15 dark:bg-red-950/80 border border-red-500/30 dark:border-red-500/40 px-2 py-0.5 text-[10px] font-bold tracking-wider text-red-600 dark:text-red-400 uppercase shadow-sm">
+          <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400 shrink-0" />
           <span>URGENTE</span>
         </div>
       )}
