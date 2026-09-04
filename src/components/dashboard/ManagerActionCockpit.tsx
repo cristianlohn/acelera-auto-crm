@@ -34,9 +34,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { ManagerCockpitMetrics } from "@/lib/crm/analytics";
+import {
+  type ManagerCockpitMetrics,
+  type SystemRecommendation,
+  getRecommendedActions,
+} from "@/lib/crm/analytics";
 import { generateCockpitCSV, downloadCSV } from "@/lib/crm/export-csv";
 import { printCockpitReport } from "@/lib/crm/export-pdf";
+import { RecommendedActions } from "@/components/dashboard/recommended-actions";
 
 export interface BottleneckMetric {
   id: string;
@@ -384,6 +389,20 @@ export function ManagerActionCockpit({
     printCockpitReport(activeMetrics, dealershipName);
   };
 
+  const systemRecommendations: SystemRecommendation[] =
+    activeMetrics.systemRecommendations && activeMetrics.systemRecommendations.length > 0
+      ? activeMetrics.systemRecommendations
+      : getRecommendedActions({
+          leadsWithoutContactCount:
+            activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0,
+          amountAtRisk: activeMetrics.valueAtRisk,
+          sellerRanking: activeMetrics.sellerRanking || [],
+          hotLeadsWithoutActionTodayCount: activeMetrics.bottlenecks?.hotLeadsCount ?? 0,
+        });
+
+  const totalAlertsCount =
+    systemRecommendations.length > 0 ? systemRecommendations.length : actionsList.length;
+
   return (
     <div
       id="manager-action-cockpit"
@@ -588,21 +607,86 @@ export function ManagerActionCockpit({
                 <span>Ações Recomendadas pelo Sistema</span>
               </div>
               <span className="text-[11px] text-zinc-400">
-                {actionsList.length} alertas pendentes
+                {totalAlertsCount} alertas pendentes
               </span>
             </div>
 
-            {actionsList.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/20 p-6 text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-                <p className="text-xs font-bold text-white">Nenhuma ação crítica pendente</p>
-                <p className="text-[11px] text-zinc-400 mt-0.5 max-w-sm">
-                  Excelente! Toda a equipe comercial está atendendo dentro dos SLAs estabelecidos.
-                </p>
+            {systemRecommendations.length > 0 ? (
+              <div className="space-y-3">
+                <RecommendedActions recommendations={systemRecommendations} />
+                {isDemoMode && actionsList.length > 0 && (
+                  <div className="pt-2 border-t border-white/5 space-y-2.5">
+                    {actionsList.map((action) => {
+                      const isDone = notifiedActions.has(action.id);
+                      return (
+                        <div
+                          key={action.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-white/5 bg-zinc-900/60 p-2.5 sm:p-3 transition-colors hover:bg-zinc-900/90"
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-xs font-bold text-white shadow">
+                              {action.avatar || action.sellerName.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="truncate text-xs sm:text-sm font-semibold text-white">
+                                  {action.sellerName}
+                                </p>
+                                <span
+                                  className={cn(
+                                    "rounded px-1.5 py-0.5 text-[10px] font-bold",
+                                    action.urgencyType === "danger"
+                                      ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                                      : action.urgencyType === "warning"
+                                      ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                                      : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
+                                  )}
+                                >
+                                  {action.actionText}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-zinc-400 truncate">
+                                {action.defaultMessage}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                            <span className="text-[10px] font-mono text-zinc-500">
+                              {action.timeText}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant={isDone ? "outline" : "default"}
+                              onClick={() => handleNotifySeller(action)}
+                              className={cn(
+                                "h-7 gap-1 px-2.5 text-[11px] font-bold transition-all",
+                                isDone
+                                  ? "border-emerald-500/30 text-emerald-400 bg-emerald-950/20 hover:bg-emerald-950/40"
+                                  : "bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-md shadow-orange-500/20"
+                              )}
+                              aria-label={`Cobrar ${action.sellerName} no WhatsApp`}
+                            >
+                              {isDone ? (
+                                <>
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                                  <span>Cobrado</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="h-3 w-3" />
+                                  <span>Cobrar no WhatsApp</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            ) : (
+            ) : actionsList.length > 0 ? (
               <div className="space-y-2.5">
                 {actionsList.map((action) => {
                   const isDone = notifiedActions.has(action.id);
@@ -611,7 +695,6 @@ export function ManagerActionCockpit({
                       key={action.id}
                       className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-white/5 bg-zinc-900/60 p-2.5 sm:p-3 transition-colors hover:bg-zinc-900/90"
                     >
-                      {/* Vendedor e alerta */}
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-xs font-bold text-white shadow">
                           {action.avatar || action.sellerName.slice(0, 2).toUpperCase()}
@@ -640,7 +723,6 @@ export function ManagerActionCockpit({
                         </div>
                       </div>
 
-                      {/* Botão de Cobrança / Ação Rápida */}
                       <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                         <span className="text-[10px] font-mono text-zinc-500">
                           {action.timeText}
@@ -674,6 +756,8 @@ export function ManagerActionCockpit({
                   );
                 })}
               </div>
+            ) : (
+              <RecommendedActions recommendations={[]} />
             )}
           </div>
         </div>

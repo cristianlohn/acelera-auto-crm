@@ -3,6 +3,17 @@
  * @description Motor de agregação e métricas analíticas para o Cockpit do Gestor ("Dinheiro na Mesa" e SLA de Atendimento).
  */
 
+export interface SystemRecommendation {
+  id: string;
+  type: "critical" | "warning" | "opportunity";
+  title: string;
+  description: string;
+  count?: number;
+  actionLabel: string;
+  actionType: "reassign_roleta" | "notify_seller" | "filter_kanban" | "pause_seller";
+  href?: string;
+}
+
 export interface SellerPerformanceMetric {
   sellerName: string;
   leadsCount: number;
@@ -89,6 +100,7 @@ export interface ManagerCockpitMetrics {
   sellerRanking: SellerPerformanceMetric[];
   bottlenecks?: BottleneckStats;
   recommendedActions?: CockpitActionItem[];
+  systemRecommendations?: SystemRecommendation[];
 }
 
 export interface LeadAnalyticsInput {
@@ -105,6 +117,8 @@ export interface LeadAnalyticsInput {
   estimatedValue?: number;
   value?: number;
   price?: number;
+  vehicle_price?: number;
+  vehiclePrice?: number;
   created_at?: string;
   createdAt?: string;
   first_contact_at?: string | null;
@@ -122,21 +136,96 @@ export interface LeadAnalyticsInput {
  * Retorna o valor monetário estrito do lead. Se o lead não possui valor explícito nem preço associado, retorna 0 (ou defaultTicket).
  */
 export function estimateLeadVehicleValue(lead: LeadAnalyticsInput, defaultTicket = 0): number {
-  if (typeof lead.estimatedValue === "number" && !isNaN(lead.estimatedValue)) return Math.max(0, lead.estimatedValue);
-  if (typeof lead.estimated_value === "number" && !isNaN(lead.estimated_value)) return Math.max(0, lead.estimated_value);
-  if (typeof lead.value === "number" && !isNaN(lead.value)) return Math.max(0, lead.value);
-  if (typeof lead.price === "number" && !isNaN(lead.price)) return Math.max(0, lead.price);
+  if (typeof lead.estimatedValue === "number" && !isNaN(lead.estimatedValue) && lead.estimatedValue > 0) return lead.estimatedValue;
+  if (typeof lead.estimated_value === "number" && !isNaN(lead.estimated_value) && lead.estimated_value > 0) return lead.estimated_value;
+  if (typeof lead.value === "number" && !isNaN(lead.value) && lead.value > 0) return lead.value;
+  if (typeof lead.price === "number" && !isNaN(lead.price) && lead.price > 0) return lead.price;
+  if (typeof lead.vehicle_price === "number" && !isNaN(lead.vehicle_price) && lead.vehicle_price > 0) return lead.vehicle_price;
+  if (typeof lead.vehiclePrice === "number" && !isNaN(lead.vehiclePrice) && lead.vehiclePrice > 0) return lead.vehiclePrice;
 
   const customFields = (lead as unknown as Record<string, unknown>).custom_fields as Record<string, unknown> | undefined;
   if (customFields && typeof customFields === "object") {
-    if (typeof customFields.estimated_value === "number" && !isNaN(customFields.estimated_value)) return Math.max(0, customFields.estimated_value);
-    if (typeof customFields.value === "number" && !isNaN(customFields.value)) return Math.max(0, customFields.value);
-    if (typeof customFields.price === "number" && !isNaN(customFields.price)) return Math.max(0, customFields.price);
+    if (typeof customFields.estimated_value === "number" && !isNaN(customFields.estimated_value) && (customFields.estimated_value as number) > 0) return customFields.estimated_value as number;
+    if (typeof customFields.value === "number" && !isNaN(customFields.value) && (customFields.value as number) > 0) return customFields.value as number;
+    if (typeof customFields.price === "number" && !isNaN(customFields.price) && (customFields.price as number) > 0) return customFields.price as number;
+    if (typeof customFields.vehicle_price === "number" && !isNaN(customFields.vehicle_price) && (customFields.vehicle_price as number) > 0) return customFields.vehicle_price as number;
+    if (typeof customFields.vehiclePrice === "number" && !isNaN(customFields.vehiclePrice) && (customFields.vehiclePrice as number) > 0) return customFields.vehiclePrice as number;
   }
 
-  const rawVal = lead.estimated_value ?? lead.estimatedValue ?? lead.value ?? lead.price ?? defaultTicket;
+  const rawVal = lead.estimated_value ?? lead.estimatedValue ?? lead.value ?? lead.price ?? lead.vehicle_price ?? lead.vehiclePrice ?? defaultTicket;
   const num = Number(rawVal);
   return isNaN(num) ? 0 : Math.max(0, num);
+}
+
+/**
+ * Gerador de recomendações operacionais dinâmicas baseado nas métricas reais da organização.
+ */
+export function getRecommendedActions({
+  leadsWithoutContactCount,
+  amountAtRisk,
+  sellerRanking,
+  hotLeadsWithoutActionTodayCount,
+}: {
+  leadsWithoutContactCount: number;
+  amountAtRisk: number;
+  sellerRanking: SellerPerformanceMetric[];
+  hotLeadsWithoutActionTodayCount: number;
+}): SystemRecommendation[] {
+  const recommendations: SystemRecommendation[] = [];
+
+  const formatCurrency = (val: number) =>
+    new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      maximumFractionDigits: 0,
+    }).format(val || 0);
+
+  // 1. Alerta de SLA de Primeiro Contato estourado
+  if (leadsWithoutContactCount > 0) {
+    recommendations.push({
+      id: "sla-breached",
+      type: "critical",
+      title: `${leadsWithoutContactCount} leads aguardando primeiro contato urgente`,
+      description: `Leads ultrapassaram a meta de 15 min. Risco direto de perda de ${formatCurrency(amountAtRisk)}.`,
+      count: leadsWithoutContactCount,
+      actionLabel: "Reatribuir na Roleta",
+      actionType: "reassign_roleta",
+      href: "/dashboard/leads?filter=sla_breached",
+    });
+  }
+
+  // 2. Vendedores com SLA Crítico (> 15 min)
+  const criticalSellers = sellerRanking.filter(
+    (s) => s.avgResponseMinutes > 15 && s.leadsCount > 0
+  );
+  if (criticalSellers.length > 0) {
+    recommendations.push({
+      id: "seller-sla-alert",
+      type: "warning",
+      title: `${criticalSellers.length} vendedor(es) com SLA crítico de resposta`,
+      description: `Tempo médio acima de 15 min reduz drasticamente a taxa de conversão da revenda.`,
+      count: criticalSellers.length,
+      actionLabel: "Auditar Vendedores",
+      actionType: "notify_seller",
+      href: "/dashboard/team",
+    });
+  }
+
+  // 3. Negociações quentes sem follow-up hoje
+  if (hotLeadsWithoutActionTodayCount > 0) {
+    recommendations.push({
+      id: "hot-leads-followup",
+      type: "opportunity",
+      title: `${hotLeadsWithoutActionTodayCount} negociações quentes sem interação hoje`,
+      description: `Clientes em estágios avançados (Visita/Proposta) sem contato registrado no dia.`,
+      count: hotLeadsWithoutActionTodayCount,
+      actionLabel: "Ver no Kanban",
+      actionType: "filter_kanban",
+      href: "/dashboard/leads?filter=hot_no_action",
+    });
+  }
+
+  return recommendations;
 }
 
 /**
@@ -283,9 +372,11 @@ export function calculateManagerCockpitMetrics(
     now?: Date;
     defaultTicket?: number;
     recommendedActions?: CockpitActionItem[];
+    systemRecommendations?: SystemRecommendation[];
     isDemo?: boolean;
     cycleTotalLeads?: number;
     slaLimitMinutes?: number;
+    activeSellers?: string[];
   }
 ): ManagerCockpitMetrics {
   const now = options?.now || new Date();
@@ -324,8 +415,26 @@ export function calculateManagerCockpitMetrics(
     }
   > = {};
 
+  if (options?.activeSellers && options.activeSellers.length > 0) {
+    for (const seller of options.activeSellers) {
+      const trimmed = seller.trim();
+      if (trimmed && !sellerGroups[trimmed]) {
+        sellerGroups[trimmed] = {
+          leadsCount: 0,
+          activeDeals: 0,
+          wonDeals: 0,
+          responseTimes: [],
+          waitingTimes: [],
+          pipelineValue: 0,
+          revenue: 0,
+        };
+      }
+    }
+  }
+
   for (const lead of leads) {
     const rawStatus = (lead.status || "novo").toLowerCase();
+    const rawStage = (lead.stage || "").toLowerCase();
     const isActive = ACTIVE_STATUSES.has(rawStatus);
     const isWon = WON_STATUSES.has(rawStatus);
     const val = estimateLeadVehicleValue(lead, options?.defaultTicket ?? 0);
@@ -362,13 +471,21 @@ export function calculateManagerCockpitMetrics(
     }
 
     // SLA & Risco
+    const isNewStage =
+      rawStatus === "novo" ||
+      rawStatus === "new" ||
+      rawStatus === "primeiro_contato" ||
+      rawStage === "primeiro_contato" ||
+      rawStage === "new" ||
+      rawStage === "novo";
+
     const createdAtStr = lead.createdAt || lead.created_at;
     const createdAtTime = createdAtStr ? new Date(createdAtStr).getTime() : nowTime;
-    const contactStr =
-      lead.firstContactAt ||
-      lead.first_contact_at ||
-      lead.lastContactAt ||
-      lead.last_contact_at;
+    const waitingMinutes = Math.max(0, (nowTime - createdAtTime) / 60000);
+
+    const firstContactStr = lead.firstContactAt || lead.first_contact_at;
+    const lastContactStr = lead.lastContactAt || lead.last_contact_at;
+    const contactStr = firstContactStr || (isNewStage ? null : lastContactStr);
     const hasContact = Boolean(contactStr);
 
     if (hasContact && contactStr) {
@@ -384,8 +501,8 @@ export function calculateManagerCockpitMetrics(
 
       // Se está em etapa ativa mas sem contato há mais de 48 horas
       if (isActive) {
-        const lastContactTime = lead.lastContactAt || lead.last_contact_at
-          ? new Date(lead.lastContactAt || lead.last_contact_at!).getTime()
+        const lastContactTime = lastContactStr
+          ? new Date(lastContactStr).getTime()
           : contactTime;
         const hoursSinceLastContact = (nowTime - lastContactTime) / 3600000;
         if (hoursSinceLastContact > 48) {
@@ -395,7 +512,6 @@ export function calculateManagerCockpitMetrics(
     } else {
       // Lead em aberto (sem primeiro contato)
       openPendingCount++;
-      const waitingMinutes = Math.max(0, (nowTime - createdAtTime) / 60000);
       openWaitingTimes.push(waitingMinutes);
       sellerGroups[seller].waitingTimes.push(waitingMinutes);
 
@@ -410,7 +526,7 @@ export function calculateManagerCockpitMetrics(
     // Indicadores de Gargalo adicionais
     if (
       (rawStatus === "proposta" || rawStatus === "proposal" || rawStatus === "proposta_enviada") &&
-      (!contactStr || (nowTime - new Date(contactStr).getTime()) > 24 * 3600000)
+      (!lastContactStr || (nowTime - new Date(lastContactStr).getTime()) > 24 * 3600000)
     ) {
       proposalsWithoutFollowupCount++;
     }
@@ -438,10 +554,10 @@ export function calculateManagerCockpitMetrics(
       rawStatus === "proposal";
 
     if (isHotStage && isActive) {
-      if (!contactStr) {
+      if (!lastContactStr) {
         hotLeadsCount++;
       } else {
-        const lastActionTime = new Date(contactStr).getTime();
+        const lastActionTime = new Date(lastContactStr).getTime();
         const hoursWithoutAction = (nowTime - lastActionTime) / 3600000;
         if (hoursWithoutAction >= 24) {
           hotLeadsCount++;
@@ -523,6 +639,16 @@ export function calculateManagerCockpitMetrics(
     }
   ).sort((a, b) => b.wonDeals - a.wonDeals || a.avgResponseMinutes - b.avgResponseMinutes);
 
+  const dynamicRecommendations = getRecommendedActions({
+    leadsWithoutContactCount: withoutReturnCount,
+    amountAtRisk: valueAtRisk,
+    sellerRanking,
+    hotLeadsWithoutActionTodayCount: hotLeadsCount,
+  });
+
+  const systemRecommendations =
+    options?.systemRecommendations || dynamicRecommendations;
+
   const recommendedActions =
     options?.recommendedActions ||
     (options?.isDemo || leads.some((l) => l.name?.includes("João Ferreira"))
@@ -547,6 +673,7 @@ export function calculateManagerCockpitMetrics(
       hotLeadsCount,
     },
     recommendedActions,
+    systemRecommendations,
   };
 }
 

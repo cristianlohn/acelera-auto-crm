@@ -250,4 +250,131 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
       expect(metrics.bottlenecks?.hotLeadsCount).toBe(0);
     });
   });
+
+  describe("[TEST-COCKPIT-RECOMMENDATIONS-ENGINE] Motor de Recomendações Operacionais (SystemRecommendation)", () => {
+    it("deve gerar recomendações dinâmicas de SLA estourado, vendedores críticos e negociações quentes", () => {
+      const leads: LeadAnalyticsInput[] = [
+        // 14 leads em status 'novo' criados há 20 min sem contato (Risco de R$ 1.400.000)
+        ...Array.from({ length: 14 }, (_, i) => ({
+          id: `lead-new-${i}`,
+          status: "novo",
+          stage: "primeiro_contato",
+          vehicle_price: 100000,
+          createdAt: new Date(referenceNow.getTime() - 20 * 60000).toISOString(),
+          sellerName: "Cris Test of",
+        })),
+        // 6 leads em estágio quente (proposta) sem contato há mais de 24h
+        ...Array.from({ length: 6 }, (_, i) => ({
+          id: `lead-hot-${i}`,
+          status: "proposta",
+          stage: "proposal",
+          vehicle_price: 120000,
+          createdAt: new Date(referenceNow.getTime() - 48 * 3600000).toISOString(),
+          lastContactAt: new Date(referenceNow.getTime() - 30 * 3600000).toISOString(),
+          sellerName: "Cris Test of",
+        })),
+      ];
+
+      const metrics = calculateManagerCockpitMetrics(leads, {
+        now: referenceNow,
+        activeSellers: ["Cris Test of", "Rafael Alves", "Juliana Lima"],
+      });
+
+      expect(metrics.valueAtRisk).toBe(1400000);
+      expect(metrics.bottlenecks?.withoutReturnCount).toBe(14);
+      expect(metrics.bottlenecks?.hotLeadsCount).toBe(6);
+
+      const recs = metrics.systemRecommendations || [];
+      expect(recs.length).toBeGreaterThanOrEqual(3);
+
+      // 1. Alerta crítico de SLA
+      const slaRec = recs.find((r) => r.id === "sla-breached");
+      expect(slaRec).toBeDefined();
+      expect(slaRec?.type).toBe("critical");
+      expect(slaRec?.count).toBe(14);
+      expect(slaRec?.title).toContain("14 leads aguardando primeiro contato urgente");
+      expect(slaRec?.actionLabel).toBe("Reatribuir na Roleta");
+      expect(slaRec?.actionType).toBe("reassign_roleta");
+
+      // 2. Alerta de vendedor com SLA crítico (> 15 min)
+      const sellerRec = recs.find((r) => r.id === "seller-sla-alert");
+      expect(sellerRec).toBeDefined();
+      expect(sellerRec?.type).toBe("warning");
+      expect(sellerRec?.actionLabel).toBe("Auditar Vendedores");
+      expect(sellerRec?.actionType).toBe("notify_seller");
+
+      // 3. Oportunidade de negociações quentes
+      const hotRec = recs.find((r) => r.id === "hot-leads-followup");
+      expect(hotRec).toBeDefined();
+      expect(hotRec?.type).toBe("opportunity");
+      expect(hotRec?.count).toBe(6);
+      expect(hotRec?.title).toContain("6 negociações quentes sem interação hoje");
+      expect(hotRec?.actionLabel).toBe("Ver no Kanban");
+      expect(hotRec?.actionType).toBe("filter_kanban");
+    });
+
+    it("deve retornar 0 recomendações pendentes quando toda a equipe estiver em dia e sem gargalos", () => {
+      const leads: LeadAnalyticsInput[] = [
+        {
+          id: "l-ok-1",
+          status: "atendimento",
+          vehicle_price: 150000,
+          createdAt: new Date(referenceNow.getTime() - 10 * 60000).toISOString(),
+          firstContactAt: new Date(referenceNow.getTime() - 5 * 60000).toISOString(),
+          lastContactAt: new Date(referenceNow.getTime() - 2 * 3600000).toISOString(),
+          sellerName: "Rafael Alves",
+        },
+      ];
+
+      const metrics = calculateManagerCockpitMetrics(leads, {
+        now: referenceNow,
+        activeSellers: ["Rafael Alves"],
+      });
+
+      expect(metrics.systemRecommendations).toEqual([]);
+      expect(metrics.valueAtRisk).toBe(0);
+    });
+  });
+
+  describe("[TEST-COCKPIT-SELLER-ROSTER-RANKING] Exibição de Todos os Vendedores Ativos (Mesmo com 0 Leads)", () => {
+    it("deve incluir vendedores ativos com 0 leads com métricas zeradas e status verde (Em dia)", () => {
+      const leads: LeadAnalyticsInput[] = [
+        {
+          id: "l1",
+          status: "atendimento",
+          vehicle_price: 120000,
+          sellerName: "Cris Test of",
+          createdAt: new Date(referenceNow.getTime() - 5 * 60000).toISOString(),
+          firstContactAt: new Date(referenceNow.getTime() - 2 * 60000).toISOString(),
+        },
+      ];
+
+      const activeSellers = ["Cris Test of", "Rafael Alves", "Juliana Lima"];
+
+      const metrics = calculateManagerCockpitMetrics(leads, {
+        now: referenceNow,
+        activeSellers,
+      });
+
+      expect(metrics.sellerRanking.length).toBe(3);
+
+      const cris = metrics.sellerRanking.find((s) => s.sellerName === "Cris Test of");
+      const rafael = metrics.sellerRanking.find((s) => s.sellerName === "Rafael Alves");
+      const juliana = metrics.sellerRanking.find((s) => s.sellerName === "Juliana Lima");
+
+      expect(cris).toBeDefined();
+      expect(cris?.leadsCount).toBe(1);
+
+      expect(rafael).toBeDefined();
+      expect(rafael?.leadsCount).toBe(0);
+      expect(rafael?.activeDeals).toBe(0);
+      expect(rafael?.wonDeals).toBe(0);
+      expect(rafael?.avgResponseMinutes).toBe(0);
+      expect(rafael?.slaBadge).toBe("verde");
+
+      expect(juliana).toBeDefined();
+      expect(juliana?.leadsCount).toBe(0);
+      expect(juliana?.slaBadge).toBe("verde");
+    });
+  });
 });
