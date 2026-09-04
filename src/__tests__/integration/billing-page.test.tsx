@@ -31,7 +31,7 @@ describe("[IT-BILL] Página de Planos, Assinatura e Paywall (BillingPage)", () =
     mockSearchParams = new URLSearchParams();
     vi.spyOn(billingActions, "getSubscriptionOverviewAction").mockResolvedValue({
       success: true,
-      data: null,
+      data: undefined,
     });
     vi.spyOn(billingActions, "getBillingInitialDataAction").mockResolvedValue({
       success: true,

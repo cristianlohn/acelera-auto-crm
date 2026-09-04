@@ -92,7 +92,7 @@ export function ChangePlanModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         data-testid="change-plan-modal"
-        className="max-w-3xl border-white/10 bg-[#0f0f14] text-white p-6 sm:p-8"
+        className="sm:max-w-4xl lg:max-w-5xl max-h-[90vh] overflow-y-auto p-6 md:p-8 bg-[#0f0f14] border-white/10 text-white"
       >
         <DialogHeader className="space-y-1.5 text-left border-b border-white/10 pb-4">
           <div className="flex items-center gap-2">
@@ -108,8 +108,8 @@ export function ChangePlanModal({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Grade de Comparação de Planos */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+        {/* Grade de Comparação de Planos Ampla */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6 mt-6">
           {PLAN_OPTIONS.map((plan) => {
             const isCurrent = plan.id === normCurrent;
             const isUpgrade = plan.tier > currentTier;
@@ -119,54 +119,55 @@ export function ChangePlanModal({
                 key={plan.id}
                 data-testid={`change-plan-card-${plan.id}`}
                 className={cn(
-                  "relative flex flex-col justify-between rounded-2xl p-5 transition-all",
+                  "relative flex flex-col justify-between rounded-2xl border p-5 sm:p-6 transition-all",
                   isCurrent
-                    ? "border-2 border-emerald-500/60 bg-emerald-950/20 shadow-lg shadow-emerald-950/30"
+                    ? "border-2 border-emerald-500/60 bg-emerald-950/20 shadow-lg shadow-emerald-950/30 ring-1 ring-emerald-500/30"
                     : isUpgrade
                     ? "border border-orange-500/30 bg-gradient-to-b from-orange-950/20 to-zinc-900/40 hover:border-orange-500/50"
                     : "border border-white/10 bg-zinc-900/40 hover:border-white/20"
                 )}
               >
-                {isCurrent && (
-                  <Badge
-                    data-testid="badge-current-plan"
-                    className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-zinc-950 text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 shadow-md"
-                  >
-                    Seu Plano Atual
-                  </Badge>
-                )}
+                {/* Topo / Dados do Plano */}
+                <div>
+                  {isCurrent && (
+                    <span
+                      data-testid="badge-current-plan"
+                      className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-md"
+                    >
+                      Seu Plano Atual
+                    </span>
+                  )}
 
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="text-base font-bold text-white tracking-tight">{plan.name}</h4>
-                    <p className="text-[11px] text-zinc-400 mt-0.5 leading-snug">{plan.description}</p>
-                  </div>
+                  <h3 className="text-lg font-bold text-white tracking-tight">{plan.name}</h3>
+                  <p className="text-xs text-zinc-400 mt-1 min-h-[32px] leading-snug">{plan.description}</p>
 
-                  <div className="inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-orange-300 border border-orange-500/20">
-                    <Zap className="h-3 w-3 text-orange-400" />
+                  {/* Badge Vendedores */}
+                  <div className="my-3 inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 text-[11px] font-medium text-amber-400">
+                    <Zap className="h-3 w-3 text-amber-400" />
                     <span>{plan.sellersLimit}</span>
                   </div>
 
-                  <div className="pt-2">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-2xl font-black text-white">
-                        R$ {plan.monthlyPrice.toLocaleString("pt-BR")}
-                      </span>
-                      <span className="text-[11px] text-zinc-400">/mês</span>
-                    </div>
+                  {/* Preço */}
+                  <div className="my-3 flex items-baseline gap-1">
+                    <span className="text-2xl lg:text-3xl font-black text-white">
+                      R$ {plan.monthlyPrice.toLocaleString("pt-BR")}
+                    </span>
+                    <span className="text-xs text-zinc-400">/mês</span>
                   </div>
 
-                  <ul className="space-y-2 pt-2 border-t border-white/5 text-[11px] text-zinc-300">
-                    {plan.highlights.map((h, i) => (
-                      <li key={i} className="flex items-center gap-1.5">
+                  {/* Lista de Recursos */}
+                  <ul className="space-y-2.5 text-xs text-zinc-300 my-4">
+                    {plan.highlights.map((feature, idx) => (
+                      <li key={idx} className="flex items-center gap-2">
                         <Check className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                        <span>{h}</span>
+                        <span>{feature}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="pt-5 mt-4 border-t border-white/5">
+                {/* Botão de Ação Ancorado no Rodapé */}
+                <div className="pt-4 mt-auto border-t border-white/10">
                   {isCurrent ? (
                     <Button
                       disabled
