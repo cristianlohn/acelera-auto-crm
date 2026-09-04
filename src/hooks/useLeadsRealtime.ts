@@ -8,6 +8,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { QueryClientContext } from "@tanstack/react-query";
 import type { Lead, LeadOrigin, LeadStatus } from "@/types/crm";
 import { toast } from "sonner";
+import { soundManager } from "@/lib/utils/audio-alerts";
 
 export interface UseLeadsRealtimeProps {
   organizationId?: string | null;
@@ -109,6 +110,7 @@ export function useLeadsRealtime({
         (payload) => {
           queryClient?.invalidateQueries({ queryKey: ["leads"] });
           const newLead = mapRealtimePayloadToLead(payload.new as Record<string, unknown>);
+          soundManager.playNewLeadSound();
           onLeadInserted?.(newLead);
           toast.success(`🎯 Novo Lead Recebido: ${newLead.name || "Cliente"}`, {
             description: `Interesse: ${newLead.vehicleInterest || "Veículo"} • Origem: ${newLead.origin || "Web"}`,

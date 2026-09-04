@@ -69,13 +69,13 @@ export async function getManagerCockpitMetrics(
       try {
         const { data: profilesData } = await supabase
           .from("profiles")
-          .select("id, full_name, role, is_active")
+          .select("id, full_name, role")
           .eq("organization_id", targetOrgId);
 
         if (profilesData && Array.isArray(profilesData) && profilesData.length > 0) {
           for (const p of profilesData) {
             const raw = p as Record<string, unknown>;
-            if (raw && raw.is_active !== false && typeof raw.full_name === "string" && raw.full_name.trim()) {
+            if (raw && raw.role !== "inativo" && typeof raw.full_name === "string" && raw.full_name.trim()) {
               activeSellerNames.push(raw.full_name.trim());
             }
           }

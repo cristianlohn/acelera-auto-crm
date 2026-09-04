@@ -22,6 +22,7 @@ import {
 } from "@/app/actions/auth";
 import { isSuperAdmin, normalizeRole } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SoundToggle } from "@/components/audio/sound-toggle";
 import { cn } from "@/lib/utils";
 
 export interface UserNavProps {
@@ -161,6 +162,7 @@ export function UserNav({
 
       <div className="flex items-center gap-2">
         <ThemeToggle className="flex-1" showLabel={true} />
+        <SoundToggle size="icon-sm" />
         <button
           id={logoutButtonId}
           type="button"

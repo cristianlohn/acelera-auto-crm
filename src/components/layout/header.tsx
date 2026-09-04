@@ -21,6 +21,7 @@ import { useDemoRole } from "@/context/demo-role-context";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
 
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SoundToggle } from "@/components/audio/sound-toggle";
 
 export function MobileHeader({
   initialRole,
@@ -90,6 +91,7 @@ export function MobileHeader({
 
       {/* Ações rápidas */}
       <div className="flex items-center gap-1.5">
+        <SoundToggle />
         <ThemeToggle />
         <Button variant="ghost" size="icon-sm" aria-label="Ligar para lead">
           <Phone className="h-4 w-4" />

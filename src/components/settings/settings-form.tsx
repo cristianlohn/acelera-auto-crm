@@ -31,11 +31,15 @@ import {
   Code,
   FileJson,
   Key,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useDemoRole } from "@/context/demo-role-context";
+import { soundManager } from "@/lib/utils/audio-alerts";
+import { SoundToggle } from "@/components/audio/sound-toggle";
 import {
   INITIAL_TEAM_MEMBERS,
   INITIAL_CAPACITY,
@@ -951,6 +955,48 @@ export function SettingsForm({
                       className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                     />
                   </label>
+
+                  {/* Alertas Sonoros em Tempo Real (Web Audio) */}
+                  <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Volume2 className="h-4 w-4 text-orange-500" />
+                          Alertas Sonoros em Tempo Real (Web Audio API)
+                        </p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          Sons sintetizados automáticos para novos leads recebidos e alerta de estouro de SLA
+                        </p>
+                      </div>
+                      <SoundToggle size="default" showLabel={true} />
+                    </div>
+
+                    <div className="pt-2 border-t flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        data-testid="btn-test-lead-sound"
+                        onClick={() => soundManager.playNewLeadSound()}
+                        className="text-xs h-8 gap-1.5 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                      >
+                        <Volume2 className="h-3.5 w-3.5 text-emerald-500" />
+                        <span>Testar Som de Lead (Chime)</span>
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        data-testid="btn-test-sla-sound"
+                        onClick={() => soundManager.playSlaBreachSound()}
+                        className="text-xs h-8 gap-1.5 border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/10"
+                      >
+                        <Volume2 className="h-3.5 w-3.5 text-red-500" />
+                        <span>Testar Som de SLA (Alerta Duplo)</span>
+                      </Button>
+                    </div>
+                  </div>
 
                   {/* Seleção de Tema Visual */}
                   <div className="pt-2">

@@ -10,6 +10,7 @@ import { SubscriptionLayoutGuard } from "@/components/dashboard/SubscriptionLayo
 import { Sidebar } from "@/components/layout/sidebar";
 import { MobileHeader } from "@/components/layout/header";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
+import { RealtimeNotificationProvider } from "@/components/providers/realtime-notification-provider";
 
 export default function DashboardLayout(props: {
   children: React.ReactNode;
@@ -50,32 +51,37 @@ export default function DashboardLayout(props: {
     };
   }, []);
 
+  const profileObj = props.initialProfile as { organization_id?: string; organizationId?: string } | undefined;
+  const resolvedOrgId = profileObj?.organization_id || profileObj?.organizationId || null;
+
   return (
     <DemoRoleProvider initialRole={resolvedRole as DemoRole}>
-      <SubscriptionLayoutGuard>
-        <Suspense fallback={null}>
-          <VerifiedAccountToast />
-        </Suspense>
-        <div className="flex h-screen w-full overflow-hidden bg-background">
-          {/* Sidebar Fixa com initialRole resolvido imediatamente */}
-          <Sidebar
-            className="hidden lg:flex shrink-0 h-screen sticky top-0"
-            initialRole={resolvedRole}
-            profile={props.initialProfile}
-          />
+      <RealtimeNotificationProvider organizationId={resolvedOrgId} userRole={resolvedRole}>
+        <SubscriptionLayoutGuard>
+          <Suspense fallback={null}>
+            <VerifiedAccountToast />
+          </Suspense>
+          <div className="flex h-screen w-full overflow-hidden bg-background">
+            {/* Sidebar Fixa com initialRole resolvido imediatamente */}
+            <Sidebar
+              className="hidden lg:flex shrink-0 h-screen sticky top-0"
+              initialRole={resolvedRole}
+              profile={props.initialProfile}
+            />
 
-          {/* Conteúdo Principal com Scroll Independente */}
-          <div className="flex flex-1 flex-col h-screen overflow-y-auto overflow-x-hidden min-w-0">
-            <SubscriptionBanner />
-            <RoleSimulatorBar />
-            <MobileHeader initialRole={resolvedRole} initialProfile={props.initialProfile} />
-            <main className="flex-1 w-full max-w-full bg-background">
-              {props.children}
-            </main>
+            {/* Conteúdo Principal com Scroll Independente */}
+            <div className="flex flex-1 flex-col h-screen overflow-y-auto overflow-x-hidden min-w-0">
+              <SubscriptionBanner />
+              <RoleSimulatorBar />
+              <MobileHeader initialRole={resolvedRole} initialProfile={props.initialProfile} />
+              <main className="flex-1 w-full max-w-full bg-background">
+                {props.children}
+              </main>
+            </div>
           </div>
-        </div>
-        <GuidedTour />
-      </SubscriptionLayoutGuard>
+          <GuidedTour />
+        </SubscriptionLayoutGuard>
+      </RealtimeNotificationProvider>
     </DemoRoleProvider>
   );
 }
