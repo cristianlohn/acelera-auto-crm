@@ -108,11 +108,27 @@ export async function getTeamCapacity(): Promise<TeamCapacity> {
   const members = await getTeamMembers();
 
   if (!tenantContext.isDemo && tenantContext.organizationId) {
+    const org = tenantContext.organization;
+    const plan = ((org?.plan || "starter") as string).toLowerCase();
+    let maxSellers = 3;
+    let planName = "Plano Starter";
+
+    if (plan === "enterprise") {
+      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || 999;
+      planName = "Plano Enterprise";
+    } else if (plan === "pro") {
+      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || 8;
+      planName = "Plano Pro";
+    } else {
+      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || 3;
+      planName = "Plano Starter";
+    }
+
     return {
       currentCount: members.length,
-      maxSellers: 10,
-      plan: "pro",
-      planName: "Plano Pro Acelera",
+      maxSellers,
+      plan: (plan === "enterprise" || plan === "pro" ? plan : "starter") as "starter" | "pro" | "enterprise",
+      planName,
     };
   }
 

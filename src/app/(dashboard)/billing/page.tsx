@@ -266,6 +266,22 @@ function BillingContent({
           </div>
         )}
 
+        {/* Alerta de Solicitação de Alteração de Plano Pendente */}
+        {subscriptionOverview?.hasPendingUpgrade && (
+          <div
+            data-testid="billing-pending-upgrade-alert"
+            className="rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/80 via-amber-900/40 to-amber-950/70 p-4 text-center text-amber-200 shadow-lg shadow-amber-950/30 animate-in fade-in slide-in-from-top-3 max-w-4xl mx-auto"
+          >
+            <div className="flex items-center justify-center gap-2 font-bold text-amber-400 mb-1">
+              <Sparkles className="h-5 w-5 shrink-0" />
+              <span>Solicitação de Alteração de Plano Pendente</span>
+            </div>
+            <p className="text-xs sm:text-sm text-amber-200/90 font-medium">
+              Você possui uma solicitação de alteração de plano pendente de pagamento. Conclua o pagamento via Pix para ativar o novo plano.
+            </p>
+          </div>
+        )}
+
         {/* VISÃO CONDICIONAL: Assinante Ativo vs. Trial / Pendente */}
         {isSubscriber && subscriptionOverview ? (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">

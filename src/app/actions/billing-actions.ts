@@ -254,6 +254,7 @@ export interface SubscriptionOverviewData {
   };
   asaasSubscriptionId?: string | null;
   asaasCustomerId?: string | null;
+  hasPendingUpgrade?: boolean;
 }
 
 export interface SubscriptionOverviewResult {
@@ -297,6 +298,7 @@ export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverv
           },
           asaasSubscriptionId: "sub_demo_active",
           asaasCustomerId: "cus_demo_active",
+          hasPendingUpgrade: false,
         },
       };
     }
@@ -332,44 +334,58 @@ export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverv
     const rawPlan = (org.plan || "starter").toLowerCase();
     const planConfig = BILLING_PLANS_CONFIG[rawPlan] || BILLING_PLANS_CONFIG.pro;
 
-    let billingCycle: "mensal" | "anual" = "mensal";
-    let price = planConfig.monthlyPrice;
+    // Se a data de término for > 45 dias no futuro, considera plano anual
+    const isAnnualByDate = daysRemaining !== null && daysRemaining > 45;
+    let billingCycle: "mensal" | "anual" = isAnnualByDate ? "anual" : "mensal";
+    let price = isAnnualByDate ? planConfig.annualPrice : planConfig.monthlyPrice;
     let paymentMethod: SubscriptionOverviewData["paymentMethod"] = {
       type: "pix",
     };
+    let hasPendingUpgrade = false;
 
-    if (org.asaas_subscription_id) {
+    if (org.asaas_subscription_id || org.asaas_customer_id) {
       try {
-        const subDetails = await getAsaasSubscriptionDetails(org.asaas_subscription_id);
-        if (subDetails) {
-          if (subDetails.cycle === "YEARLY") {
-            billingCycle = "anual";
-            price = subDetails.value || planConfig.annualPrice;
-          } else {
-            billingCycle = "mensal";
-            price = subDetails.value || planConfig.monthlyPrice;
-          }
+        if (org.asaas_subscription_id) {
+          const subDetails = await getAsaasSubscriptionDetails(org.asaas_subscription_id);
+          if (subDetails) {
+            if (subDetails.cycle === "YEARLY") {
+              billingCycle = "anual";
+              price = subDetails.value || planConfig.annualPrice;
+            } else if (!isAnnualByDate) {
+              billingCycle = "mensal";
+              price = subDetails.value || planConfig.monthlyPrice;
+            }
 
-          if (subDetails.nextDueDate) {
-            nextDueDate = subDetails.nextDueDate;
-            daysRemaining = Math.max(0, Math.ceil((new Date(subDetails.nextDueDate).getTime() - now) / 86400000));
-          }
+            if (!nextDueDate && subDetails.nextDueDate) {
+              nextDueDate = subDetails.nextDueDate;
+              daysRemaining = Math.max(0, Math.ceil((new Date(subDetails.nextDueDate).getTime() - now) / 86400000));
+            }
 
-          if (subDetails.billingType === "CREDIT_CARD") {
-            paymentMethod = {
-              type: "credit_card",
-              brand: subDetails.creditCard?.creditCardBrand || "Cartão",
-              last4: subDetails.creditCard?.creditCardNumber || "4242",
-            };
-          } else if (subDetails.billingType === "BOLETO") {
-            paymentMethod = {
-              type: "boleto",
-            };
-          } else {
-            paymentMethod = {
-              type: "pix",
-            };
+            if (subDetails.billingType === "CREDIT_CARD") {
+              paymentMethod = {
+                type: "credit_card",
+                brand: subDetails.creditCard?.creditCardBrand || "Cartão",
+                last4: subDetails.creditCard?.creditCardNumber || "4242",
+              };
+            } else if (subDetails.billingType === "BOLETO") {
+              paymentMethod = {
+                type: "boleto",
+              };
+            } else {
+              paymentMethod = {
+                type: "pix",
+              };
+            }
           }
+        }
+
+        // Verifica se há cobranças com status PENDING no customer
+        const invoices = await getAsaasSubscriptionInvoices(
+          org.asaas_subscription_id,
+          org.asaas_customer_id
+        );
+        if (invoices.some((inv) => inv.status === "PENDING")) {
+          hasPendingUpgrade = true;
         }
       } catch (err) {
         console.warn("[getSubscriptionOverviewAction] Erro ao buscar dados no Asaas:", err);
@@ -389,6 +405,7 @@ export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverv
         paymentMethod,
         asaasSubscriptionId: org.asaas_subscription_id,
         asaasCustomerId: org.asaas_customer_id,
+        hasPendingUpgrade,
       },
     };
   } catch (error) {

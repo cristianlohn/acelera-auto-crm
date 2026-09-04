@@ -242,9 +242,9 @@ export async function getAsaasSubscriptionInvoices(
 
   try {
     const { apiUrl, apiKey } = getAsaasConfig();
-    const url = subscriptionId
-      ? `${apiUrl}/subscriptions/${subscriptionId}/payments?limit=15`
-      : `${apiUrl}/payments?customer=${customerId}&limit=15`;
+    const url = customerId
+      ? `${apiUrl}/payments?customer=${customerId}&limit=20`
+      : `${apiUrl}/subscriptions/${subscriptionId}/payments?limit=20`;
 
     const res = await fetch(url, {
       method: "GET",
@@ -605,7 +605,11 @@ export async function createAsaasSubscription(
       nextDueDate,
       cycle: asaasCycle,
       description,
-      externalReference: params.organizationId,
+      externalReference: JSON.stringify({
+        orgId: params.organizationId,
+        plan: plan.id,
+        cycle: asaasCycle,
+      }),
     };
 
     const subRes = await fetch(`${apiUrl}/subscriptions`, {
@@ -659,22 +663,20 @@ export async function createAsaasSubscription(
       throw new Error("Não foi possível obter a URL da fatura gerada no Asaas");
     }
 
-    // 4. Atualiza a organização no banco de dados com status 'pending' (NUNCA 'active')
-    if (isSupabaseServerConfigured()) {
+    // 4. Salva apenas asaas_customer_id no Supabase caso a organização ainda não o possua.
+    // NUNCA altera plan, subscription_status ou current_period_end antes da confirmação do webhook!
+    if (isSupabaseServerConfigured() && params.organizationId && customerId) {
       try {
         const supabaseAdmin = createAdminClient();
         await supabaseAdmin
           .from("organizations")
           .update({
             asaas_customer_id: customerId,
-            asaas_subscription_id: subscriptionId,
-            plan: plan.id,
-            subscription_status: "pending",
             updated_at: new Date().toISOString(),
           })
           .eq("id", params.organizationId);
       } catch (dbErr) {
-        console.warn("[Asaas Subscription] Falha ao registrar assinatura no banco:", dbErr);
+        console.warn("[Asaas Subscription] Falha ao registrar asaas_customer_id no banco:", dbErr);
       }
     }
 

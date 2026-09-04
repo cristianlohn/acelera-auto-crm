@@ -263,13 +263,21 @@ describe("[UNIT-BILLING-MANAGEMENT] Governança RBAC e Cockpit de Assinatura", (
   });
 
   describe("4. Componente SubscriptionInvoicesTable", () => {
-    it("[TEST-BILL-INV-1] deve renderizar tabela de faturas com dados formatados e botão de comprovante", () => {
+    it("[TEST-BILL-INV-1] deve renderizar tabela com faturas pagas (R$ 5.970) e pendentes de upgrade (R$ 1.297)", () => {
       const mockInvoices: SubscriptionInvoice[] = [
         {
-          id: "inv-1",
-          dueDate: "2026-09-15",
-          paymentDate: "2026-09-15",
-          value: 597,
+          id: "inv-pending-1",
+          dueDate: "2026-09-05",
+          value: 1297,
+          billingType: "PIX",
+          status: "PENDING",
+          invoiceUrl: "https://sandbox.asaas.com/i/upg1297",
+        },
+        {
+          id: "inv-paid-1",
+          dueDate: "2026-09-04",
+          paymentDate: "2026-09-04",
+          value: 5970,
           billingType: "CREDIT_CARD",
           status: "RECEIVED",
           receiptUrl: "https://asaas.com/recibo/1",
@@ -279,11 +287,13 @@ describe("[UNIT-BILLING-MANAGEMENT] Governança RBAC e Cockpit de Assinatura", (
       render(<SubscriptionInvoicesTable initialInvoices={mockInvoices} />);
 
       expect(screen.getByText("Histórico de Faturas & Pagamentos")).toBeInTheDocument();
-      expect(screen.getByText("15/09/2026")).toBeInTheDocument();
-      expect(screen.getByText(/r\$\s*597,00/i)).toBeInTheDocument();
-      expect(screen.getByText("Cartão")).toBeInTheDocument();
+      expect(screen.getByText("05/09/2026")).toBeInTheDocument();
+      expect(screen.getByText(/1\.297,00/)).toBeInTheDocument();
+      expect(screen.getByText("Pendente")).toBeInTheDocument();
+      expect(screen.getByText("04/09/2026")).toBeInTheDocument();
+      expect(screen.getByText(/5\.970,00/)).toBeInTheDocument();
       expect(screen.getByText("Pago")).toBeInTheDocument();
-      expect(screen.getByText(/pdf \/ recibo/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/pdf \/ recibo/i).length).toBe(2);
     });
 
     it("[TEST-BILL-INV-2] deve exibir empty state amigável quando não houver faturas registradas", () => {
@@ -402,6 +412,72 @@ describe("[UNIT-BILLING-MANAGEMENT] Governança RBAC e Cockpit de Assinatura", (
         expect(screen.getByText(/escolha o plano ideal para a sua concessionária/i)).toBeInTheDocument();
         expect(screen.getByTestId("subscribe-pro-btn")).toBeInTheDocument();
       });
+    });
+
+    it("[TEST-BILL-COND-4] deve exibir alerta destacado de alteração de plano pendente mantendo assinatura vigente e faturas pagas + pendentes", async () => {
+      vi.spyOn(billingActions, "getSubscriptionOverviewAction").mockResolvedValue({
+        success: true,
+        data: {
+          planId: "pro",
+          planName: "Plano Pro",
+          status: "active",
+          billingCycle: "anual",
+          price: 5970,
+          nextDueDate: "2027-09-04T23:59:59.999Z",
+          daysRemaining: 365,
+          hasPendingUpgrade: true,
+        },
+      });
+
+      vi.spyOn(billingActions, "getSubscriptionInvoicesAction").mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "pay_pending_upgrade",
+            dueDate: "2026-09-05",
+            value: 1297,
+            billingType: "PIX",
+            status: "PENDING",
+            invoiceUrl: "https://sandbox.asaas.com/i/upgrade1297",
+          },
+          {
+            id: "pay_active_annual",
+            dueDate: "2026-09-04",
+            paymentDate: "2026-09-04",
+            value: 5970,
+            billingType: "PIX",
+            status: "RECEIVED",
+            receiptUrl: "https://sandbox.asaas.com/comprovante/annual5970",
+          },
+        ],
+      });
+
+      vi.spyOn(billingActions, "getBillingInitialDataAction").mockResolvedValue({
+        success: true,
+        data: {
+          name: "Auto Prime Motors",
+          email: "financeiro@autoprime.com.br",
+          phone: "11988887777",
+          document: "12.345.678/0001-90",
+          documentType: "CNPJ",
+        },
+      });
+
+      render(<BillingPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("billing-pending-upgrade-alert")).toBeInTheDocument();
+      });
+
+      expect(
+        screen.getByText(/você possui uma solicitação de alteração de plano pendente de pagamento/i)
+      ).toBeInTheDocument();
+
+      // Assinatura vigente preservada (Plano Pro Anual R$ 5.970 renovando em 2027)
+      expect(screen.getByText("Plano Pro")).toBeInTheDocument();
+      expect(screen.getByText("Cobrança Anual (Economia Aplicada)")).toBeInTheDocument();
+      expect(screen.getByText("04/09/2027")).toBeInTheDocument();
+      expect(screen.getByTestId("subscription-invoices-table")).toBeInTheDocument();
     });
   });
 });

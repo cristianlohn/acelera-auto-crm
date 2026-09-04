@@ -178,6 +178,95 @@ export function resetProcessedEventsCache(): void {
   processedEventIds.clear();
 }
 
+export interface ExternalReferenceData {
+  orgId: string;
+  plan?: "starter" | "pro" | "enterprise";
+  cycle?: "MONTHLY" | "YEARLY" | string;
+}
+
+/**
+ * Faz o parse seguro do externalReference recebido do Asaas,
+ * suportando JSON estruturado ({ orgId, plan, cycle }), delimitador por ':' ou ID simples.
+ */
+export function parseExternalReference(rawRef?: string | null): ExternalReferenceData | null {
+  if (!rawRef || !rawRef.trim()) return null;
+  const trimmed = rawRef.trim();
+
+  // 1. Tenta parsear JSON estruturado
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && (parsed.orgId || parsed.organizationId || parsed.id)) {
+        return {
+          orgId: parsed.orgId || parsed.organizationId || parsed.id,
+          plan: parsed.plan?.toLowerCase() as "starter" | "pro" | "enterprise",
+          cycle: parsed.cycle?.toUpperCase(),
+        };
+      }
+    } catch {
+      // continua para outros formatos
+    }
+  }
+
+  // 2. Formato delimitado por dois pontos (ex: org-123:pro:YEARLY)
+  if (trimmed.includes(":")) {
+    const parts = trimmed.split(":");
+    if (parts.length >= 2) {
+      return {
+        orgId: parts[0],
+        plan: parts[1]?.toLowerCase() as "starter" | "pro" | "enterprise",
+        cycle: parts[2]?.toUpperCase(),
+      };
+    }
+  }
+
+  // 3. ID direto da organização
+  return {
+    orgId: trimmed,
+  };
+}
+
+export const PLAN_LIMITS_CONFIG = {
+  starter: { maxSellers: 3, name: "Plano Starter" },
+  pro: { maxSellers: 8, name: "Plano Pro" },
+  enterprise: { maxSellers: 999, name: "Plano Enterprise" },
+} as const;
+
+/**
+ * Identifica o plano correto a partir do externalReference, descrição ou valor da cobrança.
+ */
+export function resolvePlanFromData(
+  parsedRefPlan?: string | null,
+  description?: string | null,
+  paymentValue?: number | null
+): "starter" | "pro" | "enterprise" {
+  if (parsedRefPlan && (parsedRefPlan === "starter" || parsedRefPlan === "pro" || parsedRefPlan === "enterprise")) {
+    return parsedRefPlan;
+  }
+
+  const descUpper = (description || "").toUpperCase();
+  if (descUpper.includes("ENTERPRISE")) {
+    return "enterprise";
+  }
+  if (descUpper.includes("STARTER")) {
+    return "starter";
+  }
+  if (descUpper.includes("PRO")) {
+    return "pro";
+  }
+
+  if (paymentValue) {
+    if (paymentValue >= 12000 || (paymentValue >= 1200 && paymentValue < 2000)) {
+      return "enterprise";
+    }
+    if (paymentValue <= 350 || (paymentValue >= 2500 && paymentValue <= 3500)) {
+      return "starter";
+    }
+  }
+
+  return "pro";
+}
+
 /**
  * Localiza a organização no banco de dados a partir dos dados recebidos do Asaas.
  */
@@ -186,9 +275,12 @@ export async function findOrganizationByAsaasData(
   customerId?: string,
   subscriptionId?: string
 ): Promise<{ id: string; name: string; billing_cycle?: string } | null> {
+  const parsedRef = parseExternalReference(externalRef);
+  const orgIdCandidate = parsedRef?.orgId || externalRef;
+
   if (!isSupabaseServerConfigured()) {
     // Retorna mock para ambiente sem Supabase configurado
-    if (externalRef) return { id: externalRef, name: "Concessionária Local" };
+    if (orgIdCandidate) return { id: orgIdCandidate, name: "Concessionária Local" };
     if (customerId) return { id: "org-001", name: "Concessionária Local" };
     return null;
   }
@@ -196,12 +288,12 @@ export async function findOrganizationByAsaasData(
   try {
     const supabaseAdmin = createAdminClient();
 
-    // 1. Busca por externalReference (ID direto da organização)
-    if (externalRef) {
+    // 1. Busca por externalReference (ID direto ou extraído do JSON)
+    if (orgIdCandidate) {
       const { data } = await supabaseAdmin
         .from("organizations")
         .select("id, name")
-        .eq("id", externalRef)
+        .eq("id", orgIdCandidate)
         .maybeSingle();
 
       if (data) return data;
@@ -261,25 +353,28 @@ export async function processAsaasWebhookEvent(
   const customerId = payment?.customer || subscription?.customer;
   const subscriptionId = payment?.subscription || subscription?.id;
 
+  const parsedRef = parseExternalReference(externalRef);
+  const targetIdFromRef = parsedRef?.orgId || externalRef;
+
   // 1.1 Proteção do Modo Demonstração: Não altera bancos de dados reais
   if (
-    externalRef === DEFAULT_DEMO_ORG_ID ||
-    externalRef === "00000000-0000-0000-0000-000000000001" ||
-    externalRef?.startsWith("demo") ||
-    externalRef === "demo" ||
+    targetIdFromRef === DEFAULT_DEMO_ORG_ID ||
+    targetIdFromRef === "00000000-0000-0000-0000-000000000001" ||
+    targetIdFromRef?.startsWith("demo") ||
+    targetIdFromRef === "demo" ||
     customerId?.startsWith("demo")
   ) {
     markEventAsProcessed(eventKey);
     return {
       success: true,
       event,
-      organizationId: externalRef || DEFAULT_DEMO_ORG_ID,
+      organizationId: targetIdFromRef || DEFAULT_DEMO_ORG_ID,
       actionTaken: "demo_simulation_acknowledged",
     };
   }
 
   const org = await findOrganizationByAsaasData(externalRef, customerId, subscriptionId);
-  const targetOrgId = isSupabaseServerConfigured() ? org?.id : (org?.id || externalRef);
+  const targetOrgId = isSupabaseServerConfigured() ? org?.id : (org?.id || targetIdFromRef);
 
   if (!targetOrgId) {
     markEventAsProcessed(eventKey);
@@ -298,13 +393,22 @@ export async function processAsaasWebhookEvent(
     case "PAYMENT_RECEIVED": {
       actionTaken = "payment_confirmed_subscription_activated";
 
-      // 1. Identifica o Ciclo do Plano (Anual vs Mensal)
+      // 1. Identifica o Plano com 100% de Precisão
+      const targetPlan = resolvePlanFromData(
+        parsedRef?.plan,
+        payment?.description || subscription?.description,
+        payment?.value
+      );
+      const maxSellers = PLAN_LIMITS_CONFIG[targetPlan].maxSellers;
+
+      // 2. Identifica o Ciclo do Plano (Anual vs Mensal)
       let planCycle =
+        parsedRef?.cycle ||
         subscription?.cycle ||
         payment?.cycle ||
         "MONTHLY";
 
-      const description = ((payment?.description || "") as string).toUpperCase();
+      const description = ((payment?.description || subscription?.description || "") as string).toUpperCase();
       if (
         description.includes("ANUAL") ||
         description.includes("YEARLY") ||
@@ -324,17 +428,18 @@ export async function processAsaasWebhookEvent(
         planCycle = "YEARLY";
       }
 
-      // 2. Calcula a data de fim de período (+1 ano para anual, +1 mês para mensal, final do dia)
+      // 3. Calcula a data de fim de período (+1 ano para anual, +1 mês para mensal, final do dia)
       const currentPeriodEnd = calculatePeriodEndDate(planCycle);
 
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
           const supabaseAdmin = createAdminClient();
           const updatePayload: OrganizationUpdate = {
-            plan: "pro",
+            plan: targetPlan,
             subscription_status: "active",
             trial_ends_at: null,
             current_period_end: currentPeriodEnd,
+            max_sellers: maxSellers,
             updated_at: new Date().toISOString(),
           };
 
@@ -351,10 +456,10 @@ export async function processAsaasWebhookEvent(
             .eq("id", targetOrgId);
 
           if (updateError) {
-            console.error("[Asaas Webhook] Erro ao atualizar organização para 'active' e 'pro':", updateError);
+            console.error(`[Asaas Webhook] Erro ao atualizar organização para 'active' e '${targetPlan}':`, updateError);
           } else {
             console.log(
-              `[Asaas Webhook] Organização ${targetOrgId} ativada com sucesso: plan='pro', subscription_status='active', current_period_end='${currentPeriodEnd}' (ciclo: ${planCycle})`
+              `[Asaas Webhook] Organização ${targetOrgId} ativada com sucesso: plan='${targetPlan}', max_sellers=${maxSellers}, subscription_status='active', current_period_end='${currentPeriodEnd}' (ciclo: ${planCycle})`
             );
           }
         } catch (err) {
@@ -416,6 +521,13 @@ export async function processAsaasWebhookEvent(
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
           const supabaseAdmin = createAdminClient();
+          const targetPlan = resolvePlanFromData(
+            parsedRef?.plan,
+            subscription?.description || payment?.description,
+            subscription?.value || payment?.value
+          );
+          const maxSellers = PLAN_LIMITS_CONFIG[targetPlan].maxSellers;
+
           const updatePayload: OrganizationUpdate = {
             subscription_status: isActive ? "active" : "inactive",
             current_period_end: periodEnd,
@@ -426,7 +538,8 @@ export async function processAsaasWebhookEvent(
           if (subscriptionId) updatePayload.asaas_subscription_id = subscriptionId;
 
           if (isActive) {
-            updatePayload.plan = "pro";
+            updatePayload.plan = targetPlan;
+            updatePayload.max_sellers = maxSellers;
             updatePayload.trial_ends_at = null;
           }
 

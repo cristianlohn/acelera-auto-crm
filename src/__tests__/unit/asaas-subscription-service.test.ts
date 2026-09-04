@@ -84,7 +84,7 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
     );
   });
 
-  it("[TEST-ASAAS-SUB-3] deve criar Subscription com UNDEFINED billingType e salvar como 'pending' no Supabase", async () => {
+  it("[TEST-ASAAS-SUB-3] deve criar Subscription com UNDEFINED billingType, externalReference estruturado e NÃO alterar plano/status antes do webhook", async () => {
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
     const mockUpdate = vi.fn().mockReturnValue({
@@ -101,6 +101,8 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
       mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
     );
 
+    let capturedSubscriptionPayload: { externalReference?: string; billingType?: string } | null = null;
+
     const mockFetch = vi.fn().mockImplementation((url: string, options?: RequestInit) => {
       if (url.includes("/customers")) {
         return Promise.resolve({
@@ -110,6 +112,7 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
       }
 
       if (url.endsWith("/subscriptions") && options?.method === "POST") {
+        capturedSubscriptionPayload = JSON.parse((options?.body as string) || "{}");
         return Promise.resolve({
           ok: true,
           json: async () => ({
@@ -153,13 +156,21 @@ describe("[UNIT-ASAAS-SUBSCRIPTION] Criação de Assinaturas & Clientes Asaas", 
     expect(result.subscriptionId).toBe("sub_asaas_789");
     expect(result.checkoutUrl).toBe("https://sandbox.asaas.com/i/pay_sub_001");
 
-    // Valida que o Supabase foi atualizado com 'pending' e NUNCA 'active' antes do webhook
+    // Valida externalReference estruturado com { orgId, plan, cycle }
+    const subPayload = capturedSubscriptionPayload as { externalReference?: string } | null;
+    expect(subPayload?.externalReference).toBe(
+      JSON.stringify({ orgId: "org-sub-789", plan: "pro", cycle: "MONTHLY" })
+    );
+
+    // Valida que o Supabase registrou apenas o customer_id e NUNCA sobrescreveu o plano ou status antes do webhook
     expect(mockAdminSupabase.from).toHaveBeenCalledWith("organizations");
     expect(mockUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         asaas_customer_id: "cus_sub_789",
-        asaas_subscription_id: "sub_asaas_789",
-        plan: "pro",
+      })
+    );
+    expect(mockUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({
         subscription_status: "pending",
       })
     );

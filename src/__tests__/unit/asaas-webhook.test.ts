@@ -143,11 +143,16 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
             id: "pay_987654",
             customer: "cus_000001",
             subscription: "sub_000001",
-            value: 297.0,
+            value: 597.0,
             billingType: "PIX",
             status: "CONFIRMED",
             dueDate: "2026-09-27",
-            externalReference: "org-loja-prime-001",
+            description: "Assinatura Plano Pro (Mensal)",
+            externalReference: JSON.stringify({
+              orgId: "org-loja-prime-001",
+              plan: "pro",
+              cycle: "MONTHLY",
+            }),
           },
         }),
       });
@@ -165,9 +170,72 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
         expect.objectContaining({
           subscription_status: "active",
           plan: "pro",
+          max_sellers: 8,
           trial_ends_at: null,
           asaas_customer_id: "cus_000001",
           asaas_subscription_id: "sub_000001",
+        })
+      );
+    });
+
+    it("deve processar PAYMENT_CONFIRMED de upgrade para Enterprise e persistir max_sellers: 999", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+
+      const mockAdminSupabase = {
+        from: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: "org-loja-prime-001", name: "Loja Prime" },
+              }),
+            }),
+          }),
+          update: mockUpdate,
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const request = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": VALID_TOKEN,
+        },
+        body: JSON.stringify({
+          id: "evt_pay_conf_enterprise",
+          event: "PAYMENT_CONFIRMED",
+          payment: {
+            id: "pay_ent_123",
+            customer: "cus_000001",
+            subscription: "sub_ent_123",
+            value: 12970.0,
+            billingType: "PIX",
+            status: "CONFIRMED",
+            description: "Assinatura Plano Enterprise (Anual)",
+            externalReference: JSON.stringify({
+              orgId: "org-loja-prime-001",
+              plan: "enterprise",
+              cycle: "YEARLY",
+            }),
+          },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subscription_status: "active",
+          plan: "enterprise",
+          max_sellers: 999,
         })
       );
     });
