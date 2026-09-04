@@ -50,6 +50,32 @@ export async function matchVehicleInInventory(
   try {
     const supabase = createAdminClient();
 
+    // 0. Busca por ID direto do veículo / Anúncio (se fornecido)
+    if (hint.adId) {
+      try {
+        const { data: byId } = await supabase
+          .from("vehicles")
+          .select("*")
+          .eq("organization_id", organizationId)
+          .eq("id", hint.adId)
+          .limit(1)
+          .maybeSingle();
+
+        if (byId) {
+          const raw = byId as Record<string, unknown>;
+          const price = Number(raw.price ?? raw.sale_price ?? raw.selling_price ?? raw.preco ?? raw.valor ?? 0);
+          return {
+            id: String(raw.id),
+            brand: String(raw.make || raw.brand || ""),
+            model: String(raw.model || ""),
+            version: raw.version ? String(raw.version) : null,
+            price: isNaN(price) ? 0 : price,
+            year: Number(raw.year_model || raw.year_fab || raw.year || 0) || undefined,
+          };
+        }
+      } catch {}
+    }
+
     // 1. Busca por placa (se houver)
     if (hint.plate) {
       const cleanPlate = hint.plate.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
@@ -57,7 +83,7 @@ export async function matchVehicleInInventory(
         const plateDigits = cleanPlate.slice(-3);
         const { data: byPlate } = await supabase
           .from("vehicles")
-          .select("id, make, model, version, price, year_model, year_fab")
+          .select("*")
           .eq("organization_id", organizationId)
           .ilike("plate_last_digits", `%${plateDigits}%`)
           .limit(1)
@@ -88,7 +114,7 @@ export async function matchVehicleInInventory(
       if (firstTerm.length >= 2) {
         const { data: byModel } = await supabase
           .from("vehicles")
-          .select("id, make, model, version, price, year_model, year_fab")
+          .select("*")
           .eq("organization_id", organizationId)
           .ilike("model", `%${firstTerm}%`)
           .limit(1)
@@ -111,7 +137,7 @@ export async function matchVehicleInInventory(
       // 2.2 Fallback com normalização em memória sobre o estoque da organização
       const { data: allVehicles } = await supabase
         .from("vehicles")
-        .select("id, make, model, version, price, year_model, year_fab")
+        .select("*")
         .eq("organization_id", organizationId)
         .limit(100);
 

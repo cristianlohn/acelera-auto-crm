@@ -54,7 +54,11 @@ vi.mock("@/lib/supabase/admin", () => ({
         }),
         maybeSingle: vi.fn().mockImplementation(async () => {
           if (table === "vehicles") {
+            const filters = builder._filters as Record<string, unknown>;
             const match = mockVehicleList.find((v) => {
+              if (filters.id && v.id !== filters.id) {
+                return false;
+              }
               const ilikeInfo = builder._ilike as { col: string; pattern: string } | null;
               if (ilikeInfo) {
                 const val = String(v[ilikeInfo.col] || "").toLowerCase();
@@ -237,6 +241,27 @@ describe("[UNIT-LEAD-INGESTION] Parsers de Portais, Match de Estoque e Ingestão
       expect(matched?.id).toBe("v-ka-3");
       expect(matched?.model).toBe("Ka SE");
       expect(matched?.brand).toBe("Ford");
+    });
+
+    it("[TEST-MATCH-5] deve localizar veículo diretamente por adId e sanitizar colunas alternativas de preço (sale_price / preco)", async () => {
+      mockVehicleList = [
+        {
+          id: "AD-9921",
+          brand: "Toyota",
+          model: "Corolla Altis",
+          version: "Hybrid",
+          sale_price: 175000,
+          year: 2024,
+        },
+      ];
+
+      const matched = await matchVehicleInInventory("org-loja-001", { adId: "AD-9921" });
+      expect(matched).not.toBeNull();
+      expect(matched?.id).toBe("AD-9921");
+      expect(matched?.brand).toBe("Toyota");
+      expect(matched?.model).toBe("Corolla Altis");
+      expect(matched?.price).toBe(175000);
+      expect(matched?.year).toBe(2024);
     });
   });
 
