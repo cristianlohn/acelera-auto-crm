@@ -113,27 +113,59 @@ function getAsaasConfig(): { apiUrl: string; apiKey: string } {
 }
 
 /**
- * Ancola o término do ciclo atual (current_period_end) no final do dia de vencimento oficial da fatura.
- * Garante que pagamentos antecipados não roubem dias de vigência do cliente.
+ * Calcula a data de término de vigência do plano (current_period_end) com base no ciclo contratado:
+ * - Ciclo Anual (ANNUAL / YEARLY / ANUAL): +12 meses (+1 ano).
+ * - Ciclo Mensal (MONTHLY / MENSAL / Padrão): +1 mês (+30 dias).
  *
- * @param dueDateStr Data de vencimento no formato "YYYY-MM-DD" ou ISO string.
- * @returns Data ISO correspondente ao final do dia UTC (YYYY-MM-DDT23:59:59.999Z).
+ * @param planCycle Ciclo contratado ("ANNUAL" | "YEARLY" | "MONTHLY" | string)
+ * @param baseDate Data base para cálculo (padrão: data atual)
+ * @returns Data ISO correspondente ao final do dia (YYYY-MM-DDT23:59:59.999Z).
  */
-export function resolvePeriodEndDate(dueDateStr?: string): string {
-  if (!dueDateStr) {
-    // Fallback apenas se o gateway não enviar dueDate (+30 dias)
-    const fallbackDate = new Date();
-    fallbackDate.setDate(fallbackDate.getDate() + 30);
-    return fallbackDate.toISOString();
+export function calculatePeriodEndDate(
+  planCycle?: string | null,
+  baseDate: Date = new Date()
+): string {
+  const periodEnd = new Date(baseDate);
+  const cycleUpper = (planCycle || "").toUpperCase().trim();
+
+  if (cycleUpper === "ANNUAL" || cycleUpper === "YEARLY" || cycleUpper === "ANUAL") {
+    periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+  } else {
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
   }
 
-  const datePart = dueDateStr.includes("T") ? dueDateStr.split("T")[0] : dueDateStr;
+  periodEnd.setHours(23, 59, 59, 999);
+  return periodEnd.toISOString();
+}
+
+/**
+ * Ancola ou calcula o término do ciclo atual (current_period_end).
+ * Se um ciclo for informado, calcula a vigência (+30 dias mensal, +1 ano anual).
+ * Se uma data dueDate específica for informada no formato YYYY-MM-DD, ancora no final do dia UTC.
+ *
+ * @param dueDateOrCycle Data de vencimento "YYYY-MM-DD" ou identificador de ciclo.
+ * @param planCycle Identificador explícito de ciclo ("ANNUAL" | "YEARLY" | "MONTHLY").
+ * @returns Data ISO formatada.
+ */
+export function resolvePeriodEndDate(dueDateOrCycle?: string, planCycle?: string): string {
+  if (planCycle) {
+    return calculatePeriodEndDate(planCycle);
+  }
+
+  if (!dueDateOrCycle) {
+    return calculatePeriodEndDate("MONTHLY");
+  }
+
+  const upper = dueDateOrCycle.toUpperCase().trim();
+  if (upper === "ANNUAL" || upper === "YEARLY" || upper === "MONTHLY" || upper === "MENSAL" || upper === "ANUAL") {
+    return calculatePeriodEndDate(upper);
+  }
+
+  const datePart = dueDateOrCycle.includes("T") ? dueDateOrCycle.split("T")[0] : dueDateOrCycle;
   const [year, month, day] = datePart.split("-").map(Number);
 
   if (!year || !month || !day || isNaN(year) || isNaN(month) || isNaN(day)) {
-    const fallbackDate = new Date();
-    fallbackDate.setDate(fallbackDate.getDate() + 30);
-    return fallbackDate.toISOString();
+    return calculatePeriodEndDate("MONTHLY");
   }
 
   // Ancoragem: final do dia do vencimento oficial UTC

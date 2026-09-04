@@ -10,44 +10,61 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { resolvePeriodEndDate } from "@/lib/services/asaas/subscription-service";
+import {
+  calculatePeriodEndDate,
+  resolvePeriodEndDate,
+} from "@/lib/services/asaas/subscription-service";
 import { processAsaasWebhookEvent } from "@/lib/services/asaas/webhook-service";
 import * as supabaseServerModule from "@/lib/supabase/server";
 import * as supabaseAdminModule from "@/lib/supabase/admin";
 
-describe("[UNIT-ASAAS-DATES] Ancoragem de Ciclo e Vigência de Faturamento", () => {
+describe("[UNIT-ASAAS-DATES] Cálculo de Vigência e Ciclo de Faturamento (current_period_end)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("[TEST-DATE-1] deve ancorar current_period_end exatamente em 2026-10-15T23:59:59.999Z para dueDate '2026-10-15'", () => {
-    // Act
-    const periodEnd = resolvePeriodEndDate("2026-10-15");
+  it("[TEST-DATE-1] deve calcular current_period_end de +1 mês (final do dia) para ciclo mensal", () => {
+    const fixedBaseDate = new Date("2026-09-04T12:00:00.000Z");
+    const periodEnd = calculatePeriodEndDate("MONTHLY", fixedBaseDate);
 
-    // Assert: Independente da data atual da máquina, deve ser o final do dia UTC
-    expect(periodEnd).toBe("2026-10-15T23:59:59.999Z");
+    const resultDate = new Date(periodEnd);
+    expect(resultDate.getFullYear()).toBe(2026);
+    expect(resultDate.getMonth()).toBe(9); // Outubro (0-indexed: 9)
+    expect(resultDate.getDate()).toBe(4);
+    expect(resultDate.getHours()).toBe(23);
+    expect(resultDate.getMinutes()).toBe(59);
+    expect(resultDate.getSeconds()).toBe(59);
+    expect(resultDate.getMilliseconds()).toBe(999);
   });
 
-  it("[TEST-DATE-2] deve manter dias do ciclo anterior em pagamento antecipado sem subtrair vigência", () => {
-    // Simula cliente pagando antecipadamente no início do mês uma fatura que vence no fim
-    const paymentDueDate = "2026-11-20";
-    const periodEnd = resolvePeriodEndDate(paymentDueDate);
+  it("[TEST-DATE-2] deve calcular current_period_end de +1 ano (final do dia) para ciclo anual/yearly", () => {
+    const fixedBaseDate = new Date("2026-09-04T12:00:00.000Z");
+    const periodEndAnnual = calculatePeriodEndDate("ANNUAL", fixedBaseDate);
+    const periodEndYearly = calculatePeriodEndDate("YEARLY", fixedBaseDate);
 
-    expect(periodEnd).toBe("2026-11-20T23:59:59.999Z");
+    const resultDateAnnual = new Date(periodEndAnnual);
+    const resultDateYearly = new Date(periodEndYearly);
+
+    expect(resultDateAnnual.getFullYear()).toBe(2027);
+    expect(resultDateAnnual.getMonth()).toBe(8); // Setembro
+    expect(resultDateAnnual.getDate()).toBe(4);
+    expect(resultDateAnnual.getHours()).toBe(23);
+    expect(resultDateAnnual.getMinutes()).toBe(59);
+
+    expect(resultDateYearly.getFullYear()).toBe(2027);
+    expect(resultDateYearly.getMonth()).toBe(8);
   });
 
-  it("[TEST-DATE-3] deve utilizar fallback de 30 dias caso dueDate seja nulo ou indefinido", () => {
-    const before = Date.now();
-    const periodEnd = resolvePeriodEndDate(undefined);
+  it("[TEST-DATE-3] resolvePeriodEndDate com ciclo deve retornar vigência futura correta", () => {
+    const fixedBaseDate = new Date();
+    const periodEnd = resolvePeriodEndDate(undefined, "ANNUAL");
+    const dateObj = new Date(periodEnd);
 
-    const periodEndTime = new Date(periodEnd).getTime();
-    const expectedApproxTime = before + 30 * 24 * 60 * 60 * 1000;
-
-    // Diferença máxima de 2 segundos devido à execução
-    expect(Math.abs(periodEndTime - expectedApproxTime)).toBeLessThan(2000);
+    // Deve ser no próximo ano
+    expect(dateObj.getFullYear()).toBe(fixedBaseDate.getFullYear() + 1);
   });
 
-  it("[TEST-DATE-4] deve persistir current_period_end ancorado no dueDate ao processar PAYMENT_CONFIRMED", async () => {
+  it("[TEST-DATE-4] deve persistir current_period_end de +1 mês ao processar PAYMENT_CONFIRMED mensal", async () => {
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
     const mockUpdate = vi.fn().mockReturnValue({
@@ -81,7 +98,7 @@ describe("[UNIT-ASAAS-DATES] Ancoragem de Ciclo e Vigência de Faturamento", () 
         value: 597.0,
         billingType: "PIX" as const,
         status: "CONFIRMED" as const,
-        dueDate: "2026-10-15",
+        dueDate: "2026-09-05", // Data de vencimento do boleto/pix (24h)
         externalReference: "org-loja-prime-001",
       },
     };
@@ -97,10 +114,74 @@ describe("[UNIT-ASAAS-DATES] Ancoragem de Ciclo e Vigência de Faturamento", () 
         plan: "pro",
         subscription_status: "active",
         trial_ends_at: null,
-        current_period_end: "2026-10-15T23:59:59.999Z",
         asaas_customer_id: "cus_date_001",
         asaas_subscription_id: "sub_date_001",
       })
     );
+
+    // Validar que current_period_end é futuro (> 25 dias a partir de agora), e NÃO a dueDate (2026-09-05)
+    const passedUpdate = mockUpdate.mock.calls[0][0];
+    const periodEndTime = new Date(passedUpdate.current_period_end).getTime();
+    const daysDiff = (periodEndTime - Date.now()) / (1000 * 60 * 60 * 24);
+
+    expect(daysDiff).toBeGreaterThan(25);
+    expect(daysDiff).toBeLessThan(35);
+  });
+
+  it("[TEST-DATE-5] deve persistir current_period_end de +1 ano ao processar PAYMENT_CONFIRMED com ciclo anual", async () => {
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    const mockAdminSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: "org-loja-anual-001", name: "Loja Anual" },
+            }),
+          }),
+        }),
+        update: mockUpdate,
+      }),
+    };
+
+    vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+      mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+    );
+
+    const webhookPayload = {
+      id: "evt_date_test_002",
+      event: "PAYMENT_CONFIRMED" as const,
+      payment: {
+        id: "pay_test_002",
+        customer: "cus_date_002",
+        subscription: "sub_date_002",
+        value: 5970.0,
+        billingType: "PIX" as const,
+        status: "CONFIRMED" as const,
+        dueDate: "2026-09-05",
+        externalReference: "org-loja-anual-001",
+      },
+      subscription: {
+        id: "sub_date_002",
+        cycle: "ANNUALLY" as const,
+      },
+    };
+
+    const result = await processAsaasWebhookEvent(webhookPayload);
+
+    expect(result.success).toBe(true);
+    expect(result.actionTaken).toBe("payment_confirmed_subscription_activated");
+
+    const passedUpdate = mockUpdate.mock.calls[0][0];
+    const periodEndTime = new Date(passedUpdate.current_period_end).getTime();
+    const daysDiff = (periodEndTime - Date.now()) / (1000 * 60 * 60 * 24);
+
+    // Deve ser de aproximadamente 365 dias
+    expect(daysDiff).toBeGreaterThan(350);
+    expect(daysDiff).toBeLessThan(370);
   });
 });

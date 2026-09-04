@@ -8,9 +8,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import type { Database } from "@/types/database.types";
-import { resolvePeriodEndDate } from "./subscription-service";
+import { resolvePeriodEndDate, calculatePeriodEndDate } from "./subscription-service";
 
-export { resolvePeriodEndDate };
+export { resolvePeriodEndDate, calculatePeriodEndDate };
 
 type OrganizationUpdate = Database["public"]["Tables"]["organizations"]["Update"];
 
@@ -70,6 +70,7 @@ export interface AsaasPayment {
   creditDate?: string;
   estimatedCreditDate?: string;
   externalReference?: string;
+  cycle?: "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "BIMONTHLY" | "QUARTERLY" | "SEMIANNUALLY" | "ANNUALLY" | string;
 }
 
 export interface AsaasSubscription {
@@ -184,7 +185,7 @@ export async function findOrganizationByAsaasData(
   externalRef?: string,
   customerId?: string,
   subscriptionId?: string
-): Promise<{ id: string; name: string } | null> {
+): Promise<{ id: string; name: string; billing_cycle?: string } | null> {
   if (!isSupabaseServerConfigured()) {
     // Retorna mock para ambiente sem Supabase configurado
     if (externalRef) return { id: externalRef, name: "Concessionária Local" };
@@ -297,8 +298,34 @@ export async function processAsaasWebhookEvent(
     case "PAYMENT_RECEIVED": {
       actionTaken = "payment_confirmed_subscription_activated";
 
-      const dueDate = payment?.dueDate || subscription?.nextDueDate;
-      const currentPeriodEnd = resolvePeriodEndDate(dueDate);
+      // 1. Identifica o Ciclo do Plano (Anual vs Mensal)
+      let planCycle =
+        subscription?.cycle ||
+        payment?.cycle ||
+        "MONTHLY";
+
+      const description = ((payment?.description || "") as string).toUpperCase();
+      if (
+        description.includes("ANUAL") ||
+        description.includes("YEARLY") ||
+        description.includes("ANNUAL")
+      ) {
+        planCycle = "YEARLY";
+      }
+
+      if (payment?.value && payment.value > 1500) {
+        planCycle = "YEARLY";
+      }
+
+      if (
+        org?.billing_cycle === "YEARLY" ||
+        org?.billing_cycle === "ANNUAL"
+      ) {
+        planCycle = "YEARLY";
+      }
+
+      // 2. Calcula a data de fim de período (+1 ano para anual, +1 mês para mensal, final do dia)
+      const currentPeriodEnd = calculatePeriodEndDate(planCycle);
 
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
@@ -327,7 +354,7 @@ export async function processAsaasWebhookEvent(
             console.error("[Asaas Webhook] Erro ao atualizar organização para 'active' e 'pro':", updateError);
           } else {
             console.log(
-              `[Asaas Webhook] Organização ${targetOrgId} ativada com sucesso: plan='pro', subscription_status='active'`
+              `[Asaas Webhook] Organização ${targetOrgId} ativada com sucesso: plan='pro', subscription_status='active', current_period_end='${currentPeriodEnd}' (ciclo: ${planCycle})`
             );
           }
         } catch (err) {
