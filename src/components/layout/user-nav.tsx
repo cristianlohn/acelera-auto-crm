@@ -22,6 +22,7 @@ import {
 } from "@/app/actions/auth";
 import { isSuperAdmin, normalizeRole } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { cn } from "@/lib/utils";
 
 export interface UserNavProps {
   logoutButtonId?: string;
@@ -113,7 +114,7 @@ export function UserNav({
       : "Vendedor";
 
   return (
-    <div className={`border-t p-3 space-y-2.5 bg-card/60 ${className}`}>
+    <div className={cn("border-t p-3 space-y-2.5 bg-card/60", className)}>
       <div className="flex items-center gap-2.5 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/5 p-2.5 ring-1 ring-orange-500/20">
         <div
           data-testid="user-avatar-initials"

@@ -58,14 +58,16 @@ export default function DashboardLayout(props: { children: React.ReactNode }) {
         <Suspense fallback={null}>
           <VerifiedAccountToast />
         </Suspense>
-        <div className="flex h-full min-h-screen w-full max-w-full overflow-x-hidden flex-col lg:flex-row">
-          <Sidebar />
+        <div className="flex h-screen w-full overflow-hidden bg-background">
+          {/* Sidebar Fixa */}
+          <Sidebar className="hidden lg:flex shrink-0 h-screen sticky top-0" />
 
-          <div className="flex flex-1 flex-col w-full max-w-full overflow-hidden">
+          {/* Conteúdo Principal com Scroll Independente */}
+          <div className="flex flex-1 flex-col h-screen overflow-y-auto overflow-x-hidden min-w-0">
             <SubscriptionBanner />
             <RoleSimulatorBar />
             <MobileHeader />
-            <main className="flex-1 w-full max-w-full overflow-y-auto bg-background">
+            <main className="flex-1 w-full max-w-full bg-background">
               {props.children}
             </main>
           </div>

@@ -249,18 +249,18 @@ export function Sidebar({ className = "" }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "hidden lg:flex lg:w-64 lg:flex-col border-r border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950",
+        "w-64 flex flex-col h-screen border-r border-border/80 bg-white dark:bg-slate-950 z-30 select-none shrink-0 sticky top-0",
         className
       )}
     >
-      {/* Logo */}
-      <div className="flex h-16 items-center border-b px-5">
+      {/* 1. Logo / Topo */}
+      <div className="flex h-16 shrink-0 items-center border-b border-border/60 px-5">
         <Logo />
       </div>
 
       {/* Botão de Destaque Exclusivo do Superadmin */}
       {isSuper && (
-        <div className="px-3 pt-3">
+        <div className="px-3 pt-3 shrink-0">
           <Link
             href="/superadmin"
             prefetch={true}
@@ -279,15 +279,17 @@ export function Sidebar({ className = "" }: { className?: string }) {
         </div>
       )}
 
-      {/* Navegação Dinâmica RBAC */}
-      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-3" data-testid="sidebar-nav">
+      {/* 2. Menu de Links (com scroll discreto se a tela for muito baixa) */}
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-4 py-2 space-y-1" data-testid="sidebar-nav">
         {visibleNavItems.map((item) => (
           <NavLink key={item.href} item={item} />
         ))}
       </nav>
 
-      {/* Rodapé com Dados Reais do Usuário e Logout */}
-      <UserNav logoutButtonId="btn-logout-sidebar" />
+      {/* 3. Perfil do Usuário / Rodapé (Sempre visível e ancorado no fundo) */}
+      <div className="p-3.5 mt-auto border-t border-border/60 shrink-0 bg-slate-50/50 dark:bg-slate-900/30">
+        <UserNav logoutButtonId="btn-logout-sidebar" className="p-0 border-t-0 bg-transparent" />
+      </div>
     </aside>
   );
 }
