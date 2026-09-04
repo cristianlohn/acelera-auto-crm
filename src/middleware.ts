@@ -39,10 +39,13 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // Bypass imediato para rotas públicas de webhooks e APIs externas
+  // Bypass imediato para rotas públicas de webhooks, links encurtados e APIs externas
   if (
     pathname.startsWith("/api/webhooks") ||
-    pathname.startsWith("/api/v1/leads")
+    pathname.startsWith("/api/v1/webhooks") ||
+    pathname.startsWith("/api/v1/leads") ||
+    pathname.startsWith("/w/") ||
+    pathname.startsWith("/c/")
   ) {
     return NextResponse.next();
   }

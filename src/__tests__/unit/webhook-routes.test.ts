@@ -246,6 +246,38 @@ describe("[UNIT-WEBHOOKS] Ingestão de Leads, Webhooks e Portais (/api/v1/webhoo
       expect(json.portal).toBe("webmotors");
       expect(json.assigned_to).toBeDefined();
     });
+
+    it("deve aceitar payload direto da Webmotors com seller.cnpj sem x-api-key no header", async () => {
+      const req = createWebhookRequest(
+        "/api/v1/webhooks/webmotors",
+        "POST",
+        {
+          leadId: "WM-998877",
+          nome: "Carlos Webmotors Oficial",
+          telefone: "11988887766",
+          seller: {
+            cnpj: "68.903.730/0001-36",
+          },
+          veiculo: {
+            marca: "Jeep",
+            modelo: "Compass",
+            preco: 165000,
+          },
+          proposta: {
+            valor: 160000,
+            mensagem: "Quero agendar test drive.",
+          },
+        }
+      );
+
+      const res = await webmotorsWebhookHandler(req);
+      const json = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(json.success).toBe(true);
+      expect(json.portal).toBe("webmotors");
+      expect(json.lead_id).toBeDefined();
+    });
   });
 
   describe("OpenAPI Documentation Spec", () => {

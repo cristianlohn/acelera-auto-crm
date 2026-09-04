@@ -4,11 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { validateApiKeyHeader } from "@/lib/auth/validate-api-key";
+import { extractApiKeyFromRequest } from "@/lib/auth/validate-api-key";
+import { validateApiKey } from "@/lib/services/api-key-service";
 import { webmotorsLeadSchema } from "@/lib/validations/webhook";
 import {
   resolveAssignedSellerInfo,
   notifyAssignedSellerViaWhatsApp,
+  DEFAULT_DEMO_ORG_ID,
 } from "@/lib/crm/roleta";
 import { generateShortCode } from "@/lib/utils/nanoid";
 import { parseWebmotorsPayload } from "@/lib/services/ingestion/parsers/webmotors-parser";
@@ -52,6 +54,12 @@ import type { LeadStatus } from "@/types/database.types";
  *                 type: string
  *                 format: email
  *                 example: "rodrigo.mendonca@uol.com.br"
+ *               seller:
+ *                 type: object
+ *                 properties:
+ *                   cnpj:
+ *                     type: string
+ *                     example: "68903730000136"
  *               veiculo:
  *                 type: object
  *                 properties:
@@ -111,15 +119,7 @@ import type { LeadStatus } from "@/types/database.types";
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. Validação de Autenticação da Chave de API
-    const authResult = await validateApiKeyHeader(request);
-    if (!authResult.success) {
-      return authResult.response;
-    }
-
-    const { organizationId } = authResult.context;
-
-    // 2. Validação do Payload Zod Webmotors
+    // 1. Leitura do Corpo da Requisição
     let body: unknown;
     try {
       body = await request.json();
@@ -130,37 +130,152 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const b = (body || {}) as Record<string, unknown>;
+    const sellerObj = (b.seller || b.store || b.concessionaria || {}) as Record<string, unknown>;
+    const rawCnpj = sellerObj.cnpj || sellerObj.document || b.cnpj || b.document || "";
+    const cleanCnpj = typeof rawCnpj === "string" ? rawCnpj.replace(/\D/g, "") : "";
+
+    // 2. Extração e Validação de Chave de API ou Secret Webmotors
+    const apiKey = extractApiKeyFromRequest(request);
+    let apiKeyOrgId: string | null = null;
+    let apiKeyInvalid = false;
+
+    if (apiKey) {
+      const keyValidation = await validateApiKey(apiKey);
+      if (keyValidation.valid && keyValidation.organizationId) {
+        apiKeyOrgId = keyValidation.organizationId;
+      } else {
+        apiKeyInvalid = true;
+      }
+    }
+
+    const webmotorsSecret =
+      process.env.WEBMOTORS_CLIENT_SECRET ||
+      process.env.WEBMOTORS_SECRET ||
+      process.env.WEBMOTORS_TOKEN;
+    const webmotorsHeaderSecret =
+      request.headers.get("x-webmotors-secret") ||
+      request.headers.get("x-webmotors-token") ||
+      request.headers.get("x-webmotors-signature");
+    const isSecretAuthorized = Boolean(
+      webmotorsSecret &&
+        (webmotorsHeaderSecret === webmotorsSecret || apiKey === webmotorsSecret)
+    );
+
+    // 3. Resolução da Organização (Multi-Tenant)
+    let organizationId: string | null = apiKeyOrgId || null;
+
+    if (!organizationId && cleanCnpj && isSupabaseServerConfigured()) {
+      try {
+        const supabaseAdmin = createAdminClient();
+        const { data: org } = await supabaseAdmin
+          .from("organizations")
+          .select("id")
+          .or(`cnpj.eq.${cleanCnpj},document.eq.${cleanCnpj}`)
+          .maybeSingle();
+
+        if (org) {
+          organizationId = org.id;
+        }
+      } catch (err) {
+        console.warn("[Webmotors Webhook] Falha ao consultar organização por CNPJ:", err);
+      }
+    }
+
+    // Fallback: se for teste ou ambiente com 1 loja, busca a primeira organização ativa
+    if (!organizationId && isSupabaseServerConfigured()) {
+      try {
+        const supabaseAdmin = createAdminClient();
+        const { data: defaultOrg } = await supabaseAdmin
+          .from("organizations")
+          .select("id")
+          .limit(1)
+          .maybeSingle();
+
+        if (defaultOrg) {
+          organizationId = defaultOrg.id;
+        }
+      } catch {}
+    }
+
+    if (!organizationId) {
+      organizationId = DEFAULT_DEMO_ORG_ID;
+    }
+
+    // Se uma apiKey foi explicitamente enviada e é inválida (e não bateu secret nem CNPJ), retorna 401
+    if (apiKeyInvalid && !isSecretAuthorized && !cleanCnpj) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: Chave de API inválida, expirada ou revogada." },
+        { status: 401 }
+      );
+    }
+
+    // 4. Parse e Normalização de Dados
     const validation = webmotorsLeadSchema.safeParse(body);
-    if (!validation.success) {
+    const parsedWebmotors = parseWebmotorsPayload(b);
+
+    let clientName = parsedWebmotors.clientName || "Lead Webmotors";
+    let clientPhone = parsedWebmotors.clientPhone || "";
+    let clientEmail = parsedWebmotors.clientEmail || null;
+    let externalLeadId = parsedWebmotors.externalId;
+    let proposalValue: number | undefined = undefined;
+    let message = parsedWebmotors.message || "";
+    let hasTradeIn: boolean | undefined = undefined;
+    let tradeInVehicle: string | undefined = undefined;
+
+    let vehicleBrand = parsedWebmotors.vehicleHint?.brand;
+    let vehicleModel = parsedWebmotors.vehicleHint?.model;
+    let vehicleVersion = parsedWebmotors.vehicleHint?.version;
+    let vehicleYear: number | string | undefined = undefined;
+    let vehiclePlate = parsedWebmotors.vehicleHint?.plate;
+    let vehiclePrice: number | undefined = undefined;
+
+    if (validation.success) {
+      const data = validation.data;
+      if (data.nome) clientName = data.nome;
+      if (data.telefone) clientPhone = data.telefone;
+      if (data.email) clientEmail = data.email || null;
+      if (data.leadId) externalLeadId = data.leadId;
+      if (data.veiculo?.marca) vehicleBrand = data.veiculo.marca;
+      if (data.veiculo?.modelo) vehicleModel = data.veiculo.modelo;
+      if (data.veiculo?.versao) vehicleVersion = data.veiculo.versao;
+      if (data.veiculo?.anoModelo) vehicleYear = data.veiculo.anoModelo;
+      if (data.veiculo?.preco) vehiclePrice = data.veiculo.preco;
+      if (data.veiculo?.placa) vehiclePlate = data.veiculo.placa;
+      if (data.proposta?.valor) proposalValue = data.proposta.valor;
+      if (data.proposta?.mensagem) message = data.proposta.mensagem;
+      if (data.proposta?.possuiTroca !== undefined) hasTradeIn = data.proposta.possuiTroca;
+      if (data.proposta?.veiculoTroca) tradeInVehicle = data.proposta.veiculoTroca;
+    }
+
+    const cleanDigitsPhone = clientPhone.replace(/\D/g, "");
+    if (!cleanDigitsPhone || cleanDigitsPhone.length < 10) {
       return NextResponse.json(
         {
           success: false,
-          error: "Dados de proposta Webmotors inválidos.",
-          details: validation.error.flatten().fieldErrors,
+          error: "Dados de proposta Webmotors inválidos: telefone obrigatório.",
         },
         { status: 400 }
       );
     }
 
-    const data = validation.data;
-    const parsedWebmotors = parseWebmotorsPayload(body as Record<string, unknown>);
-
-    // 3. Normalização e Mapeamento dos Dados do Veículo e da Proposta
+    // 5. Normalização e Mapeamento dos Dados do Veículo e da Proposta
     const vehicleParts: string[] = [];
-    if (data.veiculo?.marca) vehicleParts.push(data.veiculo.marca);
-    if (data.veiculo?.modelo) vehicleParts.push(data.veiculo.modelo);
-    if (data.veiculo?.versao) vehicleParts.push(data.veiculo.versao);
-    if (data.veiculo?.anoModelo) vehicleParts.push(String(data.veiculo.anoModelo));
+    if (vehicleBrand) vehicleParts.push(vehicleBrand);
+    if (vehicleModel) vehicleParts.push(vehicleModel);
+    if (vehicleVersion) vehicleParts.push(vehicleVersion);
+    if (vehicleYear) vehicleParts.push(String(vehicleYear));
 
     const rawVehicleInterest =
       vehicleParts.length > 0 ? vehicleParts.join(" ") : "Interesse Webmotors";
 
     // Match Inteligente com Estoque
     const matchedVehicle = await matchVehicleInInventory(organizationId, {
-      plate: parsedWebmotors.vehicleHint?.plate,
-      model: parsedWebmotors.vehicleHint?.model || data.veiculo?.modelo,
-      brand: parsedWebmotors.vehicleHint?.brand || data.veiculo?.marca,
-      version: parsedWebmotors.vehicleHint?.version || data.veiculo?.versao,
+      adId: parsedWebmotors.vehicleHint?.adId,
+      plate: vehiclePlate,
+      model: vehicleModel,
+      brand: vehicleBrand,
+      version: vehicleVersion,
     });
 
     const vehicleName = matchedVehicle
@@ -169,21 +284,21 @@ export async function POST(request: NextRequest) {
     const vehicleId = matchedVehicle?.id || null;
     const estimatedValue = matchedVehicle
       ? matchedVehicle.price
-      : data.veiculo?.preco || data.proposta?.valor || 0;
+      : vehiclePrice || proposalValue || 0;
 
     const noteParts: string[] = [];
-    if (data.leadId) noteParts.push(`[Webmotors ID: ${data.leadId}]`);
-    if (data.proposta?.valor) noteParts.push(`Proposta: R$ ${data.proposta.valor.toLocaleString("pt-BR")}`);
-    if (data.proposta?.mensagem) noteParts.push(`Mensagem: "${data.proposta.mensagem}"`);
-    if (data.proposta?.possuiTroca) {
-      noteParts.push(`Troca: Sim${data.proposta.veiculoTroca ? ` (${data.proposta.veiculoTroca})` : ""}`);
+    if (externalLeadId) noteParts.push(`[Webmotors ID: ${externalLeadId}]`);
+    if (proposalValue) noteParts.push(`Proposta: R$ ${proposalValue.toLocaleString("pt-BR")}`);
+    if (message) noteParts.push(`Mensagem: "${message}"`);
+    if (hasTradeIn) {
+      noteParts.push(`Troca: Sim${tradeInVehicle ? ` (${tradeInVehicle})` : ""}`);
     }
 
     const notes = noteParts.length > 0 ? noteParts.join(" | ") : "Lead Webmotors";
     const nowIso = new Date().toISOString();
     const initialStatus: LeadStatus = "novo";
 
-    // 4. Distribuição por Roleta Comercial com fallback
+    // 6. Distribuição por Roleta Comercial com fallback
     let sellerInfo = { sellerId: null as string | null, sellerName: "Fila Geral" };
     try {
       const resolved = await resolveAssignedSellerInfo(null, organizationId);
@@ -198,7 +313,7 @@ export async function POST(request: NextRequest) {
     const shortCode = generateShortCode(6);
     let leadId = `lead_wm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-    // 5. Persistência no Supabase com createAdminClient
+    // 7. Persistência no Supabase com createAdminClient
     if (isSupabaseServerConfigured() && process.env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const adminSupabase = createAdminClient();
@@ -207,10 +322,14 @@ export async function POST(request: NextRequest) {
           .insert({
             organization_id: organizationId,
             tenant_id: organizationId,
-            name: data.nome,
-            phone: data.telefone,
-            email: data.email || null,
+            name: clientName,
+            phone: clientPhone,
+            email: clientEmail || null,
             vehicle_interest: vehicleName,
+            vehicle_id: vehicleId,
+            vehicle_name: vehicleName,
+            estimated_value: estimatedValue,
+            value: estimatedValue,
             status: initialStatus,
             origin: "webmotors",
             seller_name: sellerInfo.sellerName,
@@ -221,10 +340,13 @@ export async function POST(request: NextRequest) {
               vehicle_id: vehicleId,
               vehicle_name: vehicleName,
               estimated_value: estimatedValue,
+              value: estimatedValue,
+              price: estimatedValue,
+              cnpj: cleanCnpj || undefined,
             },
             last_contact_at: nowIso,
             created_at: nowIso,
-          })
+          } as never)
           .select("id")
           .maybeSingle();
 
@@ -234,9 +356,9 @@ export async function POST(request: NextRequest) {
             .from("leads")
             .insert({
               organization_id: organizationId,
-              name: data.nome,
-              phone: data.telefone,
-              email: data.email || null,
+              name: clientName,
+              phone: clientPhone,
+              email: clientEmail || null,
               vehicle_interest: vehicleName,
               status: initialStatus,
               origin: "webmotors",
@@ -246,7 +368,7 @@ export async function POST(request: NextRequest) {
               short_code: shortCode,
               last_contact_at: nowIso,
               created_at: nowIso,
-            })
+            } as never)
             .select("id")
             .maybeSingle();
 
@@ -273,13 +395,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 6. Notificação via WhatsApp com Links Curtos
+    // 8. Notificação via WhatsApp com Links Curtos
     void notifyAssignedSellerViaWhatsApp({
       lead: {
         id: leadId,
-        name: data.nome,
-        phone: data.telefone,
-        email: data.email || null,
+        name: clientName,
+        phone: clientPhone,
+        email: clientEmail || null,
         vehicle_name: vehicleName,
         vehicleInterest: vehicleName,
         source: "webmotors",
@@ -296,6 +418,7 @@ export async function POST(request: NextRequest) {
         short_code: shortCode,
         assigned_to: sellerInfo.sellerName,
         portal: "webmotors",
+        organization_id: organizationId,
         message: "Proposta Webmotors recebida e processada com sucesso",
       },
       { status: 201 }
