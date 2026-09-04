@@ -107,7 +107,21 @@ const plans: Plan[] = [
   },
 ];
 
-function BillingContent() {
+export interface BillingPageProps {
+  initialOverview?: SubscriptionOverviewData | null;
+  initialBillingData?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    document?: string;
+    documentType?: "CPF" | "CNPJ";
+  };
+}
+
+function BillingContent({
+  initialOverview,
+  initialBillingData: propInitialBillingData,
+}: BillingPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isExpired = searchParams.get("expired") === "true";
@@ -130,8 +144,11 @@ function BillingContent() {
     phone?: string;
     document?: string;
     documentType?: "CPF" | "CNPJ";
-  } | undefined>(undefined);
-  const [subscriptionOverview, setSubscriptionOverview] = useState<SubscriptionOverviewData | null>(null);
+  } | undefined>(propInitialBillingData);
+  const [subscriptionOverview, setSubscriptionOverview] = useState<
+    SubscriptionOverviewData | null | undefined
+  >(initialOverview);
+  const [isLoading, setIsLoading] = useState<boolean>(initialOverview === undefined);
 
   // Redirecionamento amigável de usuários não autorizados (ex: sellers, members) para o Cockpit
   useEffect(() => {
@@ -142,25 +159,33 @@ function BillingContent() {
 
   useEffect(() => {
     let isMounted = true;
-    getBillingInitialDataAction().then((res) => {
-      if (isMounted && res.success && res.data) {
-        setInitialBillingData(res.data);
-      }
-    });
+    if (propInitialBillingData === undefined) {
+      getBillingInitialDataAction().then((res) => {
+        if (isMounted && res.success && res.data) {
+          setInitialBillingData(res.data);
+        }
+      });
+    }
 
-    getSubscriptionOverviewAction().then((res) => {
-      if (isMounted && res.success && res.data) {
-        setSubscriptionOverview(res.data);
-      }
-    });
+    if (initialOverview === undefined) {
+      getSubscriptionOverviewAction().then((res) => {
+        if (isMounted) {
+          if (res.success && res.data) {
+            setSubscriptionOverview(res.data);
+          } else {
+            setSubscriptionOverview(null);
+          }
+          setIsLoading(false);
+        }
+      });
+    } else {
+      setIsLoading(false);
+    }
 
     return () => {
       isMounted = false;
     };
-  }, []);
-
-  const isAnnual = billingCycle === "anual";
-  const isSubscriber = subscriptionOverview?.status === "active";
+  }, [initialOverview, propInitialBillingData]);
 
   if (!isDemoMode && !canManageBilling) {
     return (
@@ -180,6 +205,28 @@ function BillingContent() {
       </div>
     );
   }
+
+  // Trava Estrita de Carregamento para Evitar Flash Visual dos Planos para Assinantes Ativos
+  if (isLoading || subscriptionOverview === undefined) {
+    return (
+      <div
+        className="min-h-screen bg-[#09090b] text-[#f4f4f5] p-4 sm:p-8 lg:p-12"
+        data-testid="billing-loading-skeleton"
+      >
+        <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
+          {/* Skeleton do Cabeçalho da Assinatura */}
+          <div className="h-44 rounded-2xl bg-white/5 border border-white/10" />
+          {/* Skeleton do Histórico de Faturas */}
+          <div className="h-56 rounded-2xl bg-white/5 border border-white/10" />
+          {/* Skeleton dos Dados Cadastrais */}
+          <div className="h-36 rounded-2xl bg-white/5 border border-white/10" />
+        </div>
+      </div>
+    );
+  }
+
+  const isAnnual = billingCycle === "anual";
+  const isSubscriber = subscriptionOverview?.status === "active";
 
   const handleOpenCheckout = (planId: string) => {
     const plan = plans.find((p) => p.id === planId) || plans[1];
@@ -497,10 +544,20 @@ function BillingContent() {
   );
 }
 
-export default function BillingPage() {
+export default function BillingPage(props?: BillingPageProps) {
   return (
-    <Suspense fallback={<div className="p-8 text-zinc-400 text-xs">Carregando planos...</div>}>
-      <BillingContent />
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#09090b] text-[#f4f4f5] p-4 sm:p-8 lg:p-12">
+          <div className="max-w-5xl mx-auto space-y-6 animate-pulse">
+            <div className="h-44 rounded-2xl bg-white/5 border border-white/10" />
+            <div className="h-56 rounded-2xl bg-white/5 border border-white/10" />
+            <div className="h-36 rounded-2xl bg-white/5 border border-white/10" />
+          </div>
+        </div>
+      }
+    >
+      <BillingContent {...props} />
     </Suspense>
   );
 }
