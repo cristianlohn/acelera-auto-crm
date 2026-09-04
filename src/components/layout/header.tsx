@@ -22,14 +22,20 @@ import { getCurrentUserProfileAction } from "@/app/actions/auth";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 
-export function MobileHeader() {
+export function MobileHeader({
+  initialRole,
+  initialProfile,
+}: {
+  initialRole?: string | null;
+  initialProfile?: unknown;
+}) {
   const [open, setOpen] = useState(false);
   const { role: demoRole, isDemoMode } = useDemoRole();
-  const [realRole, setRealRole] = useState<string | null>(null);
+  const [realRole, setRealRole] = useState<string | null>(initialRole || null);
 
   useEffect(() => {
     let isMounted = true;
-    if (!isDemoMode) {
+    if (!isDemoMode && !initialRole) {
       getCurrentUserProfileAction()
         .then((profile) => {
           if (isMounted && profile?.role) {
@@ -41,9 +47,9 @@ export function MobileHeader() {
     return () => {
       isMounted = false;
     };
-  }, [isDemoMode]);
+  }, [isDemoMode, initialRole]);
 
-  const activeRole = isDemoMode ? demoRole : realRole || "seller";
+  const activeRole = isDemoMode ? demoRole : (realRole || initialRole || "seller");
   const visibleNavItems = getNavItemsForRole(activeRole);
 
   return (
@@ -72,7 +78,10 @@ export function MobileHeader() {
               ))}
             </nav>
           </div>
-          <UserNav logoutButtonId="btn-logout-mobile" />
+          <UserNav
+            logoutButtonId="btn-logout-mobile"
+            initialProfile={initialProfile ? (initialProfile as React.ComponentProps<typeof UserNav>["initialProfile"]) : undefined}
+          />
         </SheetContent>
       </Sheet>
 

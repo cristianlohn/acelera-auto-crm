@@ -222,17 +222,42 @@ export function NavLink({
   );
 }
 
-export function Sidebar({ className = "" }: { className?: string }) {
+export function Sidebar({
+  className = "",
+  initialRole,
+  profile,
+}: {
+  className?: string;
+  initialRole?: string | null;
+  profile?: unknown;
+}) {
   const { role: demoRole, isDemoMode } = useDemoRole();
-  const [realRole, setRealRole] = useState<string | null>(null);
+  const [realRole, setRealRole] = useState<string | null>(() => {
+    if (initialRole) return initialRole;
+    if (typeof document !== "undefined") {
+      const match = document.cookie.match(/(?:acelera_user_role|acelera_demo_role|sb_user_role)=([^;]+)/);
+      if (match && match[1]) return match[1];
+      try {
+        const stored = localStorage.getItem("acelera_user_role");
+        if (stored) return stored;
+      } catch {}
+    }
+    return null;
+  });
 
   useEffect(() => {
     let isMounted = true;
     if (!isDemoMode) {
       getCurrentUserProfileAction()
-        .then((profile) => {
-          if (isMounted && profile?.role) {
-            setRealRole(profile.role);
+        .then((p) => {
+          if (isMounted && p?.role) {
+            setRealRole(p.role);
+            if (typeof document !== "undefined") {
+              document.cookie = `acelera_user_role=${p.role}; path=/; max-age=86400; SameSite=Lax`;
+              try {
+                localStorage.setItem("acelera_user_role", p.role);
+              } catch {}
+            }
           }
         })
         .catch(() => {});
@@ -242,7 +267,7 @@ export function Sidebar({ className = "" }: { className?: string }) {
     };
   }, [isDemoMode]);
 
-  const activeRole = isDemoMode ? demoRole : realRole || "seller";
+  const activeRole = isDemoMode ? demoRole : (realRole || initialRole || "admin");
   const isSuper = isSuperAdmin(activeRole);
   const visibleNavItems = getNavItemsForRole(activeRole);
 
@@ -288,7 +313,11 @@ export function Sidebar({ className = "" }: { className?: string }) {
 
       {/* 3. Perfil do Usuário / Rodapé (Sempre visível e ancorado no fundo) */}
       <div className="p-3.5 mt-auto border-t border-border/60 shrink-0 bg-slate-50/50 dark:bg-slate-900/30">
-        <UserNav logoutButtonId="btn-logout-sidebar" className="p-0 border-t-0 bg-transparent" />
+        <UserNav
+          logoutButtonId="btn-logout-sidebar"
+          className="p-0 border-t-0 bg-transparent"
+          initialProfile={profile ? (profile as React.ComponentProps<typeof UserNav>["initialProfile"]) : undefined}
+        />
       </div>
     </aside>
   );

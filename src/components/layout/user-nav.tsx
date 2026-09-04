@@ -27,15 +27,17 @@ import { cn } from "@/lib/utils";
 export interface UserNavProps {
   logoutButtonId?: string;
   className?: string;
+  initialProfile?: UserProfileInfo | null;
 }
 
 export function UserNav({
   logoutButtonId = "btn-logout-sidebar",
   className = "",
+  initialProfile,
 }: UserNavProps) {
   const { role, sellerName, isDemoMode } = useDemoRole();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [realProfile, setRealProfile] = useState<UserProfileInfo | null>(null);
+  const [realProfile, setRealProfile] = useState<UserProfileInfo | null>(initialProfile || null);
 
   // Busca dados reais do usuário autenticado quando não estiver no Modo Demonstração
   useEffect(() => {
