@@ -392,7 +392,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 9. Disparo de Notificação WhatsApp para o Vendedor (Aguardado explicitamente para Serverless)
-    let whatsappResult = { sent: false, error: null as string | null };
+    const whatsappResult = { sent: false, error: null as string | null };
 
     if (assignedSeller?.phone) {
       try {
