@@ -150,13 +150,16 @@ export async function POST(request: NextRequest) {
     }
 
     const webmotorsSecret =
+      process.env.WEBMOTORS_WEBHOOK_SECRET ||
       process.env.WEBMOTORS_CLIENT_SECRET ||
       process.env.WEBMOTORS_SECRET ||
       process.env.WEBMOTORS_TOKEN;
     const webmotorsHeaderSecret =
       request.headers.get("x-webmotors-secret") ||
       request.headers.get("x-webmotors-token") ||
-      request.headers.get("x-webmotors-signature");
+      request.headers.get("x-webmotors-signature") ||
+      request.headers.get("x-webmotors-webhook-secret") ||
+      request.headers.get("x-hub-signature-256");
     const isSecretAuthorized = Boolean(
       webmotorsSecret &&
         (webmotorsHeaderSecret === webmotorsSecret || apiKey === webmotorsSecret)
