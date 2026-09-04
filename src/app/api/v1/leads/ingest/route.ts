@@ -391,26 +391,41 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 9. Disparo de Notificação WhatsApp para o Vendedor
+    // 9. Disparo de Notificação WhatsApp para o Vendedor (Aguardado explicitamente para Serverless)
+    let whatsappResult = { sent: false, error: null as string | null };
+
     if (assignedSeller?.phone) {
-      console.log(`[WhatsApp] Disparando notificação para o vendedor ${assignedSeller.name} (${assignedSeller.phone})`);
-      void sendSellerLeadNotification({
-        sellerPhone: assignedSeller.phone,
-        sellerName: assignedSeller.name,
-        lead: {
-          id: persistedLeadId,
-          name: normalizedLead.clientName,
-          phone: formattedPhone,
-          vehicle_name: vehicleName,
-          source: normalizedLead.source,
-          short_code: shortCode,
-          organization_id: organizationId,
-        },
-        shortCode: shortCode,
-        organizationId: organizationId,
-      }).catch((notifErr) => {
-        console.warn("[WhatsApp Notification Warning]:", notifErr);
-      });
+      try {
+        console.log(`[PROD WA] Enviando para ${assignedSeller.phone} via ${process.env.WHATSAPP_API_URL || "Gateway Padrão"}`);
+
+        const waResponse = await sendSellerLeadNotification({
+          sellerPhone: assignedSeller.phone,
+          sellerName: assignedSeller.name,
+          lead: {
+            id: persistedLeadId,
+            name: normalizedLead.clientName,
+            phone: formattedPhone,
+            vehicle_name: vehicleName,
+            source: normalizedLead.source,
+            short_code: shortCode,
+            organization_id: organizationId,
+          },
+          shortCode: shortCode,
+          organizationId: organizationId,
+        });
+
+        if (waResponse && !waResponse.success) {
+          whatsappResult.sent = false;
+          whatsappResult.error = waResponse.error || "Falha ao enviar WhatsApp";
+          console.error("[PROD WA FAILED]:", whatsappResult.error);
+        } else {
+          whatsappResult.sent = true;
+        }
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error("[PROD WA FAILED]:", errorMsg);
+        whatsappResult.error = errorMsg || "Erro desconhecido ao enviar WhatsApp";
+      }
     } else {
       console.warn(`[WhatsApp] Nenhum telefone encontrado para o vendedor ${assignedSeller?.name || "Desconhecido"}`);
     }
@@ -443,6 +458,7 @@ export async function POST(request: NextRequest) {
         matchedVehicle: matchedVehicle ? matchedVehicle.model : null,
         shortCode: shortCode,
         whatsapp_direct_url: whatsappDirectUrl,
+        whatsapp: whatsappResult,
       },
       { status: 201 }
     );

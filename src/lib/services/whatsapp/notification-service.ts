@@ -4,7 +4,7 @@
  */
 
 import { buildNewLeadAlertMessage, buildLeadNotificationMessage } from "./templates";
-import { sendWhatsAppMessage } from "./client";
+import { sendWhatsAppMessage, type SendWhatsAppMessageResult } from "./client";
 
 export interface SellerLeadNotificationParams {
   sellerPhone?: string | null;
@@ -30,7 +30,9 @@ export interface SellerLeadNotificationParams {
 /**
  * Envia notificação de novo lead ao vendedor via WhatsApp (com fallback gracioso e modo sandbox em demo).
  */
-export async function sendSellerLeadNotification(params: SellerLeadNotificationParams) {
+export async function sendSellerLeadNotification(
+  params: SellerLeadNotificationParams
+): Promise<SendWhatsAppMessageResult> {
   const { sellerPhone, sellerName, lead, shortCode, organizationId, appUrl } = params;
 
   if (!sellerPhone) {

@@ -288,8 +288,45 @@ describe("[UNIT-LEAD-INGESTION] Parsers de Portais, Match de Estoque e Ingestão
       expect(json.assignedTo).toBe("Carlos Vendedor");
       expect(json.matchedVehicle).toBe("Civic Touring");
       expect(json.shortCode).toHaveLength(6);
+      expect(json.whatsapp).toEqual({ sent: true, error: null });
 
       expect(notificationSpy).toHaveBeenCalled();
+    });
+
+    it("[TEST-ROUTE-INGEST-2.1] deve capturar erro de envio do WhatsApp e retornar diagnóstico no JSON sem quebrar criação 201", async () => {
+      vi.spyOn(roletaService, "assignLeadThroughRoleta").mockResolvedValue({
+        id: "seller-carlos-123",
+        name: "Carlos Vendedor",
+        phone: "11999998888",
+      });
+
+      vi.spyOn(notificationService, "sendSellerLeadNotification").mockRejectedValue(
+        new Error("Falha na conexão com VPS WhatsApp")
+      );
+
+      const req = new NextRequest("http://localhost:3000/api/v1/leads/ingest?source=webmotors", {
+        method: "POST",
+        headers: {
+          "x-api-key": "acelera_api_key_live_123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          lead: {
+            customer: { name: "Lucas Rocha", phone: "11977778888" },
+            vehicle: { model: "Civic" },
+          },
+        }),
+      });
+
+      const res = await handleIngestRoute(req);
+
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.success).toBe(true);
+      expect(json.whatsapp).toEqual({
+        sent: false,
+        error: "Falha na conexão com VPS WhatsApp",
+      });
     });
 
     it("[TEST-ROUTE-INGEST-3] deve evitar duplicação por externalId (Idempotência)", async () => {

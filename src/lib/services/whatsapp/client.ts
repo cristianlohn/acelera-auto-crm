@@ -17,6 +17,7 @@ export interface SendWhatsAppMessageResult {
   messageId?: string;
   error?: string;
   simulated?: boolean;
+  dispatched?: boolean;
   mode?: "simulation" | "production";
 }
 
