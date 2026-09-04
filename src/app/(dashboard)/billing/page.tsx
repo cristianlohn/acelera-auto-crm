@@ -148,7 +148,7 @@ function BillingContent({
   const [subscriptionOverview, setSubscriptionOverview] = useState<
     SubscriptionOverviewData | null | undefined
   >(initialOverview);
-  const [isLoading, setIsLoading] = useState<boolean>(initialOverview === undefined);
+  const isLoading = subscriptionOverview === undefined;
 
   // Redirecionamento amigável de usuários não autorizados (ex: sellers, members) para o Cockpit
   useEffect(() => {
@@ -175,11 +175,8 @@ function BillingContent({
           } else {
             setSubscriptionOverview(null);
           }
-          setIsLoading(false);
         }
       });
-    } else {
-      setIsLoading(false);
     }
 
     return () => {
