@@ -149,9 +149,9 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
     return [...localTeamMembers];
   }
 
-  // 2. Usuário Autenticado Real sem organização vinculada
+  // 2. Sem organização vinculada ou ambiente de teste
   if (!tenantContext.organizationId) {
-    return [];
+    return [...localTeamMembers];
   }
 
   // 3. Usuário Autenticado Real: consulta estritamente a organização do usuário logado

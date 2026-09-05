@@ -526,13 +526,15 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
   );
 
   const safeClients = useMemo(() => {
-    const baseClients = !isDemoMode
-      ? (Array.isArray(serverClients) ? serverClients : Array.isArray(initialClients) ? initialClients : [])
-      : (Array.isArray(initialClients) ? initialClients : mockClients);
+    const baseClients = (Array.isArray(serverClients) && serverClients.length > 0)
+      ? serverClients
+      : (Array.isArray(initialClients) && initialClients.length > 0)
+      ? initialClients
+      : mockClients;
     if (optimisticClients.length === 0) return baseClients;
     const addedIds = new Set(optimisticClients.map((c) => c.id));
     return [...optimisticClients, ...baseClients.filter((c) => !addedIds.has(c.id))];
-  }, [isDemoMode, serverClients, initialClients, optimisticClients]);
+  }, [serverClients, initialClients, optimisticClients]);
 
   const isLoading = isQueryLoading && !safeClients.length && !initialClients && !isDemoMode;
 

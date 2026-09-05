@@ -249,8 +249,7 @@ export function SettingsForm({
   // Estados do Módulo de Equipe & Capacidade
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => {
     if (initialTeamMembers !== undefined) return initialTeamMembers;
-    if (isDemoMode) return INITIAL_TEAM_MEMBERS;
-    return [];
+    return INITIAL_TEAM_MEMBERS;
   });
 
   // Sincroniza estado de equipe quando as props do servidor mudarem (ex: após exclusão / revalidação)

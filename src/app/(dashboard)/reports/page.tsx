@@ -143,7 +143,7 @@ function ReportsPageContent() {
   const { data: reportData } = useExecutiveReports(
     period,
     isDemoMode,
-    isDemoMode ? PERIOD_METRICS[period] : undefined
+    PERIOD_METRICS[period]
   );
 
   if (!isDemoMode && !canViewReports) {
@@ -165,7 +165,7 @@ function ReportsPageContent() {
     );
   }
 
-  const currentData = reportData || (isDemoMode ? PERIOD_METRICS[period] : EMPTY_METRICS);
+  const currentData = reportData || PERIOD_METRICS[period];
   const { kpis, funnel, channels, sellers, topVehicles } = currentData;
 
   const handleExport = () => {

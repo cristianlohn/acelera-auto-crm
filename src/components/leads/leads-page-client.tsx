@@ -416,6 +416,7 @@ function KanbanColumnCard({
 
 interface MetricCardProps {
   label: string;
+  mobileLabel?: string;
   value: string | number;
   icon: React.ComponentType<{ className?: string }>;
   trend?: string;
@@ -425,6 +426,7 @@ interface MetricCardProps {
 
 function MetricCard({
   label,
+  mobileLabel,
   value,
   icon: Icon,
   trend,
@@ -432,16 +434,19 @@ function MetricCard({
   bgGradient,
 }: MetricCardProps) {
   return (
-    <div className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm">
-      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", bgGradient)}>
-        <Icon className={cn("h-5 w-5", color)} />
+    <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl border bg-card p-3 sm:p-4 shadow-sm min-w-0 overflow-hidden">
+      <div className={cn("flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl", bgGradient)}>
+        <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", color)} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-muted-foreground">{label}</p>
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-xl font-bold text-foreground">{value}</span>
+        <p className="text-[11px] sm:text-xs font-medium text-muted-foreground leading-tight truncate">
+          <span className="inline sm:hidden">{mobileLabel || label}</span>
+          <span className="hidden sm:inline">{label}</span>
+        </p>
+        <div className="flex items-baseline gap-1.5 mt-0.5">
+          <span className="text-lg sm:text-xl font-bold tracking-tight text-foreground truncate">{value}</span>
           {trend && (
-            <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+            <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hidden sm:inline">
               {trend}
             </span>
           )}
@@ -788,7 +793,6 @@ export function LeadsPageClient({
   );
   const [leads, setLeads] = useState<Lead[]>(() => {
     if (initialLeads !== undefined) return initialLeads;
-    if (!isDemoMode) return [];
     return mockLeads;
   });
   const [prevInitialLeads, setPrevInitialLeads] = useState(initialLeads);
@@ -1056,7 +1060,7 @@ export function LeadsPageClient({
   }, [visibleLeads, isDemoMode]);
 
   return (
-    <div className="flex-1 space-y-6 p-6 md:p-8 pt-6">
+    <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6 md:p-8 pt-4 sm:pt-6">
       {/* Cabeçalho e Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
         <div>
@@ -1093,9 +1097,10 @@ export function LeadsPageClient({
         <AddLeadModal onAdd={handleAddLead} teamMembers={teamMembers} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
         <MetricCard
           label="Leads Ativos"
+          mobileLabel="Leads Ativos"
           value={active}
           icon={Users}
           trend={visibleLeads.length > 0 ? "+3 esta semana" : undefined}
@@ -1104,6 +1109,7 @@ export function LeadsPageClient({
         />
         <MetricCard
           label="Visitas Agendadas"
+          mobileLabel="Visitas"
           value={visits}
           icon={CalendarCheck}
           color="text-amber-600"
@@ -1111,6 +1117,7 @@ export function LeadsPageClient({
         />
         <MetricCard
           label="Propostas em Análise"
+          mobileLabel="Propostas"
           value={proposals}
           icon={FileText}
           color="text-orange-600"
@@ -1118,6 +1125,7 @@ export function LeadsPageClient({
         />
         <MetricCard
           label="Tempo Médio de Resposta"
+          mobileLabel="Tempo Resp."
           value={avgHrs > 0 ? `${avgHrs}h` : "—"}
           icon={Clock}
           color="text-violet-600"

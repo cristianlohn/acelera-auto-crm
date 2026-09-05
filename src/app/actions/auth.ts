@@ -490,7 +490,7 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
   const phone = tenantContext.profile?.phone || null;
   const role =
     (tenantContext.profile?.role as "admin" | "gerente" | "vendedor" | "superadmin") ||
-    (tenantContext.isDemo ? "gerente" : "vendedor");
+    "admin";
 
   const initials =
     fullName

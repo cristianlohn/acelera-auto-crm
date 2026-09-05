@@ -22,14 +22,14 @@ interface SubscriptionBannerProps {
 }
 
 export function SubscriptionBanner({ status: initialStatus }: SubscriptionBannerProps) {
-  const { role } = useDemoRole();
+  const { role, isDemoMode } = useDemoRole();
   const [dismissed, setDismissed] = useState(false);
   const [accessStatus, setAccessStatus] = useState<OrganizationAccessStatus | undefined>(
     initialStatus
   );
 
   useEffect(() => {
-    if (initialStatus) {
+    if (initialStatus || isDemoMode) {
       return;
     }
 
@@ -45,12 +45,12 @@ export function SubscriptionBanner({ status: initialStatus }: SubscriptionBanner
     return () => {
       isMounted = false;
     };
-  }, [initialStatus]);
+  }, [initialStatus, isDemoMode]);
 
   const effectiveRole = normalizeRole(role);
 
-  // Vendedores e Gerentes não gerenciam a assinatura/faturamento da loja
-  if (dismissed || isSuperAdmin(role) || !canManageIntegrationsAndBilling(effectiveRole)) {
+  // No modo demonstração ou para vendedores/gerentes que não gerenciam billing, não exibe o banner
+  if (dismissed || isDemoMode || isSuperAdmin(role) || !canManageIntegrationsAndBilling(effectiveRole)) {
     return null;
   }
 

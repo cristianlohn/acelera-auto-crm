@@ -27,6 +27,21 @@ vi.mock("@/app/actions/kanban-actions", () => ({
   updateLeadStageAction: vi.fn().mockResolvedValue({ success: true }),
   updateLeadNotesAction: vi.fn().mockResolvedValue({ success: true }),
   updateLeadLostReasonAction: vi.fn().mockResolvedValue({ success: true }),
+  updateLeadAssignedSellerAction: vi.fn().mockResolvedValue({ success: true }),
+  getKanbanBoardAction: vi.fn().mockResolvedValue({ columns: [] }),
+}));
+
+vi.mock("@/app/actions/auth", () => ({
+  getCurrentUserProfileAction: vi.fn().mockResolvedValue({
+    userId: "admin-1",
+    fullName: "Admin Responsável",
+    role: "admin",
+    isDemo: false,
+  }),
+}));
+
+vi.mock("@/app/actions/team-actions", () => ({
+  getTeamMembersAction: vi.fn().mockResolvedValue([]),
 }));
 
 // Mock do Sonner Toast

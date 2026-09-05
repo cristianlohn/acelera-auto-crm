@@ -113,13 +113,10 @@ export function VehiclesPageClient({
   initialVehicles,
 }: VehiclesPageClientProps = {}) {
   const { isDemoMode } = useDemoRole();
-  const [isLoading, setIsLoading] = useState<boolean>(
-    initialVehicles === undefined && !isDemoMode
-  );
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>(() => {
     if (initialVehicles !== undefined) return initialVehicles;
-    if (isDemoMode) return mockVehicles;
-    return [];
+    return mockVehicles;
   });
   const [activeTab, setActiveTab] = useState<VehiclesViewTab>("active");
   const [search, setSearch] = useState("");
@@ -131,10 +128,10 @@ export function VehiclesPageClient({
     let isMounted = true;
     getVehicles()
       .then((data) => {
-        if (isMounted) setVehicles(data);
+        if (isMounted && data && data.length > 0) setVehicles(data);
       })
       .catch(() => {
-        if (isMounted) setVehicles([]);
+        // Mantém fallback seguro
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);

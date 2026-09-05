@@ -192,18 +192,34 @@ export function useDemoRole() {
   const context = useContext(DemoRoleContext);
   if (!context) {
     // Fallback gracioso se renderizado fora do Provider
-    const isTestEnv =
-      typeof process !== "undefined" &&
-      (process.env.NODE_ENV === "test" || process.env.VITEST === "true");
+    let fallbackRole: DemoRole = "admin";
+    let hasDemoCookie = false;
+    if (typeof document !== "undefined") {
+      hasDemoCookie =
+        document.cookie.includes("acelera_demo_mode=true") ||
+        document.cookie.includes("sb-demo-auth=true") ||
+        document.cookie.includes("acelera_demo_role");
+      const match = document.cookie.match(/acelera_demo_role=([^;]+)/);
+      if (match && match[1] && match[1] in ROLE_CONFIGS) {
+        fallbackRole = match[1] as DemoRole;
+      }
+    }
+    const roleCfg = ROLE_CONFIGS[fallbackRole] || ROLE_CONFIGS.admin;
     return {
-      role: "admin" as DemoRole,
+      role: fallbackRole,
       setRole: () => {},
-      roleConfig: ROLE_CONFIGS.admin,
-      sellerName: ROLE_CONFIGS.admin.name,
-      isDemoMode: isTestEnv,
+      roleConfig: roleCfg,
+      sellerName: roleCfg.name,
+      isDemoMode: hasDemoCookie,
       setIsDemoMode: () => {},
       notification: null,
       clearNotification: () => {},
+      currentUser: {
+        id: "demo-user-1",
+        name: roleCfg.name,
+        email: roleCfg.email,
+        role: fallbackRole,
+      },
     };
   }
   return context;

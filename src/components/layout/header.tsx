@@ -53,6 +53,30 @@ export function MobileHeader({
   const activeRole = isDemoMode ? demoRole : (realRole || initialRole || "seller");
   const visibleNavItems = getNavItemsForRole(activeRole);
 
+  const profileRecord = initialProfile as Record<string, unknown> | undefined;
+  const displayName = isDemoMode
+    ? demoRole === "vendedor"
+      ? "Rafael Alves"
+      : demoRole === "gerente"
+      ? "Juliana Lima"
+      : "Carlos Souza"
+    : (typeof profileRecord?.fullName === "string" && profileRecord.fullName) ||
+      (typeof profileRecord?.full_name === "string" && profileRecord.full_name) ||
+      "Gestor";
+
+  const getInitials = (name: string) => {
+    return (
+      name
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "GA"
+    );
+  };
+
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card/80 px-4 backdrop-blur-sm lg:hidden">
       {/* Menu sheet retrátil */}
@@ -89,13 +113,24 @@ export function MobileHeader({
       {/* Logo centralizado no mobile */}
       <Logo />
 
-      {/* Ações rápidas */}
-      <div className="flex items-center gap-1.5">
+      {/* Ações rápidas (Limpo no Mobile: Áudio + Avatar do Usuário) */}
+      <div className="flex items-center gap-2">
         <SoundToggle />
-        <ThemeToggle />
-        <Button variant="ghost" size="icon-sm" aria-label="Ligar para lead">
-          <Phone className="h-4 w-4" />
-        </Button>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs font-bold text-white shadow ring-1 ring-orange-500/20 active:scale-95 transition-all cursor-pointer"
+          aria-label="Abrir perfil e menu"
+          title={displayName}
+        >
+          {getInitials(displayName)}
+        </button>
+        <div className="hidden md:inline-flex items-center gap-1.5">
+          <ThemeToggle />
+          <Button variant="ghost" size="icon-sm" aria-label="Ligar para lead">
+            <Phone className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </header>
   );

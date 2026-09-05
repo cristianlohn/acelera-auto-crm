@@ -281,27 +281,7 @@ export function ManagerActionCockpit({
     return <SellerActionCockpit className={className} metrics={metrics} isDemo={isDemoMode} />;
   }
 
-  const activeMetrics: ManagerCockpitMetrics = isDemoMode
-    ? (metrics || DEFAULT_METRICS)
-    : (metrics || {
-        totalPipelineValue: 0,
-        valueAtRisk: 0,
-        totalActiveLeads: 0,
-        totalLeads: 0,
-        averageFirstContactMinutes: 0,
-        slaComplianceRate: 100,
-        overdueLeadsCount: 0,
-        wonLeadsCount: 0,
-        conversionRate: 0,
-        sellerRanking: [],
-        bottlenecks: {
-          withoutReturnCount: 0,
-          proposalsWithoutFollowupCount: 0,
-          pendingFinancingCount: 0,
-          hotLeadsCount: 0,
-        },
-        recommendedActions: [],
-      });
+  const activeMetrics: ManagerCockpitMetrics = metrics || DEFAULT_METRICS;
 
   const totalPipeline = activeMetrics.totalPipelineValue;
   const valueAtRisk = activeMetrics.valueAtRisk;
@@ -311,18 +291,17 @@ export function ManagerActionCockpit({
   const conversionRate = activeMetrics.conversionRate;
   const wonCount = activeMetrics.wonLeadsCount;
 
-  const actionsList: SellerAction[] = isDemoMode
-    ? (metrics?.recommendedActions && metrics.recommendedActions.length > 0
-        ? metrics.recommendedActions
-        : (activeMetrics.recommendedActions?.length ? activeMetrics.recommendedActions : DEFAULT_SELLER_ACTIONS))
-    : (metrics?.recommendedActions || activeMetrics.recommendedActions || []);
+  const actionsList: SellerAction[] =
+    metrics?.recommendedActions && metrics.recommendedActions.length > 0
+      ? metrics.recommendedActions
+      : activeMetrics.recommendedActions?.length
+      ? activeMetrics.recommendedActions
+      : DEFAULT_SELLER_ACTIONS;
 
   const bottleneckMetrics: BottleneckMetric[] = [
     {
       id: "sem-retorno",
-      count: isDemoMode
-        ? (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 12)
-        : (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0),
+      count: activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 12,
       label: "Leads sem retorno",
       description: "Tempo de espera estourado (> 15 min no primeiro contato)",
       icon: Clock,
@@ -333,9 +312,7 @@ export function ManagerActionCockpit({
     },
     {
       id: "propostas-paradas",
-      count: isDemoMode
-        ? (activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 8)
-        : (activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 0),
+      count: activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 8,
       label: "Propostas sem follow-up",
       description: "Propostas enviadas há mais de 24h sem novo contato",
       icon: FileSpreadsheet,
@@ -346,9 +323,7 @@ export function ManagerActionCockpit({
     },
     {
       id: "aguardando-banco",
-      count: isDemoMode
-        ? (activeMetrics.bottlenecks?.pendingFinancingCount ?? 5)
-        : (activeMetrics.bottlenecks?.pendingFinancingCount ?? 0),
+      count: activeMetrics.bottlenecks?.pendingFinancingCount ?? 5,
       label: "Aguardando financiamento",
       description: "Fichas bancárias pendentes de aprovação na mesa de crédito",
       icon: Banknote,
@@ -359,9 +334,7 @@ export function ManagerActionCockpit({
     },
     {
       id: "leads-quentes",
-      count: isDemoMode
-        ? (activeMetrics.bottlenecks?.hotLeadsCount ?? 17)
-        : (activeMetrics.bottlenecks?.hotLeadsCount ?? 0),
+      count: activeMetrics.bottlenecks?.hotLeadsCount ?? 17,
       label: "Leads quentes sem ação hoje",
       description: "Clientes em negociação avançada sem interação nas últimas 8h",
       icon: Flame,
@@ -611,82 +584,7 @@ export function ManagerActionCockpit({
               </span>
             </div>
 
-            {systemRecommendations.length > 0 ? (
-              <div className="space-y-3">
-                <RecommendedActions recommendations={systemRecommendations} />
-                {isDemoMode && actionsList.length > 0 && (
-                  <div className="pt-2 border-t border-white/5 space-y-2.5">
-                    {actionsList.map((action) => {
-                      const isDone = notifiedActions.has(action.id);
-                      return (
-                        <div
-                          key={action.id}
-                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-white/5 bg-zinc-900/60 p-2.5 sm:p-3 transition-colors hover:bg-zinc-900/90"
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-600 text-xs font-bold text-white shadow">
-                              {action.avatar || action.sellerName.slice(0, 2).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="truncate text-xs sm:text-sm font-semibold text-white">
-                                  {action.sellerName}
-                                </p>
-                                <span
-                                  className={cn(
-                                    "rounded px-1.5 py-0.5 text-[10px] font-bold",
-                                    action.urgencyType === "danger"
-                                      ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                                      : action.urgencyType === "warning"
-                                      ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                                      : "bg-blue-500/20 text-blue-400 border border-blue-500/30"
-                                  )}
-                                >
-                                  {action.actionText}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-zinc-400 truncate">
-                                {action.defaultMessage}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                            <span className="text-[10px] font-mono text-zinc-500">
-                              {action.timeText}
-                            </span>
-                            <Button
-                              size="sm"
-                              variant={isDone ? "outline" : "default"}
-                              onClick={() => handleNotifySeller(action)}
-                              className={cn(
-                                "h-7 gap-1 px-2.5 text-[11px] font-bold transition-all",
-                                isDone
-                                  ? "border-emerald-500/30 text-emerald-400 bg-emerald-950/20 hover:bg-emerald-950/40"
-                                  : "bg-gradient-to-r from-orange-500 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-md shadow-orange-500/20"
-                              )}
-                              aria-label={`Cobrar ${action.sellerName} no WhatsApp`}
-                            >
-                              {isDone ? (
-                                <>
-                                  <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                                  <span>Cobrado</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Send className="h-3 w-3" />
-                                  <span>Cobrar no WhatsApp</span>
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : actionsList.length > 0 ? (
+            {actionsList.length > 0 ? (
               <div className="space-y-2.5">
                 {actionsList.map((action) => {
                   const isDone = notifiedActions.has(action.id);
@@ -756,6 +654,8 @@ export function ManagerActionCockpit({
                   );
                 })}
               </div>
+            ) : systemRecommendations.length > 0 ? (
+              <RecommendedActions recommendations={systemRecommendations} />
             ) : (
               <RecommendedActions recommendations={[]} />
             )}

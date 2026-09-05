@@ -12,6 +12,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { SubscriptionBanner } from "@/components/dashboard/SubscriptionBanner";
+import { DemoRoleProvider } from "@/context/demo-role-context";
 import * as authActions from "@/app/actions/auth";
 
 describe("[IT-SB] Banner de Ciclo de Vida da Assinatura (SubscriptionBanner)", () => {
@@ -99,6 +100,20 @@ describe("[IT-SB] Banner de Ciclo de Vida da Assinatura (SubscriptionBanner)", (
     // Assert
     expect(screen.getByText(/período de testes:/i)).toBeInTheDocument();
     expect(screen.getByText(/14 dias/i)).toBeInTheDocument();
+  });
+
+  it("[IT-SB.6] Não deve renderizar banner de trial quando em Modo Demonstração (isDemoMode = true)", () => {
+    // Arrange & Act
+    const { container } = render(
+      <DemoRoleProvider initialDemoMode={true} initialRole="admin">
+        <SubscriptionBanner
+          status={{ hasAccess: true, reason: "TRIAL_ACTIVE", daysRemaining: 10 }}
+        />
+      </DemoRoleProvider>
+    );
+
+    // Assert
+    expect(container).toBeEmptyDOMElement();
   });
 });
 
