@@ -119,6 +119,14 @@ export function GuidedTour() {
     () => true,
     () => false
   );
+  const isTourDismissed = React.useSyncExternalStore(
+    emptySubscribe,
+    () => {
+      if (typeof document === "undefined") return false;
+      return document.cookie.includes("acelera_demo_tour_dismissed=true");
+    },
+    () => false
+  );
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
   const [isOpen, setIsOpen] = useState<boolean>(true);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
@@ -156,8 +164,15 @@ export function GuidedTour() {
     setIsOpen(true);
   };
 
+  const handleClose = () => {
+    if (typeof document !== "undefined") {
+      document.cookie = "acelera_demo_tour_dismissed=true; path=/; max-age=86400";
+    }
+    setIsOpen(false);
+  };
+
   // Se não estiver montado, não estiver em modo demo ou foi fechado permanentemente
-  if (!mounted || !isDemoMode || !isOpen) {
+  if (!mounted || !isDemoMode || !isOpen || isTourDismissed) {
     return null;
   }
 
@@ -228,7 +243,7 @@ export function GuidedTour() {
             </button>
             <button
               id="btn-close-tour"
-              onClick={() => setIsOpen(false)}
+              onClick={handleClose}
               className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white transition"
               title="Fechar tour"
               aria-label="Fechar tour"

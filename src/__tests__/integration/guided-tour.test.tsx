@@ -36,6 +36,7 @@ vi.mock("next/navigation", () => ({
 describe("[IT-20] Tour Guiado da Demonstração (GuidedTour)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    document.cookie = "acelera_demo_tour_dismissed=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
   });
 
   const renderWithProvider = (component: React.ReactNode) => {

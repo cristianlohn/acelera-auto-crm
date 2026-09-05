@@ -13,6 +13,24 @@ test.describe('[REQ-CRM-01] Fluxo de Leads no Funil Kanban', () => {
             domain: "127.0.0.1",
             path: "/",
           },
+          {
+            name: "acelera_demo_tour_dismissed",
+            value: "true",
+            domain: "127.0.0.1",
+            path: "/",
+          },
+          {
+            name: "acelera_demo_mode",
+            value: "true",
+            domain: "localhost",
+            path: "/",
+          },
+          {
+            name: "acelera_demo_tour_dismissed",
+            value: "true",
+            domain: "localhost",
+            path: "/",
+          },
         ]);
         // Arrange: Acessa a página do Kanban de leads
         await page.goto('/leads');
@@ -22,6 +40,7 @@ test.describe('[REQ-CRM-01] Fluxo de Leads no Funil Kanban', () => {
         await page.waitForLoadState('domcontentloaded');
         // Act: Clica no botão de adicionar lead
         const openModalBtn = page.locator('#btn-add-lead');
+        await expect(openModalBtn).toBeVisible({ timeout: 10000 });
         await openModalBtn.click();
 
         const nameInput = page.locator('#lead-name');

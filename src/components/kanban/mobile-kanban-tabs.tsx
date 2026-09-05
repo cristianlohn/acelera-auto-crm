@@ -273,18 +273,31 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
     return map;
   }, [allLeads]);
 
-  // 3. Etapa ativa padrão (primeira etapa que tem leads ou "new")
-  const defaultStage = useMemo(() => {
+  // 3. Etapa ativa calculada de forma puramente reativa e declarativa
+  const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
+  const [drawerLead, setDrawerLead] = useState<NormalizedLead | null>(null);
+
+  const activeStageId = useMemo(() => {
+    // 1. Se o usuário selecionou explicitamente uma aba (clique manual), respeita a escolha (mesmo que vazia)
+    if (selectedStageId !== null) {
+      return selectedStageId;
+    }
+
+    // 2. Se a etapa "Novos" contiver leads, prioriza "Novos" como visualização padrão do funil
+    if ((stageGroups.get("new")?.length ?? 0) > 0) {
+      return "new";
+    }
+
+    // 3. Caso contrário (ex: busca textual ou filtro), seleciona a primeira etapa com resultados
     for (const s of FUNNEL_STAGES) {
       if ((stageGroups.get(s.id)?.length ?? 0) > 0) {
         return s.id;
       }
     }
-    return "new";
-  }, [stageGroups]);
 
-  const [activeStageId, setActiveStageId] = useState<string>(defaultStage);
-  const [drawerLead, setDrawerLead] = useState<NormalizedLead | null>(null);
+    // Fallback padrão
+    return "new";
+  }, [stageGroups, selectedStageId]);
 
   const activeStageDef = FUNNEL_STAGES.find((s) => s.id === activeStageId) || FUNNEL_STAGES[0];
   const activeLeads = stageGroups.get(activeStageId) || [];
@@ -348,7 +361,7 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
               id={`tab-mobile-funnel-${stage.id}`}
               aria-selected={isActive}
               aria-controls={`tabpanel-mobile-funnel-${stage.id}`}
-              onClick={() => setActiveStageId(stage.id)}
+              onClick={() => setSelectedStageId(stage.id)}
               data-testid={`tab-stage-${stage.id}`}
               className={cn(
                 "flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 active:scale-95 touch-manipulation",
@@ -424,9 +437,13 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
             const nextKey = NEXT_STAGE_FLOW[lead.stage];
 
             return (
-              <div
+              <article
                 key={lead.id}
-                data-testid={`mobile-lead-card-${lead.id}`}
+                role="article"
+                aria-label={`Lead: ${lead.name}`}
+                data-testid="kanban-card"
+                data-card-id={lead.id}
+                id={`lead-card-${lead.id}`}
                 onClick={() => onSelectLead?.(lead.raw as T)}
                 className={cn(
                   "relative rounded-2xl border bg-card p-4 shadow-sm transition-all active:scale-[0.99] touch-manipulation cursor-pointer",
@@ -458,7 +475,7 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
                         {lead.name}
                       </p>
                       <p className="truncate text-[11px] text-muted-foreground">
-                        Resp: {lead.sellerName}
+                        Resp: <span data-testid="lead-seller-name">{lead.sellerName}</span>
                       </p>
                     </div>
                   </div>
@@ -486,7 +503,7 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
                 <div className="mt-3 rounded-xl bg-muted/40 dark:bg-zinc-900/60 border border-border/50 dark:border-zinc-800 p-2.5 flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     <Car className="h-4 w-4 text-orange-500 shrink-0" />
-                    <span className="text-xs font-semibold text-foreground truncate">
+                    <span data-testid="lead-vehicle" className="text-xs font-semibold text-foreground truncate">
                       {lead.vehicle}
                     </span>
                   </div>
@@ -503,6 +520,7 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
                     variant="outline"
                     onClick={(e) => handleOpenWhatsApp(lead, e)}
                     data-testid={`btn-whatsapp-${lead.id}`}
+                    id={`btn-whatsapp-${lead.id}`}
                     aria-label={`Chamar ${lead.name} no WhatsApp`}
                     className="col-span-6 h-11 min-h-[44px] gap-1.5 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs font-bold active:scale-95 transition-all"
                   >
@@ -517,6 +535,7 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
                         type="button"
                         onClick={(e) => handleAdvanceStep(lead, e)}
                         data-testid={`btn-advance-stage-${lead.id}`}
+                        id={`btn-advance-stage-${lead.id}`}
                         aria-label={`Avançar etapa de ${lead.name}`}
                         className="flex-1 h-11 min-h-[44px] gap-1 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white text-xs font-bold shadow-md shadow-orange-500/20 active:scale-95 transition-all"
                       >
@@ -554,7 +573,7 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
                     </Button>
                   )}
                 </div>
-              </div>
+              </article>
             );
           })
         )}
