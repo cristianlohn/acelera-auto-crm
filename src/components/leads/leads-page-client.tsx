@@ -51,6 +51,7 @@ import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import { calculateManagerCockpitMetrics, type LeadAnalyticsInput } from "@/lib/crm/analytics";
 import { LeadDetailsModal } from "@/components/leads/lead-details-modal";
+import { MobileKanbanTabs } from "@/components/kanban/mobile-kanban-tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Lead, LeadStatus, LeadOrigin } from "@/types/crm";
 import type { KanbanLead, LeadStage } from "@/types/kanban";
@@ -1199,24 +1200,36 @@ export function LeadsPageClient({
           </div>
         </div>
       ) : (
-        <div className="flex-1 overflow-x-auto">
-          <div
-            className="flex min-h-full gap-4 p-4 sm:p-6"
-            role="region"
-            aria-label="Funil Kanban de Leads"
-          >
-            {KANBAN_COLUMNS.map((col) => (
-              <KanbanColumnCard
-                key={col.id}
-                column={col}
-                leads={visibleLeads.filter((l) => l.status === col.id)}
-                onDropLead={handleMoveLead}
-                onSelectLead={(lead) => setSelectedLead(lead)}
-              />
-            ))}
-            <div className="w-4 shrink-0" aria-hidden />
+        <>
+          {/* Desktop (>= md): Quadro Kanban tradicional */}
+          <div className="hidden md:block flex-1 overflow-x-auto">
+            <div
+              className="flex min-h-full gap-4 p-4 sm:p-6"
+              role="region"
+              aria-label="Funil Kanban de Leads"
+            >
+              {KANBAN_COLUMNS.map((col) => (
+                <KanbanColumnCard
+                  key={col.id}
+                  column={col}
+                  leads={visibleLeads.filter((l) => l.status === col.id)}
+                  onDropLead={handleMoveLead}
+                  onSelectLead={(lead) => setSelectedLead(lead)}
+                />
+              ))}
+              <div className="w-4 shrink-0" aria-hidden />
+            </div>
           </div>
-        </div>
+
+          {/* Mobile (< md): Abas Horizontais com 1 Coluna em Tela Cheia */}
+          <div className="block md:hidden flex-1 px-4 py-2">
+            <MobileKanbanTabs
+              leads={visibleLeads}
+              onMoveLead={handleMoveLead}
+              onSelectLead={(lead) => setSelectedLead(lead)}
+            />
+          </div>
+        </>
       )}
 
       {/* Modal de Detalhes do Lead */}

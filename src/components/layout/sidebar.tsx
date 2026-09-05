@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UserNav } from "@/components/layout/user-nav";
+import { InstallAppButton } from "@/components/pwa/install-button";
 import { useDemoRole } from "@/context/demo-role-context";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
 import {
@@ -313,6 +314,7 @@ export function Sidebar({
 
       {/* 3. Perfil do Usuário / Rodapé (Sempre visível e ancorado no fundo) */}
       <div className="p-3.5 mt-auto border-t border-border/60 shrink-0 bg-slate-50/50 dark:bg-slate-900/30">
+        <InstallAppButton className="w-full justify-start text-xs h-9 mb-2.5" />
         <UserNav
           logoutButtonId="btn-logout-sidebar"
           className="p-0 border-t-0 bg-transparent"

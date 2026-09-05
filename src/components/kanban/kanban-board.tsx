@@ -17,6 +17,7 @@ import type {
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanFilters } from "./kanban-filters";
+import { MobileKanbanTabs } from "./mobile-kanban-tabs";
 import { LeadLostModal } from "./lead-lost-modal";
 import { LeadDetailsModal } from "./lead-details-modal";
 import {
@@ -444,8 +445,8 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
         onLeadAdded={(newLead) => setLeads((prev) => [newLead, ...prev])}
       />
 
-      {/* Quadro Kanban com Rolagem Horizontal Suave */}
-      <div className="flex gap-4 overflow-x-auto pb-4 pt-1 px-0.5 custom-scrollbar min-h-[580px]">
+      {/* Desktop (>= md): Quadro Kanban com Rolagem Horizontal Suave */}
+      <div className="hidden md:flex gap-4 overflow-x-auto pb-4 pt-1 px-0.5 custom-scrollbar min-h-[580px]">
         {columns.map((col) => (
           <KanbanColumn
             key={col.id}
@@ -455,6 +456,15 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
             onSelectLead={(lead) => setSelectedLead(lead)}
           />
         ))}
+      </div>
+
+      {/* Mobile (< md): Abas Horizontais com 1 Coluna em Tela Cheia */}
+      <div className="block md:hidden">
+        <MobileKanbanTabs
+          columns={columns}
+          onMoveStage={handleDropLead}
+          onSelectLead={(lead) => setSelectedLead(lead)}
+        />
       </div>
 
       {/* Modal Executivo de Detalhes do Lead */}

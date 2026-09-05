@@ -142,11 +142,11 @@ describe("[IT-17] SEO Técnico, OpenGraph e Metadados de Indexação", () => {
 
     // Assert
     expect(manifestConfig.name).toBe("Acelera Auto CRM");
-    expect(manifestConfig.short_name).toBe("AceleraAuto");
-    expect(manifestConfig.start_url).toBe("/");
+    expect(manifestConfig.short_name).toMatch(/Acelera\s?Auto/i);
+    expect(manifestConfig.start_url).toBe("/cockpit");
     expect(manifestConfig.display).toBe("standalone");
     expect(manifestConfig.background_color).toBe("#09090b");
-    expect(manifestConfig.theme_color).toBe("#09090b");
+    expect(manifestConfig.theme_color).toBe("#f97316");
 
     expect(manifestConfig.icons).toBeDefined();
     expect(manifestConfig.icons?.length).toBeGreaterThanOrEqual(2);

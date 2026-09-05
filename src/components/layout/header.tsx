@@ -22,6 +22,7 @@ import { getCurrentUserProfileAction } from "@/app/actions/auth";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SoundToggle } from "@/components/audio/sound-toggle";
+import { InstallAppButton } from "@/components/pwa/install-button";
 
 export function MobileHeader({
   initialRole,
@@ -102,6 +103,9 @@ export function MobileHeader({
                 <NavLink key={item.href} item={item} onClick={() => setOpen(false)} />
               ))}
             </nav>
+            <div className="px-3 pt-1 pb-2">
+              <InstallAppButton className="w-full justify-start text-xs h-9" />
+            </div>
           </div>
           <UserNav
             logoutButtonId="btn-logout-mobile"

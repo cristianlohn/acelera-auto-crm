@@ -84,6 +84,11 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Acelera Auto",
+  },
 };
 
 const jsonLd = {

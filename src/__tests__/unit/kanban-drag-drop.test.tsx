@@ -144,7 +144,7 @@ describe("[UT-KANBAN] Drag & Drop Nativo e Modal de Detalhes", () => {
     render(<KanbanBoard initialLeads={[mockLead]} />);
 
     // Verifica que o lead está inicialmente na coluna Novos Leads
-    expect(screen.getByText("Bruno Silveira")).toBeInTheDocument();
+    expect(screen.getAllByText("Bruno Silveira")[0]).toBeInTheDocument();
 
     // Localiza a coluna de destino (Primeiro Contato)
     const contactColumn = screen.getAllByTestId("kanban-column").find(
@@ -168,7 +168,7 @@ describe("[UT-KANBAN] Drag & Drop Nativo e Modal de Detalhes", () => {
     const user = userEvent.setup();
     render(<KanbanBoard initialLeads={[mockLead]} />);
 
-    const card = screen.getByTestId("kanban-card");
+    const card = screen.getAllByTestId("kanban-card")[0];
     await user.click(card);
 
     // Modal aberto
