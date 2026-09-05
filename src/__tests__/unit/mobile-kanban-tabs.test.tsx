@@ -15,8 +15,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MobileKanbanTabs } from "@/components/kanban/mobile-kanban-tabs";
-import type { KanbanLead, KanbanColumnConfig } from "@/types/kanban";
-import type { Lead } from "@/types/crm";
+import type { KanbanLead } from "@/types/kanban";
 
 const MOCK_KANBAN_LEADS: KanbanLead[] = [
   {

@@ -13,7 +13,6 @@ import { useRouter, usePathname } from "next/navigation";
 import { Sparkles, User, ShieldCheck, Crown, X, CheckCircle2, LogOut } from "lucide-react";
 import { useDemoRole, type DemoRole } from "@/context/demo-role-context";
 import { cn } from "@/lib/utils";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 const emptySubscribe = () => () => {};
 

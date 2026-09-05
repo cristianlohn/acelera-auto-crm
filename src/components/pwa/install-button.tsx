@@ -38,48 +38,60 @@ export interface InstallAppButtonProps {
   size?: "default" | "sm" | "lg" | "icon";
 }
 
+const emptySubscribe = () => () => {};
+
 export function InstallAppButton({
   className,
   variant = "outline",
   size = "sm",
 }: InstallAppButtonProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-  const [isIOS, setIsIOS] = useState<boolean>(false);
-  const [isStandalone, setIsStandalone] = useState<boolean>(false);
+  const [appInstalled, setAppInstalled] = useState<boolean>(false);
   const [showIOSModal, setShowIOSModal] = useState<boolean>(false);
-  const [isMounted, setIsMounted] = useState<boolean>(false);
+
+  const isMounted = React.useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+
+  const isStandalone = React.useSyncExternalStore(
+    emptySubscribe,
+    () => {
+      if (typeof window === "undefined") return false;
+      return Boolean(
+        window.matchMedia("(display-mode: standalone)").matches ||
+          (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
+          (typeof document !== "undefined" && document.referrer.includes("android-app://"))
+      );
+    },
+    () => false
+  );
+
+  const isIOS = React.useSyncExternalStore(
+    emptySubscribe,
+    () => {
+      if (typeof window === "undefined") return false;
+      const userAgent = window.navigator.userAgent.toLowerCase();
+      return Boolean(
+        /iphone|ipad|ipod/.test(userAgent) ||
+          (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+      );
+    },
+    () => false
+  );
 
   useEffect(() => {
-    setIsMounted(true);
-
-    // 1. Verifica se já está rodando como PWA (modo standalone)
-    const isStandaloneMode =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
-      (typeof document !== "undefined" && document.referrer.includes("android-app://"));
-
-    setIsStandalone(Boolean(isStandaloneMode));
-
-    // 2. Detecta dispositivos Apple (iOS / iPadOS)
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isAppleDevice =
-      /iphone|ipad|ipod/.test(userAgent) ||
-      (typeof navigator !== "undefined" &&
-        navigator.platform === "MacIntel" &&
-        navigator.maxTouchPoints > 1);
-
-    setIsIOS(isAppleDevice);
-
-    // 3. Captura evento nativo do Android / Chromium
+    // 1. Captura evento nativo do Android / Chromium
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
-    // 4. Trata evento de instalação concluída
+    // 2. Trata evento de instalação concluída
     const handleAppInstalled = () => {
       setDeferredPrompt(null);
-      setIsStandalone(true);
+      setAppInstalled(true);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -95,7 +107,7 @@ export function InstallAppButton({
   if (!isMounted) return null;
 
   // Não exibe se já estiver rodando em modo standalone (app instalado)
-  if (isStandalone) return null;
+  if (isStandalone || appInstalled) return null;
 
   // Se não for iOS e não tiver disparado o evento do Android/Chromium ainda, não exibe
   if (!isIOS && !deferredPrompt) return null;

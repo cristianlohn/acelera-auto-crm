@@ -21,9 +21,6 @@ import {
   ChevronRight,
   Layers,
   Inbox,
-  CheckCircle2,
-  XCircle,
-  Sparkles,
   SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -220,23 +217,23 @@ function getMobileSourceBadge(origin: string) {
 // Propriedades do Componente MobileKanbanTabs
 // ---------------------------------------------------------------------------
 
-export interface MobileKanbanTabsProps {
+export interface MobileKanbanTabsProps<T extends KanbanLead | Lead = KanbanLead | Lead> {
   columns?: KanbanColumnConfig[];
   leads?: (KanbanLead | Lead)[];
   onMoveStage?: (leadId: string, targetStage: LeadStage) => void;
   onMoveLead?: (leadId: string, newStatus: LeadStatus) => void;
-  onSelectLead?: (lead: any) => void;
+  onSelectLead?: (lead: T) => void;
   className?: string;
 }
 
-export function MobileKanbanTabs({
+export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead>({
   columns,
   leads,
   onMoveStage,
   onMoveLead,
   onSelectLead,
   className,
-}: MobileKanbanTabsProps) {
+}: MobileKanbanTabsProps<T>) {
   // 1. Extração e normalização dos leads
   const allLeads: NormalizedLead[] = useMemo(() => {
     if (columns && columns.length > 0) {
@@ -430,7 +427,7 @@ export function MobileKanbanTabs({
               <div
                 key={lead.id}
                 data-testid={`mobile-lead-card-${lead.id}`}
-                onClick={() => onSelectLead?.(lead.raw)}
+                onClick={() => onSelectLead?.(lead.raw as T)}
                 className={cn(
                   "relative rounded-2xl border bg-card p-4 shadow-sm transition-all active:scale-[0.99] touch-manipulation cursor-pointer",
                   "border-border/80 dark:border-zinc-800/80 hover:border-orange-500/40",

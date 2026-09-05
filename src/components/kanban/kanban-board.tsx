@@ -460,7 +460,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
       {/* Mobile (< md): Abas Horizontais com 1 Coluna em Tela Cheia */}
       <div className="block md:hidden">
-        <MobileKanbanTabs
+        <MobileKanbanTabs<KanbanLead>
           columns={columns}
           onMoveStage={handleDropLead}
           onSelectLead={(lead) => setSelectedLead(lead)}

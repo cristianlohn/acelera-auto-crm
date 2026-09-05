@@ -1223,7 +1223,7 @@ export function LeadsPageClient({
 
           {/* Mobile (< md): Abas Horizontais com 1 Coluna em Tela Cheia */}
           <div className="block md:hidden flex-1 px-4 py-2">
-            <MobileKanbanTabs
+            <MobileKanbanTabs<Lead>
               leads={visibleLeads}
               onMoveLead={handleMoveLead}
               onSelectLead={(lead) => setSelectedLead(lead)}
