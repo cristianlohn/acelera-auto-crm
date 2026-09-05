@@ -26,7 +26,7 @@ export function VehiclesHeaderTabs({
 }: VehiclesHeaderTabsProps) {
   return (
     <div
-      className="flex items-center gap-2 border-b border-white/10 pb-3"
+      className="flex items-center gap-2 border-b border-white/10 pb-3 overflow-x-auto no-scrollbar"
       role="tablist"
       aria-label="Contexto do Estoque"
     >
@@ -37,7 +37,7 @@ export function VehiclesHeaderTabs({
         aria-selected={activeTab === "active"}
         onClick={() => onTabChange("active")}
         className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all border",
+          "flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-all border shrink-0 whitespace-nowrap",
           activeTab === "active"
             ? "bg-orange-500/10 text-orange-400 border-orange-500/30 shadow-sm"
             : "text-zinc-400 border-transparent hover:text-white hover:bg-white/5"
@@ -64,7 +64,7 @@ export function VehiclesHeaderTabs({
         aria-selected={activeTab === "sold"}
         onClick={() => onTabChange("sold")}
         className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all border",
+          "flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs font-semibold transition-all border shrink-0 whitespace-nowrap",
           activeTab === "sold"
             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 shadow-sm"
             : "text-zinc-400 border-transparent hover:text-white hover:bg-white/5"

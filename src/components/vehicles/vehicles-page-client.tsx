@@ -81,24 +81,24 @@ function MetricCard({
   iconColor,
 }: MetricCardProps) {
   return (
-    <div className="relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-medium text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-bold tracking-tight text-foreground">
+    <div className="relative min-w-[190px] sm:min-w-[220px] shrink-0 snap-start overflow-hidden rounded-xl border bg-card p-3 sm:p-4 shadow-sm transition-all hover:shadow-md md:min-w-0 md:shrink">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate">{label}</p>
+          <p className="mt-1 text-lg sm:text-2xl font-bold tracking-tight text-foreground truncate">
             {value}
           </p>
           {sub && (
-            <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>
+            <p className="mt-0.5 text-[10px] sm:text-xs text-muted-foreground truncate">{sub}</p>
           )}
         </div>
         <div
           className={cn(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm",
+            "flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-lg sm:rounded-xl shadow-sm",
             iconBg
           )}
         >
-          <Icon className={cn("h-5 w-5", iconColor)} />
+          <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", iconColor)} />
         </div>
       </div>
     </div>
@@ -245,8 +245,9 @@ export function VehiclesPageClient({
   }, [soldVehicles]);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm">
+    <div className="flex min-h-full flex-col w-full">
+      {/* Bloco Superior: Cabeçalho, Abas e KPIs (Sem sticky no mobile para não prender a tela) */}
+      <div className="border-b bg-background">
         {/* Cabeçalho Principal */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div>
@@ -257,18 +258,20 @@ export function VehiclesPageClient({
               {activeVehicles.length} veículo{activeVehicles.length !== 1 ? "s" : ""} no pátio ativo • {soldVehicles.length} no histórico de vendas
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <a
               id="btn-download-stock-template"
               href="/templates/modelo_estoque.csv"
               download="modelo_estoque_acelera.csv"
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-orange-500/40 transition-all shadow-sm"
+              className="hidden md:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-orange-500/40 transition-all shadow-sm shrink-0"
               title="Preencha os dados dos veículos da sua loja seguindo as colunas do modelo antes de importar."
             >
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
               <span>Baixar Planilha Modelo (CSV)</span>
             </a>
-            <NewVehicleModal onAdd={handleAdd} />
+            <div className="w-full sm:w-auto">
+              <NewVehicleModal onAdd={handleAdd} />
+            </div>
           </div>
         </div>
 
@@ -282,15 +285,15 @@ export function VehiclesPageClient({
           />
         </div>
 
-        {/* Cards de Métricas Dinâmicos */}
-        <div className="grid grid-cols-2 gap-3 px-4 pt-3 pb-4 sm:grid-cols-4 sm:px-6">
+        {/* Cards de Métricas Dinâmicos (Carrossel Horizontal no Mobile, Grid no Desktop) */}
+        <div className="flex overflow-x-auto gap-3 px-4 pt-3 pb-3 sm:pb-4 snap-x no-scrollbar md:grid md:grid-cols-4 sm:px-6">
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm"
+                className="flex min-w-[190px] sm:min-w-[220px] shrink-0 snap-start md:min-w-0 md:shrink items-center gap-3 rounded-xl border bg-card p-3 sm:p-4 shadow-sm"
               >
-                <Skeleton className="h-10 w-10 rounded-lg" />
+                <Skeleton className="h-8 w-8 sm:h-10 sm:w-10 rounded-lg" />
                 <div className="space-y-1.5 flex-1">
                   <Skeleton className="h-3 w-16 rounded" />
                   <Skeleton className="h-5 w-24 rounded" />
@@ -365,10 +368,12 @@ export function VehiclesPageClient({
             </>
           )}
         </div>
+      </div>
 
-        {/* Barra de Filtros e Busca (Exclusiva do Pátio Ativo) */}
-        {activeTab === "active" && (
-          <div className="flex flex-col gap-3 px-4 pb-4 sm:flex-row sm:items-center sm:px-6">
+      {/* Barra de Filtros e Busca (Sticky no topo apenas para a busca sem cobrir a tela) */}
+      {activeTab === "active" && (
+        <div className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur-sm px-4 py-2.5 sm:px-6">
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -377,13 +382,13 @@ export function VehiclesPageClient({
                 placeholder="Buscar por marca, modelo ou placa no pátio..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8"
+                className="pl-8 text-xs h-9"
                 aria-label="Buscar veículos"
               />
             </div>
 
             <div
-              className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 overflow-x-auto max-w-full"
+              className="flex items-center gap-1 rounded-lg border bg-muted/40 p-1 overflow-x-auto max-w-full shrink-0 no-scrollbar"
               role="tablist"
               aria-label="Filtrar por status do pátio"
             >
@@ -396,7 +401,7 @@ export function VehiclesPageClient({
                   aria-selected={statusFilter === tab.value}
                   onClick={() => setStatusFilter(tab.value)}
                   className={cn(
-                    "rounded-md px-2.5 py-1 text-xs font-medium transition-all",
+                    "rounded-md px-2.5 py-1 text-xs font-medium transition-all whitespace-nowrap shrink-0",
                     statusFilter === tab.value
                       ? cn(
                           "border-b-2 bg-background shadow-sm",
@@ -410,11 +415,11 @@ export function VehiclesPageClient({
               ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Conteúdo Principal de Acordo com a Aba Ativa */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      {/* Conteúdo Principal de Acordo com a Aba Ativa (Rolagem Fluida) */}
+      <div className="p-4 sm:p-6 flex-1">
         {isLoading ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => (

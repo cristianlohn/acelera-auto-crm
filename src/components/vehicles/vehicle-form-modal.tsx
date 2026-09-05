@@ -847,11 +847,11 @@ export function VehicleFormModal({
             id="btn-new-vehicle"
             data-testid="btn-new-vehicle"
             size="sm"
-            className="text-xs font-semibold bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-md shadow-orange-500/20 gap-1.5"
+            className="w-full sm:w-auto text-xs font-semibold bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white shadow-md shadow-orange-500/20 gap-1.5"
             aria-label="Adicionar novo veículo ao estoque"
           >
-            <Plus className="h-3.5 w-3.5" />
-            <span>+ Novo Veículo</span>
+            <Plus className="h-3.5 w-3.5 shrink-0" />
+            <span>Novo Veículo</span>
           </Button>
         </DialogTrigger>
       ) : null}
