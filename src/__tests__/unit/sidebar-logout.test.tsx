@@ -147,5 +147,40 @@ describe("[IT-LOGOUT] Botão de Logout e Perfil do Usuário na Sidebar", () => {
     expect(screen.getAllByText("marcos.silva@auto.com.br").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("MS").length).toBeGreaterThanOrEqual(1);
   });
+
+  it("[IT-LOGOUT.6] MobileHeader deve exibir as iniciais dinâmicas do usuário logado (ex: 'Cris Test of' -> 'CT')", async () => {
+    // Arrange
+    vi.spyOn(authActions, "getCurrentUserProfileAction").mockResolvedValue({
+      isDemo: false,
+      userId: "user-cris-test",
+      fullName: "Cris Test of",
+      email: "cris.test@autoprime.com.br",
+      phone: "11988887777",
+      role: "admin",
+      avatarUrl: null,
+      initials: "CT",
+      organizationName: "Auto Prime Motors",
+      trialDaysRemaining: 14,
+      subscriptionAccess: {
+        hasAccess: true,
+        reason: "TRIAL_ACTIVE",
+        daysRemaining: 14,
+      },
+    });
+
+    // Act
+    await act(async () => {
+      render(
+        <DashboardLayout>
+          <div>Conteúdo</div>
+        </DashboardLayout>
+      );
+    });
+
+    // Assert: O avatar mobile deve conter 'CT'
+    const mobileAvatar = screen.getByTestId("mobile-user-avatar");
+    expect(mobileAvatar).toBeInTheDocument();
+    expect(mobileAvatar).toHaveTextContent("CT");
+  });
 });
 

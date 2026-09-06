@@ -18,8 +18,11 @@ import { Button } from "@/components/ui/button";
 import { Logo, NavLink, getNavItemsForRole } from "@/components/layout/sidebar";
 import { UserNav } from "@/components/layout/user-nav";
 import { useDemoRole } from "@/context/demo-role-context";
-import { getCurrentUserProfileAction } from "@/app/actions/auth";
-
+import {
+  getCurrentUserProfileAction,
+  type UserProfileInfo,
+} from "@/app/actions/auth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SoundToggle } from "@/components/audio/sound-toggle";
 import { InstallAppButton } from "@/components/pwa/install-button";
@@ -32,16 +35,22 @@ export function MobileHeader({
   initialProfile?: unknown;
 }) {
   const [open, setOpen] = useState(false);
-  const { role: demoRole, isDemoMode } = useDemoRole();
+  const { role: demoRole, sellerName, isDemoMode } = useDemoRole();
   const [realRole, setRealRole] = useState<string | null>(initialRole || null);
+  const [realProfile, setRealProfile] = useState<UserProfileInfo | null>(
+    (initialProfile as UserProfileInfo) || null
+  );
 
   useEffect(() => {
     let isMounted = true;
-    if (!isDemoMode && !initialRole) {
+    if (!isDemoMode) {
       getCurrentUserProfileAction()
         .then((profile) => {
-          if (isMounted && profile?.role) {
-            setRealRole(profile.role);
+          if (isMounted && profile) {
+            setRealProfile(profile);
+            if (profile.role) {
+              setRealRole(profile.role);
+            }
           }
         })
         .catch(() => {});
@@ -49,21 +58,26 @@ export function MobileHeader({
     return () => {
       isMounted = false;
     };
-  }, [isDemoMode, initialRole]);
+  }, [isDemoMode]);
 
   const activeRole = isDemoMode ? demoRole : (realRole || initialRole || "seller");
   const visibleNavItems = getNavItemsForRole(activeRole);
 
-  const profileRecord = initialProfile as Record<string, unknown> | undefined;
+  const profileRecord = (realProfile || initialProfile) as Record<string, unknown> | undefined;
   const displayName = isDemoMode
-    ? demoRole === "vendedor"
-      ? "Rafael Alves"
-      : demoRole === "gerente"
-      ? "Juliana Lima"
-      : "Carlos Souza"
-    : (typeof profileRecord?.fullName === "string" && profileRecord.fullName) ||
+    ? sellerName || (demoRole === "vendedor" ? "Rafael Alves" : demoRole === "gerente" ? "Juliana Lima" : "Carlos Souza")
+    : realProfile?.fullName ||
+      (typeof profileRecord?.fullName === "string" && profileRecord.fullName) ||
       (typeof profileRecord?.full_name === "string" && profileRecord.full_name) ||
-      "Gestor";
+      (typeof profileRecord?.name === "string" && profileRecord.name) ||
+      "Colaborador";
+
+  const avatarUrl = isDemoMode
+    ? null
+    : realProfile?.avatarUrl ||
+      (typeof profileRecord?.avatarUrl === "string" ? profileRecord.avatarUrl : null) ||
+      (typeof profileRecord?.avatar_url === "string" ? profileRecord.avatar_url : null) ||
+      (typeof profileRecord?.image === "string" ? profileRecord.image : null);
 
   const getInitials = (name: string) => {
     return (
@@ -74,9 +88,11 @@ export function MobileHeader({
         .map((part) => part[0])
         .slice(0, 2)
         .join("")
-        .toUpperCase() || "GA"
+        .toUpperCase() || "CT"
     );
   };
+
+  const initials = getInitials(displayName);
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-card/80 px-4 backdrop-blur-sm lg:hidden">
@@ -109,7 +125,7 @@ export function MobileHeader({
           </div>
           <UserNav
             logoutButtonId="btn-logout-mobile"
-            initialProfile={initialProfile ? (initialProfile as React.ComponentProps<typeof UserNav>["initialProfile"]) : undefined}
+            initialProfile={realProfile || (initialProfile as React.ComponentProps<typeof UserNav>["initialProfile"])}
           />
         </SheetContent>
       </Sheet>
@@ -123,11 +139,19 @@ export function MobileHeader({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs font-bold text-white shadow ring-1 ring-orange-500/20 active:scale-95 transition-all cursor-pointer"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full overflow-hidden ring-1 ring-orange-500/20 shadow active:scale-95 transition-all cursor-pointer"
           aria-label="Abrir perfil e menu"
           title={displayName}
+          data-testid="mobile-user-avatar"
         >
-          {getInitials(displayName)}
+          <Avatar className="h-8 w-8">
+            {avatarUrl ? (
+              <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
+            ) : null}
+            <AvatarFallback className="bg-gradient-to-br from-orange-400 to-red-500 text-white font-bold text-xs">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
         </button>
         <div className="hidden md:inline-flex items-center gap-1.5">
           <ThemeToggle />
