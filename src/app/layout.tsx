@@ -139,6 +139,7 @@ const jsonLd = {
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/providers/query-provider";
+import { SoundProvider } from "@/contexts/sound-context";
 
 export default function RootLayout({
   children,
@@ -166,7 +167,9 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <SoundProvider>
+              {children}
+            </SoundProvider>
             <Toaster position="top-right" richColors />
           </ThemeProvider>
         </QueryProvider>

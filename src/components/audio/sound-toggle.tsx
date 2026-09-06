@@ -8,7 +8,8 @@
 import React, { useState, useEffect } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { soundManager } from "@/lib/utils/audio-alerts";
+import { soundManager } from "@/lib/sound/sound-manager";
+import { useSound } from "@/contexts/sound-context";
 import { cn } from "@/lib/utils";
 
 export interface SoundToggleProps {
@@ -22,15 +23,16 @@ export function SoundToggle({
   showLabel = false,
   size = "icon-sm",
 }: SoundToggleProps) {
-  const [isMuted, setIsMuted] = useState<boolean>(() => soundManager.getMuted());
+  const soundContext = useSound();
+  const [localMuted, setLocalMuted] = useState<boolean>(() => soundManager.getMuted());
 
   useEffect(() => {
     const handleMuteChange = (e: Event) => {
       const customEvent = e as CustomEvent<{ isMuted: boolean }>;
       if (customEvent.detail && typeof customEvent.detail.isMuted === "boolean") {
-        setIsMuted(customEvent.detail.isMuted);
+        setLocalMuted(customEvent.detail.isMuted);
       } else {
-        setIsMuted(soundManager.getMuted());
+        setLocalMuted(soundManager.getMuted());
       }
     };
 
@@ -40,12 +42,18 @@ export function SoundToggle({
     };
   }, []);
 
+  const isMuted = soundContext ? soundContext.isMuted : localMuted;
+
   const handleToggle = () => {
-    const nextState = !isMuted;
-    soundManager.setMuted(nextState);
-    setIsMuted(nextState);
-    if (!nextState) {
-      soundManager.playNewLeadSound();
+    if (soundContext) {
+      soundContext.toggleMute();
+    } else {
+      const next = !soundManager.getMuted();
+      soundManager.setMuted(next);
+      setLocalMuted(next);
+      if (!next) {
+        soundManager.playNewLeadSound();
+      }
     }
   };
 
@@ -57,7 +65,11 @@ export function SoundToggle({
       onClick={handleToggle}
       data-testid="btn-sound-toggle"
       aria-label={isMuted ? "Ativar alertas sonoros" : "Mutar alertas sonoros"}
-      title={isMuted ? "Alertas sonoros desativados (clique para ativar)" : "Alertas sonoros ativados (clique para mutar)"}
+      title={
+        isMuted
+          ? "Alertas sonoros desativados (clique para ativar)"
+          : "Alertas sonoros ativados (clique para mutar)"
+      }
       className={cn(
         "h-9 transition-colors text-muted-foreground hover:text-foreground",
         showLabel && "px-3 gap-2",
