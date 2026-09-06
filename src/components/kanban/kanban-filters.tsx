@@ -18,7 +18,8 @@ interface KanbanFiltersProps {
   onResetFilters: () => void;
   sellers: { id: string; name: string }[];
   totalLeadsCount: number;
-  totalPipelineValue: number;
+  totalPipelineValue?: number;
+  negotiatingValue?: number;
   onLeadAdded?: (lead: KanbanLead) => void;
 }
 
@@ -36,7 +37,8 @@ export function KanbanFilters({
   onResetFilters,
   sellers,
   totalLeadsCount,
-  totalPipelineValue,
+  totalPipelineValue = 0,
+  negotiatingValue,
   onLeadAdded,
 }: KanbanFiltersProps) {
   const hasActiveFilters =
@@ -116,7 +118,9 @@ export function KanbanFilters({
           <div className="h-4 w-px bg-white/10 hidden sm:block" />
           <div className="flex items-center gap-1.5 text-zinc-300">
             <DollarSign className="h-4 w-4 text-emerald-400" />
-            <span className="font-bold text-emerald-400">{formatCurrencyBRL(totalPipelineValue)}</span>
+            <span className="font-bold text-emerald-400">
+              {formatCurrencyBRL(negotiatingValue ?? totalPipelineValue)}
+            </span>
             <span className="text-zinc-500 hidden sm:inline">em negociação</span>
           </div>
           <div className="h-4 w-px bg-white/10" />

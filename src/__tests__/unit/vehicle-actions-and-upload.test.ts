@@ -12,6 +12,7 @@ import {
   deleteVehicleAction,
   getVehiclesAction,
 } from "@/app/actions/vehicle-actions";
+import { getVehicles, createVehicle } from "@/app/actions/vehicles";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -203,6 +204,7 @@ describe("[UNIT-VEHICLE-ACTIONS] Upload e Gestão de Veículos com Galeria WebP"
       expect(result.success).toBe(true);
       expect(lastUpdatePayload).not.toBeNull();
       expect(lastUpdatePayload?.photo_url).toBe("https://storage.supabase.co/vehicles/org-test-01/foto2.webp");
+      expect(lastUpdatePayload?.images).toEqual(["https://storage.supabase.co/vehicles/org-test-01/foto2.webp"]);
       expect(lastUpdatePayload?.notes).toContain("foto2.webp");
     });
   });
@@ -222,14 +224,48 @@ describe("[UNIT-VEHICLE-ACTIONS] Upload e Gestão de Veículos com Galeria WebP"
     });
   });
 
-  describe("6. Server Action de Listagem (getVehiclesAction)", () => {
-    it("[TEST-LIST-1] deve consultar lista de veículos mapeando a galeria de fotos", async () => {
+  describe("6. Server Action de Listagem (getVehiclesAction e getVehicles)", () => {
+    it("[TEST-LIST-1] deve consultar lista de veículos mapeando a galeria de fotos via getVehiclesAction", async () => {
       const vehicles = await getVehiclesAction();
 
       expect(Array.isArray(vehicles)).toBe(true);
       expect(vehicles.length).toBeGreaterThan(0);
       expect(vehicles[0].make).toBe("Toyota");
       expect(vehicles[0].images).toBeDefined();
+      expect(vehicles[0].images?.length).toBeGreaterThan(0);
+    });
+
+    it("[TEST-LIST-2] deve consultar lista de veículos mapeando a galeria de fotos via getVehicles (SSR F5)", async () => {
+      const vehicles = await getVehicles();
+
+      expect(Array.isArray(vehicles)).toBe(true);
+      expect(vehicles.length).toBeGreaterThan(0);
+      expect(vehicles[0].make).toBe("Toyota");
+      expect(vehicles[0].images).toBeDefined();
+      expect(vehicles[0].images).toContain("https://storage.supabase.co/vehicles/org-test-01/corolla.webp");
+    });
+  });
+
+  describe("7. Server Action createVehicle (@/app/actions/vehicles)", () => {
+    it("[TEST-CREATE-VEHICLE-1] deve criar veículo persistindo galeria de fotos (images)", async () => {
+      const vehicle = await createVehicle({
+        make: "Toyota",
+        model: "Corolla Cross",
+        version: "XR 2.0",
+        yearFab: 2024,
+        yearModel: 2025,
+        price: 180000,
+        km: 5000,
+        plate: "ABC1D23",
+        status: "disponivel",
+        imageUrl: "https://storage.supabase.co/vehicles/org-test-01/corolla.webp",
+        images: ["https://storage.supabase.co/vehicles/org-test-01/corolla.webp"],
+      });
+
+      expect(vehicle).toBeDefined();
+      expect(vehicle.make).toBe("Toyota");
+      expect(vehicle.images).toBeDefined();
+      expect(vehicle.images).toContain("https://storage.supabase.co/vehicles/org-test-01/corolla.webp");
     });
   });
 });

@@ -102,6 +102,7 @@ create table public.vehicles (
   status public.vehicle_status not null default 'disponivel',
   photo_url text,
   notes text,
+  images text[] default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

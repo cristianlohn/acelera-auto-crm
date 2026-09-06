@@ -91,6 +91,7 @@ export const vehicleSchema = z.object({
   transmission: z.enum(["automatico", "manual", "cvt"]).default("automatico"),
   status: z.enum(["disponivel", "reservado", "vendido"]).default("disponivel"),
   photo_url: z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  images: z.array(z.string()).optional(),
   notes: z.string().trim().optional(),
 });
 

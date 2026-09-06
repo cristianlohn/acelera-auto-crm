@@ -33,6 +33,17 @@ import { useDemoRole } from "@/context/demo-role-context";
 import { canViewAllLeads } from "@/lib/permissions";
 import type { TeamMember } from "@/types/team";
 
+const NEGOTIATION_STATUSES = [
+  "visita",
+  "visit",
+  "visit_scheduled",
+  "test_drive",
+  "proposta",
+  "proposal",
+  "proposal_fi",
+  "negociacao",
+];
+
 interface KanbanBoardProps {
   initialLeads: KanbanLead[];
 }
@@ -287,6 +298,20 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
   // Estatísticas de topo
   const totalLeadsCount = filteredLeads.length;
+  const negotiatingLeads = useMemo(() => {
+    return filteredLeads.filter((lead) => {
+      const stageOrStatus = (lead.stage || (lead as unknown as { status?: string }).status || "").toString().toLowerCase();
+      return NEGOTIATION_STATUSES.includes(stageOrStatus);
+    });
+  }, [filteredLeads]);
+
+  const negotiatingValue = useMemo(() => {
+    return negotiatingLeads.reduce((acc, lead) => {
+      const val = Number(lead.value ?? (lead as unknown as { vehicle_price?: number }).vehicle_price ?? lead.estimated_value ?? 0);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+  }, [negotiatingLeads]);
+
   const totalPipelineValue = useMemo(() => {
     return filteredLeads
       .filter((l) => l.stage !== "lost")
@@ -441,6 +466,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
         onResetFilters={handleResetFilters}
         sellers={sellersList}
         totalLeadsCount={totalLeadsCount}
+        negotiatingValue={negotiatingValue}
         totalPipelineValue={totalPipelineValue}
         onLeadAdded={(newLead) => setLeads((prev) => [newLead, ...prev])}
       />

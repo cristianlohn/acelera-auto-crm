@@ -21,15 +21,31 @@ export const metadata: Metadata = {
     "Quadro Kanban executivo com movimentação interativa de leads, cronômetro de SLA em tempo real e controle de pipeline.",
 };
 
+const NEGOTIATION_STATUSES = [
+  "visita",
+  "visit",
+  "visit_scheduled",
+  "test_drive",
+  "proposta",
+  "proposal",
+  "proposal_fi",
+  "negociacao",
+];
+
 export default async function DashboardLeadsPage() {
   const leads = await getKanbanLeadsAction();
 
   // Métricas rápidas de conversão
   const totalLeads = leads.length;
-  const inNegotiation = leads.filter(
-    (l) => l.stage === "visit_scheduled" || l.stage === "test_drive" || l.stage === "proposal_fi"
-  ).length;
-  const wonLeads = leads.filter((l) => l.stage === "won").length;
+  const negotiatingLeads = leads.filter((lead) => {
+    const stageOrStatus = (lead.stage || (lead as unknown as { status?: string }).status || "").toString().toLowerCase();
+    return NEGOTIATION_STATUSES.includes(stageOrStatus);
+  });
+  const negotiatingCount = negotiatingLeads.length;
+  const wonLeads = leads.filter((l) => {
+    const stageOrStatus = (l.stage || (l as unknown as { status?: string }).status || "").toString().toLowerCase();
+    return stageOrStatus === "won" || stageOrStatus === "fechado";
+  }).length;
   const conversionRate =
     totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
 
@@ -68,7 +84,7 @@ export default async function DashboardLeadsPage() {
                 Em Negociação
               </div>
               <div className="text-sm font-bold text-white">
-                {inNegotiation} leads
+                {negotiatingCount} {negotiatingCount === 1 ? "lead" : "leads"}
               </div>
             </div>
           </div>

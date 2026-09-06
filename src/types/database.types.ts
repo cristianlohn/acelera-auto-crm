@@ -168,6 +168,7 @@ export interface Database {
           status: VehicleStatus;
           photo_url: string | null;
           notes: string | null;
+          images?: string[] | null;
           created_at: string;
           updated_at: string;
         };
@@ -188,6 +189,7 @@ export interface Database {
           status?: VehicleStatus;
           photo_url?: string | null;
           notes?: string | null;
+          images?: string[] | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -208,6 +210,7 @@ export interface Database {
           status?: VehicleStatus;
           photo_url?: string | null;
           notes?: string | null;
+          images?: string[] | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -23,12 +23,9 @@ function mapDbVehicleToDomain(
   row: Database["public"]["Tables"]["vehicles"]["Row"]
 ): Vehicle {
   let images: string[] = [];
-  if (row.photo_url) {
-    images.push(row.photo_url);
-  }
-
-  // Se houver notas com JSON de galeria de fotos, recupera
-  if (row.notes) {
+  if (Array.isArray(row.images) && row.images.length > 0) {
+    images = row.images;
+  } else if (row.notes) {
     try {
       const parsed = JSON.parse(row.notes);
       if (Array.isArray(parsed.images)) {
@@ -38,6 +35,12 @@ function mapDbVehicleToDomain(
       // Notas são texto simples
     }
   }
+
+  if (images.length === 0 && row.photo_url) {
+    images = [row.photo_url];
+  }
+
+  const primaryPhoto = row.photo_url || (images[0] || "/vehicles/civic.jpg");
 
   return {
     id: row.id,
@@ -55,8 +58,8 @@ function mapDbVehicleToDomain(
     mileage: row.mileage,
     price: Number(row.price),
     status: row.status,
-    imageUrl: row.photo_url || (images[0] || "/vehicles/civic.jpg"),
-    images: images.length > 0 ? images : [row.photo_url || "/vehicles/civic.jpg"],
+    imageUrl: primaryPhoto,
+    images: images.length > 0 ? images : [primaryPhoto],
     color: row.color,
     fuel: row.fuel,
     transmission: row.transmission,
@@ -201,6 +204,7 @@ export async function createVehicleAction(
         transmission: (form.transmission as Database["public"]["Tables"]["vehicles"]["Insert"]["transmission"]) || "automatico",
         status: form.status || "disponivel",
         photo_url: imageUrl,
+        images: images,
         notes: notesPayload,
       })
       .select()
@@ -286,6 +290,9 @@ export async function updateVehicleAction(
     if (data.color) updatePayload.color = data.color;
     if (data.status) updatePayload.status = data.status;
     if (imageUrl !== undefined) updatePayload.photo_url = imageUrl || null;
+    if (images !== undefined) {
+      updatePayload.images = images;
+    }
 
     if (images !== undefined || data.notes !== undefined) {
       updatePayload.notes = JSON.stringify({

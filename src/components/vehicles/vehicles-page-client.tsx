@@ -154,6 +154,11 @@ export function VehiclesPageClient({
       price: vehicle.price,
       status: vehicle.status,
       imageUrl: vehicle.imageUrl,
+      images: vehicle.images,
+      color: vehicle.color,
+      fuel: vehicle.fuel,
+      transmission: vehicle.transmission,
+      notes: vehicle.notes,
     }).catch(() => {});
   }, []);
 

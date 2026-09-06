@@ -26,18 +26,48 @@ import type { Database } from "@/types/database.types";
 function mapDbVehicleToDomain(
   row: Database["public"]["Tables"]["vehicles"]["Row"]
 ): Vehicle {
+  let images: string[] = [];
+  if (Array.isArray(row.images) && row.images.length > 0) {
+    images = row.images;
+  } else if (row.notes) {
+    try {
+      const parsed = JSON.parse(row.notes);
+      if (Array.isArray(parsed.images)) {
+        images = parsed.images;
+      }
+    } catch {
+      // Notas são texto simples
+    }
+  }
+
+  if (images.length === 0 && row.photo_url) {
+    images = [row.photo_url];
+  }
+
+  const primaryPhoto = row.photo_url || images[0] || "";
+
   return {
     id: row.id,
+    organizationId: row.organization_id,
     make: row.make,
+    brand: row.make,
     model: row.model,
     version: row.version || "",
     yearFab: row.year_fab,
     yearModel: row.year_model,
+    year: `${row.year_fab}/${row.year_model}`,
     plate: row.plate_last_digits,
+    plateEnd: row.plate_last_digits,
     km: row.mileage,
+    mileage: row.mileage,
     price: Number(row.price),
     status: row.status,
-    imageUrl: row.photo_url || "",
+    imageUrl: primaryPhoto,
+    images: images.length > 0 ? images : (primaryPhoto ? [primaryPhoto] : []),
+    color: row.color,
+    fuel: row.fuel,
+    transmission: row.transmission,
+    notes: row.notes || undefined,
   };
 }
 
@@ -84,13 +114,26 @@ export async function getVehicles(): Promise<Vehicle[]> {
  * @param form - Dados do formulário do veículo.
  * @returns O veículo persistido formatado para o domínio.
  */
-export async function createVehicle(form: VehicleFormData): Promise<Vehicle> {
+export async function createVehicle(
+  form: VehicleFormData & { brand?: string; mileage?: number; images?: string[] }
+): Promise<Vehicle> {
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  const make = form.make || form.brand || "Marca";
+  const km = form.km !== undefined ? form.km : (form.mileage || 0);
+  const imageUrl = form.imageUrl || (form.images && form.images[0]) || "";
+  const images = form.images && form.images.length > 0 ? form.images : (imageUrl ? [imageUrl] : []);
 
   const fallbackVehicle: Vehicle = {
     id: `v-${Date.now()}`,
     ...form,
+    make,
+    brand: make,
+    km,
+    mileage: km,
+    imageUrl,
+    images,
   };
 
   if (!isSupabaseServerConfigured()) {
@@ -103,19 +146,21 @@ export async function createVehicle(form: VehicleFormData): Promise<Vehicle> {
       .from("vehicles")
       .insert({
         organization_id: orgId,
-        make: form.make,
+        make,
         model: form.model,
         version: form.version || null,
         year_fab: form.yearFab,
         year_model: form.yearModel,
         price: form.price,
-        mileage: form.km,
+        mileage: km,
         plate_last_digits: form.plate,
-        color: "Prata",
-        fuel: "flex",
-        transmission: "automatico",
+        color: form.color || "Prata",
+        fuel: (form.fuel as Database["public"]["Tables"]["vehicles"]["Insert"]["fuel"]) || "flex",
+        transmission: (form.transmission as Database["public"]["Tables"]["vehicles"]["Insert"]["transmission"]) || "automatico",
         status: form.status,
-        photo_url: form.imageUrl || null,
+        photo_url: imageUrl || null,
+        images: images,
+        notes: form.notes || JSON.stringify({ images }),
       })
       .select()
       .single();

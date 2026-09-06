@@ -243,6 +243,7 @@ export async function POST(request: NextRequest) {
             transmission: data.transmission,
             status: data.status,
             photo_url: data.photo_url || null,
+            images: data.images || (data.photo_url ? [data.photo_url] : []),
             notes: data.notes || null,
           })
           .select("*")
