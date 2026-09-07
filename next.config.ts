@@ -26,6 +26,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Impede o empacotamento de testes e relatórios nas lambdas da Vercel (redução de Function Storage)
+  outputFileTracingExcludes: {
+    "*": [
+      "./e2e/**",
+      "./test-results/**",
+      "./playwright-report/**",
+      "./src/__tests__/**",
+      "./**/*.test.*",
+      "./**/*.spec.*",
+      "./**/*.md",
+    ],
+  },
 };
 
 export default nextConfig;

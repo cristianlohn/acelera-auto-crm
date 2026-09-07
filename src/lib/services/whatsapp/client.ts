@@ -88,15 +88,15 @@ export function getWhatsAppCredentials() {
   }
 
   // Fallback para ler .env.local ou env.local caso o dev server de longa duração não tenha recarregado o ambiente
-  if (!apiUrl || !apiKey) {
+  if ((!apiUrl || !apiKey) && process.env.NODE_ENV === "development") {
     try {
       const candidates = [
         path.resolve(process.cwd(), ".env.local"),
         path.resolve(process.cwd(), "env.local"),
       ];
       for (const candidate of candidates) {
-        if (fs.existsSync(candidate)) {
-          const content = fs.readFileSync(candidate, "utf8");
+        if (fs.existsSync(/*turbopackIgnore: true*/ candidate)) {
+          const content = fs.readFileSync(/*turbopackIgnore: true*/ candidate, "utf8");
           const evoUrlMatch = content.match(/EVOLUTION_API_URL=(.+)/);
           const waUrlMatch = content.match(/WHATSAPP_API_URL=(.+)/);
           const evoKeyMatch = content.match(/EVOLUTION_API_KEY=(.+)/);

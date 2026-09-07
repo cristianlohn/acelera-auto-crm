@@ -35,15 +35,15 @@ function getEvolutionCredentials() {
     };
   }
 
-  if (!url || !key) {
+  if ((!url || !key) && process.env.NODE_ENV === "development") {
     try {
       const candidates = [
         path.resolve(process.cwd(), "env.local"),
         path.resolve(process.cwd(), ".env.local"),
       ];
       for (const candidate of candidates) {
-        if (fs.existsSync(candidate)) {
-          const content = fs.readFileSync(candidate, "utf8");
+        if (fs.existsSync(/*turbopackIgnore: true*/ candidate)) {
+          const content = fs.readFileSync(/*turbopackIgnore: true*/ candidate, "utf8");
           const urlMatch = content.match(/EVOLUTION_API_URL=(.+)/);
           const keyMatch = content.match(/EVOLUTION_API_KEY=(.+)/);
           if (urlMatch && !url) url = urlMatch[1].trim().replace(/['"]/g, "");
