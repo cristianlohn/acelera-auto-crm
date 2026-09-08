@@ -5,6 +5,7 @@
 
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import {
   createAsaasSubscription,
@@ -216,6 +217,24 @@ export async function createSubscriptionCheckoutAction(
       };
     }
 
+    // Persiste intenção de alteração de plano / upgrade na organização sem alterar plano/vigência atuais
+    const invoiceIdentifier = result.subscriptionId || result.invoiceUrl || null;
+    if (isSupabaseServerConfigured() && orgId) {
+      try {
+        const supabaseAdmin = createAdminClient();
+        await supabaseAdmin
+          .from("organizations")
+          .update({
+            pending_plan: planId,
+            pending_invoice_id: invoiceIdentifier,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", orgId);
+      } catch (dbErr) {
+        console.warn("[Asaas Billing] Falha ao registrar upgrade pendente na organização:", dbErr);
+      }
+    }
+
     return {
       success: true,
       checkoutUrl: result.checkoutUrl,
@@ -255,6 +274,7 @@ export interface SubscriptionOverviewData {
   asaasSubscriptionId?: string | null;
   asaasCustomerId?: string | null;
   hasPendingUpgrade?: boolean;
+  pendingPlan?: string | null;
 }
 
 export interface SubscriptionOverviewResult {
@@ -341,7 +361,7 @@ export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverv
     let paymentMethod: SubscriptionOverviewData["paymentMethod"] = {
       type: "pix",
     };
-    let hasPendingUpgrade = false;
+    let hasPendingUpgrade = Boolean((org as { pending_plan?: string | null })?.pending_plan);
 
     if (org.asaas_subscription_id || org.asaas_customer_id) {
       try {
@@ -406,6 +426,7 @@ export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverv
         asaasSubscriptionId: org.asaas_subscription_id,
         asaasCustomerId: org.asaas_customer_id,
         hasPendingUpgrade,
+        pendingPlan: (org as { pending_plan?: string | null })?.pending_plan || null,
       },
     };
   } catch (error) {
@@ -507,3 +528,63 @@ export async function getSubscriptionInvoicesAction(): Promise<GetInvoicesResult
     };
   }
 }
+
+/**
+ * Cancela uma solicitação de upgrade pendente e limpa os campos de intenção no banco local.
+ * Restrito a administradores ou proprietários da concessionária.
+ */
+export async function cancelPendingUpgradeAction(): Promise<{
+  success: boolean;
+  error?: string;
+  message?: string;
+}> {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    if (!tenantContext.isDemo && !canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
+      return {
+        success: false,
+        error: "Acesso restrito: Apenas administradores ou proprietários podem cancelar alterações de plano.",
+      };
+    }
+
+    if (tenantContext.isDemo) {
+      return { success: true, message: "Solicitação de upgrade cancelada com sucesso." };
+    }
+
+    const orgId = tenantContext.organizationId;
+    if (!orgId) {
+      return { success: false, error: "Organização não localizada." };
+    }
+
+    if (isSupabaseServerConfigured()) {
+      const supabaseAdmin = createAdminClient();
+      const { error } = await supabaseAdmin
+        .from("organizations")
+        .update({
+          pending_plan: null,
+          pending_invoice_id: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orgId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+    }
+
+    try {
+      revalidatePath("/billing");
+    } catch {
+      // Ignora em testes
+    }
+
+    return { success: true, message: "Solicitação de upgrade cancelada com sucesso." };
+  } catch (err) {
+    console.error("[cancelPendingUpgradeAction Error]", err);
+    return {
+      success: false,
+      error: "Falha ao cancelar solicitação de upgrade.",
+    };
+  }
+}
+

@@ -38,6 +38,7 @@ import { normalizeRole, canManageIntegrationsAndBilling } from "@/lib/permission
 import {
   getBillingInitialDataAction,
   getSubscriptionOverviewAction,
+  cancelPendingUpgradeAction,
   type SubscriptionOverviewData,
 } from "@/app/actions/billing-actions";
 
@@ -148,7 +149,22 @@ function BillingContent({
   const [subscriptionOverview, setSubscriptionOverview] = useState<
     SubscriptionOverviewData | null | undefined
   >(initialOverview);
+  const [isCancelingUpgrade, setIsCancelingUpgrade] = useState(false);
   const isLoading = subscriptionOverview === undefined;
+
+  const handleCancelPendingUpgrade = async () => {
+    setIsCancelingUpgrade(true);
+    try {
+      const res = await cancelPendingUpgradeAction();
+      if (res.success) {
+        setSubscriptionOverview((prev) =>
+          prev ? { ...prev, hasPendingUpgrade: false, pendingPlan: null } : prev
+        );
+      }
+    } finally {
+      setIsCancelingUpgrade(false);
+    }
+  };
 
   // Redirecionamento amigável de usuários não autorizados (ex: sellers, members) para o Cockpit
   useEffect(() => {
@@ -270,15 +286,31 @@ function BillingContent({
         {subscriptionOverview?.hasPendingUpgrade && (
           <div
             data-testid="billing-pending-upgrade-alert"
-            className="rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/80 via-amber-900/40 to-amber-950/70 p-4 text-center text-amber-200 shadow-lg shadow-amber-950/30 animate-in fade-in slide-in-from-top-3 max-w-4xl mx-auto"
+            className="rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/80 via-amber-900/40 to-amber-950/70 p-4 text-amber-200 shadow-lg shadow-amber-950/30 animate-in fade-in slide-in-from-top-3 max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4"
           >
-            <div className="flex items-center justify-center gap-2 font-bold text-amber-400 mb-1">
-              <Sparkles className="h-5 w-5 shrink-0" />
-              <span>Solicitação de Alteração de Plano Pendente</span>
+            <div className="flex items-start gap-3 text-left">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 mt-0.5">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="font-bold text-sm text-white block">
+                  Solicitação de Alteração de Plano Pendente
+                </span>
+                <p className="text-xs text-amber-200/90 font-medium mt-0.5">
+                  Você possui uma solicitação de alteração de plano pendente de pagamento. Conclua o pagamento via Pix para ativar o novo plano ou cancele para manter seu plano atual.
+                </p>
+              </div>
             </div>
-            <p className="text-xs sm:text-sm text-amber-200/90 font-medium">
-              Você possui uma solicitação de alteração de plano pendente de pagamento. Conclua o pagamento via Pix para ativar o novo plano.
-            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCancelPendingUpgrade}
+              disabled={isCancelingUpgrade}
+              className="border-amber-500/40 bg-amber-950/30 text-amber-300 hover:bg-amber-950/60 hover:text-white shrink-0 text-xs font-semibold"
+              data-testid="cancel-pending-upgrade-btn"
+            >
+              {isCancelingUpgrade ? "Cancelando..." : "Cancelar solicitação de upgrade"}
+            </Button>
           </div>
         )}
 

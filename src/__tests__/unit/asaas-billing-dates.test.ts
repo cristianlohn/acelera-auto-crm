@@ -184,4 +184,185 @@ describe("[UNIT-ASAAS-DATES] Cálculo de Vigência e Ciclo de Faturamento (curre
     expect(daysDiff).toBeGreaterThan(350);
     expect(daysDiff).toBeLessThan(370);
   });
+
+  it("[TEST-UPGRADE-OVERDUE-1] PAYMENT_OVERDUE para fatura de upgrade pendente descarta a intenção e NUNCA altera status nem plano ativo", async () => {
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    const mockAdminSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: "org-upgrade-001",
+                name: "Loja Upgrade Teste",
+                plan: "starter",
+                subscription_status: "active",
+                pending_plan: "enterprise",
+                pending_invoice_id: "pay_upgrade_enterprise_999",
+                asaas_subscription_id: "sub_active_starter",
+              },
+            }),
+          }),
+        }),
+        update: mockUpdate,
+      }),
+    };
+
+    vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+      mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+    );
+
+    const webhookPayload = {
+      id: "evt_upgrade_overdue_001",
+      event: "PAYMENT_OVERDUE" as const,
+      payment: {
+        id: "pay_upgrade_enterprise_999",
+        customer: "cus_upgrade_001",
+        value: 1297.0,
+        billingType: "PIX" as const,
+        status: "OVERDUE" as const,
+        dueDate: "2026-09-01",
+        externalReference: "org-upgrade-001",
+      },
+    };
+
+    const result = await processAsaasWebhookEvent(webhookPayload);
+
+    expect(result.success).toBe(true);
+    expect(result.actionTaken).toBe("pending_upgrade_overdue_discarded");
+
+    // Deve limpar pending_plan e pending_invoice_id SEM alterar plan nem subscription_status
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pending_plan: null,
+        pending_invoice_id: null,
+      })
+    );
+
+    const updatedData = mockUpdate.mock.calls[0][0];
+    expect(updatedData).not.toHaveProperty("subscription_status");
+    expect(updatedData).not.toHaveProperty("plan");
+  });
+
+  it("[TEST-UPGRADE-DELETED-1] PAYMENT_DELETED para cobrança de upgrade pendente descarta a solicitação e mantém conta ativa", async () => {
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    const mockAdminSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: "org-upgrade-002",
+                name: "Loja Upgrade Cancelado",
+                plan: "pro",
+                subscription_status: "active",
+                pending_plan: "enterprise",
+                pending_invoice_id: "pay_del_002",
+                asaas_subscription_id: "sub_active_pro",
+              },
+            }),
+          }),
+        }),
+        update: mockUpdate,
+      }),
+    };
+
+    vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+      mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+    );
+
+    const webhookPayload = {
+      id: "evt_upgrade_del_001",
+      event: "PAYMENT_DELETED" as const,
+      payment: {
+        id: "pay_del_002",
+        customer: "cus_upgrade_002",
+        value: 1297.0,
+        status: "DELETED" as const,
+        externalReference: "org-upgrade-002",
+      },
+    };
+
+    const result = await processAsaasWebhookEvent(webhookPayload);
+
+    expect(result.success).toBe(true);
+    expect(result.actionTaken).toBe("pending_upgrade_deleted_discarded");
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pending_plan: null,
+        pending_invoice_id: null,
+      })
+    );
+
+    const updatedData = mockUpdate.mock.calls[0][0];
+    expect(updatedData).not.toHaveProperty("subscription_status");
+  });
+
+  it("[TEST-RECURRING-OVERDUE-GRACE] PAYMENT_OVERDUE para assinatura recorrente dentro da tolerância marca past_due", async () => {
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    const mockUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    });
+
+    const mockAdminSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                id: "org-rec-001",
+                name: "Loja Recorrente",
+                plan: "pro",
+                subscription_status: "active",
+                asaas_subscription_id: "sub_rec_001",
+              },
+            }),
+          }),
+        }),
+        update: mockUpdate,
+      }),
+    };
+
+    vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+      mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+    );
+
+    // Vencimento ontem (dentro da tolerância de 3 dias)
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+    const webhookPayload = {
+      id: "evt_rec_ovd_001",
+      event: "PAYMENT_OVERDUE" as const,
+      payment: {
+        id: "pay_rec_001",
+        customer: "cus_rec_001",
+        subscription: "sub_rec_001",
+        value: 597.0,
+        dueDate: yesterday,
+        externalReference: "org-rec-001",
+      },
+    };
+
+    const result = await processAsaasWebhookEvent(webhookPayload);
+
+    expect(result.success).toBe(true);
+    expect(result.actionTaken).toBe("payment_overdue_marked_past_due");
+    expect(mockUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subscription_status: "past_due",
+      })
+    );
+  });
 });

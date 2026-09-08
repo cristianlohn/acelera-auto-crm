@@ -479,5 +479,60 @@ describe("[UNIT-BILLING-MANAGEMENT] Governança RBAC e Cockpit de Assinatura", (
       expect(screen.getByText("04/09/2027")).toBeInTheDocument();
       expect(screen.getByTestId("subscription-invoices-table")).toBeInTheDocument();
     });
+
+    it("[TEST-BILL-COND-5] deve cancelar a solicitação de upgrade pendente via botão e ocultar o alerta imediatamente", async () => {
+      vi.spyOn(billingActions, "getSubscriptionOverviewAction").mockResolvedValue({
+        success: true,
+        data: {
+          planId: "pro",
+          planName: "Plano Pro",
+          status: "active",
+          billingCycle: "anual",
+          price: 5970,
+          nextDueDate: "2027-09-04T23:59:59.999Z",
+          daysRemaining: 365,
+          hasPendingUpgrade: true,
+          pendingPlan: "enterprise",
+        },
+      });
+
+      vi.spyOn(billingActions, "getSubscriptionInvoicesAction").mockResolvedValue({
+        success: true,
+        data: [],
+      });
+
+      vi.spyOn(billingActions, "getBillingInitialDataAction").mockResolvedValue({
+        success: true,
+        data: {
+          name: "Auto Prime Motors",
+          email: "financeiro@autoprime.com.br",
+          phone: "11988887777",
+          document: "12.345.678/0001-90",
+          documentType: "CNPJ",
+        },
+      });
+
+      const cancelSpy = vi.spyOn(billingActions, "cancelPendingUpgradeAction").mockResolvedValue({
+        success: true,
+        message: "Solicitação de upgrade cancelada com sucesso.",
+      });
+
+      render(<BillingPage />);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("billing-pending-upgrade-alert")).toBeInTheDocument();
+      });
+
+      const cancelBtn = screen.getByTestId("cancel-pending-upgrade-btn");
+      expect(cancelBtn).toHaveTextContent(/cancelar solicitação de upgrade/i);
+
+      fireEvent.click(cancelBtn);
+
+      await waitFor(() => {
+        expect(cancelSpy).toHaveBeenCalledTimes(1);
+        expect(screen.queryByTestId("billing-pending-upgrade-alert")).not.toBeInTheDocument();
+      });
+    });
   });
 });
+

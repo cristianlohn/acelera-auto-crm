@@ -64,6 +64,8 @@ export interface Database {
           max_sellers?: number | null;
           asaas_customer_id?: string | null;
           asaas_subscription_id?: string | null;
+          pending_plan?: string | null;
+          pending_invoice_id?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -79,6 +81,8 @@ export interface Database {
           max_sellers?: number | null;
           asaas_customer_id?: string | null;
           asaas_subscription_id?: string | null;
+          pending_plan?: string | null;
+          pending_invoice_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -94,6 +98,8 @@ export interface Database {
           max_sellers?: number | null;
           asaas_customer_id?: string | null;
           asaas_subscription_id?: string | null;
+          pending_plan?: string | null;
+          pending_invoice_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

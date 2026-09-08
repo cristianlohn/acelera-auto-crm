@@ -267,58 +267,99 @@ export function resolvePlanFromData(
   return "pro";
 }
 
+export interface OrganizationFoundData {
+  id: string;
+  name: string;
+  billing_cycle?: string;
+  plan?: string | null;
+  subscription_status?: string | null;
+  current_period_end?: string | null;
+  pending_plan?: string | null;
+  pending_invoice_id?: string | null;
+  asaas_subscription_id?: string | null;
+  asaas_customer_id?: string | null;
+}
+
 /**
  * Localiza a organização no banco de dados a partir dos dados recebidos do Asaas.
  */
 export async function findOrganizationByAsaasData(
   externalRef?: string,
   customerId?: string,
-  subscriptionId?: string
-): Promise<{ id: string; name: string; billing_cycle?: string } | null> {
+  subscriptionId?: string,
+  paymentId?: string
+): Promise<OrganizationFoundData | null> {
   const parsedRef = parseExternalReference(externalRef);
   const orgIdCandidate = parsedRef?.orgId || externalRef;
 
   if (!isSupabaseServerConfigured()) {
     // Retorna mock para ambiente sem Supabase configurado
-    if (orgIdCandidate) return { id: orgIdCandidate, name: "Concessionária Local" };
-    if (customerId) return { id: "org-001", name: "Concessionária Local" };
+    if (orgIdCandidate) {
+      return {
+        id: orgIdCandidate,
+        name: "Concessionária Local",
+        plan: "starter",
+        subscription_status: "active",
+      };
+    }
+    if (customerId) {
+      return {
+        id: "org-001",
+        name: "Concessionária Local",
+        plan: "starter",
+        subscription_status: "active",
+      };
+    }
     return null;
   }
 
   try {
     const supabaseAdmin = createAdminClient();
+    const fields =
+      "id, name, plan, subscription_status, current_period_end, pending_plan, pending_invoice_id, asaas_subscription_id, asaas_customer_id";
 
     // 1. Busca por externalReference (ID direto ou extraído do JSON)
     if (orgIdCandidate) {
       const { data } = await supabaseAdmin
         .from("organizations")
-        .select("id, name")
+        .select(fields)
         .eq("id", orgIdCandidate)
         .maybeSingle();
 
-      if (data) return data;
+      if (data) return data as unknown as OrganizationFoundData;
     }
 
-    // 2. Busca por asaas_subscription_id
+    // 2. Busca por asaas_subscription_id ou pending_invoice_id com subscriptionId
     if (subscriptionId) {
       const { data } = await supabaseAdmin
         .from("organizations")
-        .select("id, name")
-        .eq("asaas_subscription_id", subscriptionId)
+        .select(fields)
+        .or(`asaas_subscription_id.eq.${subscriptionId},pending_invoice_id.eq.${subscriptionId}`)
         .maybeSingle();
 
-      if (data) return data;
+      if (data) return data as unknown as OrganizationFoundData;
     }
 
-    // 3. Busca por asaas_customer_id
+    // 3. Busca por pending_invoice_id com paymentId
+    if (paymentId) {
+      const { data } = await supabaseAdmin
+        .from("organizations")
+        .select(fields)
+        .eq("pending_invoice_id", paymentId)
+        .maybeSingle();
+
+      if (data) return data as unknown as OrganizationFoundData;
+    }
+
+    // 4. Busca por asaas_customer_id
     if (customerId) {
       const { data } = await supabaseAdmin
         .from("organizations")
-        .select("id, name")
+        .select(fields)
         .eq("asaas_customer_id", customerId)
         .maybeSingle();
 
-      if (data) return data;
+      if (data) return data as unknown as OrganizationFoundData;
     }
 
     return null;
@@ -373,7 +414,7 @@ export async function processAsaasWebhookEvent(
     };
   }
 
-  const org = await findOrganizationByAsaasData(externalRef, customerId, subscriptionId);
+  const org = await findOrganizationByAsaasData(externalRef, customerId, subscriptionId, payment?.id);
   const targetOrgId = isSupabaseServerConfigured() ? org?.id : (org?.id || targetIdFromRef);
 
   if (!targetOrgId) {
@@ -393,12 +434,13 @@ export async function processAsaasWebhookEvent(
     case "PAYMENT_RECEIVED": {
       actionTaken = "payment_confirmed_subscription_activated";
 
-      // 1. Identifica o Plano com 100% de Precisão
-      const targetPlan = resolvePlanFromData(
+      // 1. Identifica o Plano com 100% de Precisão (prioriza pending_plan se houver upgrade em andamento)
+      const resolvedPlan = resolvePlanFromData(
         parsedRef?.plan,
         payment?.description || subscription?.description,
         payment?.value
       );
+      const targetPlan = (org?.pending_plan as "starter" | "pro" | "enterprise") || resolvedPlan;
       const maxSellers = PLAN_LIMITS_CONFIG[targetPlan].maxSellers;
 
       // 2. Identifica o Ciclo do Plano (Anual vs Mensal)
@@ -440,6 +482,8 @@ export async function processAsaasWebhookEvent(
             trial_ends_at: null,
             current_period_end: currentPeriodEnd,
             max_sellers: maxSellers,
+            pending_plan: null,
+            pending_invoice_id: null,
             updated_at: new Date().toISOString(),
           };
 
@@ -469,8 +513,60 @@ export async function processAsaasWebhookEvent(
       break;
     }
 
-    case "PAYMENT_REFUNDED":
     case "PAYMENT_DELETED": {
+      const paymentId = payment?.id;
+      const paymentSubId = payment?.subscription || subscriptionId;
+      const isPendingUpgrade = Boolean(
+        org?.pending_plan &&
+        (org.pending_invoice_id === paymentId ||
+          org.pending_invoice_id === paymentSubId ||
+          org.pending_invoice_id === subscriptionId ||
+          (parsedRef?.plan && parsedRef.plan === org.pending_plan && parsedRef.plan !== org.plan))
+      );
+
+      if (isPendingUpgrade) {
+        actionTaken = "pending_upgrade_deleted_discarded";
+        console.log(
+          `[Asaas Webhook] Cobrança de upgrade cancelada/deletada para organização ${targetOrgId}. Mantendo plano e status ativos.`
+        );
+
+        if (isSupabaseServerConfigured() && targetOrgId) {
+          try {
+            const supabaseAdmin = createAdminClient();
+            await supabaseAdmin
+              .from("organizations")
+              .update({
+                pending_plan: null,
+                pending_invoice_id: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", targetOrgId);
+          } catch (err) {
+            console.warn("[Asaas Webhook] Falha ao limpar upgrade cancelado:", err);
+          }
+        }
+        break;
+      }
+
+      actionTaken = "payment_refunded_subscription_suspended";
+      if (isSupabaseServerConfigured() && targetOrgId) {
+        try {
+          const supabaseAdmin = createAdminClient();
+          await supabaseAdmin
+            .from("organizations")
+            .update({
+              subscription_status: "inactive",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", targetOrgId);
+        } catch (err) {
+          console.warn("[Asaas Webhook] Falha ao atualizar estorno:", err);
+        }
+      }
+      break;
+    }
+
+    case "PAYMENT_REFUNDED": {
       actionTaken = "payment_refunded_subscription_suspended";
 
       if (isSupabaseServerConfigured() && targetOrgId) {
@@ -491,7 +587,48 @@ export async function processAsaasWebhookEvent(
     }
 
     case "PAYMENT_OVERDUE": {
-      actionTaken = "payment_overdue_marked_past_due";
+      const paymentId = payment?.id;
+      const paymentSubId = payment?.subscription || subscriptionId;
+      const isPendingUpgrade = Boolean(
+        org?.pending_plan &&
+        (org.pending_invoice_id === paymentId ||
+          org.pending_invoice_id === paymentSubId ||
+          org.pending_invoice_id === subscriptionId ||
+          (parsedRef?.plan && parsedRef.plan === org.pending_plan && parsedRef.plan !== org.plan))
+      );
+
+      if (isPendingUpgrade) {
+        actionTaken = "pending_upgrade_overdue_discarded";
+        console.log(
+          `[Asaas Webhook] Fatura de upgrade pendente vencida (${paymentId || paymentSubId}) para organização ${targetOrgId}. Mantendo plano '${org?.plan || "atual"}' e status '${org?.subscription_status || "active"}' ativos.`
+        );
+
+        if (isSupabaseServerConfigured() && targetOrgId) {
+          try {
+            const supabaseAdmin = createAdminClient();
+            await supabaseAdmin
+              .from("organizations")
+              .update({
+                pending_plan: null,
+                pending_invoice_id: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", targetOrgId);
+          } catch (err) {
+            console.warn("[Asaas Webhook] Falha ao limpar upgrade pendente vencido:", err);
+          }
+        }
+        break;
+      }
+
+      // Se for a fatura da assinatura recorrente vigente da loja:
+      // Aplica período de carência (3 dias de tolerância após dueDate)
+      const dueDateMs = payment?.dueDate ? new Date(payment.dueDate).getTime() : 0;
+      const nowMs = Date.now();
+      const gracePeriodMs = 3 * 24 * 60 * 60 * 1000;
+      const isPastGracePeriod = dueDateMs > 0 && (nowMs - dueDateMs) > gracePeriodMs;
+      const newStatus = isPastGracePeriod ? "inactive" : "past_due";
+      actionTaken = isPastGracePeriod ? "payment_overdue_subscription_suspended" : "payment_overdue_marked_past_due";
 
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
@@ -499,7 +636,7 @@ export async function processAsaasWebhookEvent(
           await supabaseAdmin
             .from("organizations")
             .update({
-              subscription_status: "past_due",
+              subscription_status: newStatus,
               updated_at: new Date().toISOString(),
             })
             .eq("id", targetOrgId);
