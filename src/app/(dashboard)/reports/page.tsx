@@ -143,7 +143,7 @@ function ReportsPageContent() {
   const { data: reportData } = useExecutiveReports(
     period,
     isDemoMode,
-    PERIOD_METRICS[period]
+    isDemoMode ? PERIOD_METRICS[period] : undefined
   );
 
   if (!isDemoMode && !canViewReports) {
@@ -165,7 +165,7 @@ function ReportsPageContent() {
     );
   }
 
-  const currentData = reportData || PERIOD_METRICS[period];
+  const currentData = reportData || (isDemoMode ? PERIOD_METRICS[period] : EMPTY_METRICS);
   const { kpis, funnel, channels, sellers, topVehicles } = currentData;
 
   const handleExport = () => {
@@ -582,7 +582,7 @@ function ReportsPageContent() {
               <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground rounded-lg border border-dashed border-border/60 bg-muted/20">
                 <Layers className="h-8 w-8 text-muted-foreground/30 mb-2" />
                 <p className="text-xs font-semibold text-foreground">
-                  Nenhum veículo vendido no período
+                  Nenhuma venda consolidada no período selecionado.
                 </p>
                 <p className="text-[11px] text-muted-foreground mt-0.5 max-w-xs">
                   Os modelos com maior volume de faturamento e giro de estoque aparecerão aqui.

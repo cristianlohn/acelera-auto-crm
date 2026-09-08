@@ -41,6 +41,7 @@ describe("[IT-14] Painel Backoffice Super Admin e Gestão de Assinaturas B2B", (
   beforeEach(() => {
     vi.clearAllMocks();
     if (typeof document !== "undefined") {
+      document.cookie = "acelera_demo_mode=true; path=/";
       document.cookie = "acelera_demo_role=superadmin; path=/";
     }
   });

@@ -20,20 +20,28 @@
  * ============================================================================
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ClientsPage, { buildClientWhatsAppUrl } from "@/app/(dashboard)/clients/page";
 import { DemoRoleProvider } from "@/context/demo-role-context";
+import { mockClients } from "@/lib/mock-data";
 
 // ---------------------------------------------------------------------------
 // [IT-09] Gestão de Clientes e Carteira de Relacionamento
 // ---------------------------------------------------------------------------
 
 describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   it("[IT-09.1] Deve renderizar os 4 cards de KPIs com contadores e valores formatados em BRL", () => {
-    // Arrange & Act (Dado que a tela de Clientes é montada)
-    render(<ClientsPage />);
+    // Arrange & Act (Dado que a tela de Clientes é montada no modo demo)
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ClientsPage initialClients={mockClients} />
+      </DemoRoleProvider>
+    );
 
     // Assert (Então os 4 cards de métricas devem estar presentes no DOM)
     expect(screen.getByText("Total de Clientes")).toBeInTheDocument();
@@ -51,7 +59,11 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
 
   it("[IT-09.2] Deve renderizar a listagem populada com múltiplos clientes", () => {
     // Arrange & Act (Quando a página é carregada)
-    render(<ClientsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ClientsPage initialClients={mockClients} />
+      </DemoRoleProvider>
+    );
 
     // Assert (Então múltiplos cards com tag <article> devem estar presentes)
     const cards = screen.getAllByRole("article");
@@ -65,7 +77,11 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
   it("[IT-09.3] Deve filtrar a listagem instantaneamente ao buscar por nome de cliente", async () => {
     // Arrange (Dado o catálogo com múltiplos clientes)
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ClientsPage initialClients={mockClients} />
+      </DemoRoleProvider>
+    );
 
     const searchInput = screen.getByRole("searchbox", {
       name: /buscar clientes/i,
@@ -85,7 +101,11 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
   it("[IT-09.4] Deve filtrar a listagem ao buscar pelo número de telefone", async () => {
     // Arrange
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ClientsPage initialClients={mockClients} />
+      </DemoRoleProvider>
+    );
 
     const searchInput = screen.getByRole("searchbox", {
       name: /buscar clientes/i,
@@ -99,10 +119,14 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
     expect(screen.queryByText("Mariana Souza")).not.toBeInTheDocument();
   });
 
-  it("[IT-09.5] Deve exibir o estado vazio (Empty State) quando nenhum cliente for encontrado", async () => {
+  it("[IT-09.5] Deve exibir o estado vazio (Empty State) quando nenhum cliente for encontrado na busca", async () => {
     // Arrange
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ClientsPage initialClients={mockClients} />
+      </DemoRoleProvider>
+    );
 
     const searchInput = screen.getByRole("searchbox", {
       name: /buscar clientes/i,
@@ -124,7 +148,11 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
   it("[IT-09.6] Deve filtrar os clientes ao alternar entre as abas de status (Todos, Ativos, Compradores, Inativos)", async () => {
     // Arrange
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ClientsPage initialClients={mockClients} />
+      </DemoRoleProvider>
+    );
 
     // Act 1 (Quando o usuário clica na aba 'Ativos')
     const activeTab = screen.getByRole("tab", { name: "Ativos" });
@@ -163,7 +191,11 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
   it("[IT-09.7] Deve abrir o modal, validar campos obrigatórios, cadastrar novo cliente e inseri-lo no topo", async () => {
     // Arrange
     const user = userEvent.setup();
-    render(<ClientsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ClientsPage initialClients={mockClients} />
+      </DemoRoleProvider>
+    );
 
     const addClientBtn = screen.getByRole("button", {
       name: /adicionar novo cliente à base/i,
@@ -174,7 +206,7 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
     await user.click(addClientBtn);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
-    const nameInput = screen.getByPlaceholderText(/ex: mariana souza/i);
+    const nameInput = screen.getByPlaceholderText(/ex: joão da silva/i);
     const phoneInput = screen.getByPlaceholderText(/\(47\) 99887-7665/i);
     const documentInput = screen.getByPlaceholderText(/000\.000\.000-00/i);
     const submitBtn = screen.getByRole("button", { name: /cadastrar cliente/i });
@@ -186,7 +218,7 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
     await user.type(nameInput, "Guilherme Santos");
     await user.type(phoneInput, "11988776655");
     await user.type(documentInput, "52998224725"); // CPF válido
-    await user.type(screen.getByPlaceholderText(/ex: mariana@email\.com/i), "guilherme@email.com");
+    await user.type(screen.getByPlaceholderText(/ex: joao\.silva@email\.com/i), "guilherme@email.com");
     await user.type(screen.getByPlaceholderText(/ex: corolla cross xre/i), "BMW 320i M Sport");
 
     expect(submitBtn).not.toBeDisabled();
@@ -228,7 +260,7 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
     // Arrange & Act (Dado que a tela é aberta por um vendedor)
     render(
       <DemoRoleProvider initialDemoMode={true} initialRole="vendedor">
-        <ClientsPage />
+        <ClientsPage initialClients={mockClients} />
       </DemoRoleProvider>
     );
 
@@ -244,5 +276,35 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
 
     // Badge de carteira individual
     expect(screen.getByText(/Minha Carteira \(Rafael Alves\)/i)).toBeInTheDocument();
+  });
+
+  it("[IT-09.10] Deve exibir o Empty State limpo e profissional quando a base real não tiver clientes", () => {
+    // Arrange & Act (Dado que a tela é aberta em organização real sem clientes)
+    render(
+      <DemoRoleProvider initialDemoMode={false}>
+        <ClientsPage initialClients={[]} />
+      </DemoRoleProvider>
+    );
+
+    // Assert (Exibe o Empty State limpo, 0 clientes e nenhum mock)
+    expect(screen.getByText("Nenhum cliente cadastrado")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Os clientes aparecerão aqui automaticamente conforme os leads forem atendidos e cadastrados no sistema."
+      )
+    ).toBeInTheDocument();
+
+    // Validação dos KPIs zerados
+    expect(screen.getByText("Total de Clientes")).toBeInTheDocument();
+    expect(screen.getByText("Clientes Ativos")).toBeInTheDocument();
+    expect(screen.getByText("Vendas na Carteira")).toBeInTheDocument();
+    expect(screen.getByText("Ticket Médio da Base")).toBeInTheDocument();
+    expect(screen.getAllByText("0").length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByText(/R\$\s?0/)).toBeInTheDocument();
+
+    expect(screen.queryByText("Mariana Souza")).not.toBeInTheDocument();
+    expect(screen.queryByText("Carlos Mendonça")).not.toBeInTheDocument();
+    expect(screen.queryByText("Roberto Silveira")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("article")).toHaveLength(0);
   });
 });

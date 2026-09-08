@@ -66,16 +66,26 @@ export async function getManagerCockpitMetrics(
 
       // Busca de vendedores ativos da organização para o ranking completo
       const activeSellerNames: string[] = [];
+      const sellerProfiles: Array<{ id: string; name: string; phone: string }> = [];
+      const profilesMap = new Map<string, { id: string; name: string; phone: string }>();
+
       try {
         const { data: profilesData } = await supabase
           .from("profiles")
-          .select("id, full_name, role")
+          .select("id, full_name, role, phone")
           .eq("organization_id", targetOrgId);
 
         const rawProfiles = (profilesData || []) as unknown as Array<Record<string, unknown>>;
         for (const raw of rawProfiles) {
           if (raw && raw.role !== "inativo" && typeof raw.full_name === "string" && raw.full_name.trim()) {
-            activeSellerNames.push(raw.full_name.trim());
+            const fullName = raw.full_name.trim();
+            const id = typeof raw.id === "string" ? raw.id : "";
+            const phone = typeof raw.phone === "string" ? raw.phone : "";
+            activeSellerNames.push(fullName);
+            const prof = { id, name: fullName, phone };
+            sellerProfiles.push(prof);
+            if (id) profilesMap.set(id, prof);
+            profilesMap.set(fullName.toLowerCase(), prof);
           }
         }
       } catch {
@@ -114,6 +124,7 @@ export async function getManagerCockpitMetrics(
         return calculateManagerCockpitMetrics([], {
           defaultTicket: 0,
           activeSellers: activeSellerNames,
+          sellerProfiles,
         });
       }
 
@@ -145,13 +156,30 @@ export async function getManagerCockpitMetrics(
             ? (customFields.vehicle_price as number)
             : vehiclePrice;
 
+        const sellerId = (rawRow.seller_id as string) || undefined;
+        let sellerName = (row.seller_name as string) || undefined;
+        let sellerPhone: string | undefined;
+
+        if (sellerId && profilesMap.has(sellerId)) {
+          const prof = profilesMap.get(sellerId)!;
+          if (!sellerName || sellerName === "Sem vendedor") {
+            sellerName = prof.name;
+          }
+          sellerPhone = prof.phone;
+        } else if (sellerName && profilesMap.has(sellerName.toLowerCase())) {
+          const prof = profilesMap.get(sellerName.toLowerCase())!;
+          sellerPhone = prof.phone;
+        }
+
         return {
           id: (row.id as string) || undefined,
           name: (row.name as string) || undefined,
           phone: (row.phone as string) || undefined,
           status: (row.status as string) || "novo",
           stage: typeof rawRow.stage === "string" ? (rawRow.stage as string) : undefined,
-          sellerName: (row.seller_name as string) || undefined,
+          sellerId,
+          sellerName,
+          sellerPhone,
           vehicleInterest: (row.vehicle_interest as string) || undefined,
           firstContactAt: typeof rawRow.first_contact_at === "string" ? (rawRow.first_contact_at as string) : undefined,
           lastContactAt: (row.last_contact_at as string) || undefined,
@@ -167,6 +195,7 @@ export async function getManagerCockpitMetrics(
       return calculateManagerCockpitMetrics(dbLeadsInput, {
         defaultTicket: 0,
         activeSellers: activeSellerNames,
+        sellerProfiles,
       });
     } catch {
       return calculateManagerCockpitMetrics([], { defaultTicket: 0 });

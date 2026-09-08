@@ -197,8 +197,7 @@ export function useDemoRole() {
     if (typeof document !== "undefined") {
       hasDemoCookie =
         document.cookie.includes("acelera_demo_mode=true") ||
-        document.cookie.includes("sb-demo-auth=true") ||
-        document.cookie.includes("acelera_demo_role");
+        document.cookie.includes("sb-demo-auth=true");
       const match = document.cookie.match(/acelera_demo_role=([^;]+)/);
       if (match && match[1] && match[1] in ROLE_CONFIGS) {
         fallbackRole = match[1] as DemoRole;

@@ -243,6 +243,8 @@ export interface Database {
           notes: string | null;
           short_code?: string | null;
           custom_fields?: Json | null;
+          value?: number | null;
+          estimated_value?: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -264,6 +266,8 @@ export interface Database {
           notes?: string | null;
           short_code?: string | null;
           custom_fields?: Json | null;
+          value?: number | null;
+          estimated_value?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -285,6 +289,8 @@ export interface Database {
           notes?: string | null;
           short_code?: string | null;
           custom_fields?: Json | null;
+          value?: number | null;
+          estimated_value?: number | null;
           created_at?: string;
           updated_at?: string;
         };

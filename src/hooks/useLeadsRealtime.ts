@@ -49,38 +49,7 @@ export function useLeadsRealtime({
 }: UseLeadsRealtimeProps = {}) {
   const queryClient = useContext(QueryClientContext);
 
-  // 1. Sincronização em segundo plano via Heartbeat Polling & Foco da Janela
-  useEffect(() => {
-    if (isDemo || !organizationId || !onPollSync) return;
-
-    let isMounted = true;
-
-    const executeSync = async () => {
-      if (isMounted && typeof document !== "undefined" && document.visibilityState === "visible") {
-        try {
-          await onPollSync();
-        } catch {
-          // Silencioso
-        }
-      }
-    };
-
-    const interval = setInterval(executeSync, pollIntervalMs);
-
-    const handleFocus = () => {
-      executeSync();
-    };
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleFocus);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleFocus);
-    };
-  }, [organizationId, isDemo, onPollSync, pollIntervalMs]);
+  // Sincronização em tempo real via Supabase Realtime WebSocket (sem polling HTTP ativo)
 
   // 2. Sincronização Instantânea via Supabase Realtime WebSocket
   useEffect(() => {

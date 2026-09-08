@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   calculateManagerCockpitMetrics,
   estimateLeadVehicleValue,
+  generatePrescriptiveActions,
   type LeadAnalyticsInput,
 } from "@/lib/crm/analytics";
 import { getManagerCockpitMetrics } from "@/app/actions/cockpit";
@@ -375,6 +376,82 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
       expect(juliana).toBeDefined();
       expect(juliana?.leadsCount).toBe(0);
       expect(juliana?.slaBadge).toBe("verde");
+    });
+  });
+
+  describe("[TEST-COCKPIT-PRESCRIPTIVE-ACTIONS] Motor de Ações Prescritivas a partir de Leads Reais", () => {
+    it("deve gerar ações de perigo para leads em 'novo' com SLA estourado (> 15 min)", () => {
+      const leads: LeadAnalyticsInput[] = [
+        {
+          id: "lead-real-1",
+          name: "Carlos Ferreira",
+          phone: "11999887766",
+          status: "novo",
+          vehicleInterest: "Toyota Corolla Cross 2024",
+          sellerName: "Cris Test of",
+          sellerPhone: "11988887777",
+          createdAt: new Date(referenceNow.getTime() - 25 * 60000).toISOString(),
+          lastContactAt: null,
+        },
+      ];
+
+      const actions = generatePrescriptiveActions(leads, { now: referenceNow });
+
+      expect(actions.length).toBe(1);
+      expect(actions[0].sellerName).toBe("Cris Test of");
+      expect(actions[0].urgencyType).toBe("danger");
+      expect(actions[0].phone).toBe("5511988887777");
+      expect(actions[0].actionText).toContain("Carlos Ferreira");
+      expect(actions[0].defaultMessage).toContain("Carlos Ferreira");
+      expect(actions[0].defaultMessage).toContain("Corolla Cross");
+    });
+
+    it("deve gerar ações de atenção para propostas paradas (> 24h sem follow-up)", () => {
+      const leads: LeadAnalyticsInput[] = [
+        {
+          id: "lead-prop-1",
+          name: "Mariana Albuquerque",
+          phone: "11988776655",
+          status: "proposta",
+          vehicleInterest: "Honda Civic 2023",
+          sellerName: "Cris Test of",
+          sellerPhone: "11988887777",
+          createdAt: new Date(referenceNow.getTime() - 48 * 3600000).toISOString(),
+          lastContactAt: new Date(referenceNow.getTime() - 30 * 3600000).toISOString(),
+        },
+      ];
+
+      const actions = generatePrescriptiveActions(leads, { now: referenceNow });
+
+      expect(actions.length).toBe(1);
+      expect(actions[0].sellerName).toBe("Cris Test of");
+      expect(actions[0].urgencyType).toBe("warning");
+      expect(actions[0].actionText).toContain("Mariana Albuquerque");
+      expect(actions[0].defaultMessage).toContain("Mariana Albuquerque");
+    });
+
+    it("deve retornar array vazio [] quando não houver leads com SLA estourado ou propostas paradas", () => {
+      const leads: LeadAnalyticsInput[] = [
+        {
+          id: "lead-ok-1",
+          name: "Rodrigo Silva",
+          status: "novo",
+          createdAt: new Date(referenceNow.getTime() - 5 * 60000).toISOString(),
+          sellerName: "Cris Test of",
+        },
+        {
+          id: "lead-ok-2",
+          name: "Patricia Mendes",
+          status: "proposta",
+          createdAt: new Date(referenceNow.getTime() - 10 * 3600000).toISOString(),
+          lastContactAt: new Date(referenceNow.getTime() - 2 * 3600000).toISOString(),
+          sellerName: "Cris Test of",
+        },
+      ];
+
+      const actions = generatePrescriptiveActions(leads, { now: referenceNow });
+
+      expect(actions).toEqual([]);
     });
   });
 });

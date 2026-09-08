@@ -40,7 +40,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { QueryClient, QueryClientProvider, QueryClientContext } from "@tanstack/react-query";
-import { formatCurrency, mockClients } from "@/lib/mock-data";
+import { formatCurrency } from "@/lib/mock-data";
 import { saveClientAction } from "@/app/actions/clients";
 import { useClients } from "@/hooks/use-clients";
 import { cn } from "@/lib/utils";
@@ -271,7 +271,7 @@ function AddClientModal({
               name="name"
               value={form.name}
               onChange={handleChange}
-              placeholder="Ex: Mariana Souza"
+              placeholder="Ex: João da Silva"
               required
             />
           </div>
@@ -309,7 +309,7 @@ function AddClientModal({
                 name="email"
                 value={form.email || ""}
                 onChange={handleChange}
-                placeholder="Ex: mariana@email.com"
+                placeholder="Ex: joao.silva@email.com"
                 type="email"
               />
             </div>
@@ -382,13 +382,7 @@ function AddClientModal({
                         {m.name} {m.role === "manager" ? "(Gestor)" : ""}
                       </option>
                     ))
-                ) : (
-                  <>
-                    <option value="Rafael Alves">Rafael Alves</option>
-                    <option value="Juliana Costa">Juliana Costa</option>
-                    <option value="Marcos Ferreira">Marcos Ferreira</option>
-                  </>
-                )}
+                ) : null}
               </select>
             </div>
 
@@ -526,17 +520,18 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
   );
 
   const safeClients = useMemo(() => {
-    const baseClients = (Array.isArray(serverClients) && serverClients.length > 0)
+    const baseClients: Client[] = Array.isArray(serverClients)
       ? serverClients
-      : (Array.isArray(initialClients) && initialClients.length > 0)
+      : Array.isArray(initialClients)
       ? initialClients
-      : mockClients;
+      : [];
+
     if (optimisticClients.length === 0) return baseClients;
     const addedIds = new Set(optimisticClients.map((c) => c.id));
     return [...optimisticClients, ...baseClients.filter((c) => !addedIds.has(c.id))];
   }, [serverClients, initialClients, optimisticClients]);
 
-  const isLoading = isQueryLoading && !safeClients.length && !initialClients && !isDemoMode;
+  const isLoading = isQueryLoading && !serverClients && !initialClients && !isDemoMode;
 
   useEffect(() => {
     let isMounted = true;
@@ -566,28 +561,33 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
   // Lista base filtrada estritamente por papel RBAC (Vendedor visualiza apenas seus próprios clientes)
   const roleFilteredClients = useMemo(() => {
     if (isVendedor) {
-      const activeSeller = sellerName || "Rafael Alves";
+      if (isDemoMode) {
+        const activeSeller = sellerName || "Rafael Alves";
+        return safeClients.filter(
+          (c) =>
+            c.sellerName === activeSeller ||
+            c.sellerName?.toLowerCase().includes("rafael") ||
+            c.sellerName?.toLowerCase().includes("vendedor")
+        );
+      }
       return safeClients.filter(
-        (c) =>
-          c.sellerName === activeSeller ||
-          c.sellerName?.toLowerCase().includes("rafael") ||
-          c.sellerName?.toLowerCase().includes("vendedor")
+        (c) => !c.sellerName || (sellerName && c.sellerName.toLowerCase() === sellerName.toLowerCase())
       );
     }
     if (sellerFilter !== "todos") {
       return safeClients.filter((c) => c.sellerName === sellerFilter);
     }
     return safeClients;
-  }, [safeClients, isVendedor, sellerName, sellerFilter]);
+  }, [safeClients, isVendedor, isDemoMode, sellerName, sellerFilter]);
 
   // Cálculos das métricas executivas da carteira
   const metrics = useMemo(() => {
     const total = roleFilteredClients.length;
     const active = roleFilteredClients.filter((c) => c.status === "ativo").length;
-    const buyers = roleFilteredClients.filter((c) => c.purchasesCount > 0);
-    const totalSalesCount = buyers.reduce((acc, c) => acc + c.purchasesCount, 0);
-    const totalRevenue = buyers.reduce((acc, c) => acc + c.totalPurchased, 0);
-    const averageTicket = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
+    const buyers = roleFilteredClients.filter((c) => c.status === "comprador" || (c.purchasesCount || 0) > 0);
+    const totalSalesCount = roleFilteredClients.reduce((acc, c) => acc + (c.purchasesCount || 0), 0);
+    const totalRevenue = roleFilteredClients.reduce((acc, c) => acc + (c.totalPurchased || 0), 0);
+    const averageTicket = buyers.length > 0 ? totalRevenue / (totalSalesCount > 0 ? totalSalesCount : buyers.length) : 0;
 
     return {
       total,
@@ -632,13 +632,13 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
               {isVendedor && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
                   <User className="h-3 w-3" />
-                  Minha Carteira ({sellerName || "Rafael Alves"})
+                  Minha Carteira ({sellerName || "Vendedor"})
                 </span>
               )}
             </div>
             <p className="text-xs text-muted-foreground">
               {isVendedor
-                ? `Clientes e compradores sob responsabilidade de ${sellerName || "Rafael Alves"}`
+                ? `Clientes e compradores sob responsabilidade de ${sellerName || "seu perfil"}`
                 : "Gestão unificada de compradores, histórico de aquisições e pós-venda"}
             </p>
           </div>
@@ -663,13 +663,7 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
                           {m.name}
                         </option>
                       ))
-                  ) : (
-                    <>
-                      <option value="Rafael Alves">Rafael Alves</option>
-                      <option value="Juliana Costa">Juliana Costa</option>
-                      <option value="Marcos Ferreira">Marcos Ferreira</option>
-                    </>
-                  )}
+                  ) : null}
                 </select>
               </div>
             )}
@@ -677,7 +671,7 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
             {/* Modal de Adição de Cliente */}
             <AddClientModal
               onAdd={handleAddClient}
-              defaultSellerName={isVendedor ? (sellerName || "Rafael Alves") : "roleta"}
+              defaultSellerName={isVendedor ? (sellerName || "") : "roleta"}
               lockSeller={isVendedor}
               teamMembers={teamMembers}
             />
@@ -782,7 +776,7 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
       {/* ------------------------------------------------------------------ */}
       <div className="flex-1 p-4 sm:p-6">
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div
                 key={i}
@@ -803,45 +797,42 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
             ))}
           </div>
         ) : filteredClients.length === 0 ? (
-          /* Empty State */
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700/60 bg-slate-900/30 p-12 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-orange-500/10 border border-orange-500/20 text-orange-400 text-2xl">
-              👥
+          roleFilteredClients.length === 0 ? (
+            /* Empty State Limpo - Base Vazia */
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40 col-span-full">
+              <Users className="w-12 h-12 text-zinc-600 mb-3" />
+              <h4 className="text-base font-semibold text-white">Nenhum cliente cadastrado</h4>
+              <p className="text-xs text-zinc-400 mt-1 max-w-sm">
+                Os clientes aparecerão aqui automaticamente conforme os leads forem atendidos e cadastrados no sistema.
+              </p>
             </div>
-            <h2 className="mt-4 text-base font-bold text-foreground">
-              {search ? "Nenhum cliente encontrado" : "Nenhum cliente cadastrado ainda"}
-            </h2>
-            <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-              {search
-                ? `Nenhum resultado para "${search}". Tente buscar por outro termo ou limpe o filtro.`
-                : "Cadastre clientes para registrar preferências de veículos, histórico de compras e acelerar o contato via WhatsApp."}
-            </p>
-            {search ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4 text-xs"
-                onClick={() => setSearch("")}
-              >
-                Limpar Busca
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                className="mt-4 text-xs font-semibold bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md shadow-orange-500/20 gap-1.5"
-                onClick={() => {
-                  const addBtn = document.getElementById("btn-add-client");
-                  addBtn?.click();
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                <span>+ Cadastrar Primeiro Cliente</span>
-              </Button>
-            )}
-          </div>
+          ) : (
+            /* Empty State de Busca / Filtro */
+            <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40 col-span-full">
+              <Users className="w-12 h-12 text-zinc-600 mb-3" />
+              <h4 className="text-base font-semibold text-white">
+                Nenhum cliente encontrado
+              </h4>
+              <p className="text-xs text-zinc-400 mt-1 max-w-sm">
+                {search
+                  ? `Nenhum resultado para "${search}". Tente buscar por outro termo ou limpe o filtro.`
+                  : "Nenhum cliente encontrado com os filtros selecionados."}
+              </p>
+              {search && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 text-xs"
+                  onClick={() => setSearch("")}
+                >
+                  Limpar Busca
+                </Button>
+              )}
+            </div>
+          )
         ) : (
           /* Grid de Cards de Clientes */
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredClients.map((client) => {
               const statusInfo = STATUS_CONFIG[client.status];
               return (

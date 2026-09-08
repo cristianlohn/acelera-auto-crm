@@ -24,6 +24,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ReportsPage from "@/app/(dashboard)/reports/page";
+import { DemoRoleProvider } from "@/context/demo-role-context";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -42,7 +43,11 @@ vi.mock("next/navigation", () => ({
 describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
   it("[IT-08.1] Deve renderizar os 4 cards de KPIs executivos com formatação BRL e taxas percentuais", () => {
     // Arrange & Act (Dado que a página de Relatórios é montada)
-    render(<ReportsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ReportsPage />
+      </DemoRoleProvider>
+    );
 
     // Assert (Então os 4 KPIs executivos devem estar presentes com seus respectivos valores)
     expect(screen.getByText("Faturamento Realizado")).toBeInTheDocument();
@@ -61,7 +66,11 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
   it("[IT-08.2] Deve alternar entre os filtros de período (7 dias, Este Mês, Trimestre, Ano) atualizando o estado ativo", async () => {
     // Arrange (Dado o dashboard montado no período padrão 'Este Mês')
     const user = userEvent.setup();
-    render(<ReportsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ReportsPage />
+      </DemoRoleProvider>
+    );
 
     const monthTab = screen.getByRole("tab", { name: "Este Mês" });
     const sevenDaysTab = screen.getByRole("tab", { name: "7 dias" });
@@ -96,7 +105,11 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
   it("[IT-08.3] Deve renderizar as 5 etapas do funil de conversão comercial com contagem e taxas de avanço", () => {
     // Arrange & Act (Quando o dashboard é carregado)
-    render(<ReportsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ReportsPage />
+      </DemoRoleProvider>
+    );
 
     // Assert (Então as 5 etapas com contagem de leads devem estar presentes)
     expect(screen.getByText("Novo Lead")).toBeInTheDocument();
@@ -121,7 +134,11 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
   it("[IT-08.4] Deve renderizar o ranking de vendedores com destaque visual e coroa no Top 1", () => {
     // Arrange & Act (Quando a seção da equipe comercial é renderizada)
-    render(<ReportsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ReportsPage />
+      </DemoRoleProvider>
+    );
 
     // Assert (Então o Top 1 deve ter badge exclusiva e dados individuais)
     expect(screen.getByText("Ranking da Equipe Comercial")).toBeInTheDocument();
@@ -141,7 +158,11 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
   it("[IT-08.5] Deve renderizar a lista de eficiência por canais de aquisição com percentuais", () => {
     // Arrange & Act
-    render(<ReportsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ReportsPage />
+      </DemoRoleProvider>
+    );
 
     // Assert (Então os canais e suas taxas devem ser exibidos)
     expect(screen.getByText("Eficiência por Canal")).toBeInTheDocument();
@@ -159,7 +180,11 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
   it("[IT-08.6] Deve disparar a ação de exportação de relatório e exibir feedback visual ao usuário", () => {
     // Arrange
     vi.useFakeTimers();
-    render(<ReportsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ReportsPage />
+      </DemoRoleProvider>
+    );
 
     const exportBtn = screen.getByRole("button", {
       name: /exportar relatório consolidado/i,
@@ -187,7 +212,11 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
   it("[IT-08.7] Deve renderizar a lista de veículos mais vendidos e giro de pátio", () => {
     // Arrange & Act
-    render(<ReportsPage />);
+    render(
+      <DemoRoleProvider initialDemoMode={true}>
+        <ReportsPage />
+      </DemoRoleProvider>
+    );
 
     // Assert (Verifica a presença dos modelos e dados de giro)
     expect(screen.getByText("Veículos Mais Vendidos")).toBeInTheDocument();
@@ -198,5 +227,29 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
     expect(screen.getByText(/4 unidades/)).toBeInTheDocument();
     expect(screen.getByText(/R\$\s?599\.600/)).toBeInTheDocument();
+  });
+
+  it("[IT-08.9] Deve exibir zeros reais e Empty State limpo para organização real sem vendas", () => {
+    // Arrange & Act (Organização real sem sessão demo)
+    render(
+      <DemoRoleProvider initialDemoMode={false} initialRole="admin">
+        <ReportsPage />
+      </DemoRoleProvider>
+    );
+
+    // Assert (KPIs zerados em produção sem cair em mock)
+    expect(screen.getByText("Faturamento Realizado")).toBeInTheDocument();
+    expect(screen.getAllByText(/R\$\s?0/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("0%")).toBeInTheDocument();
+    expect(screen.getAllByText("0 min").length).toBeGreaterThanOrEqual(1);
+
+    // Veículos mais vendidos: Empty state limpo
+    expect(
+      screen.getByText("Nenhuma venda consolidada no período selecionado.")
+    ).toBeInTheDocument();
+
+    // Rafael Alves ou Honda Civic não devem aparecer em organização real vazia
+    expect(screen.queryByText("Rafael Alves")).not.toBeInTheDocument();
+    expect(screen.queryByText("Honda Civic")).not.toBeInTheDocument();
   });
 });

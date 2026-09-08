@@ -6,6 +6,7 @@
 import {
   calculateManagerCockpitMetrics,
   getRecommendedActions,
+  generatePrescriptiveActions,
   estimateLeadVehicleValue,
   calculateRiskPipeline,
   type SystemRecommendation,
@@ -30,6 +31,7 @@ export type {
 export {
   calculateManagerCockpitMetrics,
   getRecommendedActions,
+  generatePrescriptiveActions,
   estimateLeadVehicleValue,
   calculateRiskPipeline,
   getManagerCockpitMetrics,

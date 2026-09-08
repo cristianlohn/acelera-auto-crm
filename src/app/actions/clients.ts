@@ -100,18 +100,125 @@ export async function getClients(rawFilters?: Partial<ClientFilters>): Promise<C
 
     query = query.order("last_interaction_at", { ascending: false, nullsFirst: false });
 
-    const { data, error } = await query;
+    const { data: clientsData, error: clientsError } = await query;
 
-    if (error) {
-      console.error("[getClients Error]", error.message);
-      return [];
+    if (!clientsError && clientsData && clientsData.length > 0) {
+      return (clientsData as ClientRow[]).map(mapDbRowToClient);
     }
 
-    if (!data || data.length === 0) {
-      return [];
+    // Se a tabela clients não tiver registros, compõe a carteira agregada a partir da tabela leads
+    const { data: leadsData, error: leadsError } = await supabase
+      .from("leads")
+      .select("id, name, phone, email, status, seller_name, seller_id, vehicle_interest, created_at, last_contact_at, value, estimated_value, vehicles(price), custom_fields")
+      .eq("organization_id", tenantContext.organizationId);
+
+    if (!leadsError && leadsData && leadsData.length > 0) {
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("organization_id", tenantContext.organizationId);
+
+      const profilesMap = new Map<string, string>();
+      if (profilesData) {
+        for (const p of profilesData) {
+          if (p.id && p.full_name) {
+            profilesMap.set(p.id, p.full_name);
+          }
+        }
+      }
+
+      const clientsMap = new Map<string, Client>();
+
+      for (const row of leadsData as Array<Record<string, unknown>>) {
+        const rawPhone = typeof row.phone === "string" ? row.phone.trim() : "";
+        const cleanDigits = rawPhone.replace(/\D/g, "");
+        const phoneKey = cleanDigits || rawPhone || ((row.id as string) || "sem-telefone");
+        const phone = rawPhone || "Sem telefone";
+        const name = (typeof row.name === "string" ? row.name.trim() : "") || "Cliente";
+        const email = typeof row.email === "string" ? row.email.trim() : undefined;
+        const statusRaw = (typeof row.status === "string" ? row.status.toLowerCase() : "novo");
+        const sellerId = typeof row.seller_id === "string" ? row.seller_id : undefined;
+        const sellerName = (sellerId && profilesMap.has(sellerId))
+          ? profilesMap.get(sellerId)!
+          : (typeof row.seller_name === "string" && row.seller_name.trim())
+          ? row.seller_name.trim()
+          : "Sem vendedor";
+        const vehicleInterest = typeof row.vehicle_interest === "string" ? row.vehicle_interest.trim() : undefined;
+        const lastInteraction = (typeof row.last_contact_at === "string" ? row.last_contact_at : undefined) ||
+          (typeof row.created_at === "string" ? row.created_at : new Date().toISOString());
+
+        const vehicleObj = row.vehicles as { price?: number } | undefined;
+        const custom = row.custom_fields as Record<string, unknown> | null;
+        let leadValue = 0;
+        if (typeof row.value === "number" && row.value > 0) {
+          leadValue = row.value;
+        } else if (typeof row.estimated_value === "number" && row.estimated_value > 0) {
+          leadValue = row.estimated_value;
+        } else if (typeof custom?.sale_value === "number" && custom.sale_value > 0) {
+          leadValue = custom.sale_value;
+        } else if (typeof custom?.value === "number" && custom.value > 0) {
+          leadValue = custom.value;
+        } else if (typeof vehicleObj?.price === "number" && vehicleObj.price > 0) {
+          leadValue = vehicleObj.price;
+        }
+
+        const isWon = statusRaw === "fechado" || statusRaw === "ganho" || statusRaw === "vendido" || statusRaw === "won" || statusRaw === "venda_fechada";
+        const isActive = statusRaw === "novo" || statusRaw === "atendimento" || statusRaw === "visita" || statusRaw === "proposta" || statusRaw === "em_negociacao" || statusRaw === "in_contact";
+
+        const clientStatus: ClientStatus = isWon ? "comprador" : isActive ? "ativo" : "inativo";
+
+        if (!clientsMap.has(phoneKey)) {
+          clientsMap.set(phoneKey, {
+            id: (row.id as string) || `c-${phoneKey}`,
+            name,
+            phone,
+            email,
+            status: clientStatus,
+            sellerName,
+            vehiclePreference: vehicleInterest,
+            totalPurchased: isWon ? leadValue : 0,
+            purchasesCount: isWon ? 1 : 0,
+            lastInteractionAt: lastInteraction,
+            notes: undefined,
+          });
+        } else {
+          const existing = clientsMap.get(phoneKey)!;
+          if (isWon) {
+            existing.status = "comprador";
+            existing.totalPurchased += leadValue;
+            existing.purchasesCount += 1;
+          } else if (existing.status !== "comprador" && isActive) {
+            existing.status = "ativo";
+          }
+          if (vehicleInterest && !existing.vehiclePreference) {
+            existing.vehiclePreference = vehicleInterest;
+          }
+          if (lastInteraction && (!existing.lastInteractionAt || new Date(lastInteraction) > new Date(existing.lastInteractionAt))) {
+            existing.lastInteractionAt = lastInteraction;
+          }
+        }
+      }
+
+      let aggregated = Array.from(clientsMap.values());
+
+      if (filters.status && filters.status !== "todos") {
+        aggregated = aggregated.filter((c) => c.status === filters.status);
+      }
+
+      if (filters.search && filters.search.trim()) {
+        const term = filters.search.trim().toLowerCase();
+        aggregated = aggregated.filter(
+          (c) =>
+            c.name.toLowerCase().includes(term) ||
+            c.phone.toLowerCase().includes(term) ||
+            (c.email && c.email.toLowerCase().includes(term))
+        );
+      }
+
+      return aggregated;
     }
 
-    return (data as ClientRow[]).map(mapDbRowToClient);
+    return [];
   } catch (err) {
     console.error("[getClients Exception]", err);
     return [];

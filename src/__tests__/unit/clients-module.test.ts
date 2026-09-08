@@ -13,7 +13,7 @@
  * 8. deleteClientAction: NÃO exclui cliente de outro tenant.
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { getClients, saveClientAction, deleteClientAction } from "@/app/actions/clients";
 import * as tenantAuthModule from "@/lib/auth/tenant";
 import * as supabaseServerModule from "@/lib/supabase/server";
@@ -215,6 +215,10 @@ describe("[UNIT-CLIENTS] Módulo de Carteira de Clientes", () => {
         notes: "Cliente exclusivo da Beta Veículos",
       },
     ];
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("[CLI-01] getClients em Modo Demo retorna clientes simulados", async () => {

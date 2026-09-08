@@ -20,6 +20,69 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
+import type { ManagerCockpitMetrics } from "@/lib/crm/analytics";
+
+const mockMetricsWithActions: ManagerCockpitMetrics = {
+  totalPipelineValue: 2768000,
+  valueAtRisk: 285000,
+  totalActiveLeads: 21,
+  totalLeads: 81,
+  averageFirstContactMinutes: 4.2,
+  slaComplianceRate: 88,
+  overdueLeadsCount: 12,
+  wonLeadsCount: 12,
+  conversionRate: 14.8,
+  sellerRanking: [
+    {
+      sellerName: "Cris Test of",
+      leadsCount: 19,
+      activeDeals: 8,
+      wonDeals: 4,
+      avgResponseMinutes: 6.0,
+      slaBadge: "verde",
+      sharePercentage: 35.0,
+      pipelineValue: 1050000,
+      revenue: 520000,
+    },
+  ],
+  bottlenecks: {
+    withoutReturnCount: 12,
+    proposalsWithoutFollowupCount: 8,
+    pendingFinancingCount: 5,
+    hotLeadsCount: 17,
+  },
+  recommendedActions: [
+    {
+      id: "act-1",
+      sellerName: "Cris Test of",
+      avatar: "CT",
+      actionText: "4 leads sem retorno imediato",
+      leadCount: 4,
+      urgencyType: "danger",
+      timeText: "Há 42 min",
+      defaultMessage:
+        "Olá Cris, identifiquei no Acelera que você possui 4 novos leads aguardando resposta há mais de 15 minutos. Vamos priorizar o contato agora para não esfriar!",
+      phone: "5511988887777",
+    },
+    {
+      id: "act-2",
+      sellerName: "Lucas Mendes",
+      avatar: "LM",
+      actionText: "2 propostas sem follow-up há 48h",
+      leadCount: 2,
+      urgencyType: "warning",
+      timeText: "Há 2 dias",
+      defaultMessage:
+        "Oi Lucas, temos 2 propostas de clientes com mais de 48h sem retorno no funil. Consegue fazer um follow-up com eles hoje?",
+      phone: "5511977776666",
+    },
+  ],
+};
+
+const mockMetricsEmptyActions: ManagerCockpitMetrics = {
+  ...mockMetricsWithActions,
+  recommendedActions: [],
+};
 
 describe("[IT-21] Cockpit Executivo 'Dinheiro na Mesa' (ManagerActionCockpit)", () => {
   beforeEach(() => {
@@ -28,7 +91,7 @@ describe("[IT-21] Cockpit Executivo 'Dinheiro na Mesa' (ManagerActionCockpit)", 
 
   it("[IT-21.1] Deve renderizar o título e os 4 contadores de gargalo com contagens corretas", () => {
     // Arrange & Act
-    render(<ManagerActionCockpit />);
+    render(<ManagerActionCockpit metrics={mockMetricsWithActions} />);
 
     // Assert
     expect(
@@ -49,29 +112,38 @@ describe("[IT-21] Cockpit Executivo 'Dinheiro na Mesa' (ManagerActionCockpit)", 
     expect(screen.getByText("17")).toBeInTheDocument();
   });
 
-  it("[IT-21.2] Deve exibir a lista de ações recomendadas por vendedor", () => {
+  it("[IT-21.2] Deve exibir a lista de ações recomendadas por vendedor quando houver pendências", () => {
     // Arrange & Act
-    render(<ManagerActionCockpit />);
+    render(<ManagerActionCockpit metrics={mockMetricsWithActions} />);
 
     // Assert
     expect(screen.getByText(/ações recomendadas pelo sistema/i)).toBeInTheDocument();
-    expect(screen.getByText("Rafael Alves")).toBeInTheDocument();
+    expect(screen.getByText("Cris Test of")).toBeInTheDocument();
     expect(screen.getByText("4 leads sem retorno imediato")).toBeInTheDocument();
 
-    expect(screen.getByText("Juliana Lima")).toBeInTheDocument();
+    expect(screen.getByText("Lucas Mendes")).toBeInTheDocument();
     expect(screen.getByText("2 propostas sem follow-up há 48h")).toBeInTheDocument();
-
-    expect(screen.getByText("Carlos Souza")).toBeInTheDocument();
-    expect(screen.getByText("1 lead quente parado há 5 horas")).toBeInTheDocument();
   });
 
-  it("[IT-21.3] Deve acionar cobrança no WhatsApp do vendedor ao clicar no botão de ação", () => {
+  it("[IT-21.3] Deve exibir empty state positivo quando não houver ações críticas pendentes (actions.length === 0)", () => {
+    // Arrange & Act
+    render(<ManagerActionCockpit metrics={mockMetricsEmptyActions} />);
+
+    // Assert
+    expect(screen.getByTestId("recommended-actions-empty")).toBeInTheDocument();
+    expect(screen.getByText("Nenhuma ação crítica pendente")).toBeInTheDocument();
+    expect(
+      screen.getByText(/todos os leads e propostas estão sendo atendidos dentro dos prazos de sla/i)
+    ).toBeInTheDocument();
+  });
+
+  it("[IT-21.4] Deve acionar cobrança no WhatsApp do vendedor ao clicar no botão de ação", () => {
     // Arrange
     const windowOpenSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-    render(<ManagerActionCockpit />);
+    render(<ManagerActionCockpit metrics={mockMetricsWithActions} />);
 
     const cobrancaBtn = screen.getByRole("button", {
-      name: /cobrar rafael alves no whatsapp/i,
+      name: /cobrar cris test of no whatsapp/i,
     });
 
     // Act
@@ -86,9 +158,9 @@ describe("[IT-21] Cockpit Executivo 'Dinheiro na Mesa' (ManagerActionCockpit)", 
     expect(screen.getByText("Cobrado")).toBeInTheDocument();
   });
 
-  it("[IT-21.4] Deve recolher e expandir o cockpit ao clicar no botão de toggle", () => {
+  it("[IT-21.5] Deve recolher e expandir o cockpit ao clicar no botão de toggle", () => {
     // Arrange
-    render(<ManagerActionCockpit />);
+    render(<ManagerActionCockpit metrics={mockMetricsWithActions} />);
 
     // Inicialmente expandido
     expect(screen.getByText("12")).toBeInTheDocument();

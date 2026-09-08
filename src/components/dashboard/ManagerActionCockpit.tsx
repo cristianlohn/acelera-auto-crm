@@ -36,12 +36,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   type ManagerCockpitMetrics,
-  type SystemRecommendation,
-  getRecommendedActions,
 } from "@/lib/crm/analytics";
 import { generateCockpitCSV, downloadCSV } from "@/lib/crm/export-csv";
 import { printCockpitReport } from "@/lib/crm/export-pdf";
-import { RecommendedActions } from "@/components/dashboard/recommended-actions";
 
 export interface BottleneckMetric {
   id: string;
@@ -114,139 +111,28 @@ export const DEFAULT_BOTTLENECK_METRICS: BottleneckMetric[] = [
   },
 ];
 
-export const DEFAULT_SELLER_ACTIONS: SellerAction[] = [
-  {
-    id: "act-1",
-    sellerName: "Rafael Alves",
-    avatar: "RA",
-    actionText: "4 leads sem retorno imediato",
-    leadCount: 4,
-    urgencyType: "danger",
-    timeText: "Há 42 min",
-    defaultMessage:
-      "Olá Rafael, identifiquei no Acelera que você possui 4 novos leads aguardando resposta há mais de 15 minutos. Vamos priorizar o contato agora para não esfriar!",
-    phone: "5511988887777",
-  },
-  {
-    id: "act-2",
-    sellerName: "Juliana Lima",
-    avatar: "JL",
-    actionText: "2 propostas sem follow-up há 48h",
-    leadCount: 2,
-    urgencyType: "warning",
-    timeText: "Há 2 dias",
-    defaultMessage:
-      "Oi Juliana, temos 2 propostas de clientes com mais de 48h sem retorno no funil. Consegue fazer um follow-up com eles hoje antes do almoço?",
-    phone: "5511977776666",
-  },
-  {
-    id: "act-3",
-    sellerName: "Carlos Souza",
-    avatar: "CS",
-    actionText: "1 lead quente parado há 5 horas",
-    leadCount: 1,
-    urgencyType: "hot",
-    timeText: "Há 5 horas",
-    defaultMessage:
-      "Fala Carlos! O cliente do Corolla Cross está com visita prevista para o fim de semana mas sem contato há 5h. Dá um toque nele para confirmar!",
-    phone: "5511966665555",
-  },
-];
-
-export const DEMO_RECOMMENDED_ACTIONS: SellerAction[] = [
-  {
-    id: "act-1",
-    sellerName: "Rafael Alves",
-    avatar: "RA",
-    actionText:
-      "Lead João Ferreira aguardando primeiro contato há 22 min (Origem: Webmotors - Jeep Compass Longitude 2023)",
-    leadCount: 1,
-    urgencyType: "danger",
-    timeText: "Há 22 min",
-    defaultMessage:
-      "Olá Rafael, identifiquei no Acelera que o lead João Ferreira (Webmotors - Jeep Compass Longitude 2023) está aguardando primeiro contato há 22 minutos. Vamos priorizar o retorno agora para não esfriar!",
-    phone: "5511988887777",
-  },
-  {
-    id: "act-2",
-    sellerName: "Lucas Mendes",
-    avatar: "LM",
-    actionText:
-      "Ficha bancária aprovada no Banco BV para Mariana Albuquerque (Toyota Corolla Cross) sem envio de contrato há 18h",
-    leadCount: 1,
-    urgencyType: "warning",
-    timeText: "Há 18h",
-    defaultMessage:
-      "Oi Lucas, a ficha da Mariana Albuquerque foi aprovada no Banco BV para o Corolla Cross há 18h. Consegue formalizar e enviar o contrato para fechamento hoje?",
-    phone: "5511977776666",
-  },
-  {
-    id: "act-3",
-    sellerName: "Camila Rocha",
-    avatar: "CR",
-    actionText:
-      "Visita de Test-Drive concluída ontem com Carlos Eduardo (VW Nivus) sem registro de proposta",
-    leadCount: 1,
-    urgencyType: "warning",
-    timeText: "Ontem",
-    defaultMessage:
-      "Camila, o test-drive com Carlos Eduardo no VW Nivus foi concluído ontem e ainda não há proposta registrada no CRM. Vamos fazer esse follow-up!",
-    phone: "5511966665555",
-  },
-];
+export const DEFAULT_SELLER_ACTIONS: SellerAction[] = [];
+export const DEMO_RECOMMENDED_ACTIONS: SellerAction[] = [];
 
 export const DEFAULT_METRICS: ManagerCockpitMetrics = {
-  totalPipelineValue: 2768000,
-  valueAtRisk: 285000,
-  totalActiveLeads: 21,
-  totalLeads: 81,
-  averageFirstContactMinutes: 4.2,
-  slaComplianceRate: 88,
-  overdueLeadsCount: 12,
-  wonLeadsCount: 12,
-  conversionRate: 14.8,
-  sellerRanking: [
-    {
-      sellerName: "Rafael Alves",
-      leadsCount: 19,
-      activeDeals: 8,
-      wonDeals: 4,
-      avgResponseMinutes: 6.0,
-      slaBadge: "verde",
-      sharePercentage: 35.0,
-      pipelineValue: 1050000,
-      revenue: 520000,
-    },
-    {
-      sellerName: "Juliana Lima",
-      leadsCount: 16,
-      activeDeals: 6,
-      wonDeals: 5,
-      avgResponseMinutes: 4.0,
-      slaBadge: "verde",
-      sharePercentage: 30.0,
-      pipelineValue: 860000,
-      revenue: 640000,
-    },
-    {
-      sellerName: "Carlos Souza",
-      leadsCount: 18,
-      activeDeals: 7,
-      wonDeals: 3,
-      avgResponseMinutes: 11.0,
-      slaBadge: "amarelo",
-      sharePercentage: 35.0,
-      pipelineValue: 858000,
-      revenue: 380000,
-    },
-  ],
+  totalPipelineValue: 0,
+  valueAtRisk: 0,
+  totalActiveLeads: 0,
+  totalLeads: 0,
+  averageFirstContactMinutes: 0,
+  slaComplianceRate: 100,
+  overdueLeadsCount: 0,
+  wonLeadsCount: 0,
+  conversionRate: 0,
+  sellerRanking: [],
   bottlenecks: {
-    withoutReturnCount: 12,
-    proposalsWithoutFollowupCount: 8,
-    pendingFinancingCount: 5,
-    hotLeadsCount: 17,
+    withoutReturnCount: 0,
+    proposalsWithoutFollowupCount: 0,
+    pendingFinancingCount: 0,
+    hotLeadsCount: 0,
   },
-  recommendedActions: DEFAULT_SELLER_ACTIONS,
+  recommendedActions: [],
+  systemRecommendations: [],
 };
 
 function formatBrl(val: number): string {
@@ -294,9 +180,9 @@ export function ManagerActionCockpit({
   const actionsList: SellerAction[] =
     metrics?.recommendedActions && metrics.recommendedActions.length > 0
       ? metrics.recommendedActions
-      : activeMetrics.recommendedActions?.length
+      : activeMetrics.recommendedActions && activeMetrics.recommendedActions.length > 0
       ? activeMetrics.recommendedActions
-      : DEFAULT_SELLER_ACTIONS;
+      : [];
 
   const bottleneckMetrics: BottleneckMetric[] = [
     {
@@ -348,7 +234,13 @@ export function ManagerActionCockpit({
   const handleNotifySeller = (action: SellerAction) => {
     setNotifiedActions((prev) => new Set(prev).add(action.id));
     const encodedMsg = encodeURIComponent(action.defaultMessage);
-    const waLink = `https://wa.me/${action.phone}?text=${encodedMsg}`;
+    const cleanPhone = (action.phone || "").replace(/\D/g, "");
+    const formattedPhone = cleanPhone.startsWith("55")
+      ? cleanPhone
+      : cleanPhone.length > 0
+      ? `55${cleanPhone}`
+      : "5511999999999";
+    const waLink = `https://wa.me/${formattedPhone}?text=${encodedMsg}`;
     window.open(waLink, "_blank", "noopener,noreferrer");
   };
 
@@ -361,20 +253,6 @@ export function ManagerActionCockpit({
   const handleExportPDF = () => {
     printCockpitReport(activeMetrics, dealershipName);
   };
-
-  const systemRecommendations: SystemRecommendation[] =
-    activeMetrics.systemRecommendations && activeMetrics.systemRecommendations.length > 0
-      ? activeMetrics.systemRecommendations
-      : getRecommendedActions({
-          leadsWithoutContactCount:
-            activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0,
-          amountAtRisk: activeMetrics.valueAtRisk,
-          sellerRanking: activeMetrics.sellerRanking || [],
-          hotLeadsWithoutActionTodayCount: activeMetrics.bottlenecks?.hotLeadsCount ?? 0,
-        });
-
-  const totalAlertsCount =
-    systemRecommendations.length > 0 ? systemRecommendations.length : actionsList.length;
 
   return (
     <div
@@ -580,12 +458,23 @@ export function ManagerActionCockpit({
                 <span>Ações Recomendadas pelo Sistema</span>
               </div>
               <span className="text-[11px] text-zinc-400">
-                {totalAlertsCount} alertas pendentes
+                {actionsList.length} {actionsList.length === 1 ? "alerta pendente" : "alertas pendentes"}
               </span>
             </div>
 
-            {actionsList.length > 0 ? (
-              <div className="space-y-2.5">
+            {actionsList.length === 0 ? (
+              <div
+                data-testid="recommended-actions-empty"
+                className="flex flex-col items-center justify-center py-10 px-4 text-center border border-dashed border-zinc-800 rounded-xl bg-zinc-950/40"
+              >
+                <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-3" />
+                <h4 className="text-sm font-semibold text-white">Nenhuma ação crítica pendente</h4>
+                <p className="text-xs text-zinc-400 mt-1 max-w-sm">
+                  Todos os leads e propostas estão sendo atendidos dentro dos prazos de SLA. Parabéns à equipe!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
                 {actionsList.map((action) => {
                   const isDone = notifiedActions.has(action.id);
                   return (
@@ -654,10 +543,6 @@ export function ManagerActionCockpit({
                   );
                 })}
               </div>
-            ) : systemRecommendations.length > 0 ? (
-              <RecommendedActions recommendations={systemRecommendations} />
-            ) : (
-              <RecommendedActions recommendations={[]} />
             )}
           </div>
         </div>

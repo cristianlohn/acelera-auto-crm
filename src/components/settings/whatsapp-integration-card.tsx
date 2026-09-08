@@ -38,11 +38,12 @@ export function WhatsAppIntegrationCard() {
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Consulta e sincronização de status com cleanup seguro
+  // Consulta e sincronização de status com cleanup seguro (apenas durante 'connecting')
   useEffect(() => {
     let isMounted = true;
 
     const checkStatus = async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       try {
         const res = await getWhatsAppStatusAction();
         if (isMounted && res?.success) {
@@ -64,14 +65,26 @@ export function WhatsAppIntegrationCard() {
       }
     };
 
+    // Verificação pontual na montagem
     checkStatus();
 
-    const interval = setInterval(checkStatus, 4000);
+    // Polling estritamente ativo apenas enquanto aguarda escaneamento do QR Code ('connecting')
+    if (status === "connecting") {
+      const interval = setInterval(() => {
+        if (typeof document !== "undefined" && document.hidden) return;
+        checkStatus();
+      }, 4000);
+
+      return () => {
+        isMounted = false;
+        clearInterval(interval);
+      };
+    }
+
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
-  }, []);
+  }, [status]);
 
   // Ação: Iniciar Conexão / Gerar QR Code
   const handleConnect = async () => {

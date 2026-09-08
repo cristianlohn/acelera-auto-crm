@@ -121,6 +121,7 @@ export function RealtimeNotificationProvider({
     if (!isManagerOrAdmin) return;
 
     const checkSlaBreaches = async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       if (isDemoMode) return;
 
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

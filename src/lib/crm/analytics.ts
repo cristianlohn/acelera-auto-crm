@@ -45,47 +45,7 @@ export interface CockpitActionItem {
   phone: string;
 }
 
-export const DEFAULT_RECOMMENDED_ACTIONS: CockpitActionItem[] = [
-  {
-    id: "act-1",
-    sellerName: "Rafael Alves",
-    avatar: "RA",
-    actionText:
-      "Lead João Ferreira aguardando primeiro contato há 22 min (Origem: Webmotors - Jeep Compass Longitude 2023)",
-    leadCount: 1,
-    urgencyType: "danger",
-    timeText: "Há 22 min",
-    defaultMessage:
-      "Olá Rafael, o lead João Ferreira (Webmotors - Jeep Compass Longitude 2023) está aguardando primeiro contato há 22 minutos. Vamos priorizar o retorno agora para não esfriar!",
-    phone: "5511988887777",
-  },
-  {
-    id: "act-2",
-    sellerName: "Lucas Mendes",
-    avatar: "LM",
-    actionText:
-      "Ficha bancária aprovada no Banco BV para Mariana Albuquerque (Toyota Corolla Cross) sem envio de contrato há 18h",
-    leadCount: 1,
-    urgencyType: "warning",
-    timeText: "Há 18h",
-    defaultMessage:
-      "Oi Lucas, a ficha da Mariana Albuquerque foi aprovada no Banco BV para o Corolla Cross há 18h. Favor enviar o contrato para formalização ainda hoje!",
-    phone: "5511977776666",
-  },
-  {
-    id: "act-3",
-    sellerName: "Camila Rocha",
-    avatar: "CR",
-    actionText:
-      "Visita de Test-Drive concluída ontem com Carlos Eduardo (VW Nivus) sem registro de proposta",
-    leadCount: 1,
-    urgencyType: "warning",
-    timeText: "Ontem",
-    defaultMessage:
-      "Olá Camila! O test-drive do Carlos Eduardo (VW Nivus) foi concluído ontem e ainda não há proposta registrada no funil. Faça um follow-up com ele hoje!",
-    phone: "5511966665555",
-  },
-];
+export const DEFAULT_RECOMMENDED_ACTIONS: CockpitActionItem[] = [];
 
 export interface ManagerCockpitMetrics {
   totalPipelineValue: number;
@@ -109,8 +69,12 @@ export interface LeadAnalyticsInput {
   phone?: string;
   status: string;
   stage?: string;
+  seller_id?: string;
+  sellerId?: string;
   seller_name?: string;
   sellerName?: string;
+  seller_phone?: string;
+  sellerPhone?: string;
   vehicle_interest?: string;
   vehicleInterest?: string;
   estimated_value?: number;
@@ -226,6 +190,232 @@ export function getRecommendedActions({
   }
 
   return recommendations;
+}
+
+/**
+ * Gera ações prescritivas a partir dos leads reais e perfis da organização.
+ * - Lead sem retorno (> 15 min na etapa 'novo'): card de cobrança via WhatsApp
+ * - Proposta parada (> 24h sem follow-up): card de acompanhamento
+ * - Se nenhum lead violar as regras: retorna []
+ */
+export function generatePrescriptiveActions(
+  leads: LeadAnalyticsInput[],
+  options?: {
+    now?: Date;
+    slaLimitMinutes?: number;
+    sellerProfiles?: Array<{ id?: string; name?: string; phone?: string }>;
+  }
+): CockpitActionItem[] {
+  const now = options?.now || new Date();
+  const nowTime = now.getTime();
+  const slaLimit = options?.slaLimitMinutes ?? 15;
+
+  const actions: CockpitActionItem[] = [];
+
+  // Mapeamento de perfis de vendedores para telefone
+  const sellerPhoneMap = new Map<string, string>();
+  if (options?.sellerProfiles) {
+    for (const p of options.sellerProfiles) {
+      if (p.name && p.phone) {
+        sellerPhoneMap.set(p.name.trim().toLowerCase(), p.phone);
+      }
+      if (p.id && p.phone) {
+        sellerPhoneMap.set(p.id, p.phone);
+      }
+    }
+  }
+
+  // 1. Agrupar leads 'novo' sem retorno (> slaLimit min) por vendedor
+  const overdueNewLeadsBySeller: Record<string, LeadAnalyticsInput[]> = {};
+  // 2. Agrupar propostas paradas (> 24h) por vendedor
+  const stalledProposalsBySeller: Record<string, LeadAnalyticsInput[]> = {};
+
+  for (const lead of leads) {
+    const rawStatus = (lead.status || "novo").toLowerCase();
+    const rawStage = (lead.stage || "").toLowerCase();
+
+    const isNew =
+      rawStatus === "novo" ||
+      rawStatus === "new" ||
+      rawStatus === "primeiro_contato" ||
+      rawStage === "novo" ||
+      rawStage === "new" ||
+      rawStage === "primeiro_contato";
+
+    const isProposal =
+      rawStatus === "proposta" ||
+      rawStatus === "proposal" ||
+      rawStatus === "proposta_enviada" ||
+      rawStage === "proposta" ||
+      rawStage === "proposal" ||
+      rawStage === "proposta_enviada";
+
+    const createdAtStr = lead.createdAt || lead.created_at;
+    const createdAtTime = createdAtStr ? new Date(createdAtStr).getTime() : nowTime;
+    const firstContactStr = lead.firstContactAt || lead.first_contact_at;
+    const lastContactStr = lead.lastContactAt || lead.last_contact_at;
+
+    const sellerName = (
+      lead.sellerName ||
+      lead.seller_name ||
+      "Vendedor Responsável"
+    ).trim();
+
+    // Lead sem retorno (> 15 min na etapa 'novo')
+    if (isNew && !firstContactStr && !lastContactStr) {
+      const waitingMinutes = (nowTime - createdAtTime) / 60000;
+      if (waitingMinutes > slaLimit) {
+        if (!overdueNewLeadsBySeller[sellerName]) {
+          overdueNewLeadsBySeller[sellerName] = [];
+        }
+        overdueNewLeadsBySeller[sellerName].push(lead);
+      }
+    }
+
+    // Proposta parada (> 24h sem follow-up)
+    if (isProposal) {
+      const lastActionTime = lastContactStr
+        ? new Date(lastContactStr).getTime()
+        : createdAtTime;
+      const hoursSinceContact = (nowTime - lastActionTime) / 3600000;
+      if (hoursSinceContact > 24) {
+        if (!stalledProposalsBySeller[sellerName]) {
+          stalledProposalsBySeller[sellerName] = [];
+        }
+        stalledProposalsBySeller[sellerName].push(lead);
+      }
+    }
+  }
+
+  // Gera ações para Leads sem retorno
+  for (const [sellerName, sellerLeads] of Object.entries(overdueNewLeadsBySeller)) {
+    const count = sellerLeads.length;
+    const firstLead = sellerLeads[0];
+    const firstLeadCreatedAt = firstLead.createdAt || firstLead.created_at;
+    const oldestWaitMinutes = Math.round(
+      (nowTime - (firstLeadCreatedAt ? new Date(firstLeadCreatedAt).getTime() : nowTime)) / 60000
+    );
+
+    const leadName = firstLead.name || "Cliente";
+    const vehicle = firstLead.vehicleInterest || firstLead.vehicle_interest;
+    const vehicleInfo = vehicle ? ` - ${vehicle}` : "";
+
+    const initials =
+      sellerName
+        .split(" ")
+        .map((n) => n[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "VD";
+
+    const sellerFirstName = sellerName.split(" ")[0] || sellerName;
+
+    const rawPhone =
+      firstLead.sellerPhone ||
+      firstLead.seller_phone ||
+      sellerPhoneMap.get(sellerName.toLowerCase()) ||
+      (firstLead.sellerId ? sellerPhoneMap.get(firstLead.sellerId) : "") ||
+      (firstLead.seller_id ? sellerPhoneMap.get(firstLead.seller_id) : "") ||
+      "";
+
+    const digitsOnly = rawPhone.replace(/\D/g, "");
+    const phone = digitsOnly.length > 0 ? (digitsOnly.startsWith("55") ? digitsOnly : `55${digitsOnly}`) : "";
+
+    const timeText =
+      oldestWaitMinutes >= 1440
+        ? `Há ${Math.round(oldestWaitMinutes / 1440)} dias`
+        : oldestWaitMinutes >= 60
+        ? `Há ${Math.round(oldestWaitMinutes / 60)}h`
+        : `Há ${oldestWaitMinutes} min`;
+
+    const actionText =
+      count === 1
+        ? `Lead ${leadName} aguardando 1º contato (${timeText.toLowerCase()}${vehicleInfo})`
+        : `${count} leads sem retorno imediato (> ${slaLimit} min)`;
+
+    const defaultMessage =
+      count === 1
+        ? `Olá ${sellerFirstName}, identifiquei no Acelera que o lead ${leadName}${vehicleInfo} está aguardando primeiro contato ${timeText.toLowerCase()}. Vamos priorizar o retorno agora para não esfriar!`
+        : `Olá ${sellerFirstName}, identifiquei no Acelera que você possui ${count} novos leads aguardando resposta há mais de ${slaLimit} minutos. Vamos priorizar o contato agora para não esfriar!`;
+
+    actions.push({
+      id: `act-new-${sellerName.replace(/\s+/g, "-").toLowerCase()}`,
+      sellerName,
+      avatar: initials,
+      actionText,
+      leadCount: count,
+      urgencyType: "danger",
+      timeText,
+      defaultMessage,
+      phone,
+    });
+  }
+
+  // Gera ações para Propostas Paradas
+  for (const [sellerName, sellerLeads] of Object.entries(stalledProposalsBySeller)) {
+    const count = sellerLeads.length;
+    const firstLead = sellerLeads[0];
+    const lastAction = firstLead.lastContactAt || firstLead.last_contact_at || firstLead.createdAt || firstLead.created_at;
+    const hoursSinceAction = Math.round(
+      (nowTime - (lastAction ? new Date(lastAction).getTime() : nowTime)) / 3600000
+    );
+
+    const leadName = firstLead.name || "Cliente";
+    const vehicle = firstLead.vehicleInterest || firstLead.vehicle_interest;
+    const vehicleInfo = vehicle ? ` (${vehicle})` : "";
+
+    const initials =
+      sellerName
+        .split(" ")
+        .map((n) => n[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "VD";
+
+    const sellerFirstName = sellerName.split(" ")[0] || sellerName;
+
+    const rawPhone =
+      firstLead.sellerPhone ||
+      firstLead.seller_phone ||
+      sellerPhoneMap.get(sellerName.toLowerCase()) ||
+      (firstLead.sellerId ? sellerPhoneMap.get(firstLead.sellerId) : "") ||
+      (firstLead.seller_id ? sellerPhoneMap.get(firstLead.seller_id) : "") ||
+      "";
+
+    const digitsOnly = rawPhone.replace(/\D/g, "");
+    const phone = digitsOnly.length > 0 ? (digitsOnly.startsWith("55") ? digitsOnly : `55${digitsOnly}`) : "";
+
+    const timeText =
+      hoursSinceAction >= 48
+        ? `Há ${Math.round(hoursSinceAction / 24)} dias`
+        : `Há ${hoursSinceAction}h`;
+
+    const actionText =
+      count === 1
+        ? `Proposta de ${leadName}${vehicleInfo} sem follow-up há ${hoursSinceAction}h`
+        : `${count} propostas sem follow-up há mais de 24h`;
+
+    const defaultMessage =
+      count === 1
+        ? `Oi ${sellerFirstName}, a proposta de ${leadName}${vehicleInfo} está há mais de 24h sem follow-up no funil. Consegue fazer um contato hoje para avançar no fechamento?`
+        : `Oi ${sellerFirstName}, temos ${count} propostas de clientes com mais de 24h sem retorno no funil. Consegue fazer um follow-up com eles hoje?`;
+
+    actions.push({
+      id: `act-prop-${sellerName.replace(/\s+/g, "-").toLowerCase()}`,
+      sellerName,
+      avatar: initials,
+      actionText,
+      leadCount: count,
+      urgencyType: "warning",
+      timeText,
+      defaultMessage,
+      phone,
+    });
+  }
+
+  return actions;
 }
 
 /**
@@ -377,6 +567,7 @@ export function calculateManagerCockpitMetrics(
     cycleTotalLeads?: number;
     slaLimitMinutes?: number;
     activeSellers?: string[];
+    sellerProfiles?: Array<{ id?: string; name?: string; phone?: string }>;
   }
 ): ManagerCockpitMetrics {
   const now = options?.now || new Date();
@@ -650,10 +841,13 @@ export function calculateManagerCockpitMetrics(
     options?.systemRecommendations || dynamicRecommendations;
 
   const recommendedActions =
-    options?.recommendedActions ||
-    (options?.isDemo || leads.some((l) => l.name?.includes("João Ferreira"))
-      ? DEFAULT_RECOMMENDED_ACTIONS
-      : undefined);
+    options?.recommendedActions !== undefined
+      ? options.recommendedActions
+      : generatePrescriptiveActions(leads, {
+          now,
+          slaLimitMinutes: slaLimit,
+          sellerProfiles: options?.sellerProfiles,
+        });
 
   return {
     totalPipelineValue,

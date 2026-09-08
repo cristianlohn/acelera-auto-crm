@@ -153,7 +153,7 @@ describe("[UNIT-MODALS] Modais de Cadastro de Lead no Funil e Cliente na Carteir
       expect(screen.queryByText(/CPF inválido/i)).not.toBeInTheDocument();
 
       // Preenche nome
-      const nameInput = screen.getByPlaceholderText("Ex: Mariana Souza");
+      const nameInput = screen.getByPlaceholderText(/ex: joão da silva/i);
       await user.type(nameInput, "Cliente Teste Válido");
 
       expect(submitBtn).not.toBeDisabled();

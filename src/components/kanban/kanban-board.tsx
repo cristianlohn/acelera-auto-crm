@@ -24,11 +24,11 @@ import {
   updateLeadStageAction,
   updateLeadNotesAction,
   updateLeadAssignedSellerAction,
-  getKanbanBoardAction,
 } from "@/app/actions/kanban-actions";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
 import { getTeamMembersAction } from "@/app/actions/team-actions";
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
+import type { Lead } from "@/types/crm";
 import { useDemoRole } from "@/context/demo-role-context";
 import { canViewAllLeads } from "@/lib/permissions";
 import type { TeamMember } from "@/types/team";
@@ -89,59 +89,78 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
       .catch(() => {});
   }, [isDemoMode]);
 
-  const handlePollSync = React.useCallback(async () => {
-    try {
-      const boardData = await getKanbanBoardAction();
-      if (!boardData || !boardData.columns) return;
+  const handleLeadInserted = React.useCallback((newLead: Lead) => {
+    const mapped: KanbanLead = {
+      id: newLead.id,
+      organization_id: newLead.organizationId || organizationId || "",
+      name: newLead.name,
+      phone: newLead.phone,
+      email: newLead.email,
+      source: newLead.origin || "site",
+      vehicle_of_interest: newLead.vehicleInterest,
+      assigned_to: null,
+      assigned_to_name: newLead.sellerName || "Não atribuído",
+      stage: (newLead.status === "atendimento" ? "in_contact" :
+        newLead.status === "visita" ? "test_drive" :
+        newLead.status === "proposta" ? "proposal" :
+        newLead.status === "fechado" ? "won" :
+        (newLead.status as string) === "perdido" ? "lost" : "new") as LeadStage,
+      sla_minutes: 15,
+      sla_minutes_elapsed: 0,
+      created_at: newLead.lastContactAt || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      value: undefined,
+      segment: "used_cars",
+    };
 
-      const freshLeads = boardData.columns.flatMap((c) => c.leads);
+    setLeads((prev) => {
+      if (prev.some((l) => l.id === mapped.id)) return prev;
+      return [mapped, ...prev];
+    });
 
-      setLeads((prev) => {
-        const newLeads = freshLeads.filter(
-          (fl) => !prev.some((pl) => pl.id === fl.id)
-        );
+    toast.success(`🎯 Novo Lead Recebido: ${mapped.name || "Cliente"}`, {
+      description: `Interesse: ${mapped.vehicle_of_interest || "Veículo"} • Vendedor: ${mapped.assigned_to_name}`,
+      duration: 5000,
+    });
+  }, [organizationId]);
 
-        if (newLeads.length > 0) {
-          newLeads.forEach((nl) => {
-            toast.success(`🎯 Novo Lead Recebido: ${nl.name || "Cliente"}`, {
-              description: `Interesse: ${nl.vehicle_of_interest || "Veículo"} • Vendedor: ${nl.assigned_to_name}`,
-              duration: 5000,
-            });
-          });
+  const handleLeadUpdated = React.useCallback((updatedLead: Lead) => {
+    setLeads((prev) =>
+      prev.map((l) => {
+        if (l.id !== updatedLead.id) return l;
+        const newStage = (
+          updatedLead.status === "novo" ? "new" :
+          updatedLead.status === "atendimento" ? "in_contact" :
+          updatedLead.status === "visita" ? "test_drive" :
+          updatedLead.status === "proposta" ? "proposal" :
+          updatedLead.status === "fechado" ? "won" :
+          (updatedLead.status as string) === "perdido" ? "lost" :
+          l.stage
+        ) as LeadStage;
+        return {
+          ...l,
+          name: updatedLead.name || l.name,
+          phone: updatedLead.phone || l.phone,
+          email: updatedLead.email || l.email,
+          vehicle_of_interest: updatedLead.vehicleInterest || l.vehicle_of_interest,
+          assigned_to_name: updatedLead.sellerName || l.assigned_to_name,
+          stage: newStage,
+          updated_at: new Date().toISOString(),
+        };
+      })
+    );
+  }, []);
 
-          const existingUpdated = prev.map((pl) => {
-            const fresh = freshLeads.find((fl) => fl.id === pl.id);
-            return fresh ? { ...pl, ...fresh } : pl;
-          });
-          return [...newLeads, ...existingUpdated];
-        }
-
-        let hasChanges = false;
-        const updated = prev.map((pl) => {
-          const fresh = freshLeads.find((fl) => fl.id === pl.id);
-          if (
-            fresh &&
-            (fresh.stage !== pl.stage ||
-              fresh.assigned_to_name !== pl.assigned_to_name ||
-              fresh.notes !== pl.notes)
-          ) {
-            hasChanges = true;
-            return { ...pl, ...fresh };
-          }
-          return pl;
-        });
-
-        return hasChanges ? updated : prev;
-      });
-    } catch {
-      // Silencioso
-    }
+  const handleLeadDeleted = React.useCallback((deletedLeadId: string) => {
+    setLeads((prev) => prev.filter((l) => l.id !== deletedLeadId));
   }, []);
 
   useLeadsRealtime({
     organizationId,
     isDemo: isDemoMode,
-    onPollSync: handlePollSync,
+    onLeadInserted: handleLeadInserted,
+    onLeadUpdated: handleLeadUpdated,
+    onLeadDeleted: handleLeadDeleted,
   });
 
   // Lead selecionado para visualização no modal de detalhes
