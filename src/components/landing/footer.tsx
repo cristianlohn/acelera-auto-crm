@@ -8,6 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ShieldCheck } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { CONTACT_CONFIG, getSalesWhatsAppUrl } from "@/config/contact";
 
 export function Footer() {
   return (
@@ -32,18 +33,20 @@ export function Footer() {
               </p>
 
               {/* Container de Redes e Contatos */}
-              <div className="flex items-center gap-3 mt-5">
+              <div className="flex flex-wrap items-center gap-3 mt-5">
                 {/* WhatsApp Oficial */}
                 <a
-                  href="https://wa.me/5547996348698"
+                  href={getSalesWhatsAppUrl()}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="Atendimento Oficial via WhatsApp"
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-900 border border-slate-700/80 text-slate-400 hover:text-[#25D366] hover:border-[#25D366]/40 hover:bg-[#25D366]/10 transition-colors"
+                  aria-label={`Atendimento Oficial via WhatsApp: ${CONTACT_CONFIG.sales.displayPhone}`}
+                  title={`Atendimento via WhatsApp: ${CONTACT_CONFIG.sales.displayPhone}`}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700/80 text-xs text-slate-300 hover:text-[#25D366] hover:border-[#25D366]/40 hover:bg-[#25D366]/10 transition-colors"
                 >
-                  <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                  <svg className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.699c.971.532 1.77.822 2.796.822 3.18 0 5.766-2.586 5.766-5.766.001-3.18-2.585-5.768-5.766-5.768zm0-2.172c4.418 0 8 3.582 8 8 0 4.419-3.582 8-8 8-1.42 0-2.75-.371-3.905-1.021l-4.126 1.082 1.101-4.025c-.714-1.196-1.12-2.58-1.12-4.036 0-4.418 3.582-8 8-8zm3.565 11.458c-.148.416-.761.765-1.047.808-.287.042-.647.064-2.072-.525-1.815-.75-2.986-2.597-3.076-2.717-.091-.12-1.748-2.327-1.748-4.439 0-2.112 1.106-3.151 1.5-3.559.395-.408.86-.51 1.147-.51.287 0 .574.004.825.016.264.013.619-.1.968.742.361.868 1.233 3.013 1.341 3.23.108.217.18.47.037.757-.143.288-.215.467-.428.718-.214.252-.449.562-.642.755-.215.215-.439.449-.189.879.25.43 1.114 1.834 2.389 2.97 1.64 1.462 3.023 1.916 3.453 2.13.43.215.681.18.932-.108.251-.287 1.076-1.254 1.363-1.684.287-.43.573-.359.968-.215.395.143 2.51 1.183 2.94 1.398.43.215.717.323.825.502.107.179.107 1.04-.041 1.456z"/>
                   </svg>
+                  <span className="font-semibold">{CONTACT_CONFIG.sales.displayPhone}</span>
                 </a>
 
                 {/* Instagram Oficial */}
@@ -143,7 +146,7 @@ export function Footer() {
               <li>
                 <Link
                   className="text-orange-500 hover:text-orange-400 font-semibold transition-colors whitespace-nowrap"
-                  href="/leads"
+                  href="/dashboard/leads"
                 >
                   Acessar Demonstração
                 </Link>
@@ -172,7 +175,7 @@ export function Footer() {
           <div>
             <p>© {new Date().getFullYear()} {siteConfig.company.tradeName}. Todos os direitos reservados.</p>
             <p className="mt-1 text-slate-400">
-              Operado por <strong className="text-slate-300 font-medium">{siteConfig.company.legalName}</strong> • CNPJ: <span className="text-slate-300">{siteConfig.company.cnpj}</span> • {siteConfig.company.cityState}
+              Operado por <strong className="text-slate-300 font-medium">{siteConfig.company.legalName}</strong> • CNPJ: <span className="text-slate-300">{siteConfig.company.cnpj}</span> • {siteConfig.company.cityState} • WhatsApp: <a href={getSalesWhatsAppUrl()} target="_blank" rel="noopener noreferrer" className="hover:text-emerald-400 font-medium transition-colors">{CONTACT_CONFIG.sales.displayPhone}</a>
             </p>
           </div>
 

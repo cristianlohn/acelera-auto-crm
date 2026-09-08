@@ -17,6 +17,7 @@ import type {
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanFilters } from "./kanban-filters";
+import { KanbanListView } from "./kanban-list-view";
 import { MobileKanbanTabs } from "./mobile-kanban-tabs";
 import { LeadLostModal } from "./lead-lost-modal";
 import { LeadDetailsModal } from "./lead-details-modal";
@@ -51,6 +52,7 @@ interface KanbanBoardProps {
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   const [leads, setLeads] = useState<KanbanLead[]>(initialLeads);
   const [prevInitialLeads, setPrevInitialLeads] = useState<KanbanLead[]>(initialLeads);
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<{
     id?: string;
@@ -488,29 +490,40 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
         negotiatingValue={negotiatingValue}
         totalPipelineValue={totalPipelineValue}
         onLeadAdded={(newLead) => setLeads((prev) => [newLead, ...prev])}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
 
-      {/* Desktop (>= md): Quadro Kanban com Rolagem Horizontal Suave */}
-      <div className="hidden md:flex gap-4 overflow-x-auto pb-4 pt-1 px-0.5 custom-scrollbar min-h-[580px]">
-        {columns.map((col) => (
-          <KanbanColumn
-            key={col.id}
-            column={col}
-            onDropLead={handleDropLead}
-            onMoveStage={handleDropLead}
-            onSelectLead={(lead) => setSelectedLead(lead)}
-          />
-        ))}
-      </div>
-
-      {/* Mobile (< md): Abas Horizontais com 1 Coluna em Tela Cheia */}
-      <div className="block md:hidden">
-        <MobileKanbanTabs<KanbanLead>
-          columns={columns}
-          onMoveStage={handleDropLead}
+      {viewMode === "list" ? (
+        <KanbanListView
+          leads={filteredLeads}
           onSelectLead={(lead) => setSelectedLead(lead)}
         />
-      </div>
+      ) : (
+        <>
+          {/* Desktop (>= md): Quadro Kanban com Rolagem Horizontal Suave */}
+          <div className="hidden md:flex gap-4 overflow-x-auto pb-4 pt-1 px-0.5 custom-scrollbar min-h-[580px]">
+            {columns.map((col) => (
+              <KanbanColumn
+                key={col.id}
+                column={col}
+                onDropLead={handleDropLead}
+                onMoveStage={handleDropLead}
+                onSelectLead={(lead) => setSelectedLead(lead)}
+              />
+            ))}
+          </div>
+
+          {/* Mobile (< md): Abas Horizontais com 1 Coluna em Tela Cheia */}
+          <div className="block md:hidden">
+            <MobileKanbanTabs<KanbanLead>
+              columns={columns}
+              onMoveStage={handleDropLead}
+              onSelectLead={(lead) => setSelectedLead(lead)}
+            />
+          </div>
+        </>
+      )}
 
       {/* Modal Executivo de Detalhes do Lead */}
       {selectedLead && (

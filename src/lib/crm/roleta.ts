@@ -27,8 +27,9 @@ export const DEFAULT_DEMO_ORG_ID = "a0000000-0000-0000-0000-000000000001";
 /** Lista padrão de vendedores ativos para a Roleta Automática */
 export const DEFAULT_ACTIVE_SELLERS = [
   "Rafael Alves",
-  "Juliana Costa",
-  "Marcos Ferreira",
+  "Camila Dias",
+  "Lucas Santana",
+  "Beatriz Rocha",
 ];
 
 let roundRobinCursor = 0;

@@ -12,6 +12,8 @@ import Link from "next/link";
 import { Check, Sparkles, Rocket, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import { CONTACT_CONFIG, getSalesWhatsAppUrl } from "@/config/contact";
+
 export type BillingCycle = "mensal" | "anual";
 
 export function PricingSection() {
@@ -19,11 +21,9 @@ export function PricingSection() {
 
   const isAnnual = billingCycle === "anual";
 
-  const enterpriseWhatsAppUrl =
-    "https://wa.me/5547999999999?text=" +
-    encodeURIComponent(
-      "Olá! Gostaria de falar com um consultor sobre o Plano Enterprise do Acelera Auto CRM."
-    );
+  const enterpriseWhatsAppUrl = getSalesWhatsAppUrl(
+    CONTACT_CONFIG.sales.enterpriseMessage
+  );
 
   return (
     <section
@@ -146,7 +146,7 @@ export function PricingSection() {
               </ul>
             </div>
 
-            <Link href="/leads" className="mt-6 sm:mt-8">
+            <Link href="/dashboard/leads" className="mt-6 sm:mt-8">
               <Button
                 variant="outline"
                 className="w-full border-white/20 bg-zinc-800/80 text-xs font-semibold text-white hover:bg-zinc-700 transition-colors shadow-sm"
@@ -226,7 +226,7 @@ export function PricingSection() {
               </ul>
             </div>
 
-            <Link href="/leads" className="mt-6 sm:mt-8">
+            <Link href="/dashboard/leads" className="mt-6 sm:mt-8">
               <Button className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-xs font-bold text-white shadow-lg shadow-orange-500/30 hover:from-orange-600 hover:to-red-700">
                 Testar Plano Pro Grátis
               </Button>
@@ -335,7 +335,7 @@ export function PricingSection() {
             </div>
 
             <div className="shrink-0 w-full md:w-auto">
-              <Link href="/leads">
+              <Link href="/dashboard/leads">
                 <Button
                   variant="outline"
                   className="w-full md:w-auto border-orange-500/30 text-xs font-semibold text-orange-300 hover:bg-orange-500/10"

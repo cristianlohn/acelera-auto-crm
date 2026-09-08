@@ -7,7 +7,7 @@
 "use client";
 
 import React from "react";
-import { Search, X, DollarSign, Users } from "lucide-react";
+import { Search, X, DollarSign, Users, LayoutDashboard, List } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { KanbanFilterState, KanbanLead } from "@/types/kanban";
 import { AddKanbanLeadModal } from "./add-kanban-lead-modal";
@@ -21,6 +21,8 @@ interface KanbanFiltersProps {
   totalPipelineValue?: number;
   negotiatingValue?: number;
   onLeadAdded?: (lead: KanbanLead) => void;
+  viewMode?: "kanban" | "list";
+  onViewModeChange?: (mode: "kanban" | "list") => void;
 }
 
 function formatCurrencyBRL(value: number): string {
@@ -40,6 +42,8 @@ export function KanbanFilters({
   totalPipelineValue = 0,
   negotiatingValue,
   onLeadAdded,
+  viewMode = "kanban",
+  onViewModeChange,
 }: KanbanFiltersProps) {
   const hasActiveFilters =
     filters.search.trim() !== "" ||
@@ -110,6 +114,39 @@ export function KanbanFilters({
 
         {/* Resumo Rápido de Pipeline & Ação de Novo Lead */}
         <div className="flex items-center gap-3 pl-2 text-xs self-end lg:self-center">
+          {/* Alternador Kanban | Lista */}
+          <div className="flex items-center rounded-xl bg-white/5 border border-white/10 p-0.5">
+            <button
+              type="button"
+              data-testid="btn-view-kanban"
+              onClick={() => onViewModeChange?.("kanban")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                viewMode === "kanban"
+                  ? "bg-orange-500 text-white shadow-sm font-semibold"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+              title="Visualização em Kanban"
+            >
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Kanban</span>
+            </button>
+            <button
+              type="button"
+              data-testid="btn-view-list"
+              onClick={() => onViewModeChange?.("list")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                viewMode === "list"
+                  ? "bg-orange-500 text-white shadow-sm font-semibold"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+              title="Visualização em Lista"
+            >
+              <List className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Lista</span>
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-white/10 hidden sm:block" />
           <div className="flex items-center gap-1.5 text-zinc-300">
             <Users className="h-4 w-4 text-orange-400" />
             <span className="font-semibold text-white">{totalLeadsCount}</span>

@@ -60,17 +60,18 @@ describe("[IT-ROULETTE] Roleta de Leads e Robustez (POST /api/webhooks/leads)", 
     expect(data.lead_id).toBeDefined();
   });
 
-  it("[IT-ROULETTE.2] Equidade da Roleta: distribui 9 leads perfeitamente entre 3 vendedores (3 para cada)", async () => {
-    // Arrange: 3 vendedores disponíveis (Rafael Alves, Juliana Costa, Marcos Ferreira)
+  it("[IT-ROULETTE.2] Equidade da Roleta: distribui 12 leads perfeitamente entre 4 vendedores (3 para cada)", async () => {
+    // Arrange: 4 vendedores disponíveis (Rafael Alves, Camila Dias, Lucas Santana, Beatriz Rocha)
     resetRoundRobinCursor(0);
     const sellerCounts: Record<string, number> = {
       "Rafael Alves": 0,
-      "Juliana Costa": 0,
-      "Marcos Ferreira": 0,
+      "Camila Dias": 0,
+      "Lucas Santana": 0,
+      "Beatriz Rocha": 0,
     };
 
-    // Act: 9 envios sequenciais
-    for (let i = 1; i <= 9; i++) {
+    // Act: 12 envios sequenciais
+    for (let i = 1; i <= 12; i++) {
       const req = createWebhookRequest({
         name: `Cliente Lead ${i}`,
         phone: `1199999000${i}`,
@@ -87,10 +88,11 @@ describe("[IT-ROULETTE] Roleta de Leads e Robustez (POST /api/webhooks/leads)", 
       sellerCounts[seller] += 1;
     }
 
-    // Assert: Cada um dos 3 vendedores recebeu exatamente 3 leads
+    // Assert: Cada um dos 4 vendedores recebeu exatamente 3 leads
     expect(sellerCounts["Rafael Alves"]).toBe(3);
-    expect(sellerCounts["Juliana Costa"]).toBe(3);
-    expect(sellerCounts["Marcos Ferreira"]).toBe(3);
+    expect(sellerCounts["Camila Dias"]).toBe(3);
+    expect(sellerCounts["Lucas Santana"]).toBe(3);
+    expect(sellerCounts["Beatriz Rocha"]).toBe(3);
   });
 
   it("[IT-ROULETTE.3] Concorrência em Larga Escala: processa 20 requisições simultâneas via Promise.all sem deadlock", async () => {
@@ -121,12 +123,16 @@ describe("[IT-ROULETTE] Roleta de Leads e Robustez (POST /api/webhooks/leads)", 
 
     const assignedSellers = results.map((r) => r.assigned_seller);
     const rafaelCount = assignedSellers.filter((s) => s === "Rafael Alves").length;
-    const julianaCount = assignedSellers.filter((s) => s === "Juliana Costa").length;
-    const marcosCount = assignedSellers.filter((s) => s === "Marcos Ferreira").length;
+    const camilaCount = assignedSellers.filter((s) => s === "Camila Dias").length;
+    const lucasCount = assignedSellers.filter((s) => s === "Lucas Santana").length;
+    const beatrizCount = assignedSellers.filter((s) => s === "Beatriz Rocha").length;
 
-    // 20 dividido por 3 = 7, 7, 6
-    expect(rafaelCount + julianaCount + marcosCount).toBe(20);
-    expect(Math.max(rafaelCount, julianaCount, marcosCount) - Math.min(rafaelCount, julianaCount, marcosCount)).toBeLessThanOrEqual(1);
+    // 20 dividido por 4 = 5, 5, 5, 5
+    expect(rafaelCount + camilaCount + lucasCount + beatrizCount).toBe(20);
+    expect(rafaelCount).toBe(5);
+    expect(camilaCount).toBe(5);
+    expect(lucasCount).toBe(5);
+    expect(beatrizCount).toBe(5);
   });
 
   it("[IT-ROULETTE.4] Bypass de Vendedor: respeita atribuição explícita quando 'assigned_to' ou 'seller_name' estiver no payload", async () => {

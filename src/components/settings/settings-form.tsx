@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { useDemoRole } from "@/context/demo-role-context";
 import { soundManager } from "@/lib/utils/audio-alerts";
 import { SoundToggle } from "@/components/audio/sound-toggle";
+import { getSalesWhatsAppUrl } from "@/config/contact";
 import {
   INITIAL_TEAM_MEMBERS,
   INITIAL_CAPACITY,
@@ -283,8 +284,8 @@ export function SettingsForm({
     {
       name: "Carlos Mendonça",
       phone: "11987654321",
+      vehicle: "Honda Civic EXL 2023",
       email: "carlos@gmail.com",
-      vehicle_interest: "Honda Civic EXL 2023",
       source: "Webmotors",
       notes: "Cliente interessado em dar seminovo na troca.",
     },
@@ -460,9 +461,9 @@ export function SettingsForm({
     Math.round((teamMembers.length / teamCapacity.maxSellers) * 100)
   );
 
-  const upgradeWhatsappUrl = `https://wa.me/5511999999999?text=${encodeURIComponent(
+  const upgradeWhatsappUrl = getSalesWhatsAppUrl(
     `Olá! Sou da ${store.tradeName} e atingi o limite de ${teamCapacity.maxSellers} vagas da minha equipe. Gostaria de saber mais sobre o upgrade para o Plano Pro!`
-  )}`;
+  );
 
   return (
     <div className="flex h-full flex-col overflow-x-hidden">
@@ -1184,23 +1185,25 @@ export function SettingsForm({
           )}
 
           {/* ============================================================== */}
-          {/* ABA 6: Integrações & Webhooks de Leads                         */}
+          {/* ABA 6: Entrada de Leads & Webhooks                             */}
           {/* ============================================================== */}
           {currentTab === "integracoes" && canManageIntegrationsAndBilling(effectiveRole) && (
             <section id="tab-integracoes" className="space-y-6 animate-in fade-in duration-200">
               {/* Header da Aba */}
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="text-base font-bold text-foreground">
-                    Integrações & Webhooks de Leads
+                    Entrada de Leads & Webhooks
                   </h2>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/15 border border-orange-500/30 px-2 py-0.5 text-[10px] font-bold text-orange-400">
-                    <Sparkles className="h-3 w-3" />
-                    Ingestão Automática
+                  <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    Endpoint HTTP/JSON
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                    Compatível com Make & n8n
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Conecte seu site, campanhas do Meta Ads, Webmotors, iCarros e plataformas externas diretamente ao Funil Kanban do Acelera Auto CRM.
+                <p className="text-xs text-muted-foreground mt-1">
+                  Integre qualquer portal de anúncios (Webmotors, iCarros, OLX, Meta Ads) ou seu site próprio apontando as notificações para a URL exclusiva da sua loja.
                 </p>
               </div>
 
@@ -1213,7 +1216,7 @@ export function SettingsForm({
                     </div>
                     <div>
                       <h3 className="text-xs font-bold text-foreground">
-                        URL do Endpoint de Ingestão (Webhook)
+                        URL do Webhook
                       </h3>
                       <p className="text-[11px] text-muted-foreground">
                         Recebe requisições HTTP via método POST
@@ -1260,7 +1263,7 @@ export function SettingsForm({
                 </div>
               </div>
 
-              {/* 2. Card: Chave de API da Loja (Token) */}
+              {/* 2. Card: Token de Autenticação (Bearer) */}
               <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1269,10 +1272,10 @@ export function SettingsForm({
                     </div>
                     <div>
                       <h3 className="text-xs font-bold text-foreground">
-                        Chave de API da Loja (Token do Lojista)
+                        Token de Autenticação (Bearer)
                       </h3>
                       <p className="text-[11px] text-muted-foreground">
-                        Utilizada para autenticar as requisições enviadas ao Webhook
+                        Utilizado para autenticar as requisições enviadas ao Webhook
                       </p>
                     </div>
                   </div>
@@ -1327,7 +1330,7 @@ export function SettingsForm({
                 </div>
 
                 <p className="text-[11px] text-muted-foreground">
-                  💡 <strong>Instrução de Header:</strong> Envie o token no header HTTP <code className="bg-muted px-1.5 py-0.5 rounded text-orange-400 font-mono">x-api-key: {storeApiKey}</code> ou <code className="bg-muted px-1.5 py-0.5 rounded text-orange-400 font-mono">Authorization: Bearer {storeApiKey}</code>.
+                  💡 <strong>Instrução de Header:</strong> Envie o token no header HTTP <code className="bg-muted px-1.5 py-0.5 rounded text-orange-400 font-mono">Authorization: Bearer {storeApiKey}</code> ou <code className="bg-muted px-1.5 py-0.5 rounded text-orange-400 font-mono">x-api-key: {storeApiKey}</code>.
                 </p>
               </div>
 
@@ -1352,7 +1355,7 @@ export function SettingsForm({
                       Copie os Dados de Acesso
                     </h4>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Copie a URL do Webhook e sua Chave de API exclusiva da sua loja exibidas nos cartões acima.
+                      Copie a URL do Webhook e o Token de Autenticação (Bearer) exclusivo da sua loja exibidos nos cartões acima.
                     </p>
                   </div>
 
@@ -1361,10 +1364,10 @@ export function SettingsForm({
                       2
                     </div>
                     <h4 className="text-xs font-bold text-foreground">
-                      Configure no seu Canal
+                      Configure no seu Canal ou Automação
                     </h4>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Configure no seu site, campanhas do Meta Ads (Zapier, Make, n8n) ou integrador de portais enviando um POST com <code className="text-foreground font-mono">name</code> e <code className="text-foreground font-mono">phone</code>.
+                      Integre via Make, n8n, Zapier ou diretamente na sua aplicação enviando um POST com <code className="text-foreground font-mono">name</code> e <code className="text-foreground font-mono">phone</code>.
                     </p>
                   </div>
 
@@ -1422,7 +1425,7 @@ export function SettingsForm({
                     ✅ <strong>Campos Obrigatórios:</strong> <code className="text-orange-400 font-mono">name</code>, <code className="text-orange-400 font-mono">phone</code>
                   </span>
                   <span>
-                    ℹ️ <strong>Campos Opcionais:</strong> <code className="text-zinc-400 font-mono">email</code>, <code className="text-zinc-400 font-mono">vehicle_interest</code>, <code className="text-zinc-400 font-mono">source</code>, <code className="text-zinc-400 font-mono">notes</code>
+                    ℹ️ <strong>Campos Opcionais:</strong> <code className="text-zinc-400 font-mono">vehicle</code>, <code className="text-zinc-400 font-mono">email</code>, <code className="text-zinc-400 font-mono">source</code>, <code className="text-zinc-400 font-mono">notes</code>
                   </span>
                 </div>
               </div>

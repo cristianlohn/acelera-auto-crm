@@ -130,6 +130,8 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     expect(screen.getByText("200 leads/mês")).toBeInTheDocument();
     expect(screen.getByText("+3")).toBeInTheDocument(); // 200 * 0.015 = 3 carros
     expect(screen.getByText("Como calculamos o retorno da sua revenda?")).toBeInTheDocument();
+    expect(screen.getByText("Simulador de Cenários & Potencial Operacional")).toBeInTheDocument();
+    expect(screen.getByText(/simulação interativa estimada com base nos parâmetros/i)).toBeInTheDocument();
 
     // Act 1 (Quando o usuário altera o slider para 600 leads)
     fireEvent.change(slider, { target: { value: "600" } });
@@ -184,7 +186,7 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
 
     // Link WhatsApp Consultor no Enterprise
     const consultorBtn = screen.getByRole("link", { name: /falar com consultor/i });
-    expect(consultorBtn).toHaveAttribute("href", expect.stringContaining("wa.me"));
+    expect(consultorBtn).toHaveAttribute("href", expect.stringContaining("5547996348698"));
 
     // Bloco de Taxa de Setup
     expect(
@@ -225,10 +227,12 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
       </MarketingLayout>
     );
 
-    // Assert (Verifica que múltiplos CTAs apontam para /leads)
+    // Assert (Verifica que múltiplos CTAs apontam para a rota canônica do funil)
     const links = screen.getAllByRole("link");
     const leadsLinks = links.filter(
-      (link) => link.getAttribute("href") === "/leads"
+      (link) =>
+        link.getAttribute("href") === "/dashboard/leads" ||
+        link.getAttribute("href") === "/leads"
     );
 
     expect(leadsLinks.length).toBeGreaterThanOrEqual(4);

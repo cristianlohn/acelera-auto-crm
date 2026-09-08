@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { FAQ_QUESTIONS } from "@/components/landing/FAQSection";
+import { CONTACT_CONFIG, getSupportWhatsAppUrl } from "@/config/contact";
 
 const HELP_CATEGORIES = [
   { id: "todos", label: "Todas as Dúvidas", icon: Sparkles },
@@ -76,7 +77,7 @@ export default function MarketingHelpPage() {
         <div className="text-center max-w-3xl mx-auto">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Link
-              href="/leads"
+              href="/dashboard/leads"
               className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3.5 py-1 text-xs font-semibold text-orange-400 hover:bg-orange-500/20 transition-all hover:scale-105"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
@@ -273,17 +274,18 @@ export default function MarketingHelpPage() {
               </div>
               <h3 className="text-sm font-bold text-white">Suporte via WhatsApp</h3>
               <p className="mt-1 text-xs text-zinc-400">
-                Fale com nossos especialistas em implantação e tire dúvidas em tempo real.
+                Fale com nossos especialistas em implantação e tire dúvidas em tempo real:{" "}
+                <span className="text-white font-medium">{CONTACT_CONFIG.support.displayPhone}</span>.
               </p>
             </div>
             <a
-              href="https://wa.me/5511988887777?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20o%20Acelera%20Auto%20CRM"
+              href={getSupportWhatsAppUrl()}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-4"
             >
               <Button size="sm" className="w-full bg-green-600 hover:bg-green-500 text-xs">
-                Chamar no WhatsApp
+                Chamar no WhatsApp ({CONTACT_CONFIG.support.displayPhone})
               </Button>
             </a>
           </div>

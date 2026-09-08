@@ -23,8 +23,8 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Organization, Profile } from "@/types/database.types";
 
-/** Identificador UUID padrão da concessionária Sandbox / Demonstração */
-export const DEFAULT_DEMO_ORG_ID = "a0000000-0000-0000-0000-000000000001";
+import { DEFAULT_DEMO_ORG_ID, DEMO_USER_ID } from "./constants";
+export * from "./constants";
 
 export interface TenantContextResult {
   isDemo: boolean;

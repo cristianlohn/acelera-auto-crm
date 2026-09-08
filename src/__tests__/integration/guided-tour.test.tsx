@@ -80,7 +80,7 @@ describe("[IT-20] Tour Guiado da Demonstração (GuidedTour)", () => {
     // Act 4: Passo 4 -> Passo 5 (Relatórios)
     fireEvent.click(screen.getByRole("button", { name: /próximo/i }));
     expect(screen.getByText(/passo 5 de 6/i)).toBeInTheDocument();
-    expect(screen.getByText(/relatórios de roi por canal/i)).toBeInTheDocument();
+    expect(screen.getByText(/relatórios de desempenho por canal/i)).toBeInTheDocument();
     expect(mockPush).toHaveBeenCalledWith("/reports");
 
     // Act 5: Passo 5 -> Passo 6 (CTA Final)

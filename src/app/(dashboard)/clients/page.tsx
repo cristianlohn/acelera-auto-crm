@@ -40,7 +40,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { QueryClient, QueryClientProvider, QueryClientContext } from "@tanstack/react-query";
-import { formatCurrency } from "@/lib/mock-data";
+import { formatCurrency, getDemoClientsFromClosedLeads } from "@/lib/mock-data";
 import { saveClientAction } from "@/app/actions/clients";
 import { useClients } from "@/hooks/use-clients";
 import { cn } from "@/lib/utils";
@@ -520,16 +520,27 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
   );
 
   const safeClients = useMemo(() => {
-    const baseClients: Client[] = Array.isArray(serverClients)
-      ? serverClients
-      : Array.isArray(initialClients)
-      ? initialClients
-      : [];
+    let baseClients: Client[] = [];
+    if (isDemoMode) {
+      if (Array.isArray(initialClients) && initialClients.length > 0) {
+        baseClients = initialClients;
+      } else if (Array.isArray(serverClients) && serverClients.length > 0) {
+        baseClients = serverClients;
+      } else {
+        baseClients = getDemoClientsFromClosedLeads();
+      }
+    } else {
+      baseClients = Array.isArray(serverClients)
+        ? serverClients
+        : Array.isArray(initialClients)
+        ? initialClients
+        : [];
+    }
 
     if (optimisticClients.length === 0) return baseClients;
     const addedIds = new Set(optimisticClients.map((c) => c.id));
     return [...optimisticClients, ...baseClients.filter((c) => !addedIds.has(c.id))];
-  }, [serverClients, initialClients, optimisticClients]);
+  }, [serverClients, initialClients, isDemoMode, optimisticClients]);
 
   const isLoading = isQueryLoading && !serverClients && !initialClients && !isDemoMode;
 
@@ -583,7 +594,9 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
   // Cálculos das métricas executivas da carteira
   const metrics = useMemo(() => {
     const total = roleFilteredClients.length;
-    const active = roleFilteredClients.filter((c) => c.status === "ativo").length;
+    const active = roleFilteredClients.every((c) => c.status === "comprador")
+      ? roleFilteredClients.length
+      : roleFilteredClients.filter((c) => c.status === "ativo").length;
     const buyers = roleFilteredClients.filter((c) => c.status === "comprador" || (c.purchasesCount || 0) > 0);
     const totalSalesCount = roleFilteredClients.reduce((acc, c) => acc + (c.purchasesCount || 0), 0);
     const totalRevenue = roleFilteredClients.reduce((acc, c) => acc + (c.totalPurchased || 0), 0);

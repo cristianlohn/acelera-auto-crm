@@ -18,6 +18,8 @@ import {
   Loader2,
   AlertCircle,
   ShieldCheck,
+  Zap,
+  Info,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -139,16 +141,19 @@ export function WhatsAppIntegrationCard() {
             <MessageSquare className="h-5 w-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-foreground">
-                WhatsApp da Concessionária (Evolution API v2)
+                Alertas & Notificações via WhatsApp
               </h3>
               <span className="rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold">
-                API Oficial
+                Instância Evolution v2
+              </span>
+              <span className="rounded bg-sky-500/15 text-sky-400 border border-sky-500/30 px-2 py-0.5 text-[10px] font-bold">
+                Bot Transacional
               </span>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Conecte o número da loja para envio automático de notificações aos vendedores quando novos leads chegarem na Roleta Comercial.
+              Conecte uma instância para disparo automatizado de novos leads da roleta e avisos de SLA diretamente no celular da sua equipe.
             </p>
           </div>
         </div>
@@ -163,7 +168,7 @@ export function WhatsAppIntegrationCard() {
           ) : status === "connected" ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-3 py-1 text-xs font-bold shadow-sm">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-              Conectado
+              Instância Conectada
             </span>
           ) : status === "connecting" ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 px-3 py-1 text-xs font-bold animate-pulse shadow-sm">
@@ -173,7 +178,7 @@ export function WhatsAppIntegrationCard() {
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-500/15 text-zinc-400 border border-zinc-500/30 px-3 py-1 text-xs font-bold">
               <XCircle className="h-3.5 w-3.5 text-zinc-400" />
-              Desconectado
+              Instância Desconectada
             </span>
           )}
         </div>
@@ -329,7 +334,7 @@ export function WhatsAppIntegrationCard() {
             <div>
               <p className="text-xs font-bold text-foreground">Nenhum aparelho conectado</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Gere um QR Code para vincular o WhatsApp oficial e habilitar o alerta instantâneo da Roleta.
+                Gere um QR Code para vincular a instância de WhatsApp e habilitar o alerta instantâneo da Roleta.
               </p>
             </div>
           </div>
@@ -356,6 +361,41 @@ export function WhatsAppIntegrationCard() {
           </Button>
         </div>
       )}
+
+      {/* Seção de Escopo Operacional */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+        <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/10 p-3 text-xs">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+            <Zap className="h-4 w-4" />
+          </div>
+          <div>
+            <h4 className="font-semibold text-foreground">Avisos da Roleta</h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              Envio imediato da ficha de novos leads no WhatsApp privado do vendedor escalado.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-lg border border-border/40 bg-muted/10 p-3 text-xs">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-sky-500/10 text-sky-500 border border-sky-500/20">
+            <Smartphone className="h-4 w-4" />
+          </div>
+          <div>
+            <h4 className="font-semibold text-foreground">Atendimento Descentralizado</h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              Contato direto com o cliente via 1-Clique abrindo o WhatsApp do próprio corretor.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Nota Operacional de Rodapé */}
+      <div className="rounded-lg border border-border/40 bg-muted/30 p-3 text-[11px] text-muted-foreground leading-relaxed flex items-start gap-2.5">
+        <Info className="h-4 w-4 shrink-0 text-muted-foreground/80 mt-0.5" />
+        <p>
+          <strong className="text-foreground font-semibold">Nota de Operação:</strong> Esta conexão é dedicada exclusivamente ao bot disparador de alertas da concessionária. O atendimento aos clientes permanece direto e descentralizado no aparelho do vendedor, sem cobrança de taxas por conversa da Meta.
+        </p>
+      </div>
     </div>
   );
 }

@@ -269,7 +269,7 @@ export function SellerActionCockpit({
                 <p className="mt-1 max-w-sm text-xs text-zinc-400">
                   Parabéns! Todos os seus contatos foram respondidos dentro do SLA de atendimento. Novos leads distribuídos pela roleta aparecerão aqui instantaneamente.
                 </p>
-                <Link href="/leads" className="mt-3.5">
+                <Link href="/dashboard/leads" className="mt-3.5">
                   <Button
                     size="sm"
                     className="h-7 text-xs font-semibold bg-white/10 hover:bg-white/15 text-zinc-200 border border-white/10"

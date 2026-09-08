@@ -80,13 +80,14 @@ describe("[UNIT-CRM] Módulos Operacionais de Domínio (Leads, Veículos, Roleta
     });
 
     it("GET & PATCH /api/v1/leads/[id]: deve consultar e atualizar lead", async () => {
-      const params = Promise.resolve({ id: "l-001" });
+      const targetId = "lead-k-101";
+      const params = Promise.resolve({ id: targetId });
 
-      const getReq = createCrmRequest("/api/v1/leads/l-001", "GET");
+      const getReq = createCrmRequest(`/api/v1/leads/${targetId}`, "GET");
       const getRes = await getLeadByIdHandler(getReq, { params });
       expect(getRes.status).toBe(200);
 
-      const patchReq = createCrmRequest("/api/v1/leads/l-001", "PATCH", {
+      const patchReq = createCrmRequest(`/api/v1/leads/${targetId}`, "PATCH", {
         status: "visita",
         notes: "Visita agendada para sábado às 10h",
       });

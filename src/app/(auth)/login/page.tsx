@@ -223,17 +223,23 @@ export default function LoginPage() {
 
         {/* Mensagem e Proposta de Valor */}
         <div className="relative z-10 space-y-6 max-w-lg">
-          <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-400">
-            <Sparkles className="h-4 w-4" />
-            <span>CRM Automotivo #1 em Velocidade</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400">
+              <Sparkles className="h-3.5 w-3.5" />
+              SLA Controlado
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-semibold text-blue-400">
+              <LayoutDashboard className="h-3.5 w-3.5" />
+              Roleta Transparente
+            </span>
           </div>
 
           <h2 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl leading-tight">
-            Centralize leads, estoque e vendedores em uma única tela.
+            Agilidade de Primeiro Contato & Controle de Funil
           </h2>
 
           <p className="text-sm text-zinc-400 leading-relaxed">
-            Elimine o tempo de resposta lento no WhatsApp e aumente a conversão do seu estoque em até 35% com o Kanban inteligente.
+            Garanta atendimento imediato via roleta de leads, acompanhamento de SLA e visibilidade completa da equipe em tempo real.
           </p>
 
           {/* Mini Indicadores de Destaque */}

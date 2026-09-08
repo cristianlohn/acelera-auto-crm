@@ -7,7 +7,7 @@
  * 2. Funil Kanban & Semáforo de SLA
  * 3. Detalhes do Lead & WhatsApp 1-Clique
  * 4. Pátio & Giro de Estoque
- * 5. Relatórios & ROI por Canal
+ * 5. Relatórios & Desempenho por Canal
  * 6. CTA Final de Conversão ("Quero colocar minha revenda no Acelera")
  */
 
@@ -87,7 +87,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 5,
-    title: "Relatórios de ROI por Canal",
+    title: "Relatórios de Desempenho por Canal",
     badge: "Passo 5 de 6 • Decisão Matemática",
     description:
       "Descubra quais canais (Instagram, Webmotors, WhatsApp, Site) trazem o melhor retorno e quais vendedores possuem as maiores taxas de conversão.",

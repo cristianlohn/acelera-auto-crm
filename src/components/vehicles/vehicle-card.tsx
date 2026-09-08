@@ -282,24 +282,30 @@ export function VehicleCard({
             <p className="truncate text-xs text-muted-foreground">{v.version}</p>
           </div>
 
-          {/* Preço em destaque + FIPE & Margem */}
-          <div className="space-y-1">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-xl font-extrabold tracking-tight text-foreground">
-                {formatCurrency(v.price)}
-              </p>
-              {v.fipePrice && (
-                <span className="text-[11px] font-medium text-muted-foreground" title={`FIPE: ${formatCurrency(v.fipePrice)}`}>
-                  FIPE: {formatCurrency(v.fipePrice)}
-                </span>
+            {/* Preço em destaque + FIPE & Margem */}
+            <div className="space-y-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-xl font-extrabold tracking-tight text-foreground">
+                  {formatCurrency(v.price)}
+                </p>
+                {v.fipePrice && (
+                  <span
+                    className="text-[11px] font-medium text-muted-foreground"
+                    title={`Valor FIPE (Informado): ${formatCurrency(v.fipePrice)}`}
+                  >
+                    FIPE Ref.: {formatCurrency(v.fipePrice)}
+                  </span>
+                )}
+              </div>
+              {v.estimatedMargin !== undefined && (
+                <p
+                  className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400"
+                  title="Diferença entre o valor de venda e o custo de entrada. Não deduz despesas de preparação, comissões ou impostos."
+                >
+                  Margem Bruta Est.: {formatCurrency(v.estimatedMargin)}
+                </p>
               )}
             </div>
-            {v.estimatedMargin !== undefined && (
-              <p className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                Margem Est.: {formatCurrency(v.estimatedMargin)}
-              </p>
-            )}
-          </div>
 
           {/* Detalhes rápidos */}
           <div className="grid grid-cols-3 gap-2">

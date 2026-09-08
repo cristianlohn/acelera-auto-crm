@@ -10,7 +10,13 @@ import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import { resolveUserTenantContext } from "@/lib/auth/tenant";
-import { mockLeads } from "@/lib/mock-data";
+import {
+  DEMO_LEADS,
+  DEMO_ACTIVE_SELLER_NAMES,
+  DEMO_SELLERS,
+  DEMO_COCKPIT_ACTIONS,
+  DEMO_KPI_AVERAGE_TICKET,
+} from "@/lib/demo/demo-dataset";
 import {
   calculateManagerCockpitMetrics,
   type ManagerCockpitMetrics,
@@ -25,9 +31,9 @@ export async function getManagerCockpitMetrics(
 ): Promise<ManagerCockpitMetrics> {
   const tenantContext = await resolveUserTenantContext();
 
-  // 1. Modo Demo Explícito (Sandbox)
+  // 1. Modo Demo Explícito (Sandbox Canônico)
   if (tenantContext.isDemo) {
-    const demoLeadsInput: LeadAnalyticsInput[] = mockLeads.map((l) => {
+    const demoLeadsInput: LeadAnalyticsInput[] = DEMO_LEADS.map((l) => {
       const raw = l as unknown as Record<string, unknown>;
       return {
         id: l.id,
@@ -46,9 +52,15 @@ export async function getManagerCockpitMetrics(
       };
     });
     return calculateManagerCockpitMetrics(demoLeadsInput, {
-      defaultTicket: 140000,
+      defaultTicket: DEMO_KPI_AVERAGE_TICKET,
       isDemo: true,
-      activeSellers: ["Rafael Alves", "Juliana Lima", "Carlos Souza"],
+      activeSellers: DEMO_ACTIVE_SELLER_NAMES,
+      sellerProfiles: DEMO_SELLERS.map((s) => ({
+        id: s.id,
+        name: s.name,
+        phone: s.phone,
+      })),
+      recommendedActions: DEMO_COCKPIT_ACTIONS,
     });
   }
 

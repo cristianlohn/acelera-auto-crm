@@ -623,8 +623,8 @@ function VehicleFormContent({
             />
           </Field>
 
-          {/* Preço Tabela FIPE */}
-          <Field id="fipePrice" label="Tabela FIPE (R$)" icon={CreditCard}>
+          {/* Preço Tabela FIPE de Referência */}
+          <Field id="fipePrice" label="FIPE de Referência (R$)" icon={CreditCard}>
             <Input
               id="fipePrice"
               type="number"
@@ -634,6 +634,9 @@ function VehicleFormContent({
               onChange={(e) => setFipePrice(Number(e.target.value))}
               className="h-9 border-white/10 bg-white/5 text-xs text-zinc-300"
             />
+            <p className="text-[10px] text-muted-foreground">
+              Valor de tabela informado para balizar a avaliação/troca.
+            </p>
           </Field>
 
           {/* Status */}

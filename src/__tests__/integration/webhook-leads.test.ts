@@ -310,7 +310,7 @@ describe("[IT-WH] Ingestão Externa de Leads via Webhook (POST /api/webhooks/lea
     expect(data3.distribution_mode).toBe("round_robin");
 
     // Valida que os vendedores atribuídos são válidos da lista
-    const validSellers = ["Rafael Alves", "Juliana Costa", "Marcos Ferreira"];
+    const validSellers = ["Rafael Alves", "Camila Dias", "Lucas Santana", "Beatriz Rocha"];
     expect(validSellers).toContain(data1.assigned_seller);
     expect(validSellers).toContain(data2.assigned_seller);
     expect(validSellers).toContain(data3.assigned_seller);

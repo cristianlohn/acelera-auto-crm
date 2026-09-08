@@ -11,6 +11,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { getSalesWhatsAppUrl } from "@/config/contact";
 
 export interface MarketingHeaderProps {
   initialAuthenticated?: boolean;
@@ -96,6 +97,14 @@ export function MarketingHeader({ initialAuthenticated = false }: MarketingHeade
           >
             Demonstração
           </a>
+          <a
+            href={getSalesWhatsAppUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-orange-400"
+          >
+            Contato
+          </a>
         </nav>
 
         {/* CTAs de Topo */}
@@ -103,7 +112,7 @@ export function MarketingHeader({ initialAuthenticated = false }: MarketingHeade
           <ThemeToggle className="bg-white/5 border-white/10 text-white hover:bg-white/10 dark:bg-white/5 dark:border-white/10" />
 
           {isAuthenticated ? (
-            <Link href="/leads">
+            <Link href="/dashboard/leads">
               <Button
                 size="sm"
                 className="gap-1.5 sm:gap-2 bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-700 hover:shadow-orange-500/40 text-xs sm:text-sm font-semibold px-3 sm:px-4"
@@ -124,7 +133,7 @@ export function MarketingHeader({ initialAuthenticated = false }: MarketingHeade
                 </Button>
               </Link>
 
-              <Link href="/leads">
+              <Link href="/dashboard/leads">
                 <Button
                   size="sm"
                   className="gap-1.5 sm:gap-2 bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-700 hover:shadow-orange-500/40 text-xs sm:text-sm font-semibold px-2.5 sm:px-3.5"

@@ -51,16 +51,16 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
     // Assert (Então os 4 KPIs executivos devem estar presentes com seus respectivos valores)
     expect(screen.getByText("Faturamento Realizado")).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s?1\.845\.000/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s?215\.800/)).toBeInTheDocument();
 
     expect(screen.getByText("Taxa de Conversão Global")).toBeInTheDocument();
-    expect(screen.getByText("14.2%")).toBeInTheDocument();
+    expect(screen.getByText("12.5%")).toBeInTheDocument();
 
     expect(screen.getByText("Ticket Médio por Veículo")).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s?153\.750/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s?71\.933/)).toBeInTheDocument();
 
     expect(screen.getByText("Tempo Médio de Resposta (SLA)")).toBeInTheDocument();
-    expect(screen.getByText("18 min")).toBeInTheDocument();
+    expect(screen.getByText("8 min")).toBeInTheDocument();
   });
 
   it("[IT-08.2] Deve alternar entre os filtros de período (7 dias, Este Mês, Trimestre, Ano) atualizando o estado ativo", async () => {
@@ -118,18 +118,18 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
     expect(screen.getByText("Proposta")).toBeInTheDocument();
     expect(screen.getByText("Venda Fechada")).toBeInTheDocument();
 
-    // Valida contagem de leads no período mensal padrão
-    expect(screen.getByText("120 leads")).toBeInTheDocument();
-    expect(screen.getByText("98 leads")).toBeInTheDocument();
-    expect(screen.getByText("45 leads")).toBeInTheDocument();
-    expect(screen.getByText("28 leads")).toBeInTheDocument();
-    expect(screen.getByText("17 leads")).toBeInTheDocument();
+    // Valida contagem de leads no período mensal padrão (24 leads)
+    expect(screen.getByText("24 leads")).toBeInTheDocument();
+    expect(screen.getByText("18 leads")).toBeInTheDocument();
+    expect(screen.getByText("10 leads")).toBeInTheDocument();
+    expect(screen.getByText("6 leads")).toBeInTheDocument();
+    expect(screen.getByText("3 leads")).toBeInTheDocument();
 
     // Valida taxas de passagem
-    expect(screen.getByText("81.7% conv.")).toBeInTheDocument();
-    expect(screen.getByText("45.9% conv.")).toBeInTheDocument();
-    expect(screen.getByText("62.2% conv.")).toBeInTheDocument();
-    expect(screen.getByText("60.7% conv.")).toBeInTheDocument();
+    expect(screen.getByText("75% conv.")).toBeInTheDocument();
+    expect(screen.getByText("55.6% conv.")).toBeInTheDocument();
+    expect(screen.getByText("60% conv.")).toBeInTheDocument();
+    expect(screen.getByText("50% conv.")).toBeInTheDocument();
   });
 
   it("[IT-08.4] Deve renderizar o ranking de vendedores com destaque visual e coroa no Top 1", () => {
@@ -151,9 +151,9 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
     expect(screen.getByText("Lucas Santana")).toBeInTheDocument();
     expect(screen.getByText("Beatriz Rocha")).toBeInTheDocument();
 
-    // Valida métricas do líder no mês
-    expect(screen.getByText(/8 vendas concluídas/)).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s?980\.000/)).toBeInTheDocument();
+    // Valida métricas do líder no mês (Rafael Alves: 2 vendas, R$ 142.900)
+    expect(screen.getByText(/2 vendas concluídas/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s?142\.900/)).toBeInTheDocument();
   });
 
   it("[IT-08.5] Deve renderizar a lista de eficiência por canais de aquisição com percentuais", () => {
@@ -165,7 +165,12 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
     );
 
     // Assert (Então os canais e suas taxas devem ser exibidos)
-    expect(screen.getByText("Eficiência por Canal")).toBeInTheDocument();
+    expect(screen.getByText("Desempenho por Canal")).toBeInTheDocument();
+    expect(screen.getByText("Canal / Origem")).toBeInTheDocument();
+    expect(screen.getByText("Leads Recebidos")).toBeInTheDocument();
+    expect(screen.getByText("Vendas Concluídas")).toBeInTheDocument();
+    expect(screen.getByText("Taxa de Conversão (%)")).toBeInTheDocument();
+
     expect(screen.getAllByText("WhatsApp")[0]).toBeInTheDocument();
     expect(screen.getByText("Instagram")).toBeInTheDocument();
     expect(screen.getByText("Site Oficial")).toBeInTheDocument();
@@ -173,8 +178,7 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
     expect(screen.getByText("Indicação")).toBeInTheDocument();
 
     // Taxa de conversão do WhatsApp
-    expect(screen.getByText("18.5%")).toBeInTheDocument();
-    expect(screen.getByText(/54 leads \(10 vendas\)/)).toBeInTheDocument();
+    expect(screen.getByText("10%")).toBeInTheDocument();
   });
 
   it("[IT-08.6] Deve disparar a ação de exportação de relatório e exibir feedback visual ao usuário", () => {
@@ -218,15 +222,14 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
       </DemoRoleProvider>
     );
 
-    // Assert (Verifica a presença dos modelos e dados de giro)
+    // Assert (Verifica a presença dos modelos canônicos da demo)
     expect(screen.getByText("Veículos Mais Vendidos")).toBeInTheDocument();
     expect(screen.getByText("Honda Civic")).toBeInTheDocument();
-    expect(screen.getByText("Toyota Corolla Cross")).toBeInTheDocument();
-    expect(screen.getByText("Jeep Compass")).toBeInTheDocument();
-    expect(screen.getByText("Fiat Strada")).toBeInTheDocument();
+    expect(screen.getByText("Chevrolet Tracker")).toBeInTheDocument();
+    expect(screen.getByText("Ford Ka")).toBeInTheDocument();
 
-    expect(screen.getByText(/4 unidades/)).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s?599\.600/)).toBeInTheDocument();
+    expect(screen.getAllByText(/1 unidade/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/R\$\s?90\.000/)).toBeInTheDocument();
   });
 
   it("[IT-08.9] Deve exibir zeros reais e Empty State limpo para organização real sem vendas", () => {

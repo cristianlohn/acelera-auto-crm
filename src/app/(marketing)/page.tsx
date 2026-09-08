@@ -171,7 +171,7 @@ export default function MarketingPage() {
               </p>
               <div className="mt-3.5 sm:mt-4 inline-flex items-center gap-2 text-xs font-semibold text-violet-400">
                 <TrendingUp className="h-4 w-4 shrink-0" />
-                <span>Análise de ROI por canal de atração</span>
+                <span>Conversão e desempenho por origem</span>
               </div>
             </div>
           </div>
@@ -207,7 +207,7 @@ export default function MarketingPage() {
             </p>
 
             <div className="mt-6 sm:mt-8 flex justify-center">
-              <Link href="/leads" className="w-full sm:w-auto">
+              <Link href="/dashboard/leads" className="w-full sm:w-auto">
                 <Button
                   size="lg"
                   className="w-full sm:w-auto gap-2 bg-white px-6 py-5 sm:px-8 sm:py-6 text-xs sm:text-sm font-bold text-black shadow-xl hover:bg-zinc-100 transition-all hover:scale-105"

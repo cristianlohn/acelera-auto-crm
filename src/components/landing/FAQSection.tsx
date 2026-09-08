@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { getSalesWhatsAppUrl } from "@/config/contact";
 
 export interface FaqQuestionItem {
   id: string;
@@ -318,7 +319,7 @@ export function FAQSection() {
               <ArrowRight className="w-4 h-4 text-orange-500 dark:text-orange-400 shrink-0" />
             </Link>
             <a
-              href="https://wa.me/5511988887777?text=Ol%C3%A1%2C%20tenho%20d%C3%BAvidas%20sobre%20o%20Acelera%20Auto%20CRM"
+              href={getSalesWhatsAppUrl("Olá, tenho dúvidas sobre o Acelera Auto CRM")}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"

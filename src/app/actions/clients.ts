@@ -11,8 +11,8 @@ import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveUserTenantContext } from "@/lib/auth/tenant";
-import { mockClients } from "@/lib/mock-data";
+import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import { mockClients, getDemoClientsFromClosedLeads } from "@/lib/mock-data";
 import {
   saveClientSchema,
   clientFiltersSchema,
@@ -41,8 +41,8 @@ function mapDbRowToClient(row: ClientRow): Client {
   };
 }
 
-// Armazenamento em memória para o Modo Demonstração
-const memoryClients: Client[] = [...mockClients];
+// Armazenamento em memória para o Modo Demonstração (base unificada dos 12 leads fechados)
+const memoryClients: Client[] = getDemoClientsFromClosedLeads();
 
 /**
  * Obtém a listagem de clientes filtrada por organização, busca e status.
@@ -51,8 +51,13 @@ export async function getClients(rawFilters?: Partial<ClientFilters>): Promise<C
   const tenantContext = await resolveUserTenantContext();
   const filters = clientFiltersSchema.parse(rawFilters || {});
 
-  // 1. Modo Demonstração: Retorna dados em memória simulados
-  if (tenantContext.isDemo) {
+  // 1. Modo Demonstração: Retorna dados em memória simulados (nunca vazio)
+  const isDemo = tenantContext.isDemo || tenantContext.organizationId === DEFAULT_DEMO_ORG_ID;
+  if (isDemo) {
+    if (!memoryClients || memoryClients.length === 0) {
+      memoryClients.length = 0;
+      memoryClients.push(...getDemoClientsFromClosedLeads());
+    }
     let list = [...memoryClients];
 
     if (filters.status && filters.status !== "todos") {
@@ -243,7 +248,8 @@ export async function saveClientAction(
   const data = validation.data;
 
   // 1. Modo Demonstração
-  if (tenantContext.isDemo) {
+  const isDemo = tenantContext.isDemo || tenantContext.organizationId === DEFAULT_DEMO_ORG_ID;
+  if (isDemo) {
     if (data.id) {
       const idx = memoryClients.findIndex((c) => c.id === data.id);
       if (idx !== -1) {
@@ -405,7 +411,8 @@ export async function deleteClientAction(
 
   const tenantContext = await resolveUserTenantContext();
 
-  if (tenantContext.isDemo) {
+  const isDemo = tenantContext.isDemo || tenantContext.organizationId === DEFAULT_DEMO_ORG_ID;
+  if (isDemo) {
     const idx = memoryClients.findIndex((c) => c.id === id);
     if (idx !== -1) {
       memoryClients.splice(idx, 1);

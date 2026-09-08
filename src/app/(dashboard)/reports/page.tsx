@@ -158,7 +158,7 @@ function ReportsPageContent() {
         </p>
         <div className="mt-6 flex gap-3">
           <Button asChild className="bg-orange-500 hover:bg-orange-600 text-white">
-            <Link href="/leads">Voltar para o Funil de Leads</Link>
+            <Link href="/dashboard/leads">Voltar para o Funil de Leads</Link>
           </Button>
         </div>
       </div>
@@ -396,19 +396,19 @@ function ReportsPageContent() {
             </div>
           </section>
 
-          {/* Eficiência por Canal de Entrada */}
+          {/* Desempenho por Canal & Conversão por Origem */}
           <section
-            aria-label="Eficiência por Canal de Entrada"
+            aria-label="Desempenho por Canal e Conversão por Origem"
             className="rounded-xl border bg-card p-4 sm:p-5 shadow-sm lg:col-span-5 flex flex-col justify-between"
           >
             <div>
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-sm font-bold text-foreground">
-                    Eficiência por Canal
+                    Desempenho por Canal
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    Origem de leads e taxa de conversão final
+                    Conversão por Origem de leads e taxa de fechamento
                   </p>
                 </div>
                 <Share2 className="h-4 w-4 text-muted-foreground" />
@@ -425,23 +425,31 @@ function ReportsPageContent() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-3.5">
+                <div className="space-y-3">
+                  {/* Cabeçalho de Colunas Padronizado */}
+                  <div className="grid grid-cols-12 text-[10px] font-semibold text-muted-foreground px-1 pb-1 border-b border-border/50">
+                    <span className="col-span-4">Canal / Origem</span>
+                    <span className="col-span-3 text-center">Leads Recebidos</span>
+                    <span className="col-span-2 text-center">Vendas Concluídas</span>
+                    <span className="col-span-3 text-right">Taxa de Conversão (%)</span>
+                  </div>
                   {channels.map((chan) => (
                     <div key={chan.channel} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className={cn("h-2 w-2 rounded-full", chan.color)} />
-                          <span className="font-medium text-foreground">
+                      <div className="grid grid-cols-12 items-center text-xs px-1">
+                        <div className="col-span-4 flex items-center gap-2">
+                          <span className={cn("h-2 w-2 rounded-full shrink-0", chan.color)} />
+                          <span className="font-medium text-foreground truncate">
                             {chan.channel}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">
-                            {chan.leadsCount} leads ({chan.dealsCount} vendas)
-                          </span>
-                          <span className="font-bold text-foreground">
-                            {chan.conversionRate}%
-                          </span>
+                        <div className="col-span-3 text-center text-muted-foreground font-medium">
+                          {chan.leadsCount}
+                        </div>
+                        <div className="col-span-2 text-center text-muted-foreground font-medium">
+                          {chan.dealsCount}
+                        </div>
+                        <div className="col-span-3 text-right font-bold text-foreground">
+                          {chan.conversionRate}%
                         </div>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">

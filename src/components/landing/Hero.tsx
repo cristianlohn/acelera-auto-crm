@@ -45,7 +45,7 @@ export function Hero() {
 
         {/* Duplo CTA de Ação Imediata */}
         <div className="mt-7 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full max-w-md sm:max-w-none mx-auto">
-          <Link href="/leads" className="w-full sm:w-auto">
+          <Link href="/dashboard/leads" className="w-full sm:w-auto">
             <Button
               size="lg"
               className="w-full sm:w-auto gap-2 bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 px-5 py-5 sm:px-6 sm:py-6 text-sm sm:text-base font-bold text-white shadow-xl shadow-orange-500/30 hover:from-orange-600 hover:to-red-700 hover:shadow-orange-500/50 transition-all hover:scale-105 active:scale-95"

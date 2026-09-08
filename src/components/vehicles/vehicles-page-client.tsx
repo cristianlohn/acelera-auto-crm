@@ -68,6 +68,7 @@ interface MetricCardProps {
   value: string | number;
   icon: React.ComponentType<{ className?: string }>;
   sub?: string;
+  tooltip?: string;
   iconBg: string;
   iconColor: string;
 }
@@ -77,11 +78,15 @@ function MetricCard({
   value,
   icon: Icon,
   sub,
+  tooltip,
   iconBg,
   iconColor,
 }: MetricCardProps) {
   return (
-    <div className="relative min-w-[190px] sm:min-w-[220px] shrink-0 snap-start overflow-hidden rounded-xl border bg-card p-3 sm:p-4 shadow-sm transition-all hover:shadow-md md:min-w-0 md:shrink">
+    <div
+      title={tooltip}
+      className="relative min-w-[190px] sm:min-w-[220px] shrink-0 snap-start overflow-hidden rounded-xl border bg-card p-3 sm:p-4 shadow-sm transition-all hover:shadow-md md:min-w-0 md:shrink"
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] sm:text-xs font-medium text-muted-foreground truncate">{label}</p>
@@ -353,9 +358,10 @@ export function VehiclesPageClient({
                 iconColor="text-green-600"
               />
               <MetricCard
-                label="Margem Média Estimada"
+                label="Margem Bruta Estimada"
                 value={formatCurrency(soldMetrics.margemMedia)}
                 icon={TrendingUp}
+                tooltip="Diferença entre o valor de venda e o custo de entrada. Não deduz despesas de preparação, comissões ou impostos."
                 iconBg="bg-violet-100 dark:bg-violet-900/40"
                 iconColor="text-violet-600"
               />

@@ -36,14 +36,14 @@ export function ROISection() {
           {/* Header */}
           <div className="flex items-center gap-2 text-xs font-bold text-orange-400 uppercase tracking-wider">
             <Calculator className="h-4 w-4 shrink-0" />
-            <span>Calculadora Comercial de Retorno (ROI)</span>
+            <span>Simulador de Cenários & Potencial Operacional</span>
           </div>
 
           <h2 className="mt-2 text-xl sm:text-3xl font-extrabold text-white">
             Descubra quanto sua revenda ganha reduzindo o tempo de resposta
           </h2>
           <p className="mt-2 text-xs sm:text-sm text-zinc-400">
-            Aumente sua taxa de conversão respondendo com rapidez antes que a oportunidade esfrie.
+            Estime o impacto de reduzir o tempo de resposta e organizar a distribuição de oportunidades na sua concessionária.
           </p>
 
           {/* Grid de Inputs / Controles Interativos */}
@@ -227,15 +227,25 @@ export function ROISection() {
               </p>
             </div>
 
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4">
+            <div
+              className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4"
+              title="Diferença entre o valor de venda e o custo de entrada. Não deduz despesas de preparação, comissões ou impostos."
+            >
               <div className="flex items-center justify-between">
-                <p className="text-xs text-emerald-300">Lucro Bruto Adicional</p>
-                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800/50">LUCRO</span>
+                <p className="text-xs text-emerald-300">Margem Bruta Estimada</p>
+                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950 px-1.5 py-0.5 rounded border border-emerald-800/50">MARGEM</span>
               </div>
               <p className="mt-1 text-2xl font-black text-emerald-400 truncate">
                 {formatCurrency(estimatedCommissionProfit)}
               </p>
             </div>
+          </div>
+
+          {/* Nota de Rodapé / Disclaimer */}
+          <div className="mt-6 rounded-xl border border-white/5 bg-black/30 p-3.5 text-center text-xs text-zinc-400 leading-relaxed">
+            <p>
+              Simulação interativa estimada com base nos parâmetros configurados pelo lojista. Os resultados práticos variam de acordo com o processo de atendimento e o estoque de cada loja.
+            </p>
           </div>
         </div>
       </div>

@@ -141,7 +141,7 @@ function InviteAcceptContent() {
             asChild
             className="w-full h-10 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
           >
-            <Link href="/leads">
+            <Link href="/dashboard/leads">
               <span>Ir para o Funil de Leads</span>
               <ArrowRight className="h-4 w-4 ml-1.5" />
             </Link>

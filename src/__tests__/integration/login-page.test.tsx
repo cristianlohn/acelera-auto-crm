@@ -57,6 +57,12 @@ describe("[IT-12] Página de Login e Autenticação (LoginPage)", () => {
     expect(
       screen.getByRole("button", { name: /entrar no crm/i })
     ).toBeInTheDocument();
+
+    // Pilares operacionais e ausência de promessas não comprovadas
+    expect(screen.getByText(/sla controlado/i)).toBeInTheDocument();
+    expect(screen.getByText(/roleta transparente/i)).toBeInTheDocument();
+    expect(screen.getByText(/agilidade de primeiro contato & controle de funil/i)).toBeInTheDocument();
+    expect(screen.queryByText(/35%/i)).not.toBeInTheDocument();
   });
 
   it("[IT-12.2] Deve exibir alerta de validação ao submeter formulário sem credenciais", async () => {

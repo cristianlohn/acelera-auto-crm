@@ -230,8 +230,11 @@ describe("[IT-10] Configurações e Parâmetros (SettingsPage)", () => {
     // Assert (Aba ativa e cartões visíveis)
     expect(integracoesTab).toHaveAttribute("aria-selected", "true");
     expect(
-      screen.getByRole("heading", { name: /integrações & webhooks de leads/i })
+      screen.getByRole("heading", { name: /entrada de leads & webhooks/i })
     ).toBeInTheDocument();
+    expect(screen.getByText("Endpoint HTTP/JSON")).toBeInTheDocument();
+    expect(screen.getByText("Compatível com Make & n8n")).toBeInTheDocument();
+    expect(screen.getByText("Token de Autenticação (Bearer)")).toBeInTheDocument();
 
     // Endpoint Webhook
     expect(

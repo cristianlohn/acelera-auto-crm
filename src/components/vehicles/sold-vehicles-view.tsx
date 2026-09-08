@@ -97,7 +97,7 @@ export function SoldVehiclesView({
           Nenhum veículo no histórico de vendas ainda
         </h2>
         <p className="mt-1 max-w-md text-xs text-muted-foreground">
-          Assim que um carro for marcado como vendido no pátio, ele será arquivado aqui com as métricas de fechamento, margem realizada e tempo de giro.
+          Assim que um carro for marcado como vendido no pátio, ele será arquivado aqui com as métricas de fechamento, margem bruta estimada e tempo de giro.
         </p>
       </div>
     );
@@ -204,15 +204,21 @@ export function SoldVehiclesView({
                         </p>
                       </div>
                       {v.fipePrice && (
-                        <span className="text-[10px] text-zinc-500 text-right">
-                          FIPE: {formatCurrency(v.fipePrice)}
+                        <span
+                          className="text-[10px] text-zinc-500 text-right"
+                          title={`Valor FIPE (Informado): ${formatCurrency(v.fipePrice)}`}
+                        >
+                          FIPE Ref.: {formatCurrency(v.fipePrice)}
                         </span>
                       )}
                     </div>
 
                     {v.estimatedMargin !== undefined && (
-                      <p className="text-[11px] font-semibold text-emerald-500">
-                        Margem: {formatCurrency(v.estimatedMargin)}
+                      <p
+                        className="text-[11px] font-semibold text-emerald-500"
+                        title="Diferença entre o valor de venda e o custo de entrada. Não deduz despesas de preparação, comissões ou impostos."
+                      >
+                        Margem Bruta Est.: {formatCurrency(v.estimatedMargin)}
                       </p>
                     )}
                   </div>
