@@ -126,7 +126,6 @@ function BillingContent({
   const router = useRouter();
   const searchParams = useSearchParams();
   const isExpired = searchParams.get("expired") === "true";
-  const isBlocked = searchParams.get("status") === "blocked";
   const { role, isDemoMode } = useDemoRole();
   const effectiveRole = normalizeRole(role);
   const canManageBilling = canManageIntegrationsAndBilling(effectiveRole);
@@ -151,6 +150,19 @@ function BillingContent({
   >(initialOverview);
   const [isCancelingUpgrade, setIsCancelingUpgrade] = useState(false);
   const isLoading = subscriptionOverview === undefined;
+
+  // Desarma o bloqueio caso a assinatura da concessionária já esteja ativa
+  const isBlocked =
+    searchParams.get("status") === "blocked" && subscriptionOverview?.status !== "active";
+
+  // Desarma e limpa automaticamente o parâmetro ?status=blocked da URL quando ativo
+  useEffect(() => {
+    if (subscriptionOverview?.status === "active" && searchParams.get("status") === "blocked") {
+      if (typeof window !== "undefined") {
+        window.history.replaceState({}, "", "/billing");
+      }
+    }
+  }, [subscriptionOverview?.status, searchParams]);
 
   const handleCancelPendingUpgrade = async () => {
     setIsCancelingUpgrade(true);

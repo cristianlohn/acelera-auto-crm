@@ -300,9 +300,32 @@ describe("[UNIT-BILLING-MANAGEMENT] Governança RBAC e Cockpit de Assinatura", (
       render(<SubscriptionInvoicesTable initialInvoices={[]} />);
 
       expect(screen.getByTestId("invoices-empty-state")).toBeInTheDocument();
+      expect(screen.getByText(/nenhum pagamento registrado até o momento/i)).toBeInTheDocument();
       expect(screen.getByText(/nenhuma fatura anterior registrada/i)).toBeInTheDocument();
     });
+
+    it("[TEST-BILL-INV-3] deve consultar faturas via getSubscriptionInvoicesAction e sair do loading exibindo empty state em caso de lista vazia", async () => {
+      vi.spyOn(billingActions, "getSubscriptionInvoicesAction").mockResolvedValue({
+        success: true,
+        data: [],
+      });
+
+      render(<SubscriptionInvoicesTable />);
+
+      await waitFor(() => {
+        expect(screen.queryByText(/carregando histórico de pagamentos/i)).not.toBeInTheDocument();
+        expect(screen.getByText(/nenhum pagamento registrado até o momento/i)).toBeInTheDocument();
+      });
+    });
+
+    it("[TEST-BILL-INV-4] deve exportar aliases getPaymentHistoryAction e getInvoicesAction para getSubscriptionInvoicesAction", () => {
+      expect(typeof billingActions.getPaymentHistoryAction).toBe("function");
+      expect(typeof billingActions.getInvoicesAction).toBe("function");
+    });
   });
+
+
+
 
   describe("5. Componente ChangePlanModal", () => {
     it("[TEST-BILL-MODAL-1] deve exibir plano atual com badge e botão desabilitado, e botão de upgrade para planos superiores", () => {

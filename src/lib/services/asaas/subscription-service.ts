@@ -240,6 +240,9 @@ export async function getAsaasSubscriptionInvoices(
 ): Promise<SubscriptionInvoice[]> {
   if (!subscriptionId && !customerId) return [];
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
   try {
     const { apiUrl, apiKey } = getAsaasConfig();
     const url = customerId
@@ -252,7 +255,7 @@ export async function getAsaasSubscriptionInvoices(
         "Content-Type": "application/json",
         access_token: apiKey,
       },
-      signal: AbortSignal.timeout(4000),
+      signal: controller.signal,
     });
 
     if (!res.ok) return [];
@@ -270,8 +273,11 @@ export async function getAsaasSubscriptionInvoices(
       bankSlipUrl: p.bankSlipUrl ? String(p.bankSlipUrl) : null,
       receiptUrl: p.transactionReceiptUrl ? String(p.transactionReceiptUrl) : null,
     }));
-  } catch {
+  } catch (err) {
+    console.warn("[getAsaasSubscriptionInvoices] Falha ou timeout ao consultar faturas Asaas:", err);
     return [];
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

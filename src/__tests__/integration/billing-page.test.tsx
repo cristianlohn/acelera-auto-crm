@@ -151,4 +151,35 @@ describe("[IT-BILL] Página de Planos, Assinatura e Paywall (BillingPage)", () =
       ).toBeInTheDocument();
     });
   });
+
+  it("[IT-BILL.7] Deve desarmar o banner de bloqueio e limpar a URL quando subscription_status === 'active'", async () => {
+    // Arrange
+    mockSearchParams = new URLSearchParams("status=blocked");
+    const replaceStateSpy = vi.spyOn(window.history, "replaceState").mockImplementation(() => {});
+
+    vi.spyOn(billingActions, "getSubscriptionOverviewAction").mockResolvedValue({
+      success: true,
+      data: {
+        planId: "pro",
+        planName: "Plano Pro",
+        status: "active",
+        billingCycle: "mensal",
+        price: 597,
+        nextDueDate: "2026-10-15T23:59:59.999Z",
+        daysRemaining: 20,
+      },
+    });
+
+    // Act
+    render(<BillingPage />);
+
+    // Assert: O banner vermelho NÃO deve ser exibido
+    await waitFor(() => {
+      expect(screen.queryByTestId("billing-blocked-alert")).not.toBeInTheDocument();
+    });
+
+    // Deve ter chamado replaceState para limpar o ?status=blocked
+    expect(replaceStateSpy).toHaveBeenCalledWith({}, "", "/billing");
+  });
 });
+

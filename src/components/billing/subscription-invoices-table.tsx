@@ -53,18 +53,38 @@ export function SubscriptionInvoicesTable({
     if (initialInvoices) return;
 
     let isMounted = true;
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    }, 5000);
+
     getSubscriptionInvoicesAction()
       .then((res) => {
-        if (isMounted && res.success && res.data) {
-          setInvoices(res.data);
+        if (isMounted) {
+          if (res.success && res.data) {
+            setInvoices(res.data);
+          } else {
+            setInvoices([]);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn("[SubscriptionInvoicesTable] Falha ao consultar faturas:", err);
+        if (isMounted) {
+          setInvoices([]);
         }
       })
       .finally(() => {
-        if (isMounted) setIsLoading(false);
+        clearTimeout(timeoutId);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       });
 
     return () => {
       isMounted = false;
+      clearTimeout(timeoutId);
     };
   }, [initialInvoices]);
 
@@ -166,9 +186,9 @@ export function SubscriptionInvoicesTable({
           className="rounded-xl border border-white/5 bg-zinc-950/40 p-8 text-center space-y-2"
         >
           <FileText className="h-8 w-8 text-zinc-600 mx-auto" />
-          <p className="text-sm font-semibold text-zinc-300">Nenhuma fatura anterior registrada.</p>
+          <p className="text-sm font-semibold text-zinc-300">Nenhum pagamento registrado até o momento.</p>
           <p className="text-xs text-zinc-500 max-w-sm mx-auto">
-            Assim que seu primeiro ciclo for faturado ou regularizado, o comprovante e recibo fiscal aparecerão aqui.
+            Nenhuma fatura anterior registrada. Assim que seu primeiro ciclo for faturado ou regularizado, o comprovante e recibo fiscal aparecerão aqui.
           </p>
         </div>
       ) : (

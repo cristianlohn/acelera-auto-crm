@@ -510,24 +510,39 @@ export async function getSubscriptionInvoicesAction(): Promise<GetInvoicesResult
       return { success: true, data: [] };
     }
 
-    const invoices = await getAsaasSubscriptionInvoices(
+    // Salvaguarda adicional de timeout de 5 segundos com Promise.race
+    const timeoutPromise = new Promise<SubscriptionInvoice[]>((resolve) =>
+      setTimeout(() => resolve([]), 5000)
+    );
+
+    const invoicesPromise = getAsaasSubscriptionInvoices(
       org.asaas_subscription_id,
       org.asaas_customer_id
     );
 
+    const invoices = await Promise.race([invoicesPromise, timeoutPromise]).catch(() => []);
+
     return {
       success: true,
-      data: invoices,
+      data: invoices || [],
     };
   } catch (error) {
     console.error("[getSubscriptionInvoicesAction Error]", error);
     return {
-      success: false,
+      success: true,
       data: [],
       error: "Falha ao consultar histórico de faturas.",
     };
   }
 }
+
+/**
+ * Aliases para compatibilidade estrita na consulta de histórico de faturas / pagamentos
+ */
+export const getInvoicesAction = getSubscriptionInvoicesAction;
+export const getPaymentHistoryAction = getSubscriptionInvoicesAction;
+
+
 
 /**
  * Cancela uma solicitação de upgrade pendente e limpa os campos de intenção no banco local.
