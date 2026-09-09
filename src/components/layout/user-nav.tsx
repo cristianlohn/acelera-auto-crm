@@ -121,6 +121,7 @@ export function UserNav({
       <div className="flex items-center gap-2.5 rounded-lg bg-gradient-to-r from-orange-500/10 to-red-500/5 p-2.5 ring-1 ring-orange-500/20">
         <div
           data-testid="user-avatar-initials"
+          suppressHydrationWarning
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 text-xs font-bold text-white shadow"
         >
           {getInitials(displayName)}
@@ -129,6 +130,7 @@ export function UserNav({
           <div className="flex items-center gap-1.5 min-w-0">
             <span
               data-testid="user-display-name"
+              suppressHydrationWarning
               className="text-slate-900 dark:text-slate-100 font-semibold text-xs truncate max-w-[130px]"
               title={displayName}
             >
@@ -146,13 +148,17 @@ export function UserNav({
           {displayEmail ? (
             <span
               data-testid="user-display-email"
+              suppressHydrationWarning
               className="text-slate-600 dark:text-slate-400 text-[10px] truncate max-w-[150px] mt-0.5"
               title={displayEmail}
             >
               {displayEmail}
             </span>
           ) : (
-            <span className="text-slate-600 dark:text-slate-400 text-[10px] truncate max-w-[150px] mt-0.5">
+            <span
+              suppressHydrationWarning
+              className="text-slate-600 dark:text-slate-400 text-[10px] truncate max-w-[150px] mt-0.5"
+            >
               {displayRole} • Ativo
             </span>
           )}
