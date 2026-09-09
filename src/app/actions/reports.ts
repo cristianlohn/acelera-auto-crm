@@ -27,7 +27,7 @@ import { mockLeads } from "@/lib/mock-data";
 const CHANNEL_CONFIGS: Record<string, { label: string; color: string }> = {
   whatsapp: { label: "WhatsApp", color: "bg-emerald-500" },
   instagram: { label: "Instagram", color: "bg-pink-500" },
-  site: { label: "Site Oficial", color: "bg-blue-500" },
+  site: { label: "Site Próprio", color: "bg-blue-500" },
   olx: { label: "OLX", color: "bg-orange-500" },
   indicacao: { label: "Indicação", color: "bg-amber-500" },
   meta: { label: "Meta Ads", color: "bg-pink-600" },
@@ -127,6 +127,16 @@ function getLeadValue(
  */
 function computeDemoReport(period: ReportPeriod): ExecutiveReportData {
   const baseData = PERIOD_METRICS[period] || PERIOD_METRICS.month;
+  if (period === "7d") {
+    const totalSellersRevenue = baseData.sellers.reduce((acc, s) => acc + s.revenue, 0);
+    return {
+      ...baseData,
+      kpis: {
+        ...baseData.kpis,
+        revenue: totalSellersRevenue,
+      },
+    };
+  }
   if (period !== "month") {
     return baseData;
   }

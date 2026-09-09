@@ -302,4 +302,16 @@ describe("[IT-10] Configurações e Parâmetros (SettingsPage)", () => {
       expect.stringContaining("Carlos Mendonça")
     );
   });
+
+  it("[IT-10.9] Deve ativar diretamente a aba de Integrações via deep-link (initialTab='integracoes')", () => {
+    render(<SettingsPage initialTab="integracoes" />);
+
+    const integracoesTab = screen.getByRole("tab", {
+      name: /integrações & webhooks/i,
+    });
+    expect(integracoesTab).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("heading", { name: /entrada de leads & webhooks/i })
+    ).toBeInTheDocument();
+  });
 });

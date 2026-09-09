@@ -62,7 +62,16 @@ export function canViewExecutiveReports(role?: string | null): boolean {
 }
 
 /**
- * Gestão de Integrações, Chaves de API e Faturamento (/dashboard/settings/integrations ou /billing):
+ * Gestão de Canais de Entrada, Webhooks e Alertas de WhatsApp (/settings?tab=integracoes):
+ * Permitido para Gestores/Gerentes, Administradores da loja e Superadmin.
+ */
+export function canManageIntegrations(role?: string | null): boolean {
+  const norm = normalizeRole(role);
+  return norm === "manager" || norm === "admin" || norm === "superadmin";
+}
+
+/**
+ * Gestão de Faturamento e Assinatura Asaas (/billing):
  * Permitido apenas para Administradores da loja e Superadmin.
  */
 export function canManageIntegrationsAndBilling(role?: string | null): boolean {

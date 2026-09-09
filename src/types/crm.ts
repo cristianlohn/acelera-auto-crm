@@ -197,6 +197,12 @@ export interface Vehicle {
 
   /** Observações técnicas e notas do anúncio. */
   notes?: string;
+
+  /** Consultor/vendedor responsável pela venda (quando vendido). */
+  sellerName?: string;
+
+  /** Nome do cliente comprador (quando vendido). */
+  buyerName?: string;
 }
 
 // ---------------------------------------------------------------------------

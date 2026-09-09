@@ -14,7 +14,7 @@
 
 "use client";
 
-import { useState, useTransition, useContext } from "react";
+import { useState, useTransition, useContext, useMemo } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -168,6 +168,33 @@ function ReportsPageContent() {
   const currentData = reportData || (isDemoMode ? PERIOD_METRICS[period] : EMPTY_METRICS);
   const { kpis, funnel, channels, sellers, topVehicles } = currentData;
 
+  // No filtro de 7 dias, o Faturamento Realizado deriva estritamente da soma de todos os consultores do ranking
+  const totalRevenue = useMemo(() => {
+    if (period === "7d" && sellers.length > 0) {
+      return sellers.reduce((acc, s) => acc + s.revenue, 0);
+    }
+    return kpis.revenue;
+  }, [period, sellers, kpis.revenue]);
+
+  // Derivação dinâmica do canal com maior taxa de conversão (won / total)
+  const channelInsightText = useMemo(() => {
+    if (!channels || channels.length === 0) return null;
+    const sorted = [...channels].sort((a, b) => {
+      const rateA = typeof a.conversionRate === "number" ? a.conversionRate : (a.leadsCount > 0 ? (a.dealsCount / a.leadsCount) * 100 : 0);
+      const rateB = typeof b.conversionRate === "number" ? b.conversionRate : (b.leadsCount > 0 ? (b.dealsCount / b.leadsCount) * 100 : 0);
+      return rateB - rateA;
+    });
+    const top = sorted[0];
+    if (!top) return null;
+    const topRate = top.conversionRate.toFixed(1).replace(".", ",");
+    if (sorted.length > 1 && sorted[1]) {
+      const second = sorted[1];
+      const secondRate = second.conversionRate.toFixed(1).replace(".", ",");
+      return `Canal com maior taxa de conversão: ${top.channel} (${topRate}%), seguido por ${second.channel} (${secondRate}%).`;
+    }
+    return `Canal com maior taxa de conversão: ${top.channel} (${topRate}%).`;
+  }, [channels]);
+
   const handleExport = () => {
     startExportTransition(() => {
       // Simula geração e download de relatório
@@ -301,7 +328,7 @@ function ReportsPageContent() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <KPIStatCard
               label="Faturamento Realizado"
-              value={formatCurrency(kpis.revenue)}
+              value={formatCurrency(totalRevenue)}
               growth={`+${kpis.revenueGrowth}%`}
               isPositive={kpis.revenueGrowth >= 0}
               icon={DollarSign}
@@ -464,12 +491,10 @@ function ReportsPageContent() {
               )}
             </div>
 
-            {channels.length > 0 && (
+            {channelInsightText && (
               <div className="mt-4 rounded-lg bg-muted/50 p-2.5 text-[11px] text-muted-foreground flex items-center gap-2">
                 <Sparkles className="h-3.5 w-3.5 text-orange-500 shrink-0" />
-                <span>
-                  <strong>WhatsApp</strong> é o canal com maior taxa de conversão direta.
-                </span>
+                <span>{channelInsightText}</span>
               </div>
             )}
           </section>

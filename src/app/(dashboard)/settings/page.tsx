@@ -8,11 +8,12 @@
 
 import React from "react";
 import { Metadata } from "next";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveUserTenantContext } from "@/lib/auth/tenant";
 import { getTeamMembers } from "@/app/actions/team";
 import { getApiKeysAction } from "@/app/actions/api-key-actions";
-import { SettingsForm } from "@/components/settings/settings-form";
+import { SettingsForm, type SettingsTab } from "@/components/settings/settings-form";
 import type { TeamMember } from "@/lib/team-data";
 import type { ApiKey } from "@/types/api-key";
 
@@ -22,13 +23,60 @@ export const metadata: Metadata = {
     "Gerenciamento de perfil, dados cadastrais da concessionária, metas comerciais, SLA e equipe.",
 };
 
-export default async function SettingsPage() {
+export interface SettingsPageProps {
+  searchParams?: Promise<{ tab?: string }> | { tab?: string };
+}
+
+export default async function SettingsPage(props: SettingsPageProps) {
   const tenantContext = await resolveUserTenantContext();
   const isDemo = tenantContext.isDemo;
 
   if (!isDemo && !tenantContext.userId) {
     redirect("/login");
   }
+
+  const resolvedSearchParams = props.searchParams ? await props.searchParams : {};
+  const rawTab = resolvedSearchParams.tab?.toLowerCase();
+  let initialTab: SettingsTab = "perfil";
+  if (
+    rawTab === "integrations" ||
+    rawTab === "integracoes" ||
+    rawTab === "webhook" ||
+    rawTab === "webhooks"
+  ) {
+    initialTab = "integracoes";
+  } else if (rawTab === "loja" || rawTab === "store") {
+    initialTab = "loja";
+  } else if (rawTab === "sla") {
+    initialTab = "sla";
+  } else if (rawTab === "preferencias" || rawTab === "preferences") {
+    initialTab = "preferencias";
+  } else if (rawTab === "equipe" || rawTab === "team") {
+    initialTab = "equipe";
+  }
+
+  let demoRole: "admin" | "gerente" | "vendedor" = "admin";
+  let demoName = "Roberto Silva";
+  let demoEmail = "roberto.silva@autoprime.com.br";
+  const demoPhone = "(11) 98888-7777";
+
+  try {
+    const cookieStore = await cookies();
+    const cookieRole = cookieStore.get("acelera_demo_role")?.value?.toLowerCase();
+    if (cookieRole === "vendedor" || cookieRole === "seller") {
+      demoRole = "vendedor";
+      demoName = "Rafael Alves";
+      demoEmail = "rafael.alves@autoprime.com.br";
+    } else if (cookieRole === "gerente" || cookieRole === "manager") {
+      demoRole = "gerente";
+      demoName = "Juliana Costa";
+      demoEmail = "juliana.costa@autoprime.com.br";
+    } else if (cookieRole === "admin" || cookieRole === "owner") {
+      demoRole = "admin";
+      demoName = "Roberto Silva";
+      demoEmail = "roberto.silva@autoprime.com.br";
+    }
+  } catch {}
 
   const profile = tenantContext.profile
     ? {
@@ -39,10 +87,10 @@ export default async function SettingsPage() {
       }
     : isDemo
     ? {
-        fullName: "Rafael Alves",
-        email: "rafael.alves@aceleraauto.com.br",
-        phone: "11987654321",
-        role: "gerente" as const,
+        fullName: demoName,
+        email: demoEmail,
+        phone: demoPhone,
+        role: demoRole,
       }
     : null;
 
@@ -90,6 +138,7 @@ export default async function SettingsPage() {
         initialOrganization={organization}
         initialTeamMembers={members}
         initialApiKeys={apiKeys}
+        initialTab={initialTab}
       />
     </div>
   );

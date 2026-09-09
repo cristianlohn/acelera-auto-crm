@@ -23,6 +23,7 @@ import {
   type OrganizationAccessStatus,
 } from "@/lib/auth/subscription";
 import { isSubscriptionValid } from "@/lib/auth/subscription-guard";
+import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/constants";
 
 export interface RegisterDealershipInput {
   storeName: string;
@@ -310,6 +311,45 @@ export async function clearDemoCookiesAction(): Promise<{ success: boolean }> {
     cookieStore.delete("acelera_subscription_status");
   } catch {
     // Ignora erro de cookies fora do request context
+  }
+  return { success: true };
+}
+
+/**
+ * Inicializa formalmente o Modo Demonstração nos cookies de servidor e limpa bloqueios residuais.
+ */
+export async function enterDemoModeAction(): Promise<{ success: boolean }> {
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set("acelera_demo_mode", "true", {
+      path: "/",
+      maxAge: 86400,
+      sameSite: "lax",
+    });
+    cookieStore.set("sb-demo-auth", "true", {
+      path: "/",
+      maxAge: 86400,
+      sameSite: "lax",
+    });
+    cookieStore.set("acelera_demo_role", "admin", {
+      path: "/",
+      maxAge: 86400,
+      sameSite: "lax",
+    });
+    cookieStore.set("acelera_demo_org", DEFAULT_DEMO_ORG_ID, {
+      path: "/",
+      maxAge: 86400,
+      sameSite: "lax",
+    });
+
+    // Limpa quaisquer cookies residuais de bloqueio de billing ou suspensão de conta
+    cookieStore.delete("billing_status");
+    cookieStore.delete("account_suspended");
+    cookieStore.delete("acelera_demo_expired");
+    cookieStore.delete("acelera_subscription_status");
+    cookieStore.delete("sb-test-user");
+  } catch {
+    // Ignora erro fora do request context
   }
   return { success: true };
 }
@@ -678,10 +718,14 @@ export async function checkUserSubscriptionGuardAction(): Promise<{
 }> {
   const tenantContext = await resolveUserTenantContext();
 
-  if (tenantContext.isDemo) {
+  if (
+    tenantContext.isDemo ||
+    tenantContext.organizationId === DEFAULT_DEMO_ORG_ID ||
+    (!tenantContext.userId && !tenantContext.organizationId)
+  ) {
     return {
       isValid: true,
-      status: "trialing",
+      status: "active",
       isDemo: true,
     };
   }

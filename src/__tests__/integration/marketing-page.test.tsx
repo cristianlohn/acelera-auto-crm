@@ -85,11 +85,18 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
       })
     ).toBeInTheDocument();
 
-    expect(
-      screen.getByRole("button", {
-        name: /agendar tour guiado/i,
-      })
-    ).toBeInTheDocument();
+    const tourBtn = screen.getByRole("button", {
+      name: /agendar tour guiado/i,
+    });
+    expect(tourBtn).toBeInTheDocument();
+
+    const tourLink = screen.getByRole("link", {
+      name: /agendar tour guiado/i,
+    });
+    expect(tourLink).toHaveAttribute("href", expect.stringContaining("5547996348698"));
+    expect(tourLink).toHaveAttribute("href", expect.stringContaining("tour%20guiado"));
+    expect(tourLink).toHaveAttribute("target", "_blank");
+    expect(tourLink).toHaveAttribute("rel", "noopener noreferrer");
   });
 
   it("[IT-11.3] Deve renderizar os 4 cards de funcionalidades no Bento Grid", () => {
@@ -142,7 +149,7 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     const currentConvInput = screen.getByLabelText(/conversão atual \(%\)/i);
     fireEvent.change(currentConvInput, { target: { value: "4.0" } });
 
-    const projectedConvInput = screen.getByLabelText(/conversão com acelera \(%\)/i);
+    const projectedConvInput = screen.getByLabelText(/conversão projetada/i);
     fireEvent.change(projectedConvInput, { target: { value: "6.0" } });
 
     // Act 3 (Altera Ticket Médio e Margem)
@@ -236,5 +243,9 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     );
 
     expect(leadsLinks.length).toBeGreaterThanOrEqual(4);
+
+    // Valida link do rodapé apontando para o Simulador de Operação
+    const simuladorLink = screen.getByRole("link", { name: /simulador de operação/i });
+    expect(simuladorLink).toHaveAttribute("href", "/#simulador");
   });
 });

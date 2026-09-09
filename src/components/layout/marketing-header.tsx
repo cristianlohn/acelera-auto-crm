@@ -12,6 +12,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getSalesWhatsAppUrl } from "@/config/contact";
+import { initDemoModeCookies } from "@/lib/auth/demo-helpers";
 
 export interface MarketingHeaderProps {
   initialAuthenticated?: boolean;
@@ -133,7 +134,7 @@ export function MarketingHeader({ initialAuthenticated = false }: MarketingHeade
                 </Button>
               </Link>
 
-              <Link href="/dashboard/leads">
+              <Link href="/dashboard/leads" onClick={initDemoModeCookies}>
                 <Button
                   size="sm"
                   className="gap-1.5 sm:gap-2 bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-700 hover:shadow-orange-500/40 text-xs sm:text-sm font-semibold px-2.5 sm:px-3.5"

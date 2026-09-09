@@ -162,8 +162,8 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a className="hover:text-white transition-colors whitespace-nowrap" href="#calculadora">
-                  Calculadora de ROI
+                <a className="hover:text-white transition-colors whitespace-nowrap" href="/#simulador">
+                  Simulador de Operação
                 </a>
               </li>
             </ul>

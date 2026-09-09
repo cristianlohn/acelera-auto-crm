@@ -278,7 +278,7 @@ export function generatePrescriptiveActions(
         ? new Date(lastContactStr).getTime()
         : createdAtTime;
       const hoursSinceContact = (nowTime - lastActionTime) / 3600000;
-      if (hoursSinceContact > 24) {
+      if (hoursSinceContact >= 24) {
         if (!stalledProposalsBySeller[sellerName]) {
           stalledProposalsBySeller[sellerName] = [];
         }
@@ -714,11 +714,21 @@ export function calculateManagerCockpitMetrics(
       }
     }
 
-    // Indicadores de Gargalo adicionais
-    if (
-      (rawStatus === "proposta" || rawStatus === "proposal" || rawStatus === "proposta_enviada") &&
-      (!lastContactStr || (nowTime - new Date(lastContactStr).getTime()) > 24 * 3600000)
-    ) {
+    // Indicadores de Gargalo adicionais (Propostas Paradas / Sem Follow-up)
+    const isProposalStage =
+      rawStatus === "proposta" ||
+      rawStatus === "proposal" ||
+      rawStatus === "proposta_enviada" ||
+      rawStage === "proposta" ||
+      rawStage === "proposal" ||
+      rawStage === "proposta_enviada";
+
+    const proposalLastActionTime = lastContactStr
+      ? new Date(lastContactStr).getTime()
+      : createdAtTime;
+    const hoursSinceLastProposalContact = (nowTime - proposalLastActionTime) / 3600000;
+
+    if (isProposalStage && hoursSinceLastProposalContact >= 24) {
       proposalsWithoutFollowupCount++;
     }
 

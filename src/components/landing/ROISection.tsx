@@ -28,9 +28,10 @@ export function ROISection() {
 
   return (
     <section
-      id="calculadora"
-      className="border-y border-white/10 bg-[#0c0c10] py-16 sm:py-28 w-full max-w-full overflow-hidden"
+      id="simulador"
+      className="border-y border-white/10 bg-[#0c0c10] py-16 sm:py-28 w-full max-w-full overflow-hidden scroll-mt-12"
     >
+      <div id="calculadora" className="sr-only" />
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl border border-orange-500/20 bg-gradient-to-b from-[#16161c] to-[#0d0d11] p-5 sm:p-10 shadow-2xl">
           {/* Header */}
@@ -103,7 +104,7 @@ export function ROISection() {
             {/* 3. Conversão Projetada */}
             <div className="space-y-2 rounded-xl border border-white/5 bg-black/40 p-4">
               <div className="flex items-center justify-between text-xs font-medium text-zinc-300">
-                <label htmlFor="projected-conv-input">Conversão com Acelera (%)</label>
+                <label htmlFor="projected-conv-input">Conversão projetada (%)</label>
                 <span className="font-bold text-emerald-400">{projectedConversion}%</span>
               </div>
               <input

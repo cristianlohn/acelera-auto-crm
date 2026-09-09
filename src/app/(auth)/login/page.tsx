@@ -321,7 +321,7 @@ export default function LoginPage() {
                   Avaliação & Demonstração
                 </p>
                 <p className="text-xs text-zinc-300 mt-0.5 leading-snug">
-                  Teste o CRM com dados reais pré-carregados
+                  Teste o CRM com dados fictícios de demonstração
                 </p>
               </div>
               <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 shrink-0">

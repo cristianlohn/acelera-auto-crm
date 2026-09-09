@@ -20,6 +20,8 @@ interface KanbanFiltersProps {
   totalLeadsCount: number;
   totalPipelineValue?: number;
   negotiatingValue?: number;
+  activeLeadsCount?: number;
+  wonLeadsCount?: number;
   onLeadAdded?: (lead: KanbanLead) => void;
   viewMode?: "kanban" | "list";
   onViewModeChange?: (mode: "kanban" | "list") => void;
@@ -41,6 +43,8 @@ export function KanbanFilters({
   totalLeadsCount,
   totalPipelineValue = 0,
   negotiatingValue,
+  activeLeadsCount,
+  wonLeadsCount,
   onLeadAdded,
   viewMode = "kanban",
   onViewModeChange,
@@ -149,8 +153,22 @@ export function KanbanFilters({
           <div className="h-4 w-px bg-white/10 hidden sm:block" />
           <div className="flex items-center gap-1.5 text-zinc-300">
             <Users className="h-4 w-4 text-orange-400" />
-            <span className="font-semibold text-white">{totalLeadsCount}</span>
-            <span className="text-zinc-500">leads ativos</span>
+            {activeLeadsCount !== undefined ? (
+              <>
+                <span className="font-semibold text-white">{activeLeadsCount}</span>
+                <span className="text-zinc-500">
+                  {activeLeadsCount === 1 ? "lead ativo" : "leads ativos"}
+                  {wonLeadsCount !== undefined && wonLeadsCount > 0 ? ` (${wonLeadsCount} ${wonLeadsCount === 1 ? "fechado" : "fechados"})` : ""}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="font-semibold text-white">{totalLeadsCount}</span>
+                <span className="text-zinc-500">
+                  {totalLeadsCount === 1 ? "oportunidade no total" : "oportunidades no total"}
+                </span>
+              </>
+            )}
           </div>
           <div className="h-4 w-px bg-white/10 hidden sm:block" />
           <div className="flex items-center gap-1.5 text-zinc-300">

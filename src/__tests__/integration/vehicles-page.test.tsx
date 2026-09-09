@@ -136,6 +136,15 @@ describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () =>
     // Assert 1 (As métricas de vendas e a visão especializada devem ser exibidas)
     expect(screen.getByText("Veículos Vendidos")).toBeInTheDocument();
     expect(screen.getByText("Faturamento Realizado")).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s?215\.800/)).toBeInTheDocument();
+
+    // Valida a presença dos 3 veículos canônicos vendidos e ausência do Kwid desconexo
+    expect(screen.getByText(/Tracker/)).toBeInTheDocument();
+    expect(screen.getByText(/Ka/)).toBeInTheDocument();
+    expect(screen.getByText("Roberto Mendes")).toBeInTheDocument();
+    expect(screen.getByText("Fernanda Lima")).toBeInTheDocument();
+    expect(screen.getByText("Carlos Eduardo")).toBeInTheDocument();
+    expect(screen.queryByText(/Kwid/i)).not.toBeInTheDocument();
 
     // Act 2 (Quando clica de volta na aba 'Pátio Ativo')
     const activeTab = screen.getByRole("tab", { name: /pátio ativo/i });

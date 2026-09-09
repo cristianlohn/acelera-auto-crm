@@ -16,7 +16,7 @@ import { redirect } from "next/navigation";
 import { getApiKeysAction } from "@/app/actions/api-key-actions";
 import { ApiKeysClient } from "@/components/settings/api-keys/api-keys-client";
 import { resolveUserTenantContext } from "@/lib/auth/tenant";
-import { canManageIntegrationsAndBilling } from "@/lib/permissions";
+import { canManageIntegrations } from "@/lib/permissions";
 
 export const metadata: Metadata = {
   title: "Integrações & Chaves de API | Acelera Auto CRM",
@@ -38,7 +38,7 @@ export default async function IntegrationsSettingsPage() {
     //
   }
 
-  if (!canManageIntegrationsAndBilling(userRole)) {
+  if (!canManageIntegrations(userRole)) {
     redirect("/dashboard");
   }
 

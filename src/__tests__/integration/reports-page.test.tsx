@@ -86,7 +86,7 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
     // Assert 1 (Então '7 dias' passa a ser o ativo e o faturamento atualiza)
     expect(sevenDaysTab).toHaveAttribute("aria-selected", "true");
     expect(monthTab).toHaveAttribute("aria-selected", "false");
-    expect(screen.getByText(/R\$\s?449\.700/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s?539\.600/)).toBeInTheDocument();
 
     // Act 2 (Quando o usuário clica no filtro 'Trimestre')
     await user.click(quarterTab);
@@ -173,12 +173,19 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
     expect(screen.getAllByText("WhatsApp")[0]).toBeInTheDocument();
     expect(screen.getByText("Instagram")).toBeInTheDocument();
-    expect(screen.getByText("Site Oficial")).toBeInTheDocument();
+    expect(screen.getByText("Site Próprio")).toBeInTheDocument();
     expect(screen.getByText("OLX")).toBeInTheDocument();
     expect(screen.getByText("Indicação")).toBeInTheDocument();
 
     // Taxa de conversão do WhatsApp
     expect(screen.getByText("10%")).toBeInTheDocument();
+
+    // Insight dinâmico de canal com maior conversão
+    expect(
+      screen.getByText(
+        "Canal com maior taxa de conversão: OLX (33,3%), seguido por Site Próprio (25,0%)."
+      )
+    ).toBeInTheDocument();
   });
 
   it("[IT-08.6] Deve disparar a ação de exportação de relatório e exibir feedback visual ao usuário", () => {

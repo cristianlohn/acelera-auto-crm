@@ -35,6 +35,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
+    refresh: vi.fn(),
   }),
   useSearchParams: () => new URLSearchParams(),
 }));
@@ -226,5 +227,60 @@ describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstraç�
 
     // Assert
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("[IT-16.9] Deve permitir acesso à aba 'Integrações & Webhooks' para o perfil de Gerente", () => {
+    // Arrange & Act (Monta a página de Configurações sob o papel de Gerente)
+    render(
+      <DemoRoleProvider initialDemoMode={true} initialRole="gerente">
+        <SettingsPage />
+      </DemoRoleProvider>
+    );
+
+    // Assert (Gerentes devem visualizar e acessar a aba de Integrações)
+    const integracoesTab = screen.getByRole("tab", { name: /integrações & webhooks/i });
+    expect(integracoesTab).toBeInTheDocument();
+    expect(integracoesTab).not.toBeDisabled();
+  });
+
+  it("[IT-16.10] Deve sincronizar os campos de perfil em /settings dinamicamente ao alternar o papel no Simulador de Demonstração", async () => {
+    const user = userEvent.setup();
+
+    // Arrange (Inicia como Gerente)
+    render(
+      <DemoRoleProvider initialDemoMode={true} initialRole="gerente">
+        <div>
+          <RoleSimulatorBar />
+          <SettingsPage />
+        </div>
+      </DemoRoleProvider>
+    );
+
+    // Assert 1 (Campos refletem Juliana Costa - Gerente)
+    const nameInput = screen.getByLabelText(/nome completo \*/i);
+    const emailInput = screen.getByLabelText(/e-mail corporativo \*/i);
+
+    expect(nameInput).toHaveValue("Juliana Costa");
+    expect(emailInput).toHaveValue("juliana.costa@autoprime.com.br");
+
+    // Act 2 (Alterna para Admin Roberto Silva)
+    const adminBtn = screen.getByRole("button", { name: /admin \(dono da loja\)/i });
+    await act(async () => {
+      await user.click(adminBtn);
+    });
+
+    // Assert 2 (Campos refletem Roberto Silva)
+    expect(nameInput).toHaveValue("Roberto Silva");
+    expect(emailInput).toHaveValue("roberto.silva@autoprime.com.br");
+
+    // Act 3 (Alterna para Vendedor Rafael Alves)
+    const vendedorBtn = screen.getByRole("button", { name: /vendedor \(rafael alves\)/i });
+    await act(async () => {
+      await user.click(vendedorBtn);
+    });
+
+    // Assert 3 (Campos refletem Rafael Alves)
+    expect(nameInput).toHaveValue("Rafael Alves");
+    expect(emailInput).toHaveValue("rafael.alves@autoprime.com.br");
   });
 });

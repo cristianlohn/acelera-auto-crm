@@ -45,6 +45,7 @@ import { useDemoRole } from "@/context/demo-role-context";
 import {
   canViewAllLeads,
   normalizeRole,
+  canManageIntegrations,
   canManageIntegrationsAndBilling,
 } from "@/lib/permissions";
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
@@ -781,7 +782,7 @@ export function LeadsPageClient({
   const [authenticatedName, setAuthenticatedName] = useState<string | null>(userName || null);
   const effectiveRole = normalizeRole(isDemoMode ? role : (userRole || role));
   const isVendedorRole = effectiveRole === "seller";
-  const canConfigureIntegrations = canManageIntegrationsAndBilling(effectiveRole);
+  const canConfigureIntegrations = canManageIntegrations(effectiveRole);
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(
     initialTeamMembers || []
@@ -1146,7 +1147,7 @@ export function LeadsPageClient({
             />
             {canConfigureIntegrations && (
               <a
-                href="/settings"
+                href="/settings?tab=integracoes"
                 className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-xs font-semibold text-foreground hover:bg-muted hover:border-orange-500/40 transition-all shadow-sm"
               >
                 <Zap className="h-4 w-4 text-orange-500" />

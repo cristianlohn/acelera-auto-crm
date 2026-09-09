@@ -9,6 +9,7 @@ import {
   canManageTeam,
   canViewAllLeads,
   canViewExecutiveReports,
+  canManageIntegrations,
   canManageIntegrationsAndBilling,
   isSuperAdmin,
 } from "@/lib/permissions";
@@ -87,6 +88,22 @@ describe("[UNIT-RBAC] Matriz Central de Permissões (src/lib/permissions.ts)", (
       expect(canViewExecutiveReports("gerente")).toBe(true);
       expect(canViewExecutiveReports("admin")).toBe(true);
       expect(canViewExecutiveReports("superadmin")).toBe(true);
+    });
+  });
+
+  describe("canManageIntegrations", () => {
+    it("deve bloquear integrações para vendedores", () => {
+      expect(canManageIntegrations("seller")).toBe(false);
+      expect(canManageIntegrations("vendedor")).toBe(false);
+    });
+
+    it("deve permitir integrações para gerente, admin e superadmin", () => {
+      expect(canManageIntegrations("manager")).toBe(true);
+      expect(canManageIntegrations("gerente")).toBe(true);
+      expect(canManageIntegrations("gestor")).toBe(true);
+      expect(canManageIntegrations("admin")).toBe(true);
+      expect(canManageIntegrations("owner")).toBe(true);
+      expect(canManageIntegrations("superadmin")).toBe(true);
     });
   });
 

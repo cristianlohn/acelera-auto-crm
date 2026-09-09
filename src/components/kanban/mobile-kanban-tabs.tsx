@@ -402,7 +402,11 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
           <span className="font-bold text-sm">{activeStageDef.title}</span>
         </div>
         <span className="font-semibold text-xs">
-          {activeLeads.length} {activeLeads.length === 1 ? "lead ativo" : "leads ativos"}
+          {activeStageDef.id === "won"
+            ? `${activeLeads.length} ${activeLeads.length === 1 ? "venda concluída" : "vendas concluídas"}`
+            : activeStageDef.id === "lost"
+            ? `${activeLeads.length} ${activeLeads.length === 1 ? "lead perdido" : "leads perdidos"}`
+            : `${activeLeads.length} ${activeLeads.length === 1 ? "lead ativo" : "leads ativos"}`}
         </span>
       </div>
 

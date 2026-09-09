@@ -534,13 +534,71 @@ export const DEMO_LEAD_ITEMS: DemoLeadItem[] = [
 
 const baseTime = Date.now();
 
+function getDemoLeadTimestamps(item: DemoLeadItem, idx: number, base: number) {
+  if (item.status === "novo" || item.stage === "new") {
+    // 6 novos leads na roleta aguardando primeiro contato com tempo de fila decorrido (> 15 min para justificar o alerta)
+    const queueMinutesList = [28, 24, 22, 19, 31, 18];
+    const queueMinutes = queueMinutesList[idx] ?? 20;
+    const createdAt = new Date(base - queueMinutes * 60000).toISOString();
+    return {
+      createdAt,
+      firstContactAt: null,
+      lastContactAt: createdAt,
+      slaMinutesElapsed: queueMinutes,
+    };
+  }
+
+  if (item.status === "proposta" || item.stage === "proposal") {
+    // 3 propostas de clientes com mais de 24h sem retorno no funil (Há 28h, alinhado à ação do Lucas Santana)
+    const createdAt = new Date(base - 48 * 3600000).toISOString();
+    const firstContactAt = new Date(new Date(createdAt).getTime() + item.firstContactMinutes * 60000).toISOString();
+    const lastContactAt = new Date(base - 28 * 3600000).toISOString();
+    return {
+      createdAt,
+      firstContactAt,
+      lastContactAt,
+      slaMinutesElapsed: item.firstContactMinutes,
+    };
+  }
+
+  if (item.status === "visita" || item.stage === "test_drive") {
+    const createdAt = new Date(base - 36 * 3600000).toISOString();
+    const firstContactAt = new Date(new Date(createdAt).getTime() + item.firstContactMinutes * 60000).toISOString();
+    const lastContactAt = new Date(base - 6 * 3600000).toISOString();
+    return {
+      createdAt,
+      firstContactAt,
+      lastContactAt,
+      slaMinutesElapsed: item.firstContactMinutes,
+    };
+  }
+
+  if (item.status === "fechado" || item.stage === "won") {
+    const createdAt = new Date(base - 72 * 3600000).toISOString();
+    const firstContactAt = new Date(new Date(createdAt).getTime() + item.firstContactMinutes * 60000).toISOString();
+    const lastContactAt = new Date(base - 12 * 3600000).toISOString();
+    return {
+      createdAt,
+      firstContactAt,
+      lastContactAt,
+      slaMinutesElapsed: item.firstContactMinutes,
+    };
+  }
+
+  // Em atendimento (8 leads)
+  const createdAt = new Date(base - 10 * 3600000).toISOString();
+  const firstContactAt = new Date(new Date(createdAt).getTime() + item.firstContactMinutes * 60000).toISOString();
+  const lastContactAt = new Date(base - 2 * 3600000).toISOString();
+  return {
+    createdAt,
+    firstContactAt,
+    lastContactAt,
+    slaMinutesElapsed: item.firstContactMinutes,
+  };
+}
+
 export const DEMO_LEADS: Lead[] = DEMO_LEAD_ITEMS.map((item, idx) => {
-  const createdAt = new Date(baseTime - (24 - idx) * 3600000).toISOString();
-  const firstContactAt =
-    item.status !== "novo"
-      ? new Date(new Date(createdAt).getTime() + item.firstContactMinutes * 60000).toISOString()
-      : null;
-  const lastContactAt = firstContactAt || createdAt;
+  const ts = getDemoLeadTimestamps(item, idx, baseTime);
 
   return {
     id: item.id,
@@ -549,19 +607,23 @@ export const DEMO_LEADS: Lead[] = DEMO_LEAD_ITEMS.map((item, idx) => {
     email: item.email,
     vehicleInterest: item.vehicleInterest,
     status: item.status,
+    stage: item.stage,
+    sellerId: item.sellerId,
     sellerName: item.sellerName,
+    sellerPhone: item.sellerPhone,
     origin: item.origin,
     organizationId: DEFAULT_DEMO_ORG_ID,
     estimatedValue: item.estimatedValue,
     notes: item.notes,
-    createdAt,
-    lastContactAt,
+    createdAt: ts.createdAt,
+    firstContactAt: ts.firstContactAt,
+    lastContactAt: ts.lastContactAt,
     proposalFi: item.proposalFi,
   };
 });
 
 export const DEMO_KANBAN_LEADS: KanbanLead[] = DEMO_LEAD_ITEMS.map((item, idx) => {
-  const createdAt = new Date(baseTime - (24 - idx) * 3600000).toISOString();
+  const ts = getDemoLeadTimestamps(item, idx, baseTime);
   return {
     id: item.id,
     organization_id: DEFAULT_DEMO_ORG_ID,
@@ -578,9 +640,9 @@ export const DEMO_KANBAN_LEADS: KanbanLead[] = DEMO_LEAD_ITEMS.map((item, idx) =
     assigned_to_name: item.sellerName,
     stage: item.stage,
     sla_minutes: 15,
-    sla_minutes_elapsed: item.firstContactMinutes,
-    created_at: createdAt,
-    updated_at: createdAt,
+    sla_minutes_elapsed: ts.slaMinutesElapsed,
+    created_at: ts.createdAt,
+    updated_at: ts.lastContactAt,
     value: item.estimatedValue,
     estimated_value: item.estimatedValue,
     segment: "used_cars",
@@ -672,8 +734,8 @@ export const DEMO_COCKPIT_ACTIONS: DemoCockpitActionItem[] = [
     actionText: "2 novos leads aguardando 1º contato no funil",
     leadCount: 2,
     urgencyType: "danger",
-    timeText: "Há 6 min",
-    defaultMessage: "Olá Rafael, identifiquei no Acelera que você possui 2 novos leads aguardando resposta há 6 minutos. Vamos priorizar o contato agora para não esfriar!",
+    timeText: "Há 28 min",
+    defaultMessage: "Olá Rafael, identifiquei no Acelera que você possui 2 novos leads aguardando resposta há mais de 15 minutos. Vamos priorizar o contato agora para não esfriar!",
     phone: "+5511988887777",
   },
   {
@@ -683,8 +745,8 @@ export const DEMO_COCKPIT_ACTIONS: DemoCockpitActionItem[] = [
     actionText: "2 novos leads aguardando 1º contato no funil",
     leadCount: 2,
     urgencyType: "danger",
-    timeText: "Há 7 min",
-    defaultMessage: "Olá Camila, identifiquei no Acelera que você possui 2 novos leads aguardando resposta há 7 minutos. Vamos priorizar o contato agora para não esfriar!",
+    timeText: "Há 22 min",
+    defaultMessage: "Olá Camila, identifiquei no Acelera que você possui 2 novos leads aguardando resposta há mais de 15 minutos. Vamos priorizar o contato agora para não esfriar!",
     phone: "+5511977776666",
   },
   {

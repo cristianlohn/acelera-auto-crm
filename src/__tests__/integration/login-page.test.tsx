@@ -62,6 +62,8 @@ describe("[IT-12] Página de Login e Autenticação (LoginPage)", () => {
     expect(screen.getByText(/sla controlado/i)).toBeInTheDocument();
     expect(screen.getByText(/roleta transparente/i)).toBeInTheDocument();
     expect(screen.getByText(/agilidade de primeiro contato & controle de funil/i)).toBeInTheDocument();
+    expect(screen.getByText(/dados fictícios de demonstração/i)).toBeInTheDocument();
+    expect(screen.queryByText(/dados reais/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/35%/i)).not.toBeInTheDocument();
   });
 

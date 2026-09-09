@@ -317,7 +317,7 @@ export default function MarketingHelpPage() {
                 Consulte as especificações do webhook para conectar seus sistemas externos.
               </p>
             </div>
-            <Link href="/configuracoes" className="mt-4">
+            <Link href="/settings?tab=integracoes" className="mt-4">
               <Button variant="outline" size="sm" className="w-full border-zinc-700 text-xs text-white hover:bg-zinc-800">
                 Ver Guia de Webhook
               </Button>

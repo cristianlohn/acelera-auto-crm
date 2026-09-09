@@ -19,7 +19,7 @@ export const PERIOD_OPTIONS: PeriodOption[] = [
 export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
   "7d": {
     kpis: {
-      revenue: 449700,
+      revenue: 539600,
       revenueGrowth: 12.5,
       conversionRate: 15.8,
       conversionGrowth: 1.8,
@@ -38,7 +38,7 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
     channels: [
       { channel: "WhatsApp", leadsCount: 18, dealsCount: 4, conversionRate: 22.2, share: 47.4, color: "bg-emerald-500" },
       { channel: "Instagram", leadsCount: 10, dealsCount: 1, conversionRate: 10.0, share: 26.3, color: "bg-pink-500" },
-      { channel: "Site Oficial", leadsCount: 6, dealsCount: 1, conversionRate: 16.7, share: 15.8, color: "bg-blue-500" },
+      { channel: "Site Próprio", leadsCount: 6, dealsCount: 1, conversionRate: 16.7, share: 15.8, color: "bg-blue-500" },
       { channel: "Indicação", leadsCount: 4, dealsCount: 0, conversionRate: 0.0, share: 10.5, color: "bg-amber-500" },
     ],
     sellers: [
@@ -72,7 +72,7 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
     channels: [
       { channel: "WhatsApp", leadsCount: 10, dealsCount: 1, conversionRate: 10.0, share: 41.7, color: "bg-emerald-500" },
       { channel: "Instagram", leadsCount: 5, dealsCount: 0, conversionRate: 0.0, share: 20.8, color: "bg-pink-500" },
-      { channel: "Site Oficial", leadsCount: 4, dealsCount: 1, conversionRate: 25.0, share: 16.7, color: "bg-blue-500" },
+      { channel: "Site Próprio", leadsCount: 4, dealsCount: 1, conversionRate: 25.0, share: 16.7, color: "bg-blue-500" },
       { channel: "OLX", leadsCount: 3, dealsCount: 1, conversionRate: 33.3, share: 12.5, color: "bg-orange-500" },
       { channel: "Indicação", leadsCount: 2, dealsCount: 0, conversionRate: 0.0, share: 8.3, color: "bg-amber-500" },
     ],
@@ -109,7 +109,7 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
     channels: [
       { channel: "WhatsApp", leadsCount: 168, dealsCount: 32, conversionRate: 19.0, share: 46.0, color: "bg-emerald-500" },
       { channel: "Instagram", leadsCount: 92, dealsCount: 11, conversionRate: 12.0, share: 25.2, color: "bg-pink-500" },
-      { channel: "Site Oficial", leadsCount: 55, dealsCount: 6, conversionRate: 10.9, share: 15.1, color: "bg-blue-500" },
+      { channel: "Site Próprio", leadsCount: 55, dealsCount: 6, conversionRate: 10.9, share: 15.1, color: "bg-blue-500" },
       { channel: "OLX", leadsCount: 32, dealsCount: 3, conversionRate: 9.4, share: 8.8, color: "bg-orange-500" },
       { channel: "Indicação", leadsCount: 18, dealsCount: 2, conversionRate: 11.1, share: 4.9, color: "bg-amber-500" },
     ],
@@ -146,7 +146,7 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
     channels: [
       { channel: "WhatsApp", leadsCount: 650, dealsCount: 128, conversionRate: 19.7, share: 45.8, color: "bg-emerald-500" },
       { channel: "Instagram", leadsCount: 360, dealsCount: 44, conversionRate: 12.2, share: 25.4, color: "bg-pink-500" },
-      { channel: "Site Oficial", leadsCount: 215, dealsCount: 25, conversionRate: 11.6, share: 15.1, color: "bg-blue-500" },
+      { channel: "Site Próprio", leadsCount: 215, dealsCount: 25, conversionRate: 11.6, share: 15.1, color: "bg-blue-500" },
       { channel: "OLX", leadsCount: 125, dealsCount: 12, conversionRate: 9.6, share: 8.8, color: "bg-orange-500" },
       { channel: "Indicação", leadsCount: 70, dealsCount: 9, conversionRate: 12.9, share: 4.9, color: "bg-amber-500" },
     ],

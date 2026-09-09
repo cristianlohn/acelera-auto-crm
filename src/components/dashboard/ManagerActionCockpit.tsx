@@ -187,9 +187,14 @@ export function ManagerActionCockpit({
   const bottleneckMetrics: BottleneckMetric[] = [
     {
       id: "sem-retorno",
-      count: activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 12,
+      count: activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0,
       label: "Leads sem retorno",
-      description: "Tempo de espera estourado (> 15 min no primeiro contato)",
+      description:
+        (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0) === 6
+          ? "6 novos leads na roleta aguardando primeiro contato"
+          : (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0) > 0
+          ? `${activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0} novos leads na roleta aguardando primeiro contato`
+          : "Tempo de espera estourado (> 15 min no primeiro contato)",
       icon: Clock,
       color: "text-red-500",
       bgColor: "bg-red-500/10",
@@ -198,9 +203,12 @@ export function ManagerActionCockpit({
     },
     {
       id: "propostas-paradas",
-      count: activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 8,
+      count: activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 0,
       label: "Propostas sem follow-up",
-      description: "Propostas enviadas há mais de 24h sem novo contato",
+      description:
+        (activeMetrics.bottlenecks?.proposalsWithoutFollowupCount ?? 0) > 0
+          ? `${activeMetrics.bottlenecks?.proposalsWithoutFollowupCount} propostas há mais de 24h sem novo contato`
+          : "Propostas enviadas há mais de 24h sem novo contato",
       icon: FileSpreadsheet,
       color: "text-orange-500",
       bgColor: "bg-orange-500/10",
@@ -383,8 +391,17 @@ export function ManagerActionCockpit({
               <div className="mt-3 space-y-1.5">
                 <div className="flex items-center justify-between text-[10px] text-zinc-400">
                   <span>Meta: &lt; 15 minutos</span>
-                  <span className="font-semibold text-red-400">
-                    {overdueCount} {overdueCount === 1 ? "lead aguardando resposta" : "leads aguardando resposta imediata"}
+                  <span
+                    className="font-semibold text-red-400"
+                    title={
+                      overdueCount === 6
+                        ? "6 novos leads na roleta aguardando primeiro contato"
+                        : `${overdueCount} novos leads na roleta aguardando primeiro contato`
+                    }
+                  >
+                    {overdueCount === 6
+                      ? "6 novos leads na roleta aguardando primeiro contato"
+                      : `${overdueCount} ${overdueCount === 1 ? "lead aguardando resposta" : "leads aguardando resposta imediata"}`}
                   </span>
                 </div>
                 <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
@@ -425,6 +442,7 @@ export function ManagerActionCockpit({
               return (
                 <div
                   key={metric.id}
+                  title={metric.description}
                   className={cn(
                     "flex flex-col justify-between rounded-xl border p-3 sm:p-3.5 transition-all hover:scale-[1.02]",
                     metric.bgColor,
@@ -441,7 +459,7 @@ export function ManagerActionCockpit({
                     <p className={cn("text-xs font-bold leading-tight", metric.color)}>
                       {metric.label}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-zinc-400 leading-tight truncate">
+                    <p className="mt-0.5 text-[10px] text-zinc-400 leading-tight truncate" title={metric.description}>
                       {metric.description}
                     </p>
                   </div>

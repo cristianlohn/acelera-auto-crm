@@ -250,6 +250,30 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
       expect(metrics.bottlenecks?.pendingFinancingCount).toBe(0);
       expect(metrics.bottlenecks?.hotLeadsCount).toBe(0);
     });
+
+    it("deve retornar métricas e gargalos harmonizados no modo demo (3 propostas sem follow-up e 6 novos leads na roleta)", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: true,
+        needsOnboarding: false,
+        organizationId: "a0000000-0000-0000-0000-000000000001",
+        userId: "demo-sandbox-user",
+        userEmail: "demo@aceleraauto.com.br",
+        profile: null,
+        organization: null,
+      });
+
+      const metrics = await getManagerCockpitMetrics();
+
+      expect(metrics.bottlenecks?.proposalsWithoutFollowupCount).toBe(3);
+      expect(metrics.bottlenecks?.withoutReturnCount).toBe(6);
+      expect(metrics.overdueLeadsCount).toBe(6);
+      expect(metrics.recommendedActions).toBeDefined();
+
+      const lucasAction = metrics.recommendedActions?.find((a) => a.sellerName === "Lucas Santana");
+      expect(lucasAction).toBeDefined();
+      expect(lucasAction?.leadCount).toBe(3);
+      expect(lucasAction?.actionText).toContain("3 propostas");
+    });
   });
 
   describe("[TEST-COCKPIT-RECOMMENDATIONS-ENGINE] Motor de Recomendações Operacionais (SystemRecommendation)", () => {

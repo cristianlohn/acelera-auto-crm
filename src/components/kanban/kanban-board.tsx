@@ -319,6 +319,12 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
 
   // Estatísticas de topo
   const totalLeadsCount = filteredLeads.length;
+  const activeLeadsCount = useMemo(() => {
+    return filteredLeads.filter((l) => l.stage !== "won" && l.stage !== "lost").length;
+  }, [filteredLeads]);
+  const wonLeadsCount = useMemo(() => {
+    return filteredLeads.filter((l) => l.stage === "won").length;
+  }, [filteredLeads]);
   const negotiatingLeads = useMemo(() => {
     return filteredLeads.filter((lead) => {
       const stageOrStatus = (lead.stage || (lead as unknown as { status?: string }).status || "").toString().toLowerCase();
@@ -487,6 +493,8 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
         onResetFilters={handleResetFilters}
         sellers={sellersList}
         totalLeadsCount={totalLeadsCount}
+        activeLeadsCount={activeLeadsCount}
+        wonLeadsCount={wonLeadsCount}
         negotiatingValue={negotiatingValue}
         totalPipelineValue={totalPipelineValue}
         onLeadAdded={(newLead) => setLeads((prev) => [newLead, ...prev])}

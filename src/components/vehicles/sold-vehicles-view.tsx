@@ -235,6 +235,24 @@ export function SoldVehiclesView({
                     </div>
                   </div>
 
+                  {/* Vendedor e Comprador (quando disponíveis) */}
+                  {(v.sellerName || v.buyerName) && (
+                    <div className="space-y-1 rounded-md bg-white/[0.03] p-2 text-[11px] border border-white/5">
+                      {v.sellerName && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-500">Vendedor:</span>
+                          <span className="font-semibold text-zinc-200">{v.sellerName}</span>
+                        </div>
+                      )}
+                      {v.buyerName && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-500">Comprador:</span>
+                          <span className="font-semibold text-zinc-200">{v.buyerName}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Ações de Gestão e Reativação */}
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-white/5">
                     <span className="font-mono text-[10px] text-zinc-500 uppercase">

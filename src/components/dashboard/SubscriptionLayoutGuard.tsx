@@ -19,9 +19,15 @@ export function SubscriptionLayoutGuard({ children }: { children: React.ReactNod
   const { isDemoMode } = useDemoRole();
 
   useEffect(() => {
+    const isClientDemo =
+      isDemoMode ||
+      (typeof document !== "undefined" &&
+        (document.cookie.includes("acelera_demo_mode=true") ||
+          document.cookie.includes("sb-demo-auth=true")));
+
     // Exceção crítica de rota (Anti-Loop): /billing e modo demonstração nunca são bloqueados
     if (
-      isDemoMode ||
+      isClientDemo ||
       !pathname ||
       pathname.startsWith("/billing") ||
       pathname.startsWith("/assinatura")

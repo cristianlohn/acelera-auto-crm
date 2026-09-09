@@ -63,6 +63,7 @@ import { MemberRowActions } from "@/components/team/member-row-actions";
 import {
   normalizeRole,
   canManageTeam,
+  canManageIntegrations,
   canManageIntegrationsAndBilling,
 } from "@/lib/permissions";
 import { WhatsAppIntegrationCard } from "./whatsapp-integration-card";
@@ -116,6 +117,7 @@ export interface SettingsFormProps {
   initialTeamMembers?: TeamMember[];
   initialCapacity?: TeamCapacity;
   initialApiKeys?: ApiKey[];
+  initialTab?: SettingsTab;
 }
 
 const TAB_ITEMS: {
@@ -162,15 +164,58 @@ export function SettingsForm({
   initialPreferences,
   initialTeamMembers,
   initialCapacity = INITIAL_CAPACITY,
+  initialTab,
 }: SettingsFormProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("perfil");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    if (initialTab) return initialTab;
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab")?.toLowerCase();
+      if (
+        tabParam === "integrations" ||
+        tabParam === "integracoes" ||
+        tabParam === "webhook" ||
+        tabParam === "webhooks"
+      ) {
+        return "integracoes";
+      }
+      if (tabParam === "loja" || tabParam === "store") return "loja";
+      if (tabParam === "sla") return "sla";
+      if (tabParam === "preferencias" || tabParam === "preferences") return "preferencias";
+      if (tabParam === "equipe" || tabParam === "team") return "equipe";
+      if (tabParam === "perfil" || tabParam === "profile") return "perfil";
+    }
+    return "perfil";
+  });
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [isSaving, startSavingTransition] = useTransition();
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
 
-  const { role, isDemoMode } = useDemoRole();
+  const { role, roleConfig, isDemoMode, currentUser } = useDemoRole();
 
-  // Estados dos formulários inicializados diretamente com as props recebidas do servidor
+  // Estados dos formulários inicializados diretamente com as props recebidas do servidor ou sessão ativa
   const [profile, setProfile] = useState<UserProfileState>(() => {
+    if (isDemoMode && roleConfig) {
+      const mappedRole: "admin" | "gerente" | "vendedor" =
+        roleConfig.role === "gerente" || roleConfig.role === "manager"
+          ? "gerente"
+          : roleConfig.role === "vendedor" || roleConfig.role === "seller"
+          ? "vendedor"
+          : "admin";
+
+      return {
+        fullName: roleConfig.name,
+        email: roleConfig.email,
+        phone: initialProfile?.phone ? formatPhone(initialProfile.phone) : "11988887777",
+        role: mappedRole,
+      };
+    }
     if (initialProfile) {
       return {
         fullName: initialProfile.fullName ?? "",
@@ -179,21 +224,49 @@ export function SettingsForm({
         role: initialProfile.role ?? "admin",
       };
     }
-    if (isDemoMode) {
+    if (currentUser?.name) {
+      const mappedRole: "admin" | "gerente" | "vendedor" =
+        currentUser.role === "gerente" || currentUser.role === "manager"
+          ? "gerente"
+          : currentUser.role === "vendedor" || currentUser.role === "seller"
+          ? "vendedor"
+          : "admin";
+
       return {
-        fullName: "Rafael Alves",
-        email: "rafael.alves@aceleraauto.com.br",
-        phone: "11987654321",
-        role: "gerente",
+        fullName: currentUser.name,
+        email: currentUser.email || "",
+        phone: "",
+        role: mappedRole,
       };
     }
     return {
-      fullName: "",
-      email: "",
-      phone: "",
+      fullName: "Roberto Silva",
+      email: "roberto.silva@autoprime.com.br",
+      phone: "11988887777",
       role: "admin",
     };
   });
+
+  // Sincroniza dinamicamente os campos de Perfil quando o usuário alternar o papel no Simulador de Demo
+  const prevDemoRoleRef = React.useRef(role);
+  useEffect(() => {
+    if (isDemoMode && roleConfig && prevDemoRoleRef.current !== role) {
+      prevDemoRoleRef.current = role;
+      const mappedRole: "admin" | "gerente" | "vendedor" =
+        roleConfig.role === "gerente" || roleConfig.role === "manager"
+          ? "gerente"
+          : roleConfig.role === "vendedor" || roleConfig.role === "seller"
+          ? "vendedor"
+          : "admin";
+
+      setProfile({
+        fullName: roleConfig.name,
+        email: roleConfig.email,
+        phone: "11988887777",
+        role: mappedRole,
+      });
+    }
+  }, [role, roleConfig, isDemoMode]);
 
   const [store, setStore] = useState<StoreState>(() => {
     if (initialOrganization) {
@@ -367,8 +440,9 @@ export function SettingsForm({
       case "sla":
       case "equipe":
         return canManageTeam(effectiveRole);
-      case "loja":
       case "integracoes":
+        return canManageIntegrations(effectiveRole);
+      case "loja":
         return canManageIntegrationsAndBilling(effectiveRole);
       default:
         return false;
@@ -1187,7 +1261,7 @@ export function SettingsForm({
           {/* ============================================================== */}
           {/* ABA 6: Entrada de Leads & Webhooks                             */}
           {/* ============================================================== */}
-          {currentTab === "integracoes" && canManageIntegrationsAndBilling(effectiveRole) && (
+          {currentTab === "integracoes" && canManageIntegrations(effectiveRole) && (
             <section id="tab-integracoes" className="space-y-6 animate-in fade-in duration-200">
               {/* Header da Aba */}
               <div>

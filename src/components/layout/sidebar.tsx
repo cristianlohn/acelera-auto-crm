@@ -31,6 +31,7 @@ import { getCurrentUserProfileAction } from "@/app/actions/auth";
 import {
   canManageTeam,
   canViewExecutiveReports,
+  canManageIntegrations,
   canManageIntegrationsAndBilling,
   isSuperAdmin,
   normalizeRole,
@@ -115,8 +116,8 @@ export function getNavItemsForRole(role?: string | null): NavItem[] {
     });
   }
 
-  // Configurações & Integrações (Admin, Superadmin)
-  if (canManageIntegrationsAndBilling(norm)) {
+  // Configurações & Integrações (Manager, Admin, Superadmin)
+  if (canManageIntegrations(norm)) {
     items.push({
       href: "/settings",
       label: "Configurações",

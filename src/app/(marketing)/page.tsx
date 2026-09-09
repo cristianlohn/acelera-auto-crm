@@ -32,6 +32,7 @@ import { Hero } from "@/components/landing/Hero";
 import { ROISection } from "@/components/landing/ROISection";
 import { PricingSection } from "@/components/landing/PricingSection";
 import { FAQSection } from "@/components/landing/FAQSection";
+import { initDemoModeCookies } from "@/lib/auth/demo-helpers";
 
 export default function MarketingPage() {
   return (
@@ -207,7 +208,7 @@ export default function MarketingPage() {
             </p>
 
             <div className="mt-6 sm:mt-8 flex justify-center">
-              <Link href="/dashboard/leads" className="w-full sm:w-auto">
+              <Link href="/dashboard/leads" onClick={initDemoModeCookies} className="w-full sm:w-auto">
                 <Button
                   size="lg"
                   className="w-full sm:w-auto gap-2 bg-white px-6 py-5 sm:px-8 sm:py-6 text-xs sm:text-sm font-bold text-black shadow-xl hover:bg-zinc-100 transition-all hover:scale-105"
