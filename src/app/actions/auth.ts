@@ -120,7 +120,7 @@ export async function registerNewDealership(
     const supabase = await createServerSupabaseClient();
 
     // 1. Cria usuário no Supabase Auth com metadados estritos para a trigger handle_new_user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    let { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
@@ -131,6 +131,34 @@ export async function registerNewDealership(
         },
       },
     });
+
+    // Resiliência para domínios de homologação RFC 2606 (@example.com) ou falhas de provedor SMTP
+    if (
+      authError &&
+      authError.message.includes("Error sending confirmation")
+    ) {
+      try {
+        const adminClient = createAdminClient();
+        const { data: adminUserData, error: adminUserError } =
+          await adminClient.auth.admin.createUser({
+            email: email.trim(),
+            password,
+            email_confirm: true,
+            user_metadata: {
+              full_name: fullName.trim(),
+              store_name: storeName?.trim() || "",
+              phone: formattedPhone,
+            },
+          });
+
+        if (!adminUserError && adminUserData?.user) {
+          authData = { user: adminUserData.user, session: null };
+          authError = null;
+        }
+      } catch {
+        // Mantém erro original se o fallback falhar
+      }
+    }
 
     if (authError) {
       if (

@@ -1,4 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Carrega variáveis de ambiente locais para execução dos testes E2E e scripts de teardown
+dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
 const PORT = process.env.PORT || 3000;
 const baseURL = `http://127.0.0.1:${PORT}`;

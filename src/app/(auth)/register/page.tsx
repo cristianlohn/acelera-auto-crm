@@ -248,6 +248,7 @@ export default function RegisterPage() {
           {/* Alerta de Erro */}
           {errorMessage && (
             <div
+              id="register-error-alert"
               role="alert"
               className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-300"
             >

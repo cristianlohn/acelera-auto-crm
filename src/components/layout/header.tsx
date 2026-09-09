@@ -6,6 +6,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { Menu, Phone } from "lucide-react";
 import {
   Sheet,
@@ -34,7 +35,13 @@ export function MobileHeader({
   initialRole?: string | null;
   initialProfile?: unknown;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
   const { role: demoRole, sellerName, isDemoMode } = useDemoRole();
   const [realRole, setRealRole] = useState<string | null>(initialRole || null);
   const [realProfile, setRealProfile] = useState<UserProfileInfo | null>(
@@ -116,7 +123,16 @@ export function MobileHeader({
             </SheetHeader>
             <nav className="flex flex-col gap-1 p-3" data-testid="mobile-nav">
               {visibleNavItems.map((item) => (
-                <NavLink key={item.href} item={item} onClick={() => setOpen(false)} />
+                <NavLink
+                  key={item.href}
+                  item={item}
+                  onClick={() => {
+                    if (!item.target) {
+                      router.push(item.href);
+                    }
+                    setTimeout(() => setOpen(false), 50);
+                  }}
+                />
               ))}
             </nav>
             <div className="px-3 pt-1 pb-2">
