@@ -53,11 +53,19 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
     );
   });
 
-  class WebSocketStub {}
-  const wsTransport =
+  class WebSocketStub {
+    constructor() {
+      // Stub para ambientes sem suporte a WebSocket nativo
+    }
+  }
+  type RealtimeTransport = NonNullable<
+    NonNullable<Parameters<typeof createClient>[2]>["realtime"]
+  >["transport"];
+
+  const wsTransport: RealtimeTransport =
     typeof WebSocket !== "undefined"
-      ? (WebSocket as unknown as any)
-      : (WebSocketStub as unknown as any);
+      ? (WebSocket as unknown as RealtimeTransport)
+      : (WebSocketStub as unknown as RealtimeTransport);
 
   /**
    * Inicializa o Supabase Admin Client com privilégios elevados para o teardown.
