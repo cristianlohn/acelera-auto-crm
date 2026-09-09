@@ -3,7 +3,7 @@
  * @description Server Actions para autenticação, cadastro self-service e provisionamento de novo tenant no Supabase.
  *
  * Expõe a ação:
- * - registerNewDealership(data): Cria o usuário no Auth, cria o registro em organizations e associa o perfil em profiles como admin.
+ * - registerNewDealership(data): Cria o usuário no Auth delegando o provisionamento de organization e profile ao trigger handle_new_user do PostgreSQL.
  */
 
 "use server";
@@ -58,8 +58,8 @@ function generateSlug(storeName: string): string {
 }
 
 /**
- * Registra uma nova concessionária (organização) ou associa usuário a convite existente,
- * criando o perfil correspondente via Supabase Admin.
+ * Registra uma nova concessionária delegando o provisionamento atômico
+ * de tenant e perfil administrativo ao trigger handle_new_user do PostgreSQL.
  *
  * @param input Dados do formulário de cadastro.
  * @returns Resultado com status de sucesso ou mensagem de erro tratada.
@@ -119,14 +119,13 @@ export async function registerNewDealership(
   try {
     const supabase = await createServerSupabaseClient();
 
-    // 1. Cria usuário no Supabase Auth com metadados completos
+    // 1. Cria usuário no Supabase Auth com metadados estritos para a trigger handle_new_user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
         data: {
           full_name: fullName.trim(),
-          dealership_name: storeName?.trim() || "",
           store_name: storeName?.trim() || "",
           phone: formattedPhone,
         },
@@ -151,111 +150,6 @@ export async function registerNewDealership(
       return {
         success: false,
         error: "Não foi possível criar a conta. Tente novamente mais tarde.",
-      };
-    }
-
-    const adminClient = createAdminClient();
-    const userId = authData.user.id;
-    const cleanEmail = email.trim().toLowerCase();
-
-    // 2. Verifica se este usuário veio de convite (inviteToken explícito ou convite pendente por e-mail)
-    let invite = null;
-    if (typeof adminClient?.from === "function") {
-      try {
-        if (inviteToken?.trim()) {
-          const { data: inviteByToken } = (await adminClient
-            .from("organization_invites")
-            ?.select?.("*")
-            ?.eq?.("token", inviteToken.trim())
-            ?.maybeSingle?.()) || { data: null };
-          invite = inviteByToken;
-        }
-
-        if (!invite) {
-          const { data: inviteByEmail } = (await adminClient
-            .from("organization_invites")
-            ?.select?.("*")
-            ?.eq?.("email", cleanEmail)
-            ?.eq?.("status", "pending")
-            ?.order?.("created_at", { ascending: false })
-            ?.limit?.(1)
-            ?.maybeSingle?.()) || { data: null };
-          invite = inviteByEmail;
-        }
-      } catch {}
-    }
-
-    let targetOrgId: string;
-    let targetRole: "admin" | "gerente" | "vendedor" = "admin";
-    let isNewOrganizationCreated = false;
-
-    if (invite?.organization_id) {
-      // Usuário convidado: herda a organização da loja convidante e NUNCA cria nova organização
-      targetOrgId = invite.organization_id;
-      targetRole = invite.role === "admin" || invite.role === "gerente" ? invite.role : "vendedor";
-
-      try {
-        await adminClient
-          .from("organization_invites")
-          .update({ status: "accepted", updated_at: new Date().toISOString() })
-          .eq("id", invite.id);
-      } catch {}
-    } else {
-      // APENAS SIGN-UPS ISOLADOS (SEM CONVITE) CRIAM UMA NOVA ORGANIZAÇÃO DE TESTE
-      const effectiveStoreName = storeName?.trim() || "Minha Concessionária";
-      const slug = generateSlug(effectiveStoreName);
-      const now = new Date();
-      const trialEndsAt = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
-
-      const { data: orgData, error: orgError } = await adminClient
-        .from("organizations")
-        .insert({
-          name: effectiveStoreName,
-          slug,
-          plan: "trial",
-          subscription_status: "trialing",
-          trial_ends_at: trialEndsAt,
-        })
-        .select("id")
-        .single();
-
-      if (orgError || !orgData) {
-        try {
-          await adminClient.auth.admin.deleteUser(userId);
-        } catch {}
-        return {
-          success: false,
-          error: `Erro ao provisionar a concessionária: ${orgError?.message || "falha ao criar organização"}`,
-        };
-      }
-
-      targetOrgId = orgData.id;
-      targetRole = "admin";
-      isNewOrganizationCreated = true;
-    }
-
-    // 3. Cria ou atualiza o perfil do usuário vinculado à organização correspondente
-    const { error: profileError } = await adminClient.from("profiles").upsert({
-      id: userId,
-      organization_id: targetOrgId,
-      full_name: fullName.trim(),
-      email: email.trim(),
-      role: targetRole,
-      phone: formattedPhone,
-      avatar_url: null,
-    });
-
-    if (profileError) {
-      // Rollback apenas se uma nova organização tiver sido criada nesta operação
-      if (isNewOrganizationCreated) {
-        await adminClient.from("organizations").delete().eq("id", targetOrgId);
-      }
-      try {
-        await adminClient.auth.admin.deleteUser(userId);
-      } catch {}
-      return {
-        success: false,
-        error: `Erro ao associar perfil administrativo: ${profileError.message}`,
       };
     }
 

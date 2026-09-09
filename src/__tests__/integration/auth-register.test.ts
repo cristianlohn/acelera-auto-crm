@@ -4,10 +4,13 @@
  *
  * Cenários Testados:
  * - [IT-REG.1]: Validação client-side / server-side de campos obrigatórios (nome da loja, gestor, email, whatsapp, senha).
- * - [IT-REG.2]: Provisionamento com sucesso no Supabase via Admin Client (service_role) contornando restrições de RLS.
+ * - [IT-REG.2]: Provisionamento atômico delegando tenant e perfil à trigger handle_new_user com metadados estritos.
  * - [IT-REG.3]: Tratamento resiliente de erro quando o e-mail já está cadastrado no Supabase Auth.
- * - [IT-REG.4]: Tratamento de falha na criação da organização ou perfil com rollback seguro.
+ * - [IT-REG.4]: Tratamento correto quando o Supabase exige verificação de e-mail (sem sessão imediata).
  * - [IT-REG.5]: Fallback seguro para modo de demonstração quando o Supabase não estiver configurado.
+ * - [TEST-TRIGGER-DELEGATION]: Garantia de que a action não realiza inserts manuais em organizations e profiles.
+ * - [TEST-SIGNIN-FALLBACK]: Tentativa de login direto via signInWithPassword quando signUp não retorna sessão imediata.
+ * - [TEST-NO-MOCK-LEAK]: Validação de segurança sobre presença de variáveis de ambiente no client admin.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -88,47 +91,21 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
     expect(resShortPassword.error).toContain("no mínimo 6 caracteres");
   });
 
-  it("[IT-REG.2] Deve provisionar o tenant e o perfil do gestor via Admin Client sem violação de RLS", async () => {
-    // Arrange: Mock do Supabase Server Client (Auth) e Admin Client (Database)
+  it("[IT-REG.2] Deve provisionar o usuário via Supabase Auth com metadados estritos delegando o tenant ao trigger", async () => {
+    // Arrange: Mock do Supabase Server Client (Auth) com sessão ativa
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
     const mockSignUp = vi.fn().mockResolvedValue({
-      data: { user: { id: "user_uuid_12345" } },
+      data: {
+        user: { id: "user_uuid_12345" },
+        session: { access_token: "mock_jwt_token" },
+      },
       error: null,
     });
 
     vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
       auth: { signUp: mockSignUp },
     } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
-
-    const mockInsertOrg = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: { id: "org_uuid_67890" },
-          error: null,
-        }),
-      }),
-    });
-
-    const mockUpsertProfile = vi.fn().mockResolvedValue({
-      error: null,
-    });
-
-    const mockAdminClient = {
-      from: vi.fn((table: string) => {
-        if (table === "organizations") {
-          return { insert: mockInsertOrg };
-        }
-        if (table === "profiles") {
-          return { upsert: mockUpsertProfile };
-        }
-        return {};
-      }),
-    };
-
-    const spyAdminClient = vi
-      .spyOn(supabaseAdminModule, "createAdminClient")
-      .mockReturnValue(mockAdminClient as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>);
 
     // Act
     const result = await registerNewDealership({
@@ -141,37 +118,27 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
 
     // Assert
     expect(result.success).toBe(true);
-    expect(spyAdminClient).toHaveBeenCalled();
+    expect(result.redirectUrl).toBe("/leads");
+    expect(result.requiresEmailVerification).toBe(false);
+
     expect(mockSignUp).toHaveBeenCalledWith({
       email: "carlos@imperialmotors.com.br",
       password: "SenhaSegura123",
       options: {
         data: {
           full_name: "Carlos Eduardo",
-          dealership_name: "Imperial Motors",
           store_name: "Imperial Motors",
           phone: "(11) 97777-6666",
         },
       },
     });
 
-    expect(mockInsertOrg).toHaveBeenCalledTimes(1);
-    const orgPayload = mockInsertOrg.mock.calls[0][0];
-    expect(orgPayload.name).toBe("Imperial Motors");
-    expect(orgPayload.slug).toContain("imperial-motors");
-    expect(orgPayload.plan).toBe("trial");
-    expect(orgPayload.subscription_status).toBe("trialing");
-    expect(orgPayload.trial_ends_at).toBeDefined();
-
-    expect(mockUpsertProfile).toHaveBeenCalledWith({
-      id: "user_uuid_12345",
-      organization_id: "org_uuid_67890",
-      full_name: "Carlos Eduardo",
-      email: "carlos@imperialmotors.com.br",
-      role: "admin",
-      phone: "(11) 97777-6666",
-      avatar_url: null,
-    });
+    // Garante que não foram injetadas propriedades antigas ou redundantes
+    const signUpOptions = mockSignUp.mock.calls[0][0].options.data;
+    expect(signUpOptions).toHaveProperty("full_name", "Carlos Eduardo");
+    expect(signUpOptions).toHaveProperty("store_name", "Imperial Motors");
+    expect(signUpOptions).toHaveProperty("phone", "(11) 97777-6666");
+    expect(signUpOptions).not.toHaveProperty("dealership_name");
   });
 
   it("[IT-REG.3] Deve retornar mensagem amigável quando o e-mail já estiver cadastrado no Supabase Auth", async () => {
@@ -203,66 +170,40 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
     );
   });
 
-  it("[IT-REG.4] Deve executar rollback na organização caso a criação do perfil falhe", async () => {
+  it("[IT-REG.4] Deve tratar quando o Supabase requer verificação de e-mail (sem sessão imediata)", async () => {
     // Arrange
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
     vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
       auth: {
         signUp: vi.fn().mockResolvedValue({
-          data: { user: { id: "user_failed_profile" } },
+          data: {
+            user: { id: "user_verify_email", identities: [{ id: "identity_1" }] },
+            session: null,
+          },
           error: null,
+        }),
+        signInWithPassword: vi.fn().mockResolvedValue({
+          data: { session: null },
+          error: { message: "Email not confirmed" },
         }),
       },
     } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
 
-    const mockDeleteOrg = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    });
-
-    const mockAdminClient = {
-      from: vi.fn((table: string) => {
-        if (table === "organizations") {
-          return {
-            insert: vi.fn().mockReturnValue({
-              select: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { id: "org_rollback_id" },
-                  error: null,
-                }),
-              }),
-            }),
-            delete: mockDeleteOrg,
-          };
-        }
-        if (table === "profiles") {
-          return {
-            upsert: vi.fn().mockResolvedValue({
-              error: { message: "Database connection lost during profile creation" },
-            }),
-          };
-        }
-        return {};
-      }),
-    };
-
-    vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
-      mockAdminClient as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
-    );
-
     // Act
     const result = await registerNewDealership({
-      storeName: "Loja Rollback",
-      fullName: "Gestor Teste",
-      email: "gestor@rollback.com",
+      storeName: "Loja Verificacao",
+      fullName: "Gestor Pendente",
+      email: "pendente@loja.com",
       phone: "11988880000",
       password: "SenhaForte123",
     });
 
     // Assert
-    expect(result.success).toBe(false);
-    expect(result.error).toContain("Erro ao associar perfil administrativo");
-    expect(mockDeleteOrg).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
+    expect(result.requiresEmailVerification).toBe(true);
+    expect(result.redirectUrl).toBe("/login?verified_pending=true");
+    expect(result.message).toContain("Enviamos um link de confirmação para o seu e-mail");
   });
 
   it("[IT-REG.5] Deve provisionar em modo demo quando o Supabase não estiver configurado", async () => {
@@ -280,14 +221,19 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
 
     // Assert
     expect(result.success).toBe(true);
+    expect(result.redirectUrl).toBe("/leads");
+    expect(result.requiresEmailVerification).toBe(false);
   });
 
-  it("[TEST-RLS-BYPASS] Deve garantir que o fluxo de provisionamento utiliza estritamente o cliente administrativo com service_role", async () => {
+  it("[TEST-TRIGGER-DELEGATION] Deve garantir que registerNewDealership NÃO executa inserts manuais em organizations ou profiles", async () => {
     // Arrange
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
     const mockSignUp = vi.fn().mockResolvedValue({
-      data: { user: { id: "user_rls_bypass_id" } },
+      data: {
+        user: { id: "user_trigger_delegation" },
+        session: { access_token: "mock_jwt" },
+      },
       error: null,
     });
 
@@ -295,18 +241,8 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
       auth: { signUp: mockSignUp },
     } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
 
-    const mockInsertOrg = vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        single: vi.fn().mockResolvedValue({
-          data: { id: "org_rls_bypass_id" },
-          error: null,
-        }),
-      }),
-    });
-
-    const mockUpsertProfile = vi.fn().mockResolvedValue({
-      error: null,
-    });
+    const mockInsertOrg = vi.fn();
+    const mockUpsertProfile = vi.fn();
 
     const mockAdminClient = {
       from: vi.fn((table: string) => {
@@ -314,11 +250,6 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
         if (table === "profiles") return { upsert: mockUpsertProfile };
         return {};
       }),
-      auth: {
-        admin: {
-          deleteUser: vi.fn().mockResolvedValue({}),
-        },
-      },
     };
 
     const spyCreateAdmin = vi
@@ -327,74 +258,58 @@ describe("[IT-REG] Provisionamento de Tenant & Cadastro (registerNewDealership)"
 
     // Act
     const result = await registerNewDealership({
-      storeName: "Bypass RLS Motors",
-      fullName: "Diretor Master",
-      email: "diretor@bypassrls.com.br",
+      storeName: "Autonomia Trigger Motors",
+      fullName: "Diretor Autônomo",
+      email: "diretor@autonomia.com.br",
       phone: "(11) 99999-8888",
       password: "SenhaSegura123",
     });
 
-    // Assert: Valida que a ação invocou createAdminClient para mutação das tabelas protegidas por RLS
+    // Assert: Valida que a action delegou tudo ao trigger e NÃO efetuou mutações diretas
     expect(result.success).toBe(true);
-    expect(spyCreateAdmin).toHaveBeenCalled();
-    expect(mockAdminClient.from).toHaveBeenCalledWith("organizations");
-    expect(mockAdminClient.from).toHaveBeenCalledWith("profiles");
+    expect(mockInsertOrg).not.toHaveBeenCalled();
+    expect(mockUpsertProfile).not.toHaveBeenCalled();
   });
 
-  it("[TEST-ORG-CREATION] Deve garantir que cada novo cadastro gera um organization_id e slug únicos e isolados", async () => {
+  it("[TEST-SIGNIN-FALLBACK] Deve autenticar com signInWithPassword quando signUp inicial não retornar sessão ativa", async () => {
     // Arrange
     vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+    const mockSignInWithPassword = vi.fn().mockResolvedValue({
+      data: { session: { access_token: "direct_token" } },
+      error: null,
+    });
 
     vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue({
       auth: {
         signUp: vi.fn().mockResolvedValue({
-          data: { user: { id: "user_isolated_org_id" } },
+          data: {
+            user: { id: "user_with_fallback_signin" },
+            session: null, // Sem sessão inicial no signUp
+          },
           error: null,
         }),
+        signInWithPassword: mockSignInWithPassword,
       },
     } as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>);
 
-    let insertedOrgSlug = "";
-    const mockAdminClient = {
-      from: vi.fn((table: string) => {
-        if (table === "organizations") {
-          return {
-            insert: vi.fn((payload: { name: string; slug: string }) => {
-              insertedOrgSlug = payload.slug;
-              return {
-                select: vi.fn().mockReturnValue({
-                  single: vi.fn().mockResolvedValue({
-                    data: { id: `org_unique_${Date.now()}` },
-                    error: null,
-                  }),
-                }),
-              };
-            }),
-          };
-        }
-        if (table === "profiles") {
-          return { upsert: vi.fn().mockResolvedValue({ error: null }) };
-        }
-        return {};
-      }),
-    };
-
-    vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
-      mockAdminClient as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
-    );
-
     // Act
     const result = await registerNewDealership({
-      storeName: "Loja Isolada Premium",
-      fullName: "Gestor Isolado",
-      email: "gestor@isolada.com.br",
+      storeName: "Auto Sucesso Direto",
+      fullName: "Gestor Direto",
+      email: "direto@loja.com.br",
       phone: "(11) 98888-1111",
       password: "SenhaSegura123",
     });
 
-    // Assert
+    // Assert: Deve tentar login com senha e obter sucesso direto redirecionando para /leads
     expect(result.success).toBe(true);
-    expect(insertedOrgSlug).toMatch(/^loja-isolada-premium-[a-z0-9]+$/);
+    expect(mockSignInWithPassword).toHaveBeenCalledWith({
+      email: "direto@loja.com.br",
+      password: "SenhaSegura123",
+    });
+    expect(result.requiresEmailVerification).toBe(false);
+    expect(result.redirectUrl).toBe("/leads");
   });
 
   it("[TEST-NO-MOCK-LEAK] Deve validar erro crítico em createAdminClient se variáveis de ambiente estiverem ausentes", () => {

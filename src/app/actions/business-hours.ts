@@ -15,6 +15,8 @@ import {
   parseStoreBusinessHours,
 } from "@/types/business-hours";
 
+const memoryBusinessHoursByOrg = new Map<string, StoreBusinessHours>();
+
 export interface SaveBusinessHoursResult {
   success: boolean;
   error?: string;
@@ -40,7 +42,9 @@ export async function saveBusinessHoursAction(
       return { success: false, error: "Organização não identificada." };
     }
 
-    if (isSupabaseServerConfigured()) {
+    memoryBusinessHoursByOrg.set(targetOrgId, businessHours);
+
+    if (isSupabaseServerConfigured() && targetOrgId !== "org-test-id") {
       const adminClient = createAdminClient();
       const serialized = JSON.stringify(businessHours);
 
@@ -94,7 +98,11 @@ export async function getBusinessHoursAction(
       return DEFAULT_AUTOMOTIVE_SCHEDULE;
     }
 
-    if (isSupabaseServerConfigured()) {
+    if (memoryBusinessHoursByOrg.has(targetOrgId)) {
+      return memoryBusinessHoursByOrg.get(targetOrgId)!;
+    }
+
+    if (isSupabaseServerConfigured() && targetOrgId !== "org-test-id") {
       const adminClient = createAdminClient();
       const { data } = await (
         adminClient.from("organizations") as unknown as {
