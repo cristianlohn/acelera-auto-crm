@@ -182,6 +182,7 @@ describe("[UNIT-VEHICLE-ACTIONS] Upload e Gestão de Veículos com Galeria WebP"
       const vehicleWithUnformattedData = {
         make: "Honda",
         model: "Civic",
+        version: "Touring 1.5 Turbo",
         yearFab: 2024,
         yearModel: 2025,
         price: 160000,
@@ -190,6 +191,7 @@ describe("[UNIT-VEHICLE-ACTIONS] Upload e Gestão de Veículos com Galeria WebP"
         fuel: "Híbrido (HEV/PHEV)",
         transmission: "Automático",
         status: "disponivel" as const,
+        imageUrl: "https://storage.supabase.co/vehicles/org-test-01/civic.webp",
       };
 
       const result = await createVehicleAction(vehicleWithUnformattedData);
