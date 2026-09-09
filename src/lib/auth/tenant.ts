@@ -23,7 +23,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Organization, Profile } from "@/types/database.types";
 
-import { DEFAULT_DEMO_ORG_ID, DEMO_USER_ID } from "./constants";
+import { DEFAULT_DEMO_ORG_ID } from "./constants";
 export * from "./constants";
 
 export interface TenantContextResult {

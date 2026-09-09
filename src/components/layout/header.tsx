@@ -39,9 +39,11 @@ export function MobileHeader({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     setOpen(false);
-  }, [pathname]);
+  }
   const { role: demoRole, sellerName, isDemoMode } = useDemoRole();
   const [realRole, setRealRole] = useState<string | null>(initialRole || null);
   const [realProfile, setRealProfile] = useState<UserProfileInfo | null>(
