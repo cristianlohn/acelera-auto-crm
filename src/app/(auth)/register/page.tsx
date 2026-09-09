@@ -288,7 +288,7 @@ export default function RegisterPage() {
             </div>
           ) : (
             /* Formulário de Cadastro */
-            <form id="form-register" onSubmit={handleRegister} className="space-y-3.5" noValidate>
+            <form id="form-register" method="POST" onSubmit={handleRegister} className="space-y-3.5" noValidate>
               {/* Nome da Loja */}
               <div className="space-y-1">
                 <label

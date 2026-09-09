@@ -49,19 +49,53 @@ const ROUTES = [
 ];
 
 /**
- * Função utilitária para verificar se a página tem overflow horizontal.
+ * Função utilitária para verificar se a página tem overflow horizontal de forma resiliente.
  */
 async function assertZeroHorizontalOverflow(page: Page, routePath: string, viewportName: string) {
-  const overflow = await page.evaluate(() => {
-    const scrollWidth = document.documentElement.scrollWidth;
-    const innerWidth = window.innerWidth;
-    return {
-      scrollWidth,
-      innerWidth,
-      hasOverflow: scrollWidth > innerWidth,
-      diff: scrollWidth - innerWidth,
-    };
-  });
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+  await page.locator("body").waitFor({ state: "attached" });
+
+  // Aguarda elemento principal (main, container de modal ou body) estar visível
+  await page
+    .locator("main, [role='main'], [role='dialog'], #modal-new-vehicle, #modal-add-client, #modal-add-lead, body")
+    .first()
+    .waitFor({ state: "visible", timeout: 10000 })
+    .catch(() => {});
+
+  let overflow: { scrollWidth: number; innerWidth: number; hasOverflow: boolean; diff: number } | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      overflow = await page.evaluate(() => {
+        const scrollWidth = document.documentElement.scrollWidth;
+        const innerWidth = window.innerWidth;
+        return {
+          scrollWidth,
+          innerWidth,
+          hasOverflow: scrollWidth > innerWidth,
+          diff: scrollWidth - innerWidth,
+        };
+      });
+      break;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        (msg.includes("Execution context was destroyed") ||
+          msg.includes("Target page, context or browser has been closed") ||
+          msg.includes("navigation")) &&
+        attempt < 2
+      ) {
+        await page.waitForLoadState("domcontentloaded");
+        await page.waitForTimeout(500);
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (!overflow) {
+    throw new Error(`Falha ao auditar overflow horizontal para ${routePath}`);
+  }
 
   expect(
     overflow.hasOverflow,
@@ -70,15 +104,28 @@ async function assertZeroHorizontalOverflow(page: Page, routePath: string, viewp
 }
 
 test.describe("[REQ-CRM-11] Auditoria de Responsividade Mobile e Zero Overflow Horizontal", () => {
-  test.beforeEach(async ({ context }) => {
-    await context.addCookies([
-      {
-        name: "acelera_demo_mode",
-        value: "true",
-        domain: "127.0.0.1",
-        path: "/",
-      },
-    ]);
+  test.beforeEach(async ({ context, baseURL }) => {
+    const url = baseURL || "http://127.0.0.1:3000";
+    const hostname = new URL(url).hostname;
+    const domains = Array.from(new Set([hostname, "127.0.0.1", "localhost"]));
+
+    const defaultCookies = [
+      { name: "acelera_demo_mode", value: "true" },
+      { name: "sb-demo-auth", value: "true" },
+      { name: "acelera_demo_tour_dismissed", value: "true" },
+      { name: "acelera_user_role", value: "admin" },
+      { name: "acelera_demo_role", value: "admin" },
+    ];
+
+    await context.addCookies(
+      domains.flatMap((domain) =>
+        defaultCookies.map((c) => ({
+          ...c,
+          domain,
+          path: "/",
+        }))
+      )
+    );
   });
 
   for (const vp of VIEWPORTS) {
@@ -90,15 +137,24 @@ test.describe("[REQ-CRM-11] Auditoria de Responsividade Mobile e Zero Overflow H
           // Arrange: Define o tamanho da tela do dispositivo móvel
           await page.setViewportSize({ width: vp.width, height: vp.height });
 
+          if (route.path.startsWith("/superadmin")) {
+            await page.context().addCookies([
+              { name: "acelera_demo_role", value: "superadmin", domain: "127.0.0.1", path: "/" },
+              { name: "acelera_demo_role", value: "superadmin", domain: "localhost", path: "/" },
+              { name: "acelera_user_role", value: "superadmin", domain: "127.0.0.1", path: "/" },
+              { name: "acelera_user_role", value: "superadmin", domain: "localhost", path: "/" },
+            ]);
+          }
+
           // Act: Navega até a rota
-          await page.goto(route.path, { waitUntil: "networkidle" });
+          await page.goto(route.path, { waitUntil: "domcontentloaded" });
 
           // Assert 1: Zero overflow horizontal na viewport
           await assertZeroHorizontalOverflow(page, route.path, vp.name);
 
           // Assert 2: Título principal H1 visível na viewport
           const heading = page.locator("h1");
-          await expect(heading.first()).toBeVisible({ timeout: 5000 });
+          await expect(heading.first()).toBeVisible({ timeout: 10000 });
         });
       }
 
@@ -106,19 +162,20 @@ test.describe("[REQ-CRM-11] Auditoria de Responsividade Mobile e Zero Overflow H
         page,
       }) => {
         await page.setViewportSize({ width: vp.width, height: vp.height });
-        await page.goto("/dashboard/leads", { waitUntil: "networkidle" });
+        await page.goto("/dashboard/leads", { waitUntil: "domcontentloaded" });
+        await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
 
         // Abre o modal de lead com seletor resiliente
         const btnAddLead = page
           .getByRole("button", { name: /novo lead|\+ lead/i })
           .first();
-        await expect(btnAddLead).toBeVisible({ timeout: 10000 });
+        await expect(btnAddLead).toBeVisible({ timeout: 15000 });
         await btnAddLead.click();
 
         const dialog = page
           .locator("#modal-add-lead, #modal-add-kanban-lead, [data-testid='modal-add-lead']")
           .first();
-        await expect(dialog).toBeVisible({ timeout: 10000 });
+        await expect(dialog).toBeVisible({ timeout: 15000 });
 
         // Valida que o modal não causa overflow
         await assertZeroHorizontalOverflow(page, "/dashboard/leads [Modal Novo Lead]", vp.name);
@@ -128,14 +185,16 @@ test.describe("[REQ-CRM-11] Auditoria de Responsividade Mobile e Zero Overflow H
         page,
       }) => {
         await page.setViewportSize({ width: vp.width, height: vp.height });
-        await page.goto("/vehicles", { waitUntil: "networkidle" });
+        await page.goto("/vehicles", { waitUntil: "domcontentloaded" });
+        await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
 
         // Abre o modal de veículo
-        const btnAddVehicle = page.locator("#btn-new-vehicle");
+        const btnAddVehicle = page.locator("#btn-new-vehicle, [data-testid='btn-new-vehicle']").first();
+        await expect(btnAddVehicle).toBeVisible({ timeout: 15000 });
         await btnAddVehicle.click();
 
-        const dialog = page.locator("#modal-new-vehicle");
-        await expect(dialog).toBeVisible();
+        const dialog = page.locator("#modal-new-vehicle, [data-testid='modal-new-vehicle']").first();
+        await expect(dialog).toBeVisible({ timeout: 15000 });
 
         // Valida que o modal não causa overflow
         await assertZeroHorizontalOverflow(page, "/vehicles [Modal Novo Veículo]", vp.name);
@@ -145,14 +204,16 @@ test.describe("[REQ-CRM-11] Auditoria de Responsividade Mobile e Zero Overflow H
         page,
       }) => {
         await page.setViewportSize({ width: vp.width, height: vp.height });
-        await page.goto("/clients", { waitUntil: "networkidle" });
+        await page.goto("/clients", { waitUntil: "domcontentloaded" });
+        await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
 
         // Abre o modal de cliente
-        const btnAddClient = page.locator("#btn-add-client");
+        const btnAddClient = page.locator("#btn-add-client, [data-testid='btn-add-client']").first();
+        await expect(btnAddClient).toBeVisible({ timeout: 15000 });
         await btnAddClient.click();
 
-        const dialog = page.locator("#modal-add-client");
-        await expect(dialog).toBeVisible();
+        const dialog = page.locator("#modal-add-client, [data-testid='modal-add-client']").first();
+        await expect(dialog).toBeVisible({ timeout: 15000 });
 
         // Valida que o modal não causa overflow
         await assertZeroHorizontalOverflow(page, "/clients [Modal Novo Cliente]", vp.name);

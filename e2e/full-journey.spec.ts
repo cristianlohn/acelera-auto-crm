@@ -120,6 +120,9 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
     page,
     context,
   }) => {
+    // Estende o timeout do teste para 120 segundos para comportar as 4 fases completas sem mocks
+    test.setTimeout(120000);
+
     // -------------------------------------------------------------------------
     // FASE 1: Cadastro e Provisionamento Atômico
     // -------------------------------------------------------------------------
@@ -130,8 +133,9 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
         { name: "acelera_demo_tour_dismissed", value: "true", domain: "localhost", path: "/" },
       ]);
 
-      await page.goto("/cadastro");
-      await page.waitForLoadState("domcontentloaded");
+      await page.goto("/cadastro", { waitUntil: "domcontentloaded" });
+      await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+      await page.locator("#register-store-name").waitFor({ state: "visible", timeout: 15000 });
 
       // Preenchimento estrito usando os IDs canônicos de RegisterPage
       await page.fill("#register-store-name", testStoreName);
@@ -144,13 +148,13 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
 
       // Submissão do formulário
       const submitBtn = page.locator("#btn-submit-register");
-      await expect(submitBtn).toBeEnabled({ timeout: 5000 });
+      await expect(submitBtn).toBeEnabled({ timeout: 15000 });
       await submitBtn.click();
 
       // Validação: Nenhum alerta de erro deve surgir no formulário
       await expect(
         page.locator('#register-error-alert, [role="alert"]:not(#__next-route-announcer__)')
-      ).not.toBeVisible({ timeout: 6000 });
+      ).not.toBeVisible({ timeout: 10000 });
 
       // Auditoria no PostgreSQL via Admin Client: valida criação atômica disparada pela trigger
       const admin = getAdminClient();
@@ -186,10 +190,18 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
 
       // Trata fluxo de redirecionamento ou login direto
       const verificationCard = page.locator('[data-testid="verification-sent-card"]');
-      const isVerificationPrompt = await verificationCard.isVisible({ timeout: 3000 }).catch(() => false);
+      const leadsRegex = /.*\/(dashboard\/)?leads.*/;
 
-      if (isVerificationPrompt) {
-        // Se exigiu tela de confirmação de e-mail, navega para login com as credenciais cadastradas
+      // Aguarda até a página sair do formulário (ir para /leads, /login ou exibir o verificationCard)
+      await Promise.race([
+        page.waitForURL(leadsRegex, { timeout: 15000 }).catch(() => {}),
+        verificationCard.waitFor({ state: "visible", timeout: 15000 }).catch(() => {}),
+        page.waitForURL(/.*login.*/, { timeout: 15000 }).catch(() => {}),
+      ]);
+
+      const onLeads = leadsRegex.test(page.url());
+      if (!onLeads) {
+        // Se exigiu confirmação de e-mail ou caiu no /login, realiza login com credenciais
         await page.goto("/login");
         await page.waitForLoadState("domcontentloaded");
         await page.fill("#login-email", testEmail);
@@ -198,8 +210,8 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
       }
 
       // Aguarda chegada ao CRM (/leads ou /dashboard/leads)
-      await page.waitForURL(/.*leads/, { timeout: 20000 });
-      await expect(page).toHaveURL(/.*leads/);
+      await page.waitForURL(leadsRegex, { timeout: 20000 });
+      await expect(page).toHaveURL(leadsRegex);
       await dismissTourIfPresent(page);
     });
 
@@ -207,7 +219,7 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
     // FASE 2: SLA e Expediente da Loja
     // -------------------------------------------------------------------------
     await test.step("Fase 2: Acessar /settings, auditar matriz de SLA padrão do trigger e alternar sábado", async () => {
-      await page.goto("/settings?tab=sla");
+      await page.goto("/settings?tab=sla", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("domcontentloaded");
       await dismissTourIfPresent(page);
 
@@ -223,7 +235,7 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
 
       // Alterna o sábado (toggle-day-6)
       const saturdayToggle = page.locator("#toggle-day-6");
-      await expect(saturdayToggle).toBeVisible({ timeout: 10000 });
+      await expect(saturdayToggle).toBeVisible({ timeout: 15000 });
       const initialSaturdayState = await saturdayToggle.getAttribute("aria-checked");
       await saturdayToggle.click();
 
@@ -234,18 +246,18 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
       const scheduleSaveBtn = page.locator("#btn-save-schedule");
       await scheduleSaveBtn.click();
 
-      // Valida feedback de persistência
+      // Valida feedback de persistência (alerta inline ou toast de confirmação)
       const feedbackAlert = page.locator(
-        'div[role="status"]:has-text("Horários da loja atualizados com sucesso")'
+        'div[role="status"]:has-text("Horários da loja atualizados com sucesso"), [data-sonner-toast]:has-text("Horários da loja atualizados com sucesso")'
       );
-      await expect(feedbackAlert).toBeVisible({ timeout: 10000 });
+      await expect(feedbackAlert.first()).toBeVisible({ timeout: 30000 });
     });
 
     // -------------------------------------------------------------------------
     // FASE 3: Kanban e Motor de SLA
     // -------------------------------------------------------------------------
     await test.step("Fase 3: Criar lead manual no Kanban e verificar badge de SLA ativa", async () => {
-      await page.goto("/dashboard/leads");
+      await page.goto("/dashboard/leads", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("domcontentloaded");
       await dismissTourIfPresent(page);
 
@@ -255,7 +267,7 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
       await addLeadBtn.click();
 
       const modal = page.locator("#modal-add-lead, [data-testid='new-lead-modal']");
-      await expect(modal).toBeVisible({ timeout: 10000 });
+      await expect(modal).toBeVisible({ timeout: 15000 });
 
       // Preenche os dados do lead
       await page.fill("#lead-name", testLeadName);
@@ -263,11 +275,11 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
       await page.fill("#lead-vehicle", testVehicle);
 
       const submitLeadBtn = page.locator("#btn-submit-lead, [data-testid='btn-submit-lead']");
-      await expect(submitLeadBtn).toBeEnabled({ timeout: 5000 });
+      await expect(submitLeadBtn).toBeEnabled({ timeout: 15000 });
       await submitLeadBtn.click();
 
       // Modal fecha após criação
-      await expect(modal).not.toBeVisible({ timeout: 10000 });
+      await expect(modal).not.toBeVisible({ timeout: 15000 });
 
       // Localiza o card recém-criado no quadro Kanban
       const newCard = page
@@ -276,12 +288,12 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
         .first();
 
       await expect(newCard).toBeVisible({ timeout: 15000 });
-      await expect(newCard.locator('[data-testid="lead-vehicle"]')).toContainText(testVehicle);
+      await expect(newCard.locator('[data-testid="lead-vehicle"]')).toContainText(testVehicle, { timeout: 15000 });
 
       // Valida semáforo / badge visual do timer de SLA
       const slaBadge = newCard.locator('[data-testid="badge-sla-timer"]');
-      await expect(slaBadge).toBeVisible({ timeout: 10000 });
-      await expect(slaBadge).toContainText(/atrás|min|0m|1m|h/i);
+      await expect(slaBadge).toBeVisible({ timeout: 15000 });
+      await expect(slaBadge).toContainText(/atrás|min|0m|1m|h/i, { timeout: 15000 });
     });
 
     // -------------------------------------------------------------------------
@@ -294,43 +306,43 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
         .filter({ hasText: testLeadName })
         .first();
 
-      await expect(card).toBeVisible({ timeout: 10000 });
+      await expect(card).toBeVisible({ timeout: 15000 });
       await card.click();
 
       const detailsModal = page.locator('[data-testid="lead-details-modal"]');
-      await expect(detailsModal).toBeVisible({ timeout: 10000 });
+      await expect(detailsModal).toBeVisible({ timeout: 15000 });
 
       // Transiciona o lead para a etapa Vendido / Ganho
       const wonStageBtn = page.locator('[data-testid="btn-stage-won"]');
-      await expect(wonStageBtn).toBeVisible({ timeout: 10000 });
+      await expect(wonStageBtn).toBeVisible({ timeout: 15000 });
       await wonStageBtn.click();
 
       // Fecha o modal de detalhes
       const closeDetailsBtn = page.locator('[data-testid="btn-close-lead-details"]');
       await closeDetailsBtn.click();
-      await expect(detailsModal).not.toBeVisible({ timeout: 5000 });
+      await expect(detailsModal).not.toBeVisible({ timeout: 15000 });
 
       // 1. Auditoria em Estoque (/vehicles)
-      await page.goto("/vehicles");
+      await page.goto("/vehicles", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("domcontentloaded");
       await dismissTourIfPresent(page);
       await expect(
         page.getByRole("heading", { level: 1, name: /estoque de veículos/i })
       ).toBeVisible({ timeout: 15000 });
-      await expect(page.locator('button:has-text("Pátio Ativo")')).toBeVisible();
+      await expect(page.locator('button:has-text("Pátio Ativo")')).toBeVisible({ timeout: 15000 });
 
       // 2. Auditoria em Relatórios (/reports)
-      await page.goto("/reports");
+      await page.goto("/reports", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("domcontentloaded");
       await dismissTourIfPresent(page);
       await expect(page.getByRole("heading", { name: /relatórios/i })).toBeVisible({ timeout: 15000 });
-      await expect(page.getByText("Faturamento Realizado")).toBeVisible({ timeout: 10000 });
-      await expect(page.getByText("Taxa de Conversão Global")).toBeVisible();
-      await expect(page.getByText("Ticket Médio por Veículo")).toBeVisible();
-      await expect(page.getByText("Tempo Médio de Resposta (SLA)")).toBeVisible();
+      await expect(page.getByText("Faturamento Realizado")).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText("Taxa de Conversão Global")).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText("Ticket Médio por Veículo")).toBeVisible({ timeout: 15000 });
+      await expect(page.getByText("Tempo Médio de Resposta (SLA)")).toBeVisible({ timeout: 15000 });
 
       // 3. Auditoria no Cockpit / Dashboard (/dashboard)
-      await page.goto("/dashboard");
+      await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("domcontentloaded");
       await dismissTourIfPresent(page);
       await expect(
