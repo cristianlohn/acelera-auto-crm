@@ -102,21 +102,26 @@ test.describe("[REQ-CRM-11] Auditoria de Responsividade Mobile e Zero Overflow H
         });
       }
 
-      test(`[E2E-RESP-03] Modal de Novo Lead (/leads) não deve vazar a largura da viewport`, async ({
+      test(`[E2E-RESP-03] Modal de Novo Lead (/dashboard/leads) não deve vazar a largura da viewport`, async ({
         page,
       }) => {
         await page.setViewportSize({ width: vp.width, height: vp.height });
-        await page.goto("/leads", { waitUntil: "networkidle" });
+        await page.goto("/dashboard/leads", { waitUntil: "networkidle" });
 
-        // Abre o modal de lead
-        const btnAddLead = page.locator("#btn-add-lead");
+        // Abre o modal de lead com seletor resiliente
+        const btnAddLead = page
+          .getByRole("button", { name: /novo lead|\+ lead/i })
+          .first();
+        await expect(btnAddLead).toBeVisible({ timeout: 10000 });
         await btnAddLead.click();
 
-        const dialog = page.locator("#modal-add-lead");
-        await expect(dialog).toBeVisible();
+        const dialog = page
+          .locator("#modal-add-lead, #modal-add-kanban-lead, [data-testid='modal-add-lead']")
+          .first();
+        await expect(dialog).toBeVisible({ timeout: 10000 });
 
         // Valida que o modal não causa overflow
-        await assertZeroHorizontalOverflow(page, "/leads [Modal Novo Lead]", vp.name);
+        await assertZeroHorizontalOverflow(page, "/dashboard/leads [Modal Novo Lead]", vp.name);
       });
 
       test(`[E2E-RESP-03] Modal de Novo Veículo (/vehicles) não deve vazar a largura da viewport`, async ({

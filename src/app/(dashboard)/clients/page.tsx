@@ -237,7 +237,7 @@ function AddClientModal({
 
       <DialogContent
         id="modal-add-client"
-        className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+        className="max-h-[90vh] overflow-y-auto w-full max-w-[calc(100vw-1.5rem)] overflow-x-hidden sm:max-w-lg"
         aria-describedby="modal-add-client-desc"
       >
         <DialogHeader>

@@ -144,11 +144,11 @@ export function AddKanbanLeadModal({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button
-          id="btn-add-lead-kanban"
-          data-testid="btn-add-lead-kanban"
+          id="btn-add-lead"
+          data-testid="btn-add-lead"
           className={
             triggerClassName ||
-            "gap-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-600 font-bold text-xs"
+            "gap-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg shadow-orange-500/25 hover:from-orange-600 hover:to-red-600 font-bold text-xs shrink-0"
           }
           aria-label="Cadastrar novo lead diretamente no funil"
         >
@@ -158,8 +158,9 @@ export function AddKanbanLeadModal({
       </DialogTrigger>
 
       <DialogContent
-        id="modal-add-kanban-lead"
-        className="max-h-[92vh] overflow-y-auto sm:max-w-lg bg-zinc-950 border-white/10 text-white"
+        id="modal-add-lead"
+        data-testid="modal-add-lead"
+        className="max-h-[92vh] overflow-y-auto w-full max-w-[calc(100vw-1.5rem)] overflow-x-hidden sm:max-w-lg bg-zinc-950 border-white/10 text-white"
       >
         <DialogHeader>
           <div className="flex items-center gap-3">

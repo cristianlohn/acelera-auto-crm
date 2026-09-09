@@ -117,7 +117,7 @@ export function KanbanFilters({
         </div>
 
         {/* Resumo Rápido de Pipeline & Ação de Novo Lead */}
-        <div className="flex items-center gap-3 pl-2 text-xs self-end lg:self-center">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs self-stretch sm:self-end lg:self-center justify-between sm:justify-end">
           {/* Alternador Kanban | Lista */}
           <div className="flex items-center rounded-xl bg-white/5 border border-white/10 p-0.5">
             <button
