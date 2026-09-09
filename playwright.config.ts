@@ -46,8 +46,8 @@ export default defineConfig({
     /* Sobe o servidor explicitamente em 127.0.0.1 e exibe logs em tempo real */
     webServer: {
         command: process.env.CI
-            ? 'npx next start -p 3000 -H 127.0.0.1'
-            : 'npm run dev',
+            ? `npx next start -p ${PORT} -H 127.0.0.1`
+            : `npx next dev -p ${PORT} -H 127.0.0.1`,
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120 * 1000,

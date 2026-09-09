@@ -22,6 +22,7 @@ import {
   StickyNote,
   Plus,
   Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -194,6 +195,7 @@ function VehicleFormContent({
   // Estados de Exclusão
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -306,58 +308,79 @@ function VehicleFormContent({
     e.preventDefault();
     if (!isFormValid || isPending) return;
 
+    setErrorMessage(null);
+
     startTransition(async () => {
-      const primaryPhoto = coverImageUrl || images[0] || "";
-      const vehiclePayload: VehicleFormData & { images?: string[]; fipePrice?: number; color?: string; notes?: string } = {
-        make: make.trim(),
-        model: model.trim(),
-        version: version.trim(),
-        yearFab,
-        yearModel,
-        plate: plate.trim().toUpperCase(),
-        km,
-        price,
-        status,
-        imageUrl: primaryPhoto,
-        images: images, // Array atualizado pós-exclusão
-        fipePrice: fipePrice > 0 ? fipePrice : undefined,
-        fuel,
-        transmission,
-        color,
-        notes: notes.trim() || undefined,
-      };
+      try {
+        const primaryPhoto = coverImageUrl || images[0] || "";
+        const cleanPlate = plate.replace(/[^a-zA-Z0-9]/g, "").toUpperCase().slice(0, 7);
+        const vehiclePayload: VehicleFormData & { images?: string[]; fipePrice?: number; color?: string; notes?: string } = {
+          make: make.trim(),
+          model: model.trim(),
+          version: version.trim(),
+          yearFab,
+          yearModel,
+          plate: cleanPlate,
+          km,
+          price,
+          status,
+          imageUrl: primaryPhoto,
+          images: images, // Array atualizado pós-exclusão
+          fipePrice: fipePrice > 0 ? fipePrice : undefined,
+          fuel,
+          transmission,
+          color,
+          notes: notes.trim() || undefined,
+        };
 
-      if (mode === "edit" && initialVehicle) {
-        const res = await updateVehicleAction(initialVehicle.id, vehiclePayload);
-        const resolvedVehicle = res.vehicle || {
-          ...initialVehicle,
-          ...vehiclePayload,
-        };
-        if (onSuccess) {
-          onSuccess(resolvedVehicle);
-        } else if (onAdd) {
-          onAdd(resolvedVehicle);
+        if (mode === "edit" && initialVehicle) {
+          const res = await updateVehicleAction(initialVehicle.id, vehiclePayload);
+          if (!res.success || !res.vehicle) {
+            setErrorMessage(res.error || "Falha ao atualizar veículo no banco de dados.");
+            return;
+          }
+          if (onSuccess) {
+            onSuccess(res.vehicle);
+          } else if (onAdd) {
+            onAdd(res.vehicle);
+          }
+        } else {
+          const res = await createVehicleAction(vehiclePayload);
+          if (!res.success || !res.vehicle) {
+            setErrorMessage(res.error || "Falha ao cadastrar veículo no banco de dados.");
+            return;
+          }
+          if (onSuccess) {
+            onSuccess(res.vehicle);
+          } else if (onAdd) {
+            onAdd(res.vehicle);
+          }
         }
-      } else {
-        const res = await createVehicleAction(vehiclePayload);
-        const resolvedVehicle = res.vehicle || {
-          id: `v-${Date.now()}`,
-          ...vehiclePayload,
-        };
-        if (onSuccess) {
-          onSuccess(resolvedVehicle);
-        } else if (onAdd) {
-          onAdd(resolvedVehicle);
-        }
+
+        onClose();
+      } catch (err: unknown) {
+        const errorMsg = err instanceof Error ? err.message : "Erro inesperado ao salvar veículo.";
+        setErrorMessage(errorMsg);
       }
-
-      onClose();
     });
   };
 
   return (
     <>
       <form onSubmit={handleSubmit} className="mt-4 space-y-5">
+        {/* Alerta de Erro de Persistência */}
+        {errorMessage && (
+          <div
+            data-testid="vehicle-form-error"
+            className="flex items-start gap-2.5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300"
+          >
+            <AlertCircle className="h-4 w-4 shrink-0 text-red-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-red-400">Não foi possível salvar o veículo</p>
+              <p className="mt-0.5 text-red-300/90">{errorMessage}</p>
+            </div>
+          </div>
+        )}
         {/* ============================================================= */}
         {/* SEÇÃO 1: FOTOS & UPLOAD WEBP                                 */}
         {/* ============================================================= */}
@@ -739,6 +762,8 @@ function VehicleFormContent({
             </Button>
 
             <Button
+              id="btn-submit-vehicle-modal"
+              data-testid="btn-submit-vehicle"
               type="submit"
               disabled={!isFormValid || isPending || isUploading || isDeleting}
               className={cn(

@@ -12,6 +12,11 @@ import {
   deleteVehicleAction,
   getVehiclesAction,
 } from "@/app/actions/vehicle-actions";
+import {
+  normalizeFuel,
+  normalizeTransmission,
+  sanitizePlate,
+} from "@/lib/utils/vehicles";
 import { getVehicles, createVehicle } from "@/app/actions/vehicles";
 
 vi.mock("next/cache", () => ({
@@ -171,6 +176,29 @@ describe("[UNIT-VEHICLE-ACTIONS] Upload e Gestão de Veículos com Galeria WebP"
       expect(result.vehicle?.model).toBe("Corolla Cross");
       expect(result.vehicle?.price).toBe(180000);
       expect(result.vehicle?.images).toContain("https://storage.supabase.co/vehicles/org-test-01/corolla.webp");
+    });
+
+    it("[TEST-CREATE-2] deve sanitizar placa e normalizar enums de combustível e câmbio", async () => {
+      const vehicleWithUnformattedData = {
+        make: "Honda",
+        model: "Civic",
+        yearFab: 2024,
+        yearModel: 2025,
+        price: 160000,
+        km: 10000,
+        plate: "BRA-2E22", // Com hífen (8 caracteres)
+        fuel: "Híbrido (HEV/PHEV)",
+        transmission: "Automático",
+        status: "disponivel" as const,
+      };
+
+      const result = await createVehicleAction(vehicleWithUnformattedData);
+
+      expect(result.success).toBe(true);
+      expect(result.vehicle).toBeDefined();
+      expect(sanitizePlate("BRA-2E22")).toBe("BRA2E22");
+      expect(normalizeFuel("Híbrido (HEV/PHEV)")).toBe("hibrido");
+      expect(normalizeTransmission("Automático")).toBe("automatico");
     });
   });
 

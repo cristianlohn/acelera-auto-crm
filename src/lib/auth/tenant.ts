@@ -252,7 +252,7 @@ export async function resolveUserTenantContext(): Promise<TenantContextResult> {
           isDemo: false,
           userId: user.id,
           userEmail: user.email || null,
-          organizationId: organization?.id || null,
+          organizationId: profile.organization_id || organization?.id || null,
           profile: profile as Profile,
           organization: (organization as Organization) || null,
           needsOnboarding: !organization,

@@ -17,6 +17,7 @@ import {
 } from "@/lib/supabase/server";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { mockVehicles } from "@/lib/mock-data";
+import { createVehicleAction } from "@/app/actions/vehicle-actions";
 import type { Vehicle, VehicleFormData, VehicleStatus } from "@/types/crm";
 import type { Database } from "@/types/database.types";
 
@@ -109,7 +110,7 @@ export async function getVehicles(): Promise<Vehicle[]> {
 }
 
 /**
- * Cadastra um novo veículo no estoque da organização.
+ * Cadastra um novo veículo no estoque da organização delegando para a Server Action canônica.
  *
  * @param form - Dados do formulário do veículo.
  * @returns O veículo persistido formatado para o domínio.
@@ -117,63 +118,11 @@ export async function getVehicles(): Promise<Vehicle[]> {
 export async function createVehicle(
   form: VehicleFormData & { brand?: string; mileage?: number; images?: string[] }
 ): Promise<Vehicle> {
-  const tenantContext = await resolveUserTenantContext();
-  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
-
-  const make = form.make || form.brand || "Marca";
-  const km = form.km !== undefined ? form.km : (form.mileage || 0);
-  const imageUrl = form.imageUrl || (form.images && form.images[0]) || "";
-  const images = form.images && form.images.length > 0 ? form.images : (imageUrl ? [imageUrl] : []);
-
-  const fallbackVehicle: Vehicle = {
-    id: `v-${Date.now()}`,
-    ...form,
-    make,
-    brand: make,
-    km,
-    mileage: km,
-    imageUrl,
-    images,
-  };
-
-  if (!isSupabaseServerConfigured()) {
-    return fallbackVehicle;
+  const result = await createVehicleAction(form);
+  if (!result.success || !result.vehicle) {
+    throw new Error(result.error || "Falha ao cadastrar veículo.");
   }
-
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase
-      .from("vehicles")
-      .insert({
-        organization_id: orgId,
-        make,
-        model: form.model,
-        version: form.version || null,
-        year_fab: form.yearFab,
-        year_model: form.yearModel,
-        price: form.price,
-        mileage: km,
-        plate_last_digits: form.plate,
-        color: form.color || "Prata",
-        fuel: (form.fuel as Database["public"]["Tables"]["vehicles"]["Insert"]["fuel"]) || "flex",
-        transmission: (form.transmission as Database["public"]["Tables"]["vehicles"]["Insert"]["transmission"]) || "automatico",
-        status: form.status,
-        photo_url: imageUrl || null,
-        images: images,
-        notes: form.notes || JSON.stringify({ images }),
-      })
-      .select()
-      .single();
-
-    if (error || !data) {
-      return fallbackVehicle;
-    }
-
-    revalidatePath("/vehicles");
-    return mapDbVehicleToDomain(data);
-  } catch {
-    return fallbackVehicle;
-  }
+  return result.vehicle;
 }
 
 /**
@@ -186,22 +135,35 @@ export async function updateVehicleStatus(
   id: string,
   status: VehicleStatus
 ): Promise<{ success: boolean; id: string; status: VehicleStatus }> {
-  if (!isSupabaseServerConfigured()) {
+  const tenantContext = await resolveUserTenantContext();
+
+  // Modo Demonstração
+  if (tenantContext.isDemo || !isSupabaseServerConfigured()) {
+    const idx = mockVehicles.findIndex((v) => v.id === id);
+    if (idx !== -1) {
+      mockVehicles[idx].status = status;
+    }
+    try {
+      revalidatePath("/vehicles");
+    } catch {}
     return { success: true, id, status };
   }
 
   try {
     const supabase = await createServerSupabaseClient();
-    const { error } = await supabase
-      .from("vehicles")
-      .update({ status })
-      .eq("id", id);
+    let query = supabase.from("vehicles").update({ status }).eq("id", id);
+    if (tenantContext.organizationId) {
+      query = query.eq("organization_id", tenantContext.organizationId);
+    }
+    const { error } = await query;
 
     if (error) {
       return { success: false, id, status };
     }
 
-    revalidatePath("/vehicles");
+    try {
+      revalidatePath("/vehicles");
+    } catch {}
     return { success: true, id, status };
   } catch {
     return { success: true, id, status };

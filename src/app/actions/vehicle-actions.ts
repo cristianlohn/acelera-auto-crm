@@ -13,6 +13,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { mockVehicles } from "@/lib/mock-data";
+import { normalizeFuel, normalizeTransmission, sanitizePlate } from "@/lib/utils/vehicles";
 import type { Vehicle, VehicleFormData } from "@/types/crm";
 import type { Database } from "@/types/database.types";
 
@@ -145,12 +146,14 @@ export async function createVehicleAction(
 ): Promise<{ success: boolean; vehicle?: Vehicle; error?: string }> {
   try {
     const tenantContext = await resolveUserTenantContext();
-    const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
     const make = form.make || form.brand || "Marca";
     const km = form.km !== undefined ? form.km : (form.mileage || 0);
     const imageUrl = form.imageUrl || (form.images && form.images[0]) || "/vehicles/civic.jpg";
     const images = form.images && form.images.length > 0 ? form.images : [imageUrl];
+    const cleanPlate = sanitizePlate(form.plate || form.plateEnd);
+    const normalizedFuel = normalizeFuel(form.fuel);
+    const normalizedTransmission = normalizeTransmission(form.transmission);
 
     const notesPayload = JSON.stringify({
       images,
@@ -160,7 +163,7 @@ export async function createVehicleAction(
     if (tenantContext.isDemo || !isSupabaseServerConfigured()) {
       const newVehicle: Vehicle = {
         id: `v-${Date.now()}`,
-        organizationId: orgId,
+        organizationId: tenantContext.organizationId || DEFAULT_DEMO_ORG_ID,
         make,
         brand: make,
         model: form.model,
@@ -168,8 +171,8 @@ export async function createVehicleAction(
         yearFab: form.yearFab || new Date().getFullYear(),
         yearModel: form.yearModel || new Date().getFullYear() + 1,
         year: `${form.yearFab || new Date().getFullYear()}/${form.yearModel || new Date().getFullYear() + 1}`,
-        plate: form.plate || "ABC1D23",
-        plateEnd: form.plate || "ABC1D23",
+        plate: cleanPlate,
+        plateEnd: cleanPlate,
         km,
         mileage: km,
         price: form.price || 0,
@@ -182,8 +185,21 @@ export async function createVehicleAction(
         notes: form.notes,
       };
 
-      revalidatePath("/vehicles");
+      // Persiste no mock para manter o veículo após refresh (F5) na demonstração
+      mockVehicles.unshift(newVehicle);
+
+      try {
+        revalidatePath("/vehicles");
+      } catch {}
       return { success: true, vehicle: newVehicle };
+    }
+
+    const orgId = tenantContext.organizationId;
+    if (!orgId) {
+      return {
+        success: false,
+        error: "Sessão expirada ou organização não encontrada. Por favor, recarregue a página.",
+      };
     }
 
     const supabase = await createServerSupabaseClient();
@@ -198,10 +214,10 @@ export async function createVehicleAction(
         year_model: form.yearModel,
         price: form.price,
         mileage: km,
-        plate_last_digits: form.plate,
+        plate_last_digits: cleanPlate,
         color: form.color || "Prata",
-        fuel: (form.fuel as Database["public"]["Tables"]["vehicles"]["Insert"]["fuel"]) || "flex",
-        transmission: (form.transmission as Database["public"]["Tables"]["vehicles"]["Insert"]["transmission"]) || "automatico",
+        fuel: normalizedFuel,
+        transmission: normalizedTransmission,
         status: form.status || "disponivel",
         photo_url: imageUrl,
         images: images,
@@ -214,7 +230,9 @@ export async function createVehicleAction(
       return { success: false, error: error?.message || "Erro ao cadastrar veículo no banco." };
     }
 
-    revalidatePath("/vehicles");
+    try {
+      revalidatePath("/vehicles");
+    } catch {}
     return { success: true, vehicle: mapDbVehicleToDomain(data) };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : "Falha ao cadastrar veículo.";
@@ -237,6 +255,7 @@ export async function updateVehicleAction(
     const km = data.km !== undefined ? data.km : data.mileage;
     const imageUrl = data.imageUrl || (data.images && data.images[0]);
     const images = data.images;
+    const cleanPlate = data.plate || data.plateEnd ? sanitizePlate(data.plate || data.plateEnd) : undefined;
 
     if (tenantContext.isDemo || !isSupabaseServerConfigured() || !orgId) {
       const idx = mockVehicles.findIndex((v) => v.id === vehicleId);
@@ -247,7 +266,7 @@ export async function updateVehicleAction(
         version: data.version || "EXL",
         yearFab: data.yearFab || 2023,
         yearModel: data.yearModel || 2024,
-        plate: data.plate || "ABC1D23",
+        plate: cleanPlate || "ABC1D23",
         km: km !== undefined ? km : 15000,
         price: data.price || 150000,
         status: data.status || "disponivel",
@@ -259,6 +278,8 @@ export async function updateVehicleAction(
         ...data,
         make: make || existing.make,
         brand: make || existing.make,
+        plate: cleanPlate || existing.plate,
+        plateEnd: cleanPlate || existing.plateEnd,
         km: km !== undefined ? km : existing.km,
         mileage: km !== undefined ? km : existing.km,
         imageUrl: imageUrl !== undefined ? imageUrl : existing.imageUrl,
@@ -286,8 +307,10 @@ export async function updateVehicleAction(
     if (data.yearModel !== undefined) updatePayload.year_model = data.yearModel;
     if (data.price !== undefined) updatePayload.price = data.price;
     if (km !== undefined) updatePayload.mileage = km;
-    if (data.plate) updatePayload.plate_last_digits = data.plate;
+    if (cleanPlate) updatePayload.plate_last_digits = cleanPlate;
     if (data.color) updatePayload.color = data.color;
+    if (data.fuel !== undefined) updatePayload.fuel = normalizeFuel(data.fuel);
+    if (data.transmission !== undefined) updatePayload.transmission = normalizeTransmission(data.transmission);
     if (data.status) updatePayload.status = data.status;
     if (imageUrl !== undefined) updatePayload.photo_url = imageUrl || null;
     if (images !== undefined) {

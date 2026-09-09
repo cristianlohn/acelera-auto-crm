@@ -30,7 +30,6 @@ import {
 } from "@/lib/mock-data";
 import {
   getVehicles,
-  createVehicle as persistVehicle,
   updateVehicleStatus as persistVehicleStatus,
 } from "@/app/actions/vehicles";
 import type { Vehicle, VehicleStatus } from "@/types/crm";
@@ -148,24 +147,7 @@ export function VehiclesPageClient({
   }, [isDemoMode, initialVehicles]);
 
   const handleAdd = useCallback((vehicle: Vehicle) => {
-    setVehicles((prev) => [vehicle, ...prev]);
-    persistVehicle({
-      make: vehicle.make,
-      model: vehicle.model,
-      version: vehicle.version,
-      yearFab: vehicle.yearFab,
-      yearModel: vehicle.yearModel,
-      plate: vehicle.plate,
-      km: vehicle.km,
-      price: vehicle.price,
-      status: vehicle.status,
-      imageUrl: vehicle.imageUrl,
-      images: vehicle.images,
-      color: vehicle.color,
-      fuel: vehicle.fuel,
-      transmission: vehicle.transmission,
-      notes: vehicle.notes,
-    }).catch(() => {});
+    setVehicles((prev) => [vehicle, ...prev.filter((v) => v.id !== vehicle.id)]);
   }, []);
 
   const handleUpdate = useCallback((updatedVehicle: Vehicle) => {
