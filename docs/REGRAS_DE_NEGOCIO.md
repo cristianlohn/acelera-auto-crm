@@ -1,7 +1,7 @@
 # Especificação Oficial de Regras de Negócio — Acelera Auto CRM
 
 > **Documento de Requisitos de Negócio (BRD) & Especificação Funcional Canônica**  
-> **Versão:** 2.3.0  
+> **Versão:** 0.1.0 
 > **Status:** Aprovado para Engenharia, Auditoria & QA  
 > **Classificação:** Documento Técnico Canônico de Domínio  
 

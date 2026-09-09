@@ -1,7 +1,7 @@
 # Manual Oficial de Cenários de Homologação (UAT) — Acelera Auto CRM
 
 > **Plano de Testes de Aceitação de Usuário (User Acceptance Testing - UAT)**  
-> **Versão:** 2.3.0  
+> **Versão:** 0.1.0  
 > **Status:** Homologado para Operação Comercial  
 > **Ambiente Alvo:** Pré-Produção (Staging) e Demonstração Executiva  
 > **Cobertura:** 100% das Jornadas Críticas do Sistema  
