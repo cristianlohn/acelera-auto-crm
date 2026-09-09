@@ -139,7 +139,9 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
   };
 
   return (
-    <div
+    <article
+      role="article"
+      aria-label={`Lead: ${lead.name}`}
       draggable={true}
       onDragStart={handleDragStart}
       onClick={() => onSelectLead?.(lead)}
@@ -345,6 +347,6 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
-    </div>
+    </article>
   );
 }

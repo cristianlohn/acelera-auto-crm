@@ -7,7 +7,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Plus, User, Phone, Mail, Car, Compass, FileText } from "lucide-react";
+import { Plus, User, Phone, Mail, Car, Compass, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -159,7 +159,7 @@ export function AddKanbanLeadModal({
 
       <DialogContent
         id="modal-add-lead"
-        data-testid="modal-add-lead"
+        data-testid="new-lead-modal"
         className="max-h-[92vh] overflow-y-auto w-full max-w-[calc(100vw-1.5rem)] overflow-x-hidden sm:max-w-lg bg-zinc-950 border-white/10 text-white"
       >
         <DialogHeader>
@@ -367,14 +367,21 @@ export function AddKanbanLeadModal({
               Cancelar
             </Button>
             <Button
-              id="btn-submit-kanban-lead"
-              data-testid="btn-submit-kanban-lead"
+              id="btn-submit-lead"
+              data-testid="btn-submit-lead"
               type="submit"
               size="sm"
               disabled={!isFormValid || isSubmitting}
               className="h-8 gap-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 font-bold text-xs shadow-md shadow-orange-500/20"
             >
-              {isSubmitting ? "Cadastrando..." : "Cadastrar Lead"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  Cadastrando...
+                </>
+              ) : (
+                "Cadastrar Lead"
+              )}
             </Button>
           </div>
         </form>

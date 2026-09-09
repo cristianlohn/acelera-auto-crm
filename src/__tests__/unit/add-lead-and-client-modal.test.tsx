@@ -102,7 +102,7 @@ describe("[UNIT-MODALS] Modais de Cadastro de Lead no Funil e Cliente na Carteir
       await user.type(vehicleInput, "Honda Civic EXL 2023");
 
       // 5. Submete o formulário
-      const submitBtn = screen.getByTestId("btn-submit-kanban-lead");
+      const submitBtn = screen.queryByTestId("btn-submit-kanban-lead") || screen.getByTestId("btn-submit-lead");
       await user.click(submitBtn);
 
       await waitFor(() => {
