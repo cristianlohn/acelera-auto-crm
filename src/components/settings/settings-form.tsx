@@ -59,6 +59,7 @@ import {
 } from "@/app/actions/auth";
 import { formatDocument, formatPhone } from "@/lib/validations/document";
 import type { ApiKey } from "@/types/api-key";
+import type { StoreBusinessHours } from "@/types/business-hours";
 import { MemberRowActions } from "@/components/team/member-row-actions";
 import {
   normalizeRole,
@@ -67,6 +68,7 @@ import {
   canManageIntegrationsAndBilling,
 } from "@/lib/permissions";
 import { WhatsAppIntegrationCard } from "./whatsapp-integration-card";
+import { StoreScheduleForm } from "./store-schedule-form";
 
 // ---------------------------------------------------------------------------
 // Tipos das Abas e Configurações
@@ -112,6 +114,8 @@ export interface PreferencesState {
 export interface SettingsFormProps {
   initialProfile?: UserProfileState | Partial<UserProfileState> | null;
   initialOrganization?: StoreState | Partial<StoreState> | null;
+  initialOrganizationId?: string;
+  initialBusinessHours?: StoreBusinessHours | null;
   initialCRMParams?: CRMParamsState | null;
   initialPreferences?: PreferencesState | null;
   initialTeamMembers?: TeamMember[];
@@ -160,10 +164,13 @@ const ROLE_CONFIG: Record<
 export function SettingsForm({
   initialProfile,
   initialOrganization,
+  initialOrganizationId,
+  initialBusinessHours,
   initialCRMParams,
   initialPreferences,
   initialTeamMembers,
   initialCapacity = INITIAL_CAPACITY,
+  initialApiKeys,
   initialTab,
 }: SettingsFormProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
@@ -899,7 +906,14 @@ export function SettingsForm({
           {/* ABA 3: Parâmetros do CRM & SLA                                   */}
           {/* ================================================================ */}
           {currentTab === "sla" && canManageTeam(effectiveRole) && (
-            <section aria-label="Parâmetros do CRM e SLA" className="space-y-4">
+            <section aria-label="Parâmetros do CRM e SLA" className="space-y-6">
+              {/* Configuração de Horários de Atendimento e SLA da Loja */}
+              <StoreScheduleForm
+                initialBusinessHours={initialBusinessHours}
+                organizationId={initialOrganizationId}
+                isDemo={isDemoMode}
+              />
+
               <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
                 <h2 className="text-sm font-bold text-foreground border-b pb-2">
                   Metas Comerciais & SLA de Atendimento

@@ -25,6 +25,11 @@ import {
 } from "@/lib/validations/lead";
 import { generateShortCode } from "@/lib/utils/nanoid";
 import { syncVehicleStockOnStageChange } from "@/lib/services/vehicles/vehicle-stock-service";
+import {
+  DEFAULT_AUTOMOTIVE_SCHEDULE,
+  parseStoreBusinessHours,
+} from "@/types/business-hours";
+import { calculateBusinessMinutesElapsed } from "@/lib/crm/sla-calculator";
 
 export interface CreateKanbanLeadInput {
   name: string;
@@ -205,12 +210,24 @@ export async function getKanbanLeadsAction(
         const activeMembersList = Array.from(validMembersMap.values());
         let roundRobinIdx = 0;
 
+        let storeBusinessHours = DEFAULT_AUTOMOTIVE_SCHEDULE;
+        try {
+          const { data: orgData } = await supabase
+            .from("organizations")
+            .select("business_hours")
+            .eq("id", orgId)
+            .maybeSingle();
+          if (orgData?.business_hours) {
+            storeBusinessHours = parseStoreBusinessHours(orgData.business_hours);
+          }
+        } catch {}
+
         return Promise.all(
           data.map(async (row) => {
             const createdAtDate = new Date(row.created_at || Date.now());
             const minutesElapsed = Math.max(
               0,
-              Math.round((Date.now() - createdAtDate.getTime()) / 60000)
+              calculateBusinessMinutesElapsed(createdAtDate, new Date(), storeBusinessHours)
             );
 
             const stage = normalizeDbStatusToStage(row.status);

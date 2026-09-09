@@ -80,12 +80,12 @@ export function MarketingHeader({ initialAuthenticated = false }: MarketingHeade
           >
             Como Funciona
           </a>
-          <a
+          <Link
             href="/#simulador"
             className="transition-colors hover:text-orange-400"
           >
             Simulador
-          </a>
+          </Link>
           <a
             href="#planos"
             className="transition-colors hover:text-orange-400"

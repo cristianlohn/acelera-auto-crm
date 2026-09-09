@@ -3,6 +3,9 @@
  * @description Motor de agregação e métricas analíticas para o Cockpit do Gestor ("Dinheiro na Mesa" e SLA de Atendimento).
  */
 
+import type { StoreBusinessHours } from "@/types/business-hours";
+import { calculateBusinessMinutesElapsed } from "@/lib/crm/sla-calculator";
+
 export interface SystemRecommendation {
   id: string;
   type: "critical" | "warning" | "opportunity";
@@ -204,6 +207,7 @@ export function generatePrescriptiveActions(
     now?: Date;
     slaLimitMinutes?: number;
     sellerProfiles?: Array<{ id?: string; name?: string; phone?: string }>;
+    businessHours?: StoreBusinessHours;
   }
 ): CockpitActionItem[] {
   const now = options?.now || new Date();
@@ -263,7 +267,9 @@ export function generatePrescriptiveActions(
 
     // Lead sem retorno (> 15 min na etapa 'novo')
     if (isNew && !firstContactStr && !lastContactStr) {
-      const waitingMinutes = (nowTime - createdAtTime) / 60000;
+      const waitingMinutes = options?.businessHours
+        ? calculateBusinessMinutesElapsed(new Date(createdAtTime), now, options.businessHours)
+        : (nowTime - createdAtTime) / 60000;
       if (waitingMinutes > slaLimit) {
         if (!overdueNewLeadsBySeller[sellerName]) {
           overdueNewLeadsBySeller[sellerName] = [];
@@ -277,7 +283,9 @@ export function generatePrescriptiveActions(
       const lastActionTime = lastContactStr
         ? new Date(lastContactStr).getTime()
         : createdAtTime;
-      const hoursSinceContact = (nowTime - lastActionTime) / 3600000;
+      const hoursSinceContact = options?.businessHours
+        ? calculateBusinessMinutesElapsed(new Date(lastActionTime), now, options.businessHours) / 60
+        : (nowTime - lastActionTime) / 3600000;
       if (hoursSinceContact >= 24) {
         if (!stalledProposalsBySeller[sellerName]) {
           stalledProposalsBySeller[sellerName] = [];
@@ -293,7 +301,9 @@ export function generatePrescriptiveActions(
     const firstLead = sellerLeads[0];
     const firstLeadCreatedAt = firstLead.createdAt || firstLead.created_at;
     const oldestWaitMinutes = Math.round(
-      (nowTime - (firstLeadCreatedAt ? new Date(firstLeadCreatedAt).getTime() : nowTime)) / 60000
+      options?.businessHours && firstLeadCreatedAt
+        ? calculateBusinessMinutesElapsed(new Date(firstLeadCreatedAt), now, options.businessHours)
+        : (nowTime - (firstLeadCreatedAt ? new Date(firstLeadCreatedAt).getTime() : nowTime)) / 60000
     );
 
     const leadName = firstLead.name || "Cliente";
@@ -358,7 +368,9 @@ export function generatePrescriptiveActions(
     const firstLead = sellerLeads[0];
     const lastAction = firstLead.lastContactAt || firstLead.last_contact_at || firstLead.createdAt || firstLead.created_at;
     const hoursSinceAction = Math.round(
-      (nowTime - (lastAction ? new Date(lastAction).getTime() : nowTime)) / 3600000
+      options?.businessHours && lastAction
+        ? calculateBusinessMinutesElapsed(new Date(lastAction), now, options.businessHours) / 60
+        : (nowTime - (lastAction ? new Date(lastAction).getTime() : nowTime)) / 3600000
     );
 
     const leadName = firstLead.name || "Cliente";
@@ -488,9 +500,12 @@ const WON_STATUSES = new Set(["fechado", "ganho", "vendido", "won"]);
  */
 export function calculateCockpitMetrics(
   leads: LeadAnalyticsInput[],
-  slaLimitMinutes = 15
+  slaLimitMinutes = 15,
+  businessHours?: StoreBusinessHours,
+  referenceNow?: Date
 ) {
-  const now = Date.now();
+  const now = referenceNow ? referenceNow.getTime() : Date.now();
+  const nowDate = referenceNow || new Date(now);
 
   let answeredCount = 0;
   let answeredOnTimeCount = 0;
@@ -514,7 +529,9 @@ export function calculateCockpitMetrics(
       answeredCount++;
       const responseMinutes = Math.max(
         0,
-        Math.round((new Date(contactStr).getTime() - createdAt) / 60000)
+        businessHours
+          ? calculateBusinessMinutesElapsed(new Date(createdAt), new Date(contactStr), businessHours)
+          : Math.round((new Date(contactStr).getTime() - createdAt) / 60000)
       );
       totalResponseTimeMinutes += responseMinutes;
       if (responseMinutes <= slaLimitMinutes) {
@@ -524,7 +541,9 @@ export function calculateCockpitMetrics(
       openPendingCount++;
       const waitingMinutes = Math.max(
         0,
-        Math.round((now - createdAt) / 60000)
+        businessHours
+          ? calculateBusinessMinutesElapsed(new Date(createdAt), nowDate, businessHours)
+          : Math.round((now - createdAt) / 60000)
       );
       totalOpenWaitingTimeMinutes += waitingMinutes;
       if (waitingMinutes > slaLimitMinutes) {
@@ -568,6 +587,7 @@ export function calculateManagerCockpitMetrics(
     slaLimitMinutes?: number;
     activeSellers?: string[];
     sellerProfiles?: Array<{ id?: string; name?: string; phone?: string }>;
+    businessHours?: StoreBusinessHours;
   }
 ): ManagerCockpitMetrics {
   const now = options?.now || new Date();
@@ -672,7 +692,12 @@ export function calculateManagerCockpitMetrics(
 
     const createdAtStr = lead.createdAt || lead.created_at;
     const createdAtTime = createdAtStr ? new Date(createdAtStr).getTime() : nowTime;
-    const waitingMinutes = Math.max(0, (nowTime - createdAtTime) / 60000);
+    const waitingMinutes = Math.max(
+      0,
+      options?.businessHours && !options?.isDemo
+        ? calculateBusinessMinutesElapsed(new Date(createdAtTime), now, options.businessHours)
+        : (nowTime - createdAtTime) / 60000
+    );
 
     const firstContactStr = lead.firstContactAt || lead.first_contact_at;
     const lastContactStr = lead.lastContactAt || lead.last_contact_at;
@@ -682,7 +707,12 @@ export function calculateManagerCockpitMetrics(
     if (hasContact && contactStr) {
       answeredCount++;
       const contactTime = new Date(contactStr).getTime();
-      const diffMinutes = Math.max(0, (contactTime - createdAtTime) / 60000);
+      const diffMinutes = Math.max(
+        0,
+        options?.businessHours && !options?.isDemo
+          ? calculateBusinessMinutesElapsed(new Date(createdAtTime), new Date(contactStr), options.businessHours)
+          : (contactTime - createdAtTime) / 60000
+      );
       contactResponseTimes.push(diffMinutes);
       sellerGroups[seller].responseTimes.push(diffMinutes);
 
@@ -726,7 +756,10 @@ export function calculateManagerCockpitMetrics(
     const proposalLastActionTime = lastContactStr
       ? new Date(lastContactStr).getTime()
       : createdAtTime;
-    const hoursSinceLastProposalContact = (nowTime - proposalLastActionTime) / 3600000;
+    const hoursSinceLastProposalContact =
+      options?.businessHours && !options?.isDemo
+        ? calculateBusinessMinutesElapsed(new Date(proposalLastActionTime), now, options.businessHours) / 60
+        : (nowTime - proposalLastActionTime) / 3600000;
 
     if (isProposalStage && hoursSinceLastProposalContact >= 24) {
       proposalsWithoutFollowupCount++;
@@ -857,6 +890,7 @@ export function calculateManagerCockpitMetrics(
           now,
           slaLimitMinutes: slaLimit,
           sellerProfiles: options?.sellerProfiles,
+          businessHours: options?.businessHours,
         });
 
   return {

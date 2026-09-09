@@ -22,6 +22,10 @@ import {
   type ManagerCockpitMetrics,
   type LeadAnalyticsInput,
 } from "@/lib/crm/analytics";
+import {
+  DEFAULT_AUTOMOTIVE_SCHEDULE,
+  parseStoreBusinessHours,
+} from "@/types/business-hours";
 
 /**
  * Retorna as métricas consolidadas do Cockpit do Gestor para a organização ativa com isolamento multi-tenant.
@@ -63,6 +67,7 @@ export async function getManagerCockpitMetrics(
         phone: s.phone,
       })),
       recommendedActions: DEMO_COCKPIT_ACTIONS,
+      businessHours: DEFAULT_AUTOMOTIVE_SCHEDULE,
     });
   }
 
@@ -106,6 +111,21 @@ export async function getManagerCockpitMetrics(
         // Silencioso em caso de isolamento ou ausência de perfis
       }
 
+      // Consulta de horários de funcionamento da organização
+      let storeBusinessHours = DEFAULT_AUTOMOTIVE_SCHEDULE;
+      try {
+        const { data: orgData } = await supabase
+          .from("organizations")
+          .select("business_hours")
+          .eq("id", targetOrgId)
+          .maybeSingle();
+        if (orgData?.business_hours) {
+          storeBusinessHours = parseStoreBusinessHours(orgData.business_hours);
+        }
+      } catch {
+        // Fallback seguro para DEFAULT_AUTOMOTIVE_SCHEDULE
+      }
+
       // Consulta de leads da organização
       let leadsData: Array<Record<string, unknown>> | null = null;
       let leadsError = null;
@@ -139,6 +159,7 @@ export async function getManagerCockpitMetrics(
           defaultTicket: 0,
           activeSellers: activeSellerNames,
           sellerProfiles,
+          businessHours: storeBusinessHours,
         });
       }
 
@@ -210,6 +231,7 @@ export async function getManagerCockpitMetrics(
         defaultTicket: 0,
         activeSellers: activeSellerNames,
         sellerProfiles,
+        businessHours: storeBusinessHours,
       });
     } catch {
       return calculateManagerCockpitMetrics([], { defaultTicket: 0 });

@@ -16,6 +16,7 @@ import { getApiKeysAction } from "@/app/actions/api-key-actions";
 import { SettingsForm, type SettingsTab } from "@/components/settings/settings-form";
 import type { TeamMember } from "@/lib/team-data";
 import type { ApiKey } from "@/types/api-key";
+import { parseStoreBusinessHours } from "@/types/business-hours";
 
 export const metadata: Metadata = {
   title: "Configurações & Gestão de Equipe | Acelera Auto CRM",
@@ -131,11 +132,15 @@ export default async function SettingsPage(props: SettingsPageProps) {
     }
   } catch {}
 
+  const initialBusinessHours = parseStoreBusinessHours(rawOrg?.business_hours);
+
   return (
     <div className="space-y-6">
       <SettingsForm
         initialProfile={profile}
         initialOrganization={organization}
+        initialOrganizationId={tenantContext.organizationId ?? undefined}
+        initialBusinessHours={initialBusinessHours}
         initialTeamMembers={members}
         initialApiKeys={apiKeys}
         initialTab={initialTab}

@@ -50,6 +50,7 @@ import {
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";
 import { calculateManagerCockpitMetrics, type LeadAnalyticsInput } from "@/lib/crm/analytics";
+import { calculateBusinessMinutesElapsed } from "@/lib/crm/sla-calculator";
 import { LeadDetailsModal } from "@/components/leads/lead-details-modal";
 import { MobileKanbanTabs } from "@/components/kanban/mobile-kanban-tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -95,7 +96,7 @@ function mapStageToStatus(stage: LeadStage): LeadStatus {
 
 function convertDomainLeadToKanban(lead: Lead): KanbanLead {
   const elapsedMinutes = lead.lastContactAt
-    ? Math.max(0, Math.round((Date.now() - new Date(lead.lastContactAt).getTime()) / 60000))
+    ? Math.max(0, calculateBusinessMinutesElapsed(new Date(lead.lastContactAt), new Date()))
     : 5;
   return {
     id: lead.id,

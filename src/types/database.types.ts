@@ -66,6 +66,7 @@ export interface Database {
           asaas_subscription_id?: string | null;
           pending_plan?: string | null;
           pending_invoice_id?: string | null;
+          business_hours?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -83,6 +84,7 @@ export interface Database {
           asaas_subscription_id?: string | null;
           pending_plan?: string | null;
           pending_invoice_id?: string | null;
+          business_hours?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -100,6 +102,7 @@ export interface Database {
           asaas_subscription_id?: string | null;
           pending_plan?: string | null;
           pending_invoice_id?: string | null;
+          business_hours?: string | null;
           created_at?: string;
           updated_at?: string;
         };
