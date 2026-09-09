@@ -21,15 +21,20 @@ CREATE TABLE IF NOT EXISTS public.clients (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
+-- Garante a coluna organization_id caso a tabela já existisse com schema antigo
+ALTER TABLE public.clients 
+ADD COLUMN IF NOT EXISTS organization_id UUID REFERENCES public.organizations(id) ON DELETE CASCADE;
+
 -- Índices para buscas rápidas e isolamento multi-tenant
 CREATE INDEX IF NOT EXISTS idx_clients_org_id ON public.clients (organization_id);
 CREATE INDEX IF NOT EXISTS idx_clients_status ON public.clients (organization_id, status);
 CREATE INDEX IF NOT EXISTS idx_clients_phone ON public.clients (phone);
 
 -- Ativação de Row Level Security (RLS)
-ALTER TABLE public.clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.clients ENABLE ROW LEVEL SECURITY;
 
 -- Políticas de RLS
+DROP POLICY IF EXISTS "clients_isolation_policy" ON public.clients;
 CREATE POLICY "clients_isolation_policy" ON public.clients
   FOR ALL
   USING (

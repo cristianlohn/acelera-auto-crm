@@ -23,9 +23,6 @@ alter table if exists public.api_keys enable row level security;
 
 -- 3. Políticas para `organizations`
 drop policy if exists "Utilizadores visualizam a sua própria organização" on public.organizations;
-drop policy if exists "Permitir inserção de organização no cadastro" on public.organizations;
-drop policy if exists "Admins atualizam sua organização" on public.organizations;
-
 create policy "Utilizadores visualizam a sua própria organização"
   on public.organizations for select
   using (
@@ -33,10 +30,12 @@ create policy "Utilizadores visualizam a sua própria organização"
     or auth.jwt()->>'role' = 'service_role'
   );
 
+drop policy if exists "Permitir inserção de organização no cadastro" on public.organizations;
 create policy "Permitir inserção de organização no cadastro"
   on public.organizations for insert
   with check (true);
 
+drop policy if exists "Admins atualizam sua organização" on public.organizations;
 create policy "Admins atualizam sua organização"
   on public.organizations for update
   using (
@@ -46,10 +45,6 @@ create policy "Admins atualizam sua organização"
 
 -- 4. Políticas para `profiles` (Membros da Equipe)
 drop policy if exists "Perfis visíveis dentro da mesma organização" on public.profiles;
-drop policy if exists "Utilizador cria o seu próprio perfil" on public.profiles;
-drop policy if exists "Utilizador atualiza o seu próprio perfil" on public.profiles;
-drop policy if exists "Admins removem perfis da sua organização" on public.profiles;
-
 create policy "Perfis visíveis dentro da mesma organização"
   on public.profiles for select
   using (
@@ -58,6 +53,7 @@ create policy "Perfis visíveis dentro da mesma organização"
     or auth.jwt()->>'role' = 'service_role'
   );
 
+drop policy if exists "Utilizador cria o seu próprio perfil" on public.profiles;
 create policy "Utilizador cria o seu próprio perfil"
   on public.profiles for insert
   with check (
@@ -65,6 +61,7 @@ create policy "Utilizador cria o seu próprio perfil"
     or auth.jwt()->>'role' = 'service_role'
   );
 
+drop policy if exists "Utilizador atualiza o seu próprio perfil" on public.profiles;
 create policy "Utilizador atualiza o seu próprio perfil"
   on public.profiles for update
   using (
@@ -72,6 +69,7 @@ create policy "Utilizador atualiza o seu próprio perfil"
     or auth.jwt()->>'role' = 'service_role'
   );
 
+drop policy if exists "Admins removem perfis da sua organização" on public.profiles;
 create policy "Admins removem perfis da sua organização"
   on public.profiles for delete
   using (
@@ -81,11 +79,8 @@ create policy "Admins removem perfis da sua organização"
 
 -- 5. Políticas para `leads` (Isolamento Estrito de Leads)
 drop policy if exists "Acesso a leads da organização" on public.leads;
-drop policy if exists "leads_select_tenant" on public.leads;
-drop policy if exists "leads_insert_tenant" on public.leads;
-drop policy if exists "leads_update_tenant" on public.leads;
-drop policy if exists "leads_delete_tenant" on public.leads;
 
+drop policy if exists "leads_select_tenant" on public.leads;
 create policy "leads_select_tenant"
   on public.leads for select
   using (
@@ -93,6 +88,7 @@ create policy "leads_select_tenant"
     or auth.jwt()->>'role' = 'service_role'
   );
 
+drop policy if exists "leads_insert_tenant" on public.leads;
 create policy "leads_insert_tenant"
   on public.leads for insert
   with check (
@@ -100,6 +96,7 @@ create policy "leads_insert_tenant"
     or auth.jwt()->>'role' = 'service_role'
   );
 
+drop policy if exists "leads_update_tenant" on public.leads;
 create policy "leads_update_tenant"
   on public.leads for update
   using (
@@ -107,6 +104,7 @@ create policy "leads_update_tenant"
     or auth.jwt()->>'role' = 'service_role'
   );
 
+drop policy if exists "leads_delete_tenant" on public.leads;
 create policy "leads_delete_tenant"
   on public.leads for delete
   using (
@@ -116,8 +114,8 @@ create policy "leads_delete_tenant"
 
 -- 6. Políticas para `vehicles` (Estoque de Veículos)
 drop policy if exists "Acesso a veículos da organização" on public.vehicles;
-drop policy if exists "vehicles_tenant_isolation" on public.vehicles;
 
+drop policy if exists "vehicles_tenant_isolation" on public.vehicles;
 create policy "vehicles_tenant_isolation"
   on public.vehicles for all
   using (
@@ -131,7 +129,6 @@ create policy "vehicles_tenant_isolation"
 
 -- 7. Políticas para `api_keys` (Chaves de Integração)
 drop policy if exists "api_keys_tenant_isolation" on public.api_keys;
-
 create policy "api_keys_tenant_isolation"
   on public.api_keys for all
   using (

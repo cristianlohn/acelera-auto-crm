@@ -14,9 +14,10 @@ CREATE TABLE IF NOT EXISTS public.whatsapp_instances (
 );
 
 -- Habilitar RLS
-ALTER TABLE public.whatsapp_instances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.whatsapp_instances ENABLE ROW LEVEL SECURITY;
 
 -- Política de isolamento multi-tenant
+DROP POLICY IF EXISTS "whatsapp_instances_org_isolation" ON public.whatsapp_instances;
 CREATE POLICY "whatsapp_instances_org_isolation" ON public.whatsapp_instances
   FOR ALL
   USING (

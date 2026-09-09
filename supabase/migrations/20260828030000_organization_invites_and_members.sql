@@ -37,9 +37,10 @@ create index if not exists idx_org_members_user on public.organization_members(u
 create index if not exists idx_org_members_org on public.organization_members(organization_id);
 
 -- 4. RLS para organization_invites e organization_members
-alter table public.organization_invites enable row level security;
-alter table public.organization_members enable row level security;
+alter table if exists public.organization_invites enable row level security;
+alter table if exists public.organization_members enable row level security;
 
+drop policy if exists "Admins e Gerentes gerenciam convites de sua organizacao" on public.organization_invites;
 create policy "Admins e Gerentes gerenciam convites de sua organizacao"
   on public.organization_invites
   for all
@@ -52,6 +53,7 @@ create policy "Admins e Gerentes gerenciam convites de sua organizacao"
     )
   );
 
+drop policy if exists "Membros visualizam membros de sua organizacao" on public.organization_members;
 create policy "Membros visualizam membros de sua organizacao"
   on public.organization_members
   for select

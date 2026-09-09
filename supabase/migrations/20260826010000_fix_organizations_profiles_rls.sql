@@ -6,13 +6,10 @@
 -- ============================================================================
 
 -- 1. Políticas RLS para `organizations`
-alter table public.organizations enable row level security;
-
-drop policy if exists "Utilizadores visualizam a sua própria organização" on public.organizations;
-drop policy if exists "Permitir inserção de organização no cadastro" on public.organizations;
-drop policy if exists "Admins atualizam sua organização" on public.organizations;
+alter table if exists public.organizations enable row level security;
 
 -- Leitura: Utilizadores autenticados visualizam sua própria organização
+drop policy if exists "Utilizadores visualizam a sua própria organização" on public.organizations;
 create policy "Utilizadores visualizam a sua própria organização"
   on public.organizations for select
   using (
@@ -21,11 +18,13 @@ create policy "Utilizadores visualizam a sua própria organização"
   );
 
 -- Inserção: Permitida para service_role e novos cadastros
+drop policy if exists "Permitir inserção de organização no cadastro" on public.organizations;
 create policy "Permitir inserção de organização no cadastro"
   on public.organizations for insert
   with check (true);
 
 -- Atualização: Admins da organização e service_role
+drop policy if exists "Admins atualizam sua organização" on public.organizations;
 create policy "Admins atualizam sua organização"
   on public.organizations for update
   using (
@@ -34,13 +33,10 @@ create policy "Admins atualizam sua organização"
   );
 
 -- 2. Políticas RLS para `profiles`
-alter table public.profiles enable row level security;
-
-drop policy if exists "Perfis visíveis dentro da mesma organização" on public.profiles;
-drop policy if exists "Utilizador cria o seu próprio perfil" on public.profiles;
-drop policy if exists "Utilizador atualiza o seu próprio perfil" on public.profiles;
+alter table if exists public.profiles enable row level security;
 
 -- Leitura: Perfis da mesma organização ou service_role
+drop policy if exists "Perfis visíveis dentro da mesma organização" on public.profiles;
 create policy "Perfis visíveis dentro da mesma organização"
   on public.profiles for select
   using (
@@ -50,6 +46,7 @@ create policy "Perfis visíveis dentro da mesma organização"
   );
 
 -- Inserção: O próprio utilizador ou service_role
+drop policy if exists "Utilizador cria o seu próprio perfil" on public.profiles;
 create policy "Utilizador cria o seu próprio perfil"
   on public.profiles for insert
   with check (
@@ -58,6 +55,7 @@ create policy "Utilizador cria o seu próprio perfil"
   );
 
 -- Atualização: O próprio utilizador ou service_role
+drop policy if exists "Utilizador atualiza o seu próprio perfil" on public.profiles;
 create policy "Utilizador atualiza o seu próprio perfil"
   on public.profiles for update
   using (

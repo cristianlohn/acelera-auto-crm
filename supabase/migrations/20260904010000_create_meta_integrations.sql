@@ -18,9 +18,10 @@ CREATE INDEX IF NOT EXISTS idx_meta_integrations_page_id ON public.meta_integrat
 CREATE INDEX IF NOT EXISTS idx_meta_integrations_org_id ON public.meta_integrations(organization_id);
 
 -- Habilitar RLS
-ALTER TABLE public.meta_integrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.meta_integrations ENABLE ROW LEVEL SECURITY;
 
 -- Política de isolamento multi-tenant
+DROP POLICY IF EXISTS "meta_integrations_org_isolation" ON public.meta_integrations;
 CREATE POLICY "meta_integrations_org_isolation" ON public.meta_integrations
   FOR ALL
   USING (
