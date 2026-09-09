@@ -99,6 +99,22 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
     }
   }
 
+  // Helper para navegar de forma segura com tolerância a redirecionamentos intermediários e ERR_ABORTED
+  async function safeGoto(page: Page, url: string) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded" });
+    } catch (err) {
+      if (String(err).includes("ERR_ABORTED")) {
+        await page.waitForTimeout(600);
+        await page.goto(url, { waitUntil: "domcontentloaded" });
+      } else {
+        throw err;
+      }
+    }
+    await page.waitForLoadState("domcontentloaded");
+    await dismissTourIfPresent(page);
+  }
+
   /**
    * Rotina de Teardown Automático:
    * Executada incondicionalmente no final para garantir banco 100% limpo sem sobras de teste.
@@ -229,28 +245,29 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
 
       // Trata fluxo de redirecionamento ou login direto
       const verificationCard = page.locator('[data-testid="verification-sent-card"]');
-      const leadsRegex = /.*\/(dashboard\/)?leads.*/;
+      const leadsRegex = /.*\/dashboard\/leads.*/;
 
-      // Aguarda até a página sair do formulário (ir para /leads, /login ou exibir o verificationCard)
+      // Aguarda até a página sair do formulário (ir para /dashboard/leads, /leads, /login ou exibir o verificationCard)
       await Promise.race([
-        page.waitForURL(leadsRegex, { timeout: 15000 }).catch(() => {}),
+        page.waitForURL(/.*leads.*/, { timeout: 15000 }).catch(() => {}),
         verificationCard.waitFor({ state: "visible", timeout: 15000 }).catch(() => {}),
         page.waitForURL(/.*login.*/, { timeout: 15000 }).catch(() => {}),
       ]);
 
-      const onLeads = leadsRegex.test(page.url());
+      const onLeads = /.*leads.*/.test(page.url());
       if (!onLeads) {
         // Se exigiu confirmação de e-mail ou caiu no /login, realiza login com credenciais
-        await page.goto("/login");
-        await page.waitForLoadState("domcontentloaded");
+        await safeGoto(page, "/login");
         await page.fill("#login-email", testEmail);
         await page.fill("#login-password", testPassword);
         await page.click("#btn-submit-login");
       }
 
-      // Aguarda chegada ao CRM (/leads ou /dashboard/leads)
-      await page.waitForURL(leadsRegex, { timeout: 20000 });
+      // Aguarda chegada ao CRM canônico (/dashboard/leads) e estabilização de rede
+      await page.waitForURL(leadsRegex, { timeout: 25000 });
       await expect(page).toHaveURL(leadsRegex);
+      await page.waitForLoadState("domcontentloaded");
+      await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
       await dismissTourIfPresent(page);
     });
 
@@ -258,9 +275,7 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
     // FASE 2: SLA e Expediente da Loja
     // -------------------------------------------------------------------------
     await test.step("Fase 2: Acessar /settings, auditar matriz de SLA padrão do trigger e alternar sábado", async () => {
-      await page.goto("/settings?tab=sla", { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("domcontentloaded");
-      await dismissTourIfPresent(page);
+      await safeGoto(page, "/settings?tab=sla");
 
       // Audita que a matriz padrão do CRM_CONTEXT.md foi persistida no banco pelo trigger
       // Segunda a Sexta marcadas como abertas
@@ -296,9 +311,7 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
     // FASE 3: Kanban e Motor de SLA
     // -------------------------------------------------------------------------
     await test.step("Fase 3: Criar lead manual no Kanban e verificar badge de SLA ativa", async () => {
-      await page.goto("/dashboard/leads", { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("domcontentloaded");
-      await dismissTourIfPresent(page);
+      await safeGoto(page, "/dashboard/leads");
 
       // Abre o modal de cadastro manual de lead
       const addLeadBtn = page.locator("#btn-add-lead, [data-testid='btn-add-lead']");
@@ -362,18 +375,14 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
       await expect(detailsModal).not.toBeVisible({ timeout: 15000 });
 
       // 1. Auditoria em Estoque (/vehicles)
-      await page.goto("/vehicles", { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("domcontentloaded");
-      await dismissTourIfPresent(page);
+      await safeGoto(page, "/vehicles");
       await expect(
         page.getByRole("heading", { level: 1, name: /estoque de veículos/i })
       ).toBeVisible({ timeout: 15000 });
       await expect(page.locator('button:has-text("Pátio Ativo")')).toBeVisible({ timeout: 15000 });
 
       // 2. Auditoria em Relatórios (/reports)
-      await page.goto("/reports", { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("domcontentloaded");
-      await dismissTourIfPresent(page);
+      await safeGoto(page, "/reports");
       await expect(page.getByRole("heading", { name: /relatórios/i })).toBeVisible({ timeout: 15000 });
       await expect(page.getByText("Faturamento Realizado")).toBeVisible({ timeout: 15000 });
       await expect(page.getByText("Taxa de Conversão Global")).toBeVisible({ timeout: 15000 });
@@ -381,9 +390,7 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
       await expect(page.getByText("Tempo Médio de Resposta (SLA)")).toBeVisible({ timeout: 15000 });
 
       // 3. Auditoria no Cockpit / Dashboard (/dashboard)
-      await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("domcontentloaded");
-      await dismissTourIfPresent(page);
+      await safeGoto(page, "/dashboard");
       await expect(
         page.getByRole("heading", { level: 1, name: /cockpit (geral|do gestor)|meu cockpit/i })
       ).toBeVisible({ timeout: 15000 });
