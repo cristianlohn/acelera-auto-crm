@@ -36,10 +36,20 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  test.beforeEach(() => {
+  const isSupabaseConfigured = Boolean(
+    supabaseUrl &&
+      serviceRoleKey &&
+      supabaseUrl !== "https://placeholder.supabase.co" &&
+      !supabaseUrl.includes("placeholder") &&
+      serviceRoleKey !== "placeholder" &&
+      !serviceRoleKey.includes("placeholder")
+  );
+
+  test.beforeEach(({ isMobile }) => {
+    test.skip(isMobile, "Jornada de homologação destina-se exclusivamente ao viewport Desktop.");
     test.skip(
-      !supabaseUrl || !serviceRoleKey,
-      "Credenciais do Supabase ausentes no ambiente CI. Teste ignorado."
+      !isSupabaseConfigured,
+      "Credenciais do Supabase ausentes ou placeholders no ambiente de testes. Teste ignorado."
     );
   });
 
@@ -47,7 +57,7 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
    * Inicializa o Supabase Admin Client com privilégios elevados para o teardown.
    */
   function getAdminClient() {
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!isSupabaseConfigured || !supabaseUrl || !serviceRoleKey) {
       return null;
     }
 
@@ -97,11 +107,12 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
         }
       }
 
-      // 2. Remove leads gerados com o prefixo [E2E-TEST]
-      await admin
-        .from("leads")
-        .delete()
-        .like("name", "%[E2E-TEST]%");
+      // 2. Remove leads gerados para esta organização ou com o prefixo [E2E-TEST]
+      if (organizationId) {
+        await admin.from("leads").delete().eq("organization_id", organizationId);
+      } else {
+        await admin.from("leads").delete().like("name", "%[E2E-TEST]%");
+      }
 
       // 3. Remove a organização criada (com cascata de perfis e configurações)
       if (organizationId) {

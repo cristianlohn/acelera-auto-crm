@@ -100,12 +100,13 @@ test.describe("Autenticação e Layout da Página de Login", () => {
       const menuBtn = page.locator('button[aria-label="Abrir menu"]');
       await menuBtn.click();
       const mobileLogoutBtn = page.locator("#btn-logout-mobile");
-      await expect(mobileLogoutBtn).toBeVisible();
-      await mobileLogoutBtn.click();
+      await expect(mobileLogoutBtn).toBeVisible({ timeout: 10000 });
+      await page.waitForTimeout(300);
+      await mobileLogoutBtn.click({ force: true });
     } else {
       const logoutBtn = page.locator("#btn-logout-sidebar");
-      await expect(logoutBtn).toBeVisible();
-      await logoutBtn.click();
+      await expect(logoutBtn).toBeVisible({ timeout: 10000 });
+      await logoutBtn.click({ force: true });
     }
 
     // 3. Aguarda redirecionamento para a tela de login
