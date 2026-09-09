@@ -1,7 +1,7 @@
 # Manual Oficial de Cenários de Homologação (UAT) — Acelera Auto CRM
 
 > **Plano de Testes de Aceitação de Usuário (User Acceptance Testing - UAT)**  
-> **Versão:** 2.1.0  
+> **Versão:** 2.3.0  
 > **Status:** Homologado para Operação Comercial  
 > **Ambiente Alvo:** Pré-Produção (Staging) e Demonstração Executiva  
 > **Cobertura:** 100% das Jornadas Críticas do Sistema  
@@ -14,9 +14,11 @@
 2. [Seção 2: Operação do Funil de Vendas (Kanban & Lista)](#2-operação-do-funil-de-vendas-kanban--lista)
 3. [Seção 3: Ações Rápidas de WhatsApp (1-Clique)](#3-ações-rápidas-de-whatsapp-1-clique)
 4. [Seção 4: Roleta Comercial & Ingestão de Leads via Webhook](#4-roleta-comercial--ingestão-de-leads-via-webhook)
-5. [Seção 5: Cockpit Executivo do Gestor ("Dinheiro na Mesa")](#5-cockpit-executivo-do-gestor-dinheiro-na-mesa)
-6. [Seção 6: Módulo de Relatórios Executivos & Carteira de Clientes](#6-módulo-de-relatórios-executivos--carteira-de-clientes)
-7. [Seção 7: Gestão de Estoque & FIPE de Referência](#7-gestão-de-estoque--fipe-de-referência)
+5. [Seção 5: Engine Adaptativa de SLA & Horários de Atendimento (Feirão / Plantão)](#5-engine-adaptativa-de-sla--horários-de-atendimento-feirão--plantão)
+6. [Seção 6: Cockpit Executivo do Gestor ("Dinheiro na Mesa")](#6-cockpit-executivo-do-gestor-dinheiro-na-mesa)
+7. [Seção 7: Módulo de Relatórios Executivos & Carteira de Clientes](#7-módulo-de-relatórios-executivos--carteira-de-clientes)
+8. [Seção 8: Gestão de Estoque, Margens & FIPE de Referência](#8-gestão-de-estoque-margens--fipe-de-referência)
+9. [Seção 9: Protocolo de Encerramento e Aprovação](#9-protocolo-de-encerramento-e-aprovação)
 
 ---
 
@@ -74,18 +76,23 @@
 
 ---
 
-### UAT-DEMO-04: Isolamento Estrito de Memória (Sem Poluição do Banco Supabase)
-- **Perfil do Usuário:** Gestor (Modo Demo).
-- **Pré-condições:** Sessão demo ativa.
+### UAT-DEMO-04: Operação em Modo de Demonstração e Isolamento Estrito de Memória (Zero Poluição do Supabase)
+- **Perfil do Usuário:** Visitante / Gestor Comercial (Modo Demonstração).
+- **Pré-condições:** Sessão demo ativa iniciada pelo botão `"Experimentar Demonstração"` em `/`.
 - **Passo a Passo de Ação:**
-  1. Na rota `/dashboard/leads`, clicar em `"+ Novo Lead"`.
-  2. Preencher os campos: Nome: `"Cliente Homologação Demo"`, Telefone: `"(11) 99999-0001"`, Veículo: `"Fiat Pulse 2023"`.
-  3. Clicar em `"Salvar Lead"`.
-  4. Observar a inclusão imediata do card no topo da coluna `"Novo Lead"`.
+  1. Na rota `/dashboard/leads`, clicar em `"+ Novo Lead"`. Preencher: Nome: `"Cliente Homologação Demo"`, Telefone: `"(11) 99999-0001"`, Veículo: `"Fiat Pulse 2023"`, e salvar.
+  2. Arrastar o card recém-criado de `"Novo Lead"` para `"Em Atendimento"` e em seguida para `"Visita / Test-Drive"`.
+  3. No menu lateral, navegar para `/vehicles` e cadastrar um novo veículo: `"Chevrolet Onix RS 2024"`, Preço: `R$ 95.000`, Custo: `R$ 82.000`.
+  4. Navegar para `/settings?tab=sla` e alterar o horário de sábado para `"08:00 às 16:00"` com regime de plantão.
+  5. Clicar em salvar horários e observar a resposta da Server Action.
+  6. Consultar a base PostgreSQL do Supabase (tabelas `public.leads`, `public.vehicles`, `public.organizations`).
+  7. Pressionar `F5` (recarregar página) no navegador.
 - **Resultado Esperado Exato:**
-  - Card aparece instantaneamente na interface com toast: `"🎯 Lead cadastrado com sucesso!"`.
-  - Nenhuma linha é inserida na tabela `public.leads` do Supabase sob tenant de produção.
-- **Critério de Falha Crítica:** Ocorrer requisição com falha de chave estrangeira no banco ou gravar dados fictícios na base de produção.
+  - Todas as operações na UI ocorrem instantaneamente (< 100ms) com feedback tátil de sucesso (toasts informativos).
+  - Nenhuma linha ou mutação (INSERT / UPDATE / DELETE) é registrada nas tabelas de produção do Supabase.
+  - A conta do tenant ativo na demo (`DEFAULT_DEMO_ORG_ID`: `a0000000-0000-0000-0000-000000000001`) mantém isolamento total.
+  - Ao recarregar a página, a aplicação restaura o dataset canônico oficial de 24 leads (R$ 215.800 fechados) sem degradação ou estado corrompido.
+- **Critério de Falha Crítica:** Disparar requisições SQL que gravem registros no banco Supabase ou exibir telas de erro 401/403/500 durante qualquer ação da jornada demo.
 
 ---
 
@@ -241,7 +248,64 @@
 
 ---
 
-## 5. Cockpit Executivo do Gestor ("Dinheiro na Mesa")
+---
+
+## 5. Engine Adaptativa de SLA & Horários de Atendimento (Feirão / Plantão)
+
+### UAT-SLA-01: Recebimento de Lead no Domingo à Tarde em Loja Convencional (Congelamento de SLA até Segunda-feira 08:30)
+- **Perfil do Usuário:** Gestor Comercial / Vendedor de Plantão.
+- **Pré-condições:** Concessionária operando com a jornada padrão automotiva (`DEFAULT_AUTOMOTIVE_SCHEDULE`: Seg-Sex 08:30 às 18:30, Sáb 09:00 às 13:00, Dom Fechado).
+- **Passo a Passo de Ação:**
+  1. Simular a entrada de um lead no **Domingo às 14:00** via webhook ou formulário público.
+  2. Verificar o lead na coluna `"Novo Lead"` no Domingo às 18:00 (4 horas após a criação).
+  3. Acessar o sistema na **Segunda-feira às 08:40** (10 minutos após a abertura da loja).
+  4. Inspecionar o tempo decorrido no card às **08:45** (15 minutos após a abertura da loja).
+  5. Inspecionar o tempo decorrido no card às **08:50** (20 minutos após a abertura da loja).
+- **Resultado Esperado Exato:**
+  - **No Domingo às 18:00:** O tempo útil decorrido (`calculateBusinessMinutesElapsed`) é exatamente **0 minutos**. O cronômetro de SLA está congelado e o card não apresenta sinal de alerta.
+  - **Na Segunda-feira às 08:40:** Tempo útil decorrido = **10 minutos**. O semáforo permanece **Verde** (Dentro da meta).
+  - **Na Segunda-feira às 08:45:** Tempo útil decorrido = exatamente **15 minutos** (limite tolerado). O semáforo transita para **Amarelo** (Atenção).
+  - **Na Segunda-feira às 08:50:** Tempo útil decorrido = **20 minutos**. O semáforo transita para **Vermelho** (Crítico / Estourado). O Cockpit passa a contabilizar o lead em `"Leads sem retorno (> 15 min)"` e a computar seu valor em `"Valor em Risco"`.
+  - As 18 horas e 30 minutos em que a loja esteve fechada (domingo tarde/noite e madrugada de segunda) foram **100% ignoradas**.
+- **Critério de Falha Crítica:** Acusar estouro de SLA (> 15 min) antes das 08:45 de segunda-feira ou somar os minutos em que a revenda esteve com as portas fechadas.
+
+---
+
+### UAT-SLA-02: Ativação de Regime de Feirão no Fim de Semana (Contagem de Minutos Úteis e Alerta Operacional)
+- **Perfil do Usuário:** Gestor Comercial / Administrador da Loja.
+- **Pré-condições:** Gestor autenticado na aba de parâmetros de SLA (`/settings?tab=sla`).
+- **Passo a Passo de Ação:**
+  1. Localizar o dia **Domingo** na grade semanal de horários de funcionamento.
+  2. Ativar o switch para `"Aberto"` e configurar o horário de expediente das **09:00 às 17:00**.
+  3. Observar a renderização do badge comemorativo `Regime de Plantão / Feirão` no card do Domingo.
+  4. Clicar em `"Salvar Horários de Atendimento"`.
+  5. Ingerir um novo lead no **Domingo às 09:15** atribuído à roleta comercial.
+  6. Avaliar o card e o Cockpit no **Domingo às 10:00** (45 minutos após a criação do lead durante o Feirão).
+- **Resultado Esperado Exato:**
+  - Como a loja declarou regime de plantão no domingo, o motor calcula exatamente **45 minutos úteis decorridos** (`10:00 - 09:15 = 45 min`).
+  - Como $45\text{ min} > 15\text{ min}$, o semáforo do card torna-se imediatamente **Vermelho** no Kanban.
+  - O Cockpit do Gestor (`/dashboard`) incrementa o cartão de gargalo `"Leads sem retorno"` em 1 unidade e exibe recomendação prescritiva de cobrança do consultor de plantão.
+- **Critério de Falha Crítica:** O cronômetro de SLA permanecer congelado em 0 minutos durante o horário comercial ativo do Feirão.
+
+---
+
+### UAT-SLA-03: Alternância para Modo 24/7 Contínuo (Central de Atendimento Digital)
+- **Perfil do Usuário:** Gestor Comercial de Central Digital / Call Center.
+- **Pré-condições:** Gestor acessando a aba `/settings?tab=sla`.
+- **Passo a Passo de Ação:**
+  1. No topo da configuração de horários, alternar o seletor Master para:  
+     `"Modo 24/7 Contínuo"` (Ícone de Raio / Semáforo ininterrupto).
+  2. Salvar as configurações da organização.
+  3. Avaliar um lead recebido no Domingo às 14:00 na Segunda-feira às 08:45.
+- **Resultado Esperado Exato:**
+  - O motor analítico computa o tempo corrido integral tradicional:  
+    $\Delta_{\text{tempo}} = 18\text{ horas e } 45\text{ minutos} = \mathbf{1125\text{ minutos}}$.
+  - O card acusa estouro massivo de SLA e entra em alerta crítico imediato.
+- **Critério de Falha Crítica:** O sistema pausar o tempo noturno quando a loja estiver configurada explicitamente em modo contínuo 24/7.
+
+---
+
+## 6. Cockpit Executivo do Gestor ("Dinheiro na Mesa")
 
 ### UAT-COCKPIT-01: Coerência Matemática dos Indicadores de Topo
 - **Perfil do Usuário:** Gestor Comercial.
@@ -277,7 +341,7 @@
 
 ---
 
-## 6. Módulo de Relatórios Executivos & Carteira de Clientes
+## 7. Módulo de Relatórios Executivos & Carteira de Clientes
 
 ### UAT-REP-01: Filtro Temporal de Desempenho e Faturamento
 - **Perfil do Usuário:** Gestor ou Administrador.
@@ -326,7 +390,23 @@
 
 ---
 
-## 7. Gestão de Estoque & FIPE de Referência
+### UAT-REP-04: Cálculo Estritamente Dinâmico de Ticket Médio (Faturamento Total ÷ Vendas Concluídas)
+- **Perfil do Usuário:** Gestor Comercial / Diretor Financeiro.
+- **Pré-condições:** Acesso ao módulo de relatórios executivos (`/dashboard/reports`).
+- **Passo a Passo de Ação:**
+  1. No seletor de filtros temporais, alternar sequencialmente entre: `7 dias`, `30 dias`, `Mês Atual`, `Trimestre` e `Ano`.
+  2. Para cada período, anotar o valor exibido no card `"Faturamento Total"` e no card `"Vendas Fechadas"`.
+  3. Observar o valor exibido no card `"Ticket Médio por Veículo"`.
+- **Resultado Esperado Exato:**
+  - Em todos os períodos, o Ticket Médio é rigorosamente calculado em tempo real via:
+    $$\text{averageTicket} = \frac{\text{totalRevenue}}{\text{totalSalesCount}}$$
+  - No filtro de Mês Atual / Base Demo: $\text{R\$ } 215.800 / 3 = \mathbf{\text{R\$ } 71.933}$.
+  - Caso um filtro selecionado não possua vendas registradas ($0$ vendas), o card exibe com segurança `R$ 0,00` (sem erros de `NaN` ou quebras de renderização).
+- **Critério de Falha Crítica:** Exibir valores estáticos divergentes do resultado matemático da divisão de faturamento por vendas.
+
+---
+
+## 8. Gestão de Estoque, Margens & FIPE de Referência
 
 ### UAT-EST-01: Cadastro de Veículo com "FIPE de Referência"
 - **Perfil do Usuário:** Gestor ou Vendedor.
@@ -346,9 +426,9 @@
 - **Resultado Esperado Exato:**
   - Veículo cadastrado instantaneamente com status `Disponível`.
   - Card ou linha no grid exibindo:
-    - Preço da Loja: `R$ 159.900`.
-    - FIPE de Referência: `R$ 155.000`.
-    - Margem Bruta Estimada calculada: `R$ 17.900` (`159.900 - 142.000`).
+     - Preço da Loja: `R$ 159.900`.
+     - FIPE de Referência: `R$ 155.000`.
+     - Margem Bruta Estimada calculada: `R$ 17.900` (`159.900 - 142.000`).
   - Zero bloqueios por validação de serviço externo de FIPE.
 - **Critério de Falha Crítica:** Exigir consulta obrigatória a API de terceiros ou calcular margem bruta negativa incorretamente.
 
@@ -368,10 +448,36 @@
 
 ---
 
-## 8. Protocolo de Encerramento e Aprovação
+### UAT-EST-03: Auditoria dos Cards de Margem no Histórico de Veículos Vendidos (Margem Média vs Margem Total)
+- **Perfil do Usuário:** Gestor Comercial / Auditor de Estoque.
+- **Pré-condições:** Acessar a rota de estoque e selecionar a aba `"Histórico de Vendidos"` (`/vehicles?tab=vendidos`).
+- **Passo a Passo de Ação:**
+  1. Inspecionar o grid de 4 MetricCards de consolidação no topo da tela.
+  2. Verificar o card `"Margem Média por Veículo"` (Card Violeta):
+     - Valor exibido: **R$ 7.933**.
+     - Subtítulo: `(R$ 23.800 ÷ 3 veículos)`.
+     - Tooltip: `"Média de lucro bruto estimada por unidade vendida (R$ 23.800 ÷ 3 veículos)."`.
+  3. Verificar o card `"Margem Bruta Total Realizada"` (Card Esmeralda):
+     - Valor exibido: **R$ 23.800**.
+     - Subtítulo: `"lucro bruto acumulado"`.
+     - Tooltip: `"Soma total das margens brutas de todos os veículos vendidos no histórico (R$ 23.800)."`.
+  4. Rolar para os 3 cards individuais de veículos vendidos na grade e verificar suas margens calculadas:
+     - **Toyota Corolla Altis 2022:** Venda R$ 90.000 / Custo R$ 80.000 $\rightarrow$ Margem Bruta = **R$ 10.000**.
+     - **Jeep Compass Longitude 2021:** Venda R$ 52.900 / Custo R$ 46.000 $\rightarrow$ Margem Bruta = **R$ 6.900**.
+     - **Chevrolet Tracker Premier 2022:** Venda R$ 72.900 / Custo R$ 66.000 $\rightarrow$ Margem Bruta = **R$ 6.900**.
+  5. Somar as margens: $\text{R\$ } 10.000 + 6.900 + 6.900 = \mathbf{\text{R\$ } 23.800}$.
+  6. Dividir por 3: $\text{R\$ } 23.800 / 3 = \mathbf{\text{R\$ } 7.933,33}$.
+- **Resultado Esperado Exato:**
+  - Coerência matemática absoluta entre os cards consolidadores de topo e as unidades vendidas na listagem.
+  - Distinção semântica clara e sem ambiguidades entre margem média unitária e margem total em caixa.
+- **Critério de Falha Crítica:** Exibir apenas um card genérico de margem sem especificar se é média ou total, ou apresentar divergência na soma das margens individuais.
+
+---
+
+## 9. Protocolo de Encerramento e Aprovação
 
 | Papel | Responsável | Data da Homologação | Status |
 |---|---|:---:|:---:|
-| **Engenharia de Software** | Antigravity AI Pair Programming | 08/09/2026 | **APROVADO** |
-| **Garantia da Qualidade (QA)** | Suíte Automatizada Vitest (746 Testes) | 08/09/2026 | **APROVADO** |
-| **Product Owner (PO)** | Equipe Acelera Auto CRM | 08/09/2026 | **APROVADO** |
+| **Engenharia de Software** | Antigravity AI Pair Programming | 09/09/2026 | **APROVADO** |
+| **Garantia da Qualidade (QA)** | Suíte Automatizada Vitest (770 Testes) | 09/09/2026 | **APROVADO** |
+| **Product Owner (PO)** | Equipe Acelera Auto CRM | 09/09/2026 | **APROVADO** |

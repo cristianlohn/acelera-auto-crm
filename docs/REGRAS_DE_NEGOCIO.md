@@ -1,7 +1,7 @@
 # Especificação Oficial de Regras de Negócio — Acelera Auto CRM
 
 > **Documento de Requisitos de Negócio (BRD) & Especificação Funcional Canônica**  
-> **Versão:** 2.1.0  
+> **Versão:** 2.3.0  
 > **Status:** Aprovado para Engenharia, Auditoria & QA  
 > **Classificação:** Documento Técnico Canônico de Domínio  
 
@@ -19,8 +19,12 @@ A tabela abaixo define formalmente os termos, entidades, conceitos operacionais 
 | **Plantão / In Roulette** | Estado operacional temporário que indica se o consultor de vendas está apto a receber novos leads no momento do disparo. | `in_roulette`, `is_online`, `onDuty`, `roulette_status` | Filtro booleano aplicado aos perfis antes da seleção do próximo beneficiário na roleta. |
 | **Cockpit do Gestor** | Painel analítico executivo que consolida indicadores operacionais, volumetria, gargalos de atendimento e valores negociados. | `cockpit`, `manager-cockpit`, `ManagerActionCockpit` | Visualização estratégica exclusiva para papéis com permissão gerencial ou administrativa (`manager`, `admin`). |
 | **Dinheiro na Mesa** | Indicador financeiro consolidado que soma o valor estimado dos veículos de interesse de todos os leads ativos no funil (desconsiderando ganhos e perdidos). | `moneyOnTable`, `dinheiroNaMesa`, `totalPipelineValue` | Métrica dinâmica calculada com base em `leads.estimated_value` ou preço do veículo associado. |
+| **Horários de Atendimento & SLA** | Configuração semanal de expediente da loja para contagem adaptativa de SLA (minutos úteis de atendimento vs. contínuo 24/7). | `StoreBusinessHours`, `DaySchedule`, `business_hours`, `slaMode` | Motor de SLA em `src/lib/crm/sla-calculator.ts` e aba SLA em `/settings`. |
+| **Regime de Plantão / Feirão** | Regime de expediente estendido aos fins de semana (sábados à tarde ou domingos) com contagem ativa de tempo de atendimento. | `feirão`, `plantao_fds`, `isStoreCurrentlyOpen` | Badge visual em `/settings` e ativação de jornada útil no fim de semana. |
 | **FIPE de Referência** | Valor venal médio informado manualmente pelo operador como parâmetro de balizamento comercial para avaliação de veículos e trocas. | `fipe_price`, `fipePrice`, `fipe_reference` | Módulo de Estoque e Propostas. Não depende de consulta a APIs externas pagas. |
-| **Margem Bruta Estimada** | Spread financeiro bruto previsto entre o preço de venda e o custo de aquisição/entrada do seminovo no pátio. | `estimatedMargin`, `gross_margin`, `spread` | Módulo de Estoque e Relatórios. Substitui a terminologia contábil incorreta de "lucro líquido". |
+| **Margem Bruta Estimada** | Spread financeiro bruto previsto entre o preço de venda anunciado e o custo de aquisição/entrada do seminovo no pátio. | `estimatedMargin`, `gross_margin`, `spread` | Módulo de Estoque e Relatórios. Não deduz despesas de preparação, impostos ou comissões. |
+| **Margem Média por Veículo** | Média aritmética da margem bruta por unidade vendida no histórico (`Margem Bruta Total ÷ Quantidade de Vendidos`). | `margemMedia`, `averageMarginPerVehicle` | Histórico de Estoque (`/vehicles?tab=vendidos`). Ex: R$ 7.933 na demo (R$ 23.800 ÷ 3). |
+| **Margem Bruta Total Realizada** | Soma monetária acumulada dos spreads de lucro bruto de todas as unidades vendidas no pátio. | `margemTotal`, `totalRealizedMargin` | Card executivo em `/vehicles?tab=vendidos` e relatórios financeiros. Ex: R$ 23.800 na demo. |
 | **Evolution API v2** | Gateway de mensageria externa via protocolo HTTP REST acoplado ao motor WhatsApp Web/Baileys para envio de notificações internas. | `evolution`, `evolutionApi`, `whatsapp-client` | Disparo automático de alertas para vendedores quando um novo lead entra na roleta. |
 | **Link 1-Clique WhatsApp** | Ação rápida descentralizada no CRM que abre diretamente o WhatsApp Web/App (`wa.me`) no dispositivo do vendedor com mensagem pronta. | `wa.me`, `whatsapp_link`, `one_click_whatsapp` | Atendimento comercial direto do vendedor ao cliente sem custo de API por mensagem. |
 | **Asaas** | Gateway de liquidação de faturamento via Pix, Boleto e Cartão de Crédito para planos de assinatura do CRM. | `asaas`, `asaas-webhook`, `subscription-service` | Gestão de assinaturas recorrentes, faturas e controle de vigência (`current_period_end`). |
@@ -49,33 +53,36 @@ export type UserRole =
 export type NormalizedRole = "seller" | "manager" | "admin" | "superadmin";
 ```
 
-- **`seller` (Vendedor / Consultor):** Papel operacional de atendimento.
+- **`seller` (Vendedor / Consultor):** Papel operacional de atendimento comercial direto.
   - Sinônimos aceitos: `"seller"`, `"vendedor"`.
-- **`manager` (Gerente / Gestor Comercial):** Papel de supervisão de equipe e funil.
+- **`manager` (Gerente / Gestor Comercial):** Papel de supervisão de equipe, plantões, parâmetros de SLA e funil.
   - Sinônimos aceitos: `"manager"`, `"gerente"`, `"gestor"`.
-- **`admin` (Administrador / Proprietário da Concessionária):** Titular da conta e faturamento.
+- **`admin` (Administrador / Titular da Loja):** Responsável institucional, dados da loja, chaves de API e faturamento.
   - Sinônimos aceitos: `"admin"`, `"owner"`, `"proprietario"`, `"dono"`.
-- **`superadmin` (Administrador Global da Plataforma SaaS):** Suporte técnico global e auditoria multi-tenant.
+- **`superadmin` (Administrador Global SaaS):** Suporte técnico global e auditoria multi-tenant.
   - Sinônimos aceitos: `"superadmin"`, `"super_admin"`, `"super"`.
 
-### 2.2. Matriz Estrita de Controle de Acesso por Rota e Ação
+### 2.2. Matriz Estrita de Controle de Acesso por Rota, Ação e Aba de Configurações
 
-| Recurso / Rota / Ação | `seller` | `manager` | `admin` | `superadmin` |
-|---|:---:|:---:|:---:|:---:|
-| **Visão Geral do Cockpit (`/dashboard`)** | Visão Pessoal ("Meu Cockpit") | Visão Executiva ("Dinheiro na Mesa") | Visão Executiva ("Dinheiro na Mesa") | Visão Executiva |
-| **Visualização do Funil (`/dashboard/leads`)** | Apenas leads atribuídos a si | Todos os leads da concessionária | Todos os leads da concessionária | Todos os leads da concessionária |
-| **Movimentação de Cards (Kanban / Lista)** | Sim (leads próprios) | Sim (qualquer lead da loja) | Sim (qualquer lead da loja) | Sim |
-| **Gestão de Equipe & Roleta (`/dashboard/team`)** | Bloqueado (`403`) | Sim (alternar plantão / convidar) | Sim (total controle da equipe) | Sim |
-| **Relatórios Executivos (`/dashboard/reports`)** | Bloqueado (`403`) | Sim (visualizar / exportar CSV e PDF) | Sim (visualizar / exportar CSV e PDF) | Sim |
-| **Gestão de Estoque (`/estoque` ou `/vehicles`)** | Sim (consultar / cadastrar) | Sim (total controle) | Sim (total controle) | Sim |
-| **Configuração de WhatsApp (`/dashboard/settings`)** | Bloqueado (`403`) | Sim (gerar QR Code) | Sim (conectar / desconectar) | Sim |
-| **Chaves de API & Webhooks (`/settings/integrations`)** | Bloqueado (`403`) | Bloqueado (`403`) | Sim (criar, copiar, revogar) | Sim |
-| **Faturamento, Planos & Cartão (`/billing`)** | Bloqueado (`403`) | Bloqueado (`403`) | Sim (alterar plano / checkout) | Sim |
-| **Console Master do SaaS (`/superadmin`)** | Bloqueado (`403`) | Bloqueado (`403`) | Bloqueado (`403`) | Sim (Acesso irrestrito) |
+| Recurso / Rota / Ação | `seller` | `manager` | `admin` | `superadmin` | Helper RBAC |
+|---|:---:|:---:|:---:|:---:|---|
+| **Visão Geral do Cockpit (`/dashboard`)** | Visão Pessoal ("Meu Cockpit") | Visão Executiva ("Dinheiro na Mesa") | Visão Executiva ("Dinheiro na Mesa") | Visão Executiva | `canViewAllLeads` |
+| **Visualização do Funil (`/dashboard/leads`)** | Apenas leads atribuídos a si | Todos os leads da concessionária | Todos os leads da concessionária | Todos os leads da loja | `canViewAllLeads` |
+| **Movimentação de Cards (Kanban / Lista)** | Sim (leads próprios) | Sim (qualquer lead da loja) | Sim (qualquer lead da loja) | Sim | Permissão granular |
+| **Gestão de Equipe & Roleta (`/dashboard/team`)** | Bloqueado (`403`) | Sim (alternar plantão / convidar) | Sim (total controle da equipe) | Sim | `canManageTeam` |
+| **Relatórios Executivos (`/dashboard/reports`)** | Bloqueado (`403`) | Sim (visualizar / exportar CSV e PDF) | Sim (visualizar / exportar CSV e PDF) | Sim | `canViewExecutiveReports` |
+| **Gestão de Estoque (`/estoque` ou `/vehicles`)** | Sim (consultar / cadastrar) | Sim (total controle) | Sim (total controle) | Sim | Livre para equipe |
+| **Configurações: Aba Perfil & Preferências** | Sim (dados pessoais / tema) | Sim (dados pessoais / tema) | Sim (dados pessoais / tema) | Sim | Acesso universal |
+| **Configurações: Aba Loja (`/settings?tab=loja`)** | Bloqueado (`403` / Oculto) | Bloqueado (Leitura apenas) | Sim (Editar dados / CNPJ / Endereço) | Sim | `canManageIntegrationsAndBilling` |
+| **Configurações: Aba SLA & Horários (`/settings?tab=sla`)** | Bloqueado (`403` / Oculto) | Sim (Editar horários e modo de SLA) | Sim (Editar horários e modo de SLA) | Sim | `canManageTeam` |
+| **Configurações: Aba Equipe (`/settings?tab=equipe`)** | Bloqueado (`403` / Oculto) | Sim (Gerenciar consultores) | Sim (Gerenciar consultores) | Sim | `canManageTeam` |
+| **Configurações: Aba Integrações & WhatsApp** | Bloqueado (`403` / Oculto) | Sim (QR Code Evolution / Webhooks) | Sim (Criar/revogar API Keys) | Sim | `canManageIntegrations` |
+| **Faturamento, Planos & Assinatura Asaas (`/billing`)** | Bloqueado (`403`) | Bloqueado (`403`) | Sim (Checkout, upgrade, faturas) | Sim | `canManageIntegrationsAndBilling` |
+| **Console Master do SaaS (`/superadmin`)** | Bloqueado (`403`) | Bloqueado (`403`) | Bloqueado (`403`) | Sim (Irrestrito) | `isSuperAdmin` |
 
 ### 2.3. Isolamento Multi-Tenant e Políticas RLS
 
-1. **Cláusula de Isolamento:** Todo registro nas tabelas `leads`, `vehicles`, `clients`, `api_keys`, `organization_invites` e `whatsapp_instances` contém obrigatoriamente a coluna `organization_id UUID NOT NULL REFERENCES organizations(id)`.
+1. **Cláusula de Isolamento:** Todo registro nas tabelas `leads`, `vehicles`, `clients`, `api_keys`, `organization_invites`, `whatsapp_instances` e `meta_integrations` contém obrigatoriamente a coluna `organization_id UUID NOT NULL REFERENCES organizations(id)`.
 2. **Resolução de Sessão (`resolveUserTenantContext` em `src/lib/auth/tenant.ts`):**
    - Usuário autenticado: Resolve estritamente a partir de `profiles.organization_id`.
    - Se o usuário não possuir vínculo com tenant: retorna `organizationId: null` e `needsOnboarding: true`. **NUNCA** faz fallback silencioso para a demo.
@@ -94,7 +101,7 @@ O Modo Demonstração é regido pelas constantes puras em `src/lib/auth/constant
 - **`DEMO_USER_ID`:** `"demo-sandbox-user"`.
 
 **Regras Inegociáveis do Modo Demo:**
-1. **Zero Poluição de Banco:** Nenhuma ação executada na demo (arrastar card no Kanban, cadastrar veículo, simular proposta) pode disparar inserts ou updates nas tabelas do Supabase. As mutações ocorrem exclusivamente no estado local/memória da sessão.
+1. **Zero Poluição de Banco:** Nenhuma ação executada na demo (arrastar card no Kanban, cadastrar veículo, simular proposta, ajustar horários de atendimento) pode disparar inserts ou updates nas tabelas do Supabase. As mutações ocorrem exclusivamente no estado local/memória da sessão.
 2. **Zero Fallback de Produção:** Organizações reais em produção sem leads cadastrados exibem zero state legítimo (`R$ 0,00`, `0 leads`, lista vazia). Jamais injetam dados fictícios da demo em contas de lojistas reais.
 3. **Desacoplamento de Servidor:** Arquivos consumidos no cliente (`demo-dataset.ts`, `mock-data.ts`, `constants.ts`) **NUNCA** importam módulos restritos ao servidor (`next/headers`, `@supabase/ssr`, `tenant.ts`).
 
@@ -141,40 +148,69 @@ A função `resolveAssignedSellerInfo(explicitSeller, organizationId)` executa a
 5. **Desempate por Menor Carga (Fair Distribution):** Em caso de empate ou rebalanceamento dinâmico (`lead-roulette.ts`), o lead é entregue ao consultor elegível com a menor contagem de leads ativos no funil.
 6. **Fallback de Contingência:** Se nenhum consultor estiver elegível na loja, o lead é atribuído ao primeiro usuário com `role = 'admin'` da organização.
 
-### 3.3. Semáforo de SLA e Alertas Operacionais
+### 3.3. Semáforo de SLA, Horários de Atendimento & Engine Adaptativa (`sla-calculator.ts`)
 
-O motor analítico em `src/lib/crm/analytics.ts` aplica fórmulas matemáticas estritas para rastrear o cumprimento do tempo de resposta:
+O cálculo de SLA do Acelera Auto CRM opera com uma **engine adaptativa** (`src/lib/crm/sla-calculator.ts`), projetada para respeitar fielmente a jornada de trabalho comercial de cada loja e evitar falsos alertas fora do horário comercial.
 
-#### Fórmulas de SLA:
-- **Tempo de Espera em Fila (Leads Novos sem 1º Contato):**
-  $$\text{waitingMinutes} = \max\left(0, \frac{\text{nowTime} - \text{createdAtTime}}{60.000}\right)$$
-- **Tempo de Resposta Realizado (Leads Atendidos):**
-  $$\text{responseMinutes} = \max\left(0, \frac{\text{firstContactTime} - \text{createdAtTime}}{60.000}\right)$$
-- **Taxa de Conformidade de SLA (% dentro da Meta de 15 min):**
-  $$\text{slaComplianceRate} = \left(\frac{\text{answeredOnTimeCount}}{\text{totalEvaluatedForSLA}}\right) \times 100$$
-  *Onde $\text{totalEvaluatedForSLA} = \text{atendidos} + \text{novos com fila} > 15\text{ min}$.*
+#### A. Modos Operacionais de Contagem de SLA (`slaMode`):
+1. **Modo Horário Comercial (`business_hours` - Padrão):**
+   - Pausa a contagem de SLA fora do expediente da concessionária (períodos noturnos e dias em que a loja está fechada).
+   - O contador de minutos congela no momento do fechamento e retoma exatamente no momento da abertura do próximo dia útil.
+2. **Modo Contínuo 24/7 (`continuous`):**
+   - Roda a contagem ininterrupta de tempo corrido (24 horas por dia, 7 dias por semana).
+   - Utilizado por centrais de atendimento remotas ou concessionárias com equipes de plantão digital 24h.
+   - Fórmula: $\text{minutosCorridos} = \lfloor(\text{endDate} - \text{startDate}) / 60.000\rfloor$.
 
-#### Faixas do Semáforo:
-- 🟢 **Excelente (Verde):** Tempo médio $< 10\text{ minutos}$.
-- 🟡 **Atenção (Amarelo):** Tempo médio entre $10\text{ e }15\text{ minutos}$.
-- 🔴 **Crítico / Estourado (Vermelho):** Tempo de espera $> 15\text{ minutos}$.
+#### B. Jornada Padrão Automotiva (`DEFAULT_AUTOMOTIVE_SCHEDULE`):
+Quando a loja não possui configuração personalizada gravada ou opera no Modo Demo, o sistema adota a jornada oficial do setor automotivo brasileiro:
+- **Segunda a Sexta-feira:** 08:30 às 18:30 (10 horas úteis = 600 min/dia).
+- **Sábado:** 09:00 às 13:00 (4 horas úteis = 240 min).
+- **Domingo:** Fechado (`isOpen: false`).
 
-#### Critérios Exatos de Gargalos no Cockpit:
+#### C. Algoritmo Matemático de Minutos Úteis (`calculateBusinessMinutesElapsed`):
+A função pura itera dia a dia entre a data inicial (`startDate`) e a data final de avaliação (`endDate`):
+1. Para cada dia do intervalo, consulta a configuração do dia da semana (`schedule[weekday]`).
+2. Se `isOpen === false`, o dia adiciona $0\text{ minutos}$.
+3. Se `isOpen === true`, constrói os instantes de abertura (`dayOpen`) e fechamento (`dayClose`).
+4. Calcula a sobreposição temporal:
+   $$\text{overlapStart} = \max(\text{startDate}, \text{dayOpen})$$
+   $$\text{overlapEnd} = \min(\text{endDate}, \text{dayClose})$$
+5. Se $\text{overlapEnd} > \text{overlapStart}$, adiciona:
+   $$\Delta_{\text{minutos}} = \left\lfloor\frac{\text{overlapEnd} - \text{overlapStart}}{60.000}\right\rfloor$$
+
+> **Exemplo Prático (Fim de Semana Convencional):**  
+> Um lead gerado no **Domingo às 14:00** (loja fechada) e avaliado na **Segunda-feira às 08:45** terá decorrido exatamente **15 minutos úteis** (das 08:30 às 08:45 da segunda-feira), **NÃO** estourando o SLA de primeiro atendimento.
+
+#### D. Regime de Plantão / Feirão:
+- Gerentes e Administradores podem ativar o atendimento em Sábados à tarde e/ou Domingos via formulário em `/settings?tab=sla`.
+- Na interface, fins de semana abertos recebem o selo comemorativo com gradiente em chamas `Regime de Plantão / Feirão`.
+- Durante o Feirão ativo, o motor passa a contabilizar minutos úteis normalmente no fim de semana, permitindo cobrança legítima de tempo de resposta dos vendedores em escala.
+
+#### E. Helpers de Suporte Operacional:
+- `isStoreCurrentlyOpen(date, config)`: Retorna booleano indicando se no instante exato a loja está com as portas abertas e operando.
+- `getNextStoreOpenDate(date, config)`: Determina o instante exato da próxima abertura útil da loja para fins de agendamento e exibição de contadores regressivos.
+
+#### F. Faixas do Semáforo no Kanban & Cockpit:
+- 🟢 **Excelente (Verde):** Tempo de espera útil $< 10\text{ minutos}$.
+- 🟡 **Atenção (Amarelo):** Tempo de espera útil entre $10\text{ e }15\text{ minutos}$.
+- 🔴 **Crítico / Estourado (Vermelho):** Tempo de espera útil $> 15\text{ minutos}$.
+
+#### G. Critérios Exatos de Gargalos no Cockpit:
 1. **"Leads acima de 15 min" / "Leads sem retorno":**
-   - Condição: `status === 'novo' && firstContactAt === null && waitingMinutes > 15`.
-   - Na Empresa Demo: Representa exatamente **6 novos leads na roleta aguardando primeiro contato** com tempo decorrido entre 18 e 31 minutos.
+   - Condição: `status === 'novo' && firstContactAt === null && businessWaitingMinutes > 15`.
+   - Na Empresa Demo: Representa exatamente **6 novos leads na roleta aguardando primeiro contato** (todos com tempo útil entre 18 e 31 minutos).
 2. **"Propostas sem follow-up":**
-   - Condição unificada: `(status === 'proposta' || stage === 'proposal') && hoursSinceLastContact >= 24`.
+   - Condição: `(status === 'proposta' || stage === 'proposal') && hoursSinceLastContact >= 24`.
    - Na Empresa Demo: Representa exatamente **3 propostas atribuídas a Lucas Santana há 28 horas**.
 3. **"Aguardando financiamento":**
    - Condição: `lead.proposalFi === true || lead.isFinancing === true`.
 4. **"Leads quentes sem ação hoje":**
-   - Condição: Lead em etapa ativa (`atendimento`, `visita`, `proposta`) sem interação há mais de 8 horas.
+   - Condição: Lead em etapa ativa (`atendimento`, `visita`, `proposta`) sem interação há mais de 8 horas úteis.
 
 ### 3.4. Regras do Cockpit "Dinheiro na Mesa" e Ações Prescritivas
 
 - **Pipeline Total (Dinheiro na Mesa):** Soma monetária estrita dos valores estimados de todos os leads com status diferente de `won`, `lost`, `fechado` e `perdido`.
-- **Valor em Risco:** Soma monetária dos leads com SLA de fila estourado ($> 15\text{ min}$) somada aos leads parados em etapas ativas há mais de 48 horas sem contato.
+- **Valor em Risco:** Soma monetária dos leads com SLA útil de fila estourado ($> 15\text{ min}$) somada aos leads parados em etapas ativas há mais de 48 horas sem contato.
 - **Ações Prescritivas com 1-Clique:** O sistema sintetiza ações automáticas para o gestor disparar cobrança via WhatsApp para o consultor responsável (ex: botão *"Cobrar no WhatsApp"* que abre o contato do consultor com mensagem formatada de resgate).
 
 ---
@@ -187,7 +223,7 @@ Entidade definida em `src/types/crm.ts`:
 - **Status Permitidos:**
   - `disponivel`: Veículo no showroom pronto para venda.
   - `reservado`: Veículo com sinal ou proposta em análise de crédito bancário.
-  - `vendido`: Negócio concretizado e baixa realizada no estoque.
+  - `vendido`: Negócio concretizado e baixa realizada no estoque com arquivamento no histórico.
 
 ### 4.2. Política da "FIPE de Referência"
 
@@ -199,13 +235,27 @@ Entidade definida em `src/types/crm.ts`:
 
 ### 4.3. Fórmulas Financeiras e Indicadores Executivos
 
-#### A. Margem Bruta Estimada (Spread Comercial):
-$$\text{Margem Bruta Estimada} = \text{Preço Anunciado/Venda} - \text{Custo de Aquisição/Entrada}$$
-*Nota técnica: Substitui o conceito impreciso de "lucro líquido", pois desconsidera impostos, comissões e despesas de preparação.*
+#### A. Ticket Médio da Revenda (Estritamente Dinâmico):
+Em todos os relatórios analíticos (`/dashboard/reports`), o Ticket Médio é derivado matematicamente em tempo de execução:
+$$\text{Ticket Médio} = \frac{\text{Faturamento Total Realizado}}{\text{Quantidade de Vendas Concluídas}}$$
+- **Dinâmico em Qualquer Janela:** Funciona de forma estrita para qualquer filtro de período selecionado (7 dias, 30 dias, Mês Atual, Trimestre ou Ano), eliminando qualquer divergência entre faturamento e volume de fechamentos.
+- **Na base demo canônica:** $\text{R\$ } 215.800 / 3\text{ vendas} = \text{R\$ } 71.933,33$ (exibido como **R$ 71.933**).
 
-#### B. Ticket Médio da Revenda:
-$$\text{Ticket Médio} = \frac{\sum \text{Valor das Vendas Fechadas}}{\text{Quantidade de Vendas Concluídas}}$$
-*Na base demo canônica: $\text{R\$ } 215.800 / 3 = \text{R\$ } 71.933,33$.*
+#### B. Margem no Histórico de Veículos Vendidos (`/vehicles?tab=vendidos`):
+Para máxima transparência de auditoria e clareza contábil para os lojistas, o sistema divide a análise de margem de fechamento em dois indicadores explícitos:
+
+1. **Margem Bruta Total Realizada:**
+   $$\text{Margem Bruta Total Realizada} = \sum_{i=1}^{N} \left(\text{Preço de Venda}_i - \text{Custo de Entrada}_i\right)$$
+   - Representa o lucro bruto total acumulado em caixa pelas vendas concluídas.
+   - **Na base demo canônica:** $\text{R\$ } 10.000\text{ (Corolla)} + \text{R\$ } 6.900\text{ (Compass)} + \text{R\$ } 6.900\text{ (Tracker)} = \mathbf{\text{R\$ } 23.800}$.
+
+2. **Margem Média por Veículo:**
+   $$\text{Margem Média por Veículo} = \frac{\text{Margem Bruta Total Realizada}}{\text{Total de Veículos Vendidos}}$$
+   - Representa a contribuição média bruta de lucro por unidade comercializada pela concessionária.
+   - **Na base demo canônica:** $\text{R\$ } 23.800 / 3\text{ veículos} = \mathbf{\text{R\$ } 7.933,33}$ (exibido como **R$ 7.933** com subtítulo `(R$ 23.800 ÷ 3 veículos)`).
+
+> **Nota Técnica & Contábil:**  
+> A margem bruta calculada reflete o *spread* bruto direto entre a venda e o custo de compra do veículo. Ela **não deduz** impostos, comissões de consultores ou despesas operacionais de oficina/preparação.
 
 #### C. Taxa de Conversão do Funil:
 $$\text{Taxa de Conversão} = \left(\frac{\text{Vendas Concluídas (Won)}}{\text{Total de Oportunidades no Período}}\right) \times 100$$
