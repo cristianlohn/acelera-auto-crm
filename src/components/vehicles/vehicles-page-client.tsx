@@ -15,6 +15,7 @@ import {
   SlidersHorizontal,
   FileSpreadsheet,
   CheckCircle2,
+  DollarSign,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { VehicleCard } from "@/components/vehicles/vehicle-card";
@@ -237,9 +238,10 @@ export function VehiclesPageClient({
     const margens = soldVehicles
       .map((v) => v.estimatedMargin)
       .filter((m): m is number => m !== undefined && !isNaN(m));
+    const margemTotal = margens.reduce((a, b) => a + b, 0);
     const margemMedia =
       margens.length > 0
-        ? margens.reduce((a, b) => a + b, 0) / margens.length
+        ? margemTotal / margens.length
         : (faturamento > 0 ? faturamento * 0.12 : 0);
     const giros = soldVehicles
       .map((v) => v.daysInStock)
@@ -248,7 +250,7 @@ export function VehiclesPageClient({
       giros.length > 0
         ? Math.round(giros.reduce((a, b) => a + b, 0) / giros.length)
         : 18;
-    return { total, faturamento, margemMedia, tempoMedioGiro };
+    return { total, faturamento, margemMedia, margemTotal, tempoMedioGiro };
   }, [soldVehicles]);
 
   return (
@@ -293,7 +295,7 @@ export function VehiclesPageClient({
         </div>
 
         {/* Cards de Métricas Dinâmicos (Carrossel Horizontal no Mobile, Grid no Desktop) */}
-        <div className="flex overflow-x-auto gap-3 px-4 pt-3 pb-3 sm:pb-4 snap-x no-scrollbar md:grid md:grid-cols-4 sm:px-6">
+        <div className={cn("flex overflow-x-auto gap-3 px-4 pt-3 pb-3 sm:pb-4 snap-x no-scrollbar sm:px-6", activeTab === "active" ? "md:grid md:grid-cols-4" : "md:grid md:grid-cols-5")}>
           {isLoading ? (
             Array.from({ length: 4 }).map((_, i) => (
               <div
@@ -358,12 +360,22 @@ export function VehiclesPageClient({
                 iconColor="text-green-600"
               />
               <MetricCard
-                label="Margem Bruta Estimada"
+                label="Margem Média por Veículo"
                 value={formatCurrency(soldMetrics.margemMedia)}
                 icon={TrendingUp}
-                tooltip="Diferença entre o valor de venda e o custo de entrada. Não deduz despesas de preparação, comissões ou impostos."
+                tooltip="Média de lucro bruto estimada por unidade vendida (R$ 23.800 ÷ 3 veículos)."
+                sub={soldMetrics.total > 0 ? `(${formatCurrency(soldMetrics.margemTotal)} ÷ ${soldMetrics.total} veículos)` : undefined}
                 iconBg="bg-violet-100 dark:bg-violet-900/40"
                 iconColor="text-violet-600"
+              />
+              <MetricCard
+                label="Margem Bruta Total Realizada"
+                value={formatCurrency(soldMetrics.margemTotal)}
+                icon={DollarSign}
+                tooltip="Soma total das margens brutas de todos os veículos vendidos no histórico (R$ 23.800)."
+                sub="lucro bruto acumulado"
+                iconBg="bg-emerald-100 dark:bg-emerald-900/40"
+                iconColor="text-emerald-600"
               />
               <MetricCard
                 label="Tempo Médio de Giro"

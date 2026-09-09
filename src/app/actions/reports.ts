@@ -123,11 +123,14 @@ function computeDemoReport(period: ReportPeriod): ExecutiveReportData {
   const baseData = PERIOD_METRICS[period] || PERIOD_METRICS.month;
   if (period === "7d") {
     const totalSellersRevenue = baseData.sellers.reduce((acc, s) => acc + s.revenue, 0);
+    const totalSalesCount = baseData.sellers.reduce((acc, s) => acc + s.dealsCount, 0);
+    const averageTicket = totalSalesCount > 0 ? totalSellersRevenue / totalSalesCount : 0;
     return {
       ...baseData,
       kpis: {
         ...baseData.kpis,
         revenue: totalSellersRevenue,
+        averageTicket,
       },
     };
   }

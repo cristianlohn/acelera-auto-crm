@@ -81,10 +81,10 @@ export function MarketingHeader({ initialAuthenticated = false }: MarketingHeade
             Como Funciona
           </a>
           <a
-            href="#calculadora"
+            href="/#simulador"
             className="transition-colors hover:text-orange-400"
           >
-            Calculadora
+            Simulador
           </a>
           <a
             href="#planos"

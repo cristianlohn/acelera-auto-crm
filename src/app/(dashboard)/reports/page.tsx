@@ -157,6 +157,22 @@ function ReportsPageContent() {
     return kpis.revenue;
   }, [period, sellers, kpis.revenue]);
 
+  // Contagem de vendas fechadas para cálculo de Ticket Médio estritamente dinâmico (faturamento ÷ vendas)
+  const totalSalesCount = useMemo(() => {
+    const closedStage = funnel.find((f) => f.id === "fechado");
+    if (closedStage && typeof closedStage.count === "number" && closedStage.count > 0) {
+      return closedStage.count;
+    }
+    const sellersDeals = sellers.reduce((acc, s) => acc + s.dealsCount, 0);
+    if (sellersDeals > 0) return sellersDeals;
+    return 0;
+  }, [funnel, sellers]);
+
+  // Ticket Médio estritamente dinâmico: sempre o resultado da divisão (faturamento ÷ vendas)
+  const averageTicket = useMemo(() => {
+    return totalSalesCount > 0 ? totalRevenue / totalSalesCount : (kpis.averageTicket || 0);
+  }, [totalSalesCount, totalRevenue, kpis.averageTicket]);
+
   // Derivação dinâmica do canal com maior taxa de conversão (won / total)
   const channelInsightText = useMemo(() => {
     if (!channels || channels.length === 0) return null;
@@ -346,7 +362,7 @@ function ReportsPageContent() {
             />
             <KPIStatCard
               label="Ticket Médio por Veículo"
-              value={formatCurrency(kpis.averageTicket)}
+              value={formatCurrency(averageTicket)}
               growth={`+${kpis.ticketGrowth}%`}
               isPositive={kpis.ticketGrowth >= 0}
               icon={Car}

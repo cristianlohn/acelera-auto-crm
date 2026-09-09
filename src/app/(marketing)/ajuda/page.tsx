@@ -83,6 +83,13 @@ export default function MarketingHelpPage() {
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Voltar ao CRM</span>
             </Link>
+            <Link
+              href="/#simulador"
+              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-800/80 px-3.5 py-1 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all hover:scale-105"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-orange-400" />
+              <span>Simulador de Operação</span>
+            </Link>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-4 py-1 text-xs font-semibold text-orange-400">
             <BookOpen className="h-3.5 w-3.5" />
