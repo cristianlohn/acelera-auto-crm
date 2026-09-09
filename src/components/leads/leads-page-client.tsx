@@ -46,7 +46,6 @@ import {
   canViewAllLeads,
   normalizeRole,
   canManageIntegrations,
-  canManageIntegrationsAndBilling,
 } from "@/lib/permissions";
 import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import { ManagerActionCockpit } from "@/components/dashboard/ManagerActionCockpit";

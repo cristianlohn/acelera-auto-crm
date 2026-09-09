@@ -57,12 +57,6 @@ function getStartDateFromPeriod(period: ReportPeriod): string {
   }
 }
 
-function isNovo(status?: string | null): boolean {
-  if (!status) return false;
-  const s = status.toLowerCase();
-  return s === "novo" || s === "lead" || s === "new";
-}
-
 function isAtendimento(status?: string | null): boolean {
   if (!status) return false;
   const s = status.toLowerCase();

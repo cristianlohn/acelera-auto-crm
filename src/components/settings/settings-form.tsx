@@ -188,11 +188,11 @@ export function SettingsForm({
     return "perfil";
   });
 
-  useEffect(() => {
-    if (initialTab) {
-      setActiveTab(initialTab);
-    }
-  }, [initialTab]);
+  const [prevInitialTab, setPrevInitialTab] = useState(initialTab);
+  if (initialTab && initialTab !== prevInitialTab) {
+    setPrevInitialTab(initialTab);
+    setActiveTab(initialTab);
+  }
 
   const [isSaving, startSavingTransition] = useTransition();
   const [saveFeedback, setSaveFeedback] = useState<string | null>(null);

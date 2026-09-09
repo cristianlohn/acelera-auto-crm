@@ -162,9 +162,9 @@ export function Footer() {
                 </a>
               </li>
               <li>
-                <a className="hover:text-white transition-colors whitespace-nowrap" href="/#simulador">
+                <Link className="hover:text-white transition-colors whitespace-nowrap" href="/#simulador">
                   Simulador de Operação
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
