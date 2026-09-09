@@ -28,10 +28,19 @@ export function createAdminClient() {
     );
   }
 
+  class WebSocketStub {}
+  const wsTransport =
+    typeof WebSocket !== "undefined"
+      ? (WebSocket as unknown as any)
+      : (WebSocketStub as unknown as any);
+
   return createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
+    },
+    realtime: {
+      transport: wsTransport,
     },
   });
 }

@@ -53,6 +53,12 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
     );
   });
 
+  class WebSocketStub {}
+  const wsTransport =
+    typeof WebSocket !== "undefined"
+      ? (WebSocket as unknown as any)
+      : (WebSocketStub as unknown as any);
+
   /**
    * Inicializa o Supabase Admin Client com privilégios elevados para o teardown.
    */
@@ -65,6 +71,9 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
       auth: {
         autoRefreshToken: false,
         persistSession: false,
+      },
+      realtime: {
+        transport: wsTransport,
       },
     });
   }
