@@ -314,6 +314,40 @@ export async function POST(request: NextRequest) {
       `[Webhook Asaas] Processamento concluído para '${body.event}': ação '${result.actionTaken}' (idempotente: ${result.alreadyProcessed || false})`
     );
 
+    // 4.1 Guarda de Pertencimento & Descarte Silencioso Seguro (HTTP 200)
+    if (result.ignored) {
+      if (result.reason === "unrelated_organization") {
+        console.log(
+          "[Webhook Asaas] Evento ignorado: payload não pertence a nenhuma organização do CRM",
+          { event: body.event, customer: body.payment?.customer || body.subscription?.customer }
+        );
+        return NextResponse.json(
+          {
+            received: true,
+            ignored: true,
+            reason: "unrelated_organization",
+            actionTaken: result.actionTaken,
+          },
+          { status: 200 }
+        );
+      }
+
+      if (result.reason === "unhandled_event") {
+        console.log(
+          `[Webhook Asaas] Evento ignorado: evento não monitorado (${body.event})`
+        );
+        return NextResponse.json(
+          {
+            received: true,
+            ignored: true,
+            reason: "unhandled_event",
+            actionTaken: result.actionTaken,
+          },
+          { status: 200 }
+        );
+      }
+    }
+
     if (result.success) {
       try {
         revalidatePath("/", "layout");

@@ -19,6 +19,10 @@
 7. [Seção 7: Módulo de Relatórios Executivos & Carteira de Clientes](#7-módulo-de-relatórios-executivos--carteira-de-clientes)
 8. [Seção 8: Gestão de Estoque, Margens & FIPE de Referência](#8-gestão-de-estoque-margens--fipe-de-referência)
 9. [Seção 9: Protocolo de Encerramento e Aprovação](#9-protocolo-de-encerramento-e-aprovação)
+10. [Seção 10: Jornada Real E2E Sem Mocks & Teardown Automático](#10-jornada-real-e2e-sem-mocks--teardown-automático)
+11. [Seção 11: Auditoria de Viewports HD de Concessionária (1366x768 e 1280x720)](#11-auditoria-de-viewports-hd-de-concessionária-1366x768-e-1280x720)
+12. [Seção 12: Faturamento Recorrente Asaas & Ciclo de Vida do Tenant](#12-faturamento-recorrente-asaas--ciclo-de-vida-do-tenant)
+13. [Seção 13: Protocolo de Encerramento e Aprovação Final](#13-protocolo-de-encerramento-e-aprovação-final)
 
 ---
 
@@ -474,10 +478,99 @@
 
 ---
 
-## 9. Protocolo de Encerramento e Aprovação
+---
+
+## 10. Jornada Real E2E Sem Mocks & Teardown Automático
+
+### UAT-E2E-01: Ciclo Completo de Lojista Real em Produção (Registro, Leads, Estoque e Limpeza)
+- **Perfil do Usuário:** Lojista Real (Novo Proprietário de Concessionária).
+- **Pré-condições:** Variáveis de ambiente do Supabase ativas (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`), banco PostgreSQL acessível, runner em Node.js 22 LTS.
+- **Passo a Passo de Ação:**
+  1. **Fase 1 (Onboarding e Provisionamento Atômico):**
+     - Acessar `/register`, preencher dados de nova concessionária (`e2e-real-...@acelera.dev`, razão social, telefone, senha).
+     - Submeter formulário e aguardar o trigger PostgreSQL `handle_new_user` provisionar a organização com trial de 14 dias, 7 horários comerciais padrão e perfil admin.
+     - Confirmar redirecionamento automático para a rota canônica `/dashboard/leads`.
+  2. **Fase 2 (Ingestão e Operação no Funil Kanban):**
+     - Clicar em `"+ Novo Lead"` e cadastrar cliente com interesse veicular.
+     - Arrastar o card pelo Kanban validando as transições de estágio até a coluna `"Venda Fechada"`.
+  3. **Fase 3 (Cadastro e Persistência Real de Estoque):**
+     - Navegar para `/vehicles` e cadastrar novo veículo com placa sanitizada (7 caracteres) e enums estritos do PostgreSQL (`gasolina`, `flex`, `manual`, `automatico`, `disponivel`).
+     - Atualizar a página com `F5` e validar que o veículo persiste fisicamente no banco e é renderizado na listagem.
+  4. **Fase 4 (Auditoria de Banco e Teardown Idempotente):**
+     - Conectar via Supabase Admin Service Role Client.
+     - Auditar a existência física dos dados inseridos.
+     - Executar rotina de teardown excluindo leads, veículos, perfil de usuário, conta de autenticação e organização de teste.
+- **Resultado Esperado Exato:**
+  - Todas as 4 fases são concluídas com 100% de sucesso sem mocks.
+  - Zero resíduos de teste deixados no banco de dados após a conclusão.
+- **Critério de Falha Crítica:** Falha no trigger `handle_new_user`, veículo desaparecendo após refresh (F5), ou falha no isolamento e exclusão dos dados de teste no teardown.
+
+---
+
+## 11. Auditoria de Viewports HD de Concessionária (1366x768 e 1280x720)
+
+### UAT-VIEW-01: Zero Overflow Horizontal em Notebooks 1366x768 (HD Padrão)
+- **Perfil do Usuário:** Gestor ou Vendedor em notebook corporativo HD padrão.
+- **Pré-condições:** Navegador com viewport configurado em 1366x768 pixels e barra de rolagem vertical padrão.
+- **Passo a Passo de Ação:**
+  1. Navegar sequencialmente pelas 4 rotas prioritárias de rotina diária: `/dashboard`, `/leads`, `/vehicles` e `/settings`.
+  2. Executar script de inspeção geométrica: `document.documentElement.scrollWidth <= window.innerWidth`.
+  3. Validar ausência de corte de cards, tabelas ou barras de menu lateral.
+- **Resultado Esperado Exato:**
+  - `scrollWidth <= innerWidth` em todas as rotas (zero rolagem horizontal indesejada).
+- **Critério de Falha Crítica:** Surgimento de barra de rolagem horizontal na janela principal da página.
+
+---
+
+### UAT-VIEW-02: Usabilidade e Abertura de Modais em 1280x720 (Escala Windows 125%/150%)
+- **Perfil do Usuário:** Operador de CRM com notebook compacto ou escala ampliada de exibição.
+- **Pré-condições:** Resolução efetiva de 1280x720 pixels.
+- **Passo a Passo de Ação:**
+  1. Na tela de leads, acionar o modal `"+ Novo Lead"`.
+  2. Na tela de veículos, acionar o modal `"+ Cadastrar Veículo"`.
+  3. Inspecionar visibilidade do título do modal e dos botões de ação `"Cancelar"` e `"Salvar"`.
+  4. Rolar o corpo interno do formulário.
+- **Resultado Esperado Exato:**
+  - O modal se ajusta ao viewport com rolagem vertical restrita ao corpo (`max-h-[90vh] overflow-y-auto`).
+  - Cabeçalho e rodapé com botões de ação permanecem sempre acessíveis e visíveis.
+- **Critério de Falha Crítica:** Botões de ação cortados fora da viewport ou impossibilidade de rolar até o fim do formulário.
+
+---
+
+## 12. Faturamento Recorrente Asaas & Ciclo de Vida do Tenant
+
+### UAT-BILL-01: Sincronização de Vigência e Cálculo de current_period_end via Webhook
+- **Perfil do Usuário:** Sistema Integrador / Assinante B2B.
+- **Pré-condições:** Organização existente com assinatura cadastrada.
+- **Passo a Passo de Ação:**
+  1. Disparar evento de webhook simulado `PAYMENT_CONFIRMED` ou `PAYMENT_RECEIVED` com token de segurança válido.
+  2. O handler do webhook identifica o ciclo da assinatura:
+     - Ciclo `MONTHLY`: calcula nova vigência como `data_pagamento + 30 dias`.
+     - Ciclo `YEARLY`: calcula nova vigência como `data_pagamento + 365 dias`.
+  3. O campo `current_period_end` é atualizado atomicamente na tabela `organizations` juntamente com o status `active`.
+- **Resultado Esperado Exato:**
+  - O status da organização é promovido para `active` e a vigência futura é gravada corretamente no fuso UTC.
+- **Critério de Falha Crítica:** Data retroativa calculada, cancelamento indevido ou processamento sem token de autenticação seguro.
+
+---
+
+### UAT-BILL-02: Proteção de Redirecionamento Anti-Loop de Assinatura no Layout
+- **Perfil do Usuário:** Lojista com trial expirado ou assinatura inadimplente (`past_due`).
+- **Pré-condições:** Sessão autenticada de usuário cuja organização não possui plano ativo.
+- **Passo a Passo de Ação:**
+  1. Tentar acessar rotas operacionais restritas (ex: `/dashboard/leads` ou `/vehicles`).
+  2. Verificar o redirecionamento automático (HTTP 302) para `/billing`.
+  3. Na rota `/billing`, inspecionar que a página carrega perfeitamente com os planos para contratação, sem tentar novo redirecionamento para si mesma.
+- **Resultado Esperado Exato:**
+  - Redirecionamento limpo para regularização sem que a aplicação entre em loop infinito (`ERR_TOO_MANY_REDIRECTS`).
+- **Critério de Falha Crítica:** Loop recursivo de redirecionamento ou permissão de acesso ao CRM sem plano ativo.
+
+---
+
+## 13. Protocolo de Encerramento e Aprovação Final
 
 | Papel | Responsável | Data da Homologação | Status |
 |---|---|:---:|:---:|
-| **Engenharia de Software** | Antigravity AI Pair Programming | 09/09/2026 | **APROVADO** |
-| **Garantia da Qualidade (QA)** | Suíte Automatizada Vitest (770 Testes) | 09/09/2026 | **APROVADO** |
-| **Product Owner (PO)** | Equipe Acelera Auto CRM | 09/09/2026 | **APROVADO** |
+| **Engenharia de Software** | Antigravity AI Pair Programming | 10/09/2026 | **APROVADO** |
+| **Garantia da Qualidade (QA)** | Suíte Vitest (771 Testes / 97 Arquivos) + Playwright (108 Testes E2E Desktop & Mobile) | 10/09/2026 | **APROVADO** |
+| **Product Owner (PO)** | Equipe Acelera Auto CRM | 10/09/2026 | **APROVADO** |

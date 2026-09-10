@@ -12,7 +12,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getOrganizationAccessStatus } from "@/lib/auth/subscription";
-import { isSubscriptionValid } from "@/lib/auth/subscription-guard";
 import type { Database } from "@/types/database.types";
 import type { Organization } from "@/types/crm";
 
@@ -184,18 +183,9 @@ export async function middleware(request: NextRequest) {
             .eq("id", profile.organization_id)
             .single();
 
-          const subStatus = (org as unknown as Organization)?.subscription_status;
-          const isSuperAdminUser = profile.role?.toLowerCase() === "superadmin";
-
-          if (!isSuperAdminUser && !isSubscriptionValid(subStatus)) {
-            const billingUrl = new URL("/billing", request.url);
-            billingUrl.searchParams.set("status", "blocked");
-            return NextResponse.redirect(billingUrl);
-          }
-
           const accessStatus = getOrganizationAccessStatus(
             org as unknown as Organization,
-            profile.role
+            profile?.role
           );
 
           if (!accessStatus.hasAccess) {

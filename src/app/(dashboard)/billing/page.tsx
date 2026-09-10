@@ -151,18 +151,28 @@ function BillingContent({
   const [isCancelingUpgrade, setIsCancelingUpgrade] = useState(false);
   const isLoading = subscriptionOverview === undefined;
 
-  // Desarma o bloqueio caso a assinatura da concessionária já esteja ativa
+  // Desarma o bloqueio caso a assinatura da concessionária já esteja ativa ou com período pago válido
+  const hasValidDays = Boolean(
+    subscriptionOverview?.daysRemaining !== null &&
+      subscriptionOverview?.daysRemaining !== undefined &&
+      subscriptionOverview.daysRemaining > 0
+  );
   const isBlocked =
-    searchParams.get("status") === "blocked" && subscriptionOverview?.status !== "active";
+    searchParams.get("status") === "blocked" &&
+    subscriptionOverview?.status !== "active" &&
+    !hasValidDays;
 
-  // Desarma e limpa automaticamente o parâmetro ?status=blocked da URL quando ativo
+  // Desarma e limpa automaticamente o parâmetro ?status=blocked da URL quando ativo ou com período vigente
   useEffect(() => {
-    if (subscriptionOverview?.status === "active" && searchParams.get("status") === "blocked") {
+    if (
+      (subscriptionOverview?.status === "active" || hasValidDays) &&
+      searchParams.get("status") === "blocked"
+    ) {
       if (typeof window !== "undefined") {
         window.history.replaceState({}, "", "/billing");
       }
     }
-  }, [subscriptionOverview?.status, searchParams]);
+  }, [subscriptionOverview?.status, hasValidDays, searchParams]);
 
   const handleCancelPendingUpgrade = async () => {
     setIsCancelingUpgrade(true);
@@ -170,8 +180,19 @@ function BillingContent({
       const res = await cancelPendingUpgradeAction();
       if (res.success) {
         setSubscriptionOverview((prev) =>
-          prev ? { ...prev, hasPendingUpgrade: false, pendingPlan: null } : prev
+          prev
+            ? {
+                ...prev,
+                hasPendingUpgrade: false,
+                pendingPlan: null,
+                status: prev.daysRemaining && prev.daysRemaining > 0 ? "active" : prev.status,
+              }
+            : prev
         );
+        if (typeof window !== "undefined") {
+          window.history.replaceState({}, "", "/billing");
+        }
+        router.replace("/billing");
       }
     } finally {
       setIsCancelingUpgrade(false);

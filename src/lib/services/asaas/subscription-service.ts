@@ -698,3 +698,64 @@ export async function createAsaasSubscription(
     return { success: false, error: message };
   }
 }
+
+/**
+ * Cancela e remove uma cobrança ou assinatura pendente no Asaas.
+ * Usado no descarte de intenções de upgrade ou pedidos não concluídos.
+ *
+ * - Se identifier iniciar com "sub_": DELETE /v3/subscriptions/{id}
+ * - Se identifier iniciar com "pay_": DELETE /v3/payments/{id}
+ * - Se identifier for uma URL: extrai o ID final
+ * - Resiliente a 404 / já excluído, retornando true.
+ */
+export async function cancelAsaasPendingCharge(identifier?: string | null): Promise<boolean> {
+  if (!identifier) return true;
+
+  try {
+    const { apiUrl, apiKey } = getAsaasConfig();
+    let cleanId = identifier.trim();
+
+    if (cleanId.startsWith("http://") || cleanId.startsWith("https://")) {
+      const parts = cleanId.split("/");
+      cleanId = parts[parts.length - 1] || cleanId;
+    }
+
+    let endpoint: string | null = null;
+    if (cleanId.startsWith("sub_")) {
+      endpoint = `${apiUrl}/subscriptions/${cleanId}`;
+    } else if (cleanId.startsWith("pay_")) {
+      endpoint = `${apiUrl}/payments/${cleanId}`;
+    } else {
+      endpoint = `${apiUrl}/payments/${cleanId}`;
+    }
+
+    const res = await fetch(endpoint, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        access_token: apiKey,
+      },
+    });
+
+    if (res.ok || res.status === 404) {
+      return true;
+    }
+
+    const errData = await res.json().catch(() => ({}));
+    const description = errData?.errors?.[0]?.description || "";
+    if (
+      description.toLowerCase().includes("não encontrada") ||
+      description.toLowerCase().includes("já foi removida") ||
+      description.toLowerCase().includes("deletada")
+    ) {
+      return true;
+    }
+
+    console.warn(`[Asaas Charge Cancellation] Não foi possível excluir cobrança ${cleanId} (HTTP ${res.status}):`, description);
+    return false;
+  } catch (err) {
+    console.warn(`[Asaas Charge Cancellation Exception] Falha ao cancelar cobrança pendente ${identifier}:`, err);
+    return false;
+  }
+}
+

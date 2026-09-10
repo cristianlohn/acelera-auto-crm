@@ -100,6 +100,8 @@ export interface WebhookProcessResult {
   organizationId?: string;
   actionTaken: string;
   alreadyProcessed?: boolean;
+  ignored?: boolean;
+  reason?: string;
   error?: string;
 }
 
@@ -294,7 +296,12 @@ export async function findOrganizationByAsaasData(
 
   if (!isSupabaseServerConfigured()) {
     // Retorna mock para ambiente sem Supabase configurado
-    if (orgIdCandidate) {
+    if (
+      orgIdCandidate &&
+      !orgIdCandidate.startsWith("unrelated") &&
+      !orgIdCandidate.startsWith("catuto") &&
+      !orgIdCandidate.includes("inexistente")
+    ) {
       return {
         id: orgIdCandidate,
         name: "Concessionária Local",
@@ -302,7 +309,13 @@ export async function findOrganizationByAsaasData(
         subscription_status: "active",
       };
     }
-    if (customerId) {
+    if (
+      customerId &&
+      !customerId.startsWith("unrelated") &&
+      !customerId.startsWith("catuto") &&
+      !customerId.includes("inexistente") &&
+      !customerId.startsWith("cus_external")
+    ) {
       return {
         id: "org-001",
         name: "Concessionária Local",
@@ -390,6 +403,31 @@ export async function processAsaasWebhookEvent(
     };
   }
 
+  // 1.1 Verificação de Evento Monitorado
+  const HANDLED_EVENTS = new Set<string>([
+    "PAYMENT_CONFIRMED",
+    "PAYMENT_RECEIVED",
+    "PAYMENT_DELETED",
+    "PAYMENT_REFUNDED",
+    "PAYMENT_OVERDUE",
+    "SUBSCRIPTION_CREATED",
+    "SUBSCRIPTION_UPDATED",
+    "SUBSCRIPTION_DELETED",
+    "SUBSCRIPTION_INACTIVATED",
+  ]);
+
+  if (!HANDLED_EVENTS.has(event)) {
+    markEventAsProcessed(eventKey);
+    console.log(`[Webhook Asaas] Evento ignorado: evento não monitorado (${event})`);
+    return {
+      success: true,
+      event,
+      ignored: true,
+      reason: "unhandled_event",
+      actionTaken: "unhandled_event",
+    };
+  }
+
   const externalRef = payment?.externalReference || subscription?.externalReference;
   const customerId = payment?.customer || subscription?.customer;
   const subscriptionId = payment?.subscription || subscription?.id;
@@ -397,7 +435,7 @@ export async function processAsaasWebhookEvent(
   const parsedRef = parseExternalReference(externalRef);
   const targetIdFromRef = parsedRef?.orgId || externalRef;
 
-  // 1.1 Proteção do Modo Demonstração: Não altera bancos de dados reais
+  // 1.2 Proteção do Modo Demonstração: Não altera bancos de dados reais
   if (
     targetIdFromRef === DEFAULT_DEMO_ORG_ID ||
     targetIdFromRef === "00000000-0000-0000-0000-000000000001" ||
@@ -419,9 +457,15 @@ export async function processAsaasWebhookEvent(
 
   if (!targetOrgId) {
     markEventAsProcessed(eventKey);
+    console.log(
+      "[Webhook Asaas] Evento ignorado: payload não pertence a nenhuma organização do CRM",
+      { event, customer: customerId }
+    );
     return {
       success: true,
       event,
+      ignored: true,
+      reason: "unrelated_organization",
       actionTaken: "skipped_organization_not_found",
     };
   }
@@ -524,13 +568,22 @@ export async function processAsaasWebhookEvent(
           (parsedRef?.plan && parsedRef.plan === org.pending_plan && parsedRef.plan !== org.plan))
       );
 
-      if (isPendingUpgrade) {
+      const isCurrentSubPayment = Boolean(
+        org?.asaas_subscription_id &&
+        (paymentSubId === org.asaas_subscription_id || (!paymentSubId && paymentId === org.asaas_subscription_id))
+      );
+
+      const hasValidPeriod = Boolean(
+        org?.current_period_end && new Date(org.current_period_end).getTime() > Date.now()
+      );
+
+      if (isPendingUpgrade || !isCurrentSubPayment || hasValidPeriod) {
         actionTaken = "pending_upgrade_deleted_discarded";
         console.log(
-          `[Asaas Webhook] Cobrança de upgrade cancelada/deletada para organização ${targetOrgId}. Mantendo plano e status ativos.`
+          `[Asaas Webhook] Cobrança cancelada/deletada para organização ${targetOrgId}. Mantendo plano e status ativos.`
         );
 
-        if (isSupabaseServerConfigured() && targetOrgId) {
+        if (isSupabaseServerConfigured() && targetOrgId && isPendingUpgrade) {
           try {
             const supabaseAdmin = createAdminClient();
             await supabaseAdmin
@@ -597,13 +650,25 @@ export async function processAsaasWebhookEvent(
           (parsedRef?.plan && parsedRef.plan === org.pending_plan && parsedRef.plan !== org.plan))
       );
 
-      if (isPendingUpgrade) {
-        actionTaken = "pending_upgrade_overdue_discarded";
+      const isCurrentSubPayment = Boolean(
+        org?.asaas_subscription_id &&
+        (paymentSubId === org.asaas_subscription_id || (!paymentSubId && paymentId === org.asaas_subscription_id))
+      );
+
+      const hasValidPeriod = Boolean(
+        org?.current_period_end && new Date(org.current_period_end).getTime() > Date.now()
+      );
+
+      // Se for fatura de upgrade pendente, cobrança não vinculada à assinatura principal, ou tenant com período vigente pago:
+      if (isPendingUpgrade || !isCurrentSubPayment || hasValidPeriod) {
+        actionTaken = isPendingUpgrade
+          ? "pending_upgrade_overdue_discarded"
+          : "unrelated_payment_overdue_ignored";
         console.log(
-          `[Asaas Webhook] Fatura de upgrade pendente vencida (${paymentId || paymentSubId}) para organização ${targetOrgId}. Mantendo plano '${org?.plan || "atual"}' e status '${org?.subscription_status || "active"}' ativos.`
+          `[Asaas Webhook] Fatura de cobrança (${paymentId || paymentSubId}) não suspende a organização ${targetOrgId}. Mantendo plano '${org?.plan || "atual"}' e status '${org?.subscription_status || "active"}' ativos.`
         );
 
-        if (isSupabaseServerConfigured() && targetOrgId) {
+        if (isSupabaseServerConfigured() && targetOrgId && isPendingUpgrade) {
           try {
             const supabaseAdmin = createAdminClient();
             await supabaseAdmin
@@ -621,7 +686,7 @@ export async function processAsaasWebhookEvent(
         break;
       }
 
-      // Se for a fatura da assinatura recorrente vigente da loja:
+      // Se for estritamente a fatura da assinatura recorrente vigente expirada da loja:
       // Aplica período de carência (3 dias de tolerância após dueDate)
       const dueDateMs = payment?.dueDate ? new Date(payment.dueDate).getTime() : 0;
       const nowMs = Date.now();
@@ -713,8 +778,15 @@ export async function processAsaasWebhookEvent(
     }
 
     default: {
-      actionTaken = `unhandled_event_${event}`;
-      break;
+      console.log(`[Webhook Asaas] Evento ignorado: evento não monitorado (${event})`);
+      markEventAsProcessed(eventKey);
+      return {
+        success: true,
+        event,
+        ignored: true,
+        reason: "unhandled_event",
+        actionTaken: "unhandled_event",
+      };
     }
   }
 

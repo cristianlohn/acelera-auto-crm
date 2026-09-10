@@ -2,8 +2,8 @@
 
 **Projeto:** Acelera Auto CRM  
 **Padrão:** ISTQB / IEEE 829  
-**Cobertura Atual:** 100% das Regras de Negócio e Componentes Críticos  
-**Última Atualização:** Agosto de 2026  
+**Cobertura Atual:** 100% das Regras de Negócio e Componentes Críticos (771 Testes Unitários/Integração + 108 Testes E2E Desktop & Mobile)  
+**Última Atualização:** Setembro de 2026  
 
 ---
 
@@ -28,6 +28,14 @@
 | **REQ-CRM-15** | Gestão de Equipe e Controle de Capacidade Multi-Tenant | Cota de vendedores por plano, convite de colaboradores, trava de vagas, modal de upgrade e proteção de admin. |
 | **REQ-CRM-16** | Controle de Acesso RBAC e Simulador de Papéis Demo | Ocultação de Super Admin da sidebar, alternador de papéis (Vendedor, Gerente, Admin) e filtros por perfil em tempo real. |
 | **REQ-CRM-17** | SEO Técnico, OpenGraph e Metadados de Indexação | Metadados globais, OpenGraph pt_BR, imagem OG dinâmica, sitemap.xml, robots.txt seguro e manifest PWA. |
+| **REQ-CRM-18** | Provisionamento Atômico via Trigger PostgreSQL | Trigger `handle_new_user` que cria organização, trial de 14 dias, horários comerciais canônicos e perfil admin em uma única transação ACID. |
+| **REQ-CRM-19** | Persistência Real de Estoque e Enums PostgreSQL | Inserção direta de veículos com enums estritos (`gasolina`, `flex`, `manual`, `automatico`, `disponivel`), validação de `organization_id` e fim do fallback falso-otimista. |
+| **REQ-CRM-20** | Ciclo de Vida e Faturamento Recorrente Asaas | Gestão de assinaturas com cálculo seguro de `current_period_end` (+30d mensal, +365d anual) e webhooks transacionais autenticados. |
+| **REQ-CRM-21** | Compatibilidade de Viewports em Notebooks HD | Zero overflow horizontal em telas HD de concessionárias (1366x768 e 1280x720) com modais de rolagem interna acessíveis. |
+| **REQ-CRM-22** | Jornada E2E Sem Mocks com Teardown Idempotente | Teste de ciclo de vida completo executado contra o Supabase real com deleção limpa via service role no pós-teste. |
+| **REQ-CRM-23** | Sanitização e Normalização de Placas | Normalização de placas (Mercosul e antiga) para exatamente 7 caracteres alfanuméricos maiúsculos via `normalizePlate()`. |
+| **REQ-CRM-24** | Proteção Anti-Loop de Assinatura no Layout | Interceptador de layout que redireciona tenants sem plano ativo para `/billing` garantindo que a própria tela de faturamento nunca entre em loop recursivo. |
+| **REQ-CRM-25** | Resolução Segura de Tenant e Fallbacks de Perfil | Função `resolveUserTenantContext()` que prioriza `profile.organization_id` e protege contra falhas transitórias em queries secundárias. |
 
 ---
 
@@ -43,6 +51,9 @@
 | **REQ-CRM-02** | **CT-UT-06** | Classificar lead como **Urgent (🔴)** quando o tempo sem contato for >= 24 horas (limite 24.0h) ou nulo. | Unitário | Análise de Valor Limite (BVA) | `formatters-and-rules.test.ts` | **PASS** |
 | **REQ-CRM-03** | **CT-UT-07** | Higienizar telefone removendo caracteres especiais e garantindo o prefixo DDI `55`. | Unitário | Partição de Equivalência | `formatters-and-rules.test.ts` | **PASS** |
 | **REQ-CRM-03** | **CT-UT-08** | Gerar URL codificada (`encodeURIComponent`) preservando acentuação do cliente e modelo do carro. | Unitário | Teste de Robustez de Strings | `formatters-and-rules.test.ts` | **PASS** |
+| **REQ-CRM-20** | **CT-UT-09** | Calcular vigência `current_period_end` adicionando 30 dias (mensal) ou 365 dias (anual) na confirmação de pagamento. | Unitário | Cálculo de Datas e Ciclos | `asaas-billing-dates.test.ts` | **PASS** |
+| **REQ-CRM-23** | **CT-UT-10** | Sanitizar e normalizar placas veiculares para exatamente 7 caracteres alfanuméricos em caixa alta. | Unitário | Higienização de Strings | `vehicle-actions-and-upload.test.ts` | **PASS** |
+| **REQ-CRM-25** | **CT-UT-11** | Resolver contexto de tenant priorizando `profile.organization_id` mesmo com falhas transitórias em queries secundárias. | Unitário | Resolução Segura de Tenant | `tenant-isolation.test.ts` | **PASS** |
 | **REQ-CRM-04** | **CT-IT-01** | Renderizar card de veículo com dados de preço, versão, KM, ano e placa corretamente. | Integração | Validação de Renderização DOM | `vehicle-card.test.tsx` | **PASS** |
 | **REQ-CRM-04** | **CT-IT-02** | Exibir classes visuais e badges corretas para status *Disponível*, *Reservado* e *Vendido*. | Integração | Transição de Estados | `vehicle-card.test.tsx` | **PASS** |
 | **REQ-CRM-04** | **CT-IT-03** | Acionar Clipboard API com a ficha técnica estruturada ao clicar no botão "Copiar Ficha Técnica". | Integração | Simulação de Eventos de Usuário | `vehicle-card.test.tsx` | **PASS** |
@@ -60,6 +71,13 @@
 | **REQ-CRM-15** | **CT-IT-15** | Renderizar barra de vagas, listagem com cargos/status, convite de vendedores, trava de limite, modal upgrade e proteção admin. | Integração | Gestão de Equipe & Capacidade | `team-settings.test.tsx` | **PASS** |
 | **REQ-CRM-16** | **CT-IT-16** | Ocultar Super Admin da sidebar, renderizar simulador RBAC, alternar visões (Vendedor/Gerente/Admin), filtrar leads e bloquear abas. | Integração | RBAC & Simulador Demo | `rbac-demo-simulator.test.tsx` | **PASS** |
 | **REQ-CRM-17** | **CT-IT-17** | Validar metadados globais, OpenGraph pt_BR, geração de imagem OG (1200x630), sitemap.xml, robots.txt e manifest PWA. | Integração | SEO Técnico & Indexação | `seo-metadata.test.ts` | **PASS** |
+| **REQ-CRM-18** | **CT-IT-18** | Provisionar atômica e relationalmente organização, horários e perfil via trigger `handle_new_user`. | Integração | Supabase Auth Trigger | `auth-register.test.ts` | **PASS** |
+| **REQ-CRM-19** | **CT-IT-19** | Persistir veículo no Supabase com validação estrita de enums PostgreSQL e rejeição de payload inválido. | Integração | Validação de Schema e Enums | `vehicle-actions-and-upload.test.ts` | **PASS** |
+| **REQ-CRM-20** | **CT-IT-20** | Processar webhooks do Asaas com verificação de token seguro e ativação do tenant. | Integração | Webhook Idempotente | `asaas-webhook.test.ts` | **PASS** |
+| **REQ-CRM-24** | **CT-IT-21** | Interceptar tenant com plano expirado, redirecionar para `/billing` e evitar loop recursivo de redirecionamento. | Integração | Layout Guard & Middleware | `subscription-layout-guard.test.tsx` | **PASS** |
 | **REQ-CRM-01** | **CT-E2E-01** | Preencher formulário no modal de novo lead e verificar se o card entra no topo da coluna "Novo Lead". | E2E | Jornada de Usuário Ponta a Ponta | `e2e/leads-kanban.spec.ts` | **PASS** |
 | **REQ-CRM-04** | **CT-E2E-02** | Filtrar estoque por termo de busca instantânea e validar atualização dos cards exibidos. | E2E | Jornada de Usuário Ponta a Ponta | `e2e/inventory-filter.spec.ts` | **PASS** |
-| **REQ-CRM-11** | **CT-E2E-RESP** | Auditar todas as 9 rotas em 3 viewports móveis (375px, 390px, 412px) garantindo zero scroll horizontal e modais responsivos. | E2E | Responsividade e Viewport Regression | `e2e/responsive-overflow.spec.ts` | **PASS** |
+| **REQ-CRM-19** | **CT-E2E-03** | Cadastrar veículo em estoque real, recarregar página (F5) e verificar permanência física na listagem. | E2E | Persistência Relacional Real | `e2e/vehicle-creation-and-refresh.spec.ts` | **PASS** |
+| **REQ-CRM-21** | **CT-E2E-04** | Validar zero overflow horizontal e modais acessíveis em viewports 1366x768 e 1280x720 de notebooks de concessionária. | E2E | Viewport e Usabilidade HD | `e2e/dealership-notebook-viewports.spec.ts` | **PASS** |
+| **REQ-CRM-22** | **CT-E2E-05** | Executar 4 fases da jornada de lojista real (registro, lead kanban, estoque, auditoria e teardown limpo). | E2E | Jornada Ponta a Ponta Sem Mocks | `e2e/full-journey.spec.ts` | **PASS** |
+| **REQ-CRM-11** | **CT-E2E-RESP** | Auditar todas as rotas em 3 viewports móveis (375px, 390px, 412px) garantindo zero scroll horizontal e modais responsivos. | E2E | Responsividade e Viewport Regression | `e2e/responsive-overflow.spec.ts` | **PASS** |

@@ -360,3 +360,68 @@ Para fins de demonstração, homologação e consistência visual, o dataset ofi
   - **3 Propostas Paradas (Lucas Santana):** Luciana Prado (T-Cross), Rodrigo Meirelles (HR-V), Mariana Albuquerque (Corolla Altis Hybrid) — todas há 28h sem follow-up.
   - **3 Vendas Concluídas (Won):** Roberto Mendes (Corolla R$ 90.000), Marcos Vinicius (Compass R$ 52.900), Fernanda Lima (Tracker R$ 72.900) — Totalizando **R$ 215.800**.
 - **Carteira de Clientes (/clients):** 3 clientes ativos gerados diretamente a partir dos compradores das 3 vendas concluídas.
+
+---
+
+## 7. Provisionamento Atômico & Ciclo de Vida do Lojista
+
+### 7.1. Trigger PostgreSQL (`handle_new_user`)
+O onboarding de uma nova concessionária ocorre de maneira estritamente atômica no banco PostgreSQL através do trigger `handle_new_user` associado ao evento `AFTER INSERT` na tabela `auth.users`:
+1. **Criação da Organização:**
+   - `name`: Nome da loja extraído de `raw_user_meta_data->>'store_name'` (sem sufixos artificiais obrigatórios).
+   - `slug`: Gerado a partir do nome da loja com hash anti-colisão (`generate_slug_unique`).
+   - `plan`: `'trial'`.
+   - `subscription_status`: `'trialing'`.
+   - `trial_ends_at`: `now() + interval '14 days'` (período de cortesia integral de 14 dias).
+   - `business_hours`: JSON canônico estruturado com horários padrão de funcionamento:
+     - Segunda a Sexta: 08:30 às 18:30 (`open: true`)
+     - Sábado: 09:00 às 13:00 (`open: true`)
+     - Domingo: fechado (`open: false`)
+     - `sla_mode`: `'business_hours'` (contagem útil do cronômetro).
+2. **Criação do Perfil Administrativo:**
+   - Criação automática da linha em `public.profiles` com o `organization_id` recém-criado.
+   - `role`: `'admin'::public.user_role` (concedendo acesso total a faturamento, equipe e estoque).
+   - `full_name` e `phone`: Extraídos dos metadados de cadastro.
+
+---
+
+## 8. Faturamento Recorrente & Assinaturas Asaas
+
+### 8.1. Integração com Gateway Asaas
+- **Gateway Oficial:** Asaas API v3 (SandBox em desenvolvimento / Produção em live).
+- **Formas de Liquidação Suportadas:** Pix Dinâmico, Boleto Bancário e Cartão de Crédito.
+- **Ciclos de Cobrança Suportados:**
+  - `MONTHLY` (Mensal): Vigência calculada com acréscimo de +1 mês a partir da data de confirmação.
+  - `YEARLY` (Anual): Vigência calculada com acréscimo de +1 ano (+12 meses) com desconto comercial aplicado.
+
+### 8.2. Webhooks e Atualização de Vigência (`current_period_end`)
+- **Rota do Webhook:** `POST /api/webhooks/asaas`
+- **Validação de Autenticidade:** Verificação do token `asaas-access-token` enviado no cabeçalho HTTP contra a chave configurada no ambiente.
+- **Eventos Críticos:**
+  - `PAYMENT_CONFIRMED` / `PAYMENT_RECEIVED`: Ativa a organização com `subscription_status = 'active'`, atualiza o `current_period_end` conforme o ciclo (`MONTHLY` ou `YEARLY`) e registra a transação.
+  - `PAYMENT_OVERDUE`: Marca o status como `overdue` (inadimplente), mantendo acesso condicional durante a janela de tolerância antes de bloquear.
+  - `PAYMENT_DELETED`: Descarta intenções de cobrança canceladas sem afetar a conta ativa.
+- **Proteção Anti-Loop no Layout (`SubscriptionLayoutGuard`):**
+  - O guarda de layout nunca bloqueia o acesso à tela `/billing` ou `/assinatura`, permitindo que lojas inadimplentes ou com trial vencido acessem o checkout e regularizem sua situação financeira.
+
+---
+
+## 9. Módulo de Estoque e Persistência Real de Veículos
+
+### 9.1. Compatibilidade Rígida com o Banco PostgreSQL
+- **Enums Nativos:** A gravação e consulta de veículos em `/vehicles` respeita estritamente os tipos do PostgreSQL:
+  - `fuel_type`: `'gasolina' | 'etanol' | 'flex' | 'diesel' | 'hibrido' | 'eletrico'`
+  - `transmission_type`: `'manual' | 'automatico' | 'cvt' | 'automatizado'`
+  - `vehicle_status`: `'disponivel' | 'reservado' | 'vendido'`
+- **Sanitização de Placas:** Normalização via `normalizePlate()` para 7 caracteres alfanuméricos em caixa alta sem caracteres especiais, suportando tanto o padrão cinza antigo (`ABC1234`) quanto o padrão Mercosul (`ABC1D23`).
+- **Eliminação de Falso Otimismo:** Qualquer erro de inserção ou RLS no Supabase aciona feedback de falha explícito na interface, garantindo que o veículo exibido no pátio permaneça persistido após o refresh (`F5`).
+
+---
+
+## 10. Compatibilidade de Telas e Viewports
+
+### 10.1. Resoluções HD de Concessionárias
+A aplicação é homologada com garantia de **Zero Horizontal Overflow** nas seguintes resoluções canônicas de notebooks automotivos:
+- **1366 x 768** (Notebook Padrão HD): Resolução predominante em mesas de vendedores e recepções de lojas.
+- **1280 x 720** (Notebook HD com Escala de Exibição Windows 125%/150%): Espaço útil vertical compacto.
+- **Mobile Viewports (375px a 412px)**: Menus adaptados em Drawer com fechamento suave e botões otimizados para touch.

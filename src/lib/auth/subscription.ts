@@ -59,7 +59,19 @@ export function getOrganizationAccessStatus(
   const status = (org.subscription_status || "").toLowerCase();
   const plan = (org.plan || "").toLowerCase();
 
-  // 3. Assinatura Ativa
+  // 3. Vigência Paga Ativa (Soberania de current_period_end)
+  // Se a concessionária possui período pago válido no futuro e não cancelou expressamente, o acesso é garantido
+  if (status !== "canceled" && org.current_period_end) {
+    const periodEnds = new Date(org.current_period_end).getTime();
+    if (periodEnds > Date.now()) {
+      return {
+        hasAccess: true,
+        reason: "ACTIVE_SUBSCRIPTION",
+      };
+    }
+  }
+
+  // 4. Assinatura Ativa
   if (status === "active") {
     return {
       hasAccess: true,

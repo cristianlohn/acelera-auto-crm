@@ -14,20 +14,19 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
 
 ```
            / \
-          / E2E \       <-- Playwright (Fluxos Críticos e Regressão Visual)
+          / E2E \       <-- Playwright (108 testes em 16 suítes: Desktop Chrome + Mobile Pixel 5)
          /-------\
-        / Integração\   <-- Testing Library + Happy-DOM (Cards, Modais, Dropdowns)
+        / Integração\   <-- Testing Library + Happy-DOM (34 arquivos de suítes de páginas e componentes)
        /-------------\
-      /   Unitários   \ <-- Vitest (Formatadores, Regras de Tempo, URLs WhatsApp)
+      /   Unitários   \ <-- Vitest (61 arquivos: formatadores, regras de SLA, Asaas, RLS, roleta)
      /-----------------\
 ```
 
 | Nível de Teste | Ferramentas | Escopo | Frequência de Execução |
 |---|---|---|---|
-| **Testes Unitários** | Vitest 4+, v8 | Funções puras de formatação (BRL, KM), regras de urgência de leads (BVA), higienização de telefones e geração de deep-links WhatsApp. | A cada commit / pré-push e na esteira de CI. |
-| **Testes de Integração** | Testing Library + happy-dom | Renderização de cards de veículos, estados de badges de status, dropdown menus, cópia para clipboard com mocks e formulários modais. | A cada commit / PR na esteira de CI. |
+| **Testes Unitários & Integração** | Vitest 4+, happy-dom, v8 | 771 testes em 97 arquivos cobrindo formatações, SLAs, roletas, assinaturas Asaas, webhooks e Server Actions. | A cada commit / pré-push e na esteira de CI. |
 | **Testes Estáticos** | TypeScript (`tsc --noEmit`) + ESLint | Tipagem estrita de contratos de dados (sem `any`), boas práticas de React 19 / Next.js 16 e acessibilidade ARIA. | A cada build e no CI. |
-| **Testes E2E (Fase 2)** | Playwright | Navegação ponta-a-ponta entre funil e estoque, persistência no Supabase e fluxos em viewport mobile. | Pré-release e branches de staging/produção. |
+| **Testes E2E (Ponta a Ponta)** | Playwright (Node.js 22 LTS) | 108 testes em 16 suítes cobrindo Desktop Chrome e Mobile Chrome: jornada sem mocks (`full-journey.spec.ts`), viewports HD 1366x768/1280x720, Kanban, estoque e RBAC. | A cada PR e push nas branches principais via GitHub Actions. |
 
 ---
 
@@ -99,7 +98,10 @@ Garantir que o **Acelera Auto CRM** mantenha alta confiabilidade operacional, in
 | **IT-17.1-5** | SEO Técnico, OpenGraph & Indexação | `seo-metadata.test.ts` -> SEO/Metadata | Metadados globais, OpenGraph pt_BR, imagem OG dinâmica, sitemap.xml, robots.txt e manifest | ✅ Passou |
 | **CT-E2E-01** | Fluxo de Leads no Funil | `leads-kanban.spec.ts` | Abertura do modal, preenchimento, criação e renderização na coluna "Novo Lead" | ✅ Passou |
 | **CT-E2E-02** | Consulta e Filtros de Estoque | `inventory-filter.spec.ts` | Busca instantânea reativa por modelo e validação do grid de veículos | ✅ Passou |
-| **CT-E2E-RESP** | Responsividade e Zero Overflow | `responsive-overflow.spec.ts` | Auditoria de 9 rotas e 3 modais em 3 viewports móveis (375px, 390px, 412px) | ✅ Passou |
+| **CT-E2E-03** | Persistência Real no Estoque & Refresh F5 | `vehicle-creation-and-refresh.spec.ts` | Cadastro em banco Supabase real, reload F5 e preservação de listagem | ✅ Passou |
+| **CT-E2E-04** | Viewports HD de Concessionária (1366x768 e 1280x720) | `dealership-notebook-viewports.spec.ts` | Zero overflow horizontal e modais com rolagem interna acessíveis | ✅ Passou |
+| **CT-E2E-05** | Jornada Sem Mocks Completa (4 Fases + Teardown) | `full-journey.spec.ts` | Onboarding, Funil, Estoque, Auditoria relacional e Teardown idempotente | ✅ Passou |
+| **CT-E2E-RESP** | Responsividade e Zero Overflow Mobile | `responsive-overflow.spec.ts` | Auditoria de rotas e modais em 3 viewports móveis (375px, 390px, 412px) | ✅ Passou |
 
 ---
 

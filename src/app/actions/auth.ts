@@ -22,7 +22,6 @@ import {
   getOrganizationAccessStatus,
   type OrganizationAccessStatus,
 } from "@/lib/auth/subscription";
-import { isSubscriptionValid } from "@/lib/auth/subscription-guard";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/constants";
 
 export interface RegisterDealershipInput {
@@ -661,12 +660,13 @@ export async function checkUserSubscriptionGuardAction(): Promise<{
     };
   }
 
-  const status = tenantContext.organization?.subscription_status ?? null;
-  const isValid = isSubscriptionValid(status);
+  const org = tenantContext.organization;
+  const accessStatus = getOrganizationAccessStatus(org, tenantContext.profile?.role);
+  const status = org?.subscription_status ?? null;
 
   return {
-    isValid,
-    status,
+    isValid: accessStatus.hasAccess,
+    status: accessStatus.reason === "ACTIVE_SUBSCRIPTION" ? "active" : status,
     isDemo: false,
   };
 }

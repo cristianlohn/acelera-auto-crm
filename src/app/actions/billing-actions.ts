@@ -11,6 +11,7 @@ import {
   createAsaasSubscription,
   getAsaasSubscriptionDetails,
   getAsaasSubscriptionInvoices,
+  cancelAsaasPendingCharge,
   BILLING_PLANS_CONFIG,
   type CreateSubscriptionResult,
   type SubscriptionInvoice,
@@ -351,6 +352,11 @@ export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverv
     else if (rawStatus === "canceled") status = "canceled";
     else if (org.trial_ends_at && new Date(org.trial_ends_at).getTime() > now) status = "trialing";
 
+    // Soberania da vigência contratada: se o plano estiver pago e válido no futuro, é estritamente "active"
+    if (daysRemaining !== null && daysRemaining > 0 && rawStatus !== "canceled") {
+      status = "active";
+    }
+
     const rawPlan = (org.plan || "starter").toLowerCase();
     const planConfig = BILLING_PLANS_CONFIG[rawPlan] || BILLING_PLANS_CONFIG.pro;
 
@@ -545,7 +551,8 @@ export const getPaymentHistoryAction = getSubscriptionInvoicesAction;
 
 
 /**
- * Cancela uma solicitação de upgrade pendente e limpa os campos de intenção no banco local.
+ * Cancela uma solicitação de upgrade pendente, remove a cobrança no gateway Asaas
+ * e limpa os campos de intenção no banco local restaurando o status ativo do tenant se vigente.
  * Restrito a administradores ou proprietários da concessionária.
  */
 export async function cancelPendingUpgradeAction(): Promise<{
@@ -571,15 +578,62 @@ export async function cancelPendingUpgradeAction(): Promise<{
       return { success: false, error: "Organização não localizada." };
     }
 
+    const org = tenantContext.organization;
+    let pendingInvoiceId = (org as { pending_invoice_id?: string | null })?.pending_invoice_id;
+    let currentPeriodEnd = org?.current_period_end;
+
+    if (isSupabaseServerConfigured()) {
+      try {
+        const supabaseAdmin = createAdminClient();
+        const { data: dbOrg } = await supabaseAdmin
+          .from("organizations")
+          .select("pending_invoice_id, pending_plan, current_period_end, subscription_status")
+          .eq("id", orgId)
+          .maybeSingle();
+
+        if (dbOrg) {
+          pendingInvoiceId = dbOrg.pending_invoice_id || pendingInvoiceId;
+          currentPeriodEnd = dbOrg.current_period_end || currentPeriodEnd;
+        }
+      } catch (e) {
+        console.warn("[cancelPendingUpgradeAction] Falha ao consultar organização no Supabase:", e);
+      }
+    }
+
+    // 1. Cancela a cobrança pendente gerada no Asaas
+    if (pendingInvoiceId) {
+      try {
+        await cancelAsaasPendingCharge(pendingInvoiceId);
+      } catch (chargeErr) {
+        console.warn("[cancelPendingUpgradeAction] Falha ao cancelar cobrança no gateway Asaas:", chargeErr);
+      }
+    }
+
+    // 2. Limpa os campos no Supabase e restaura status 'active' se o período vigente estiver no futuro
     if (isSupabaseServerConfigured()) {
       const supabaseAdmin = createAdminClient();
+      const hasValidPeriod = Boolean(
+        currentPeriodEnd && new Date(currentPeriodEnd).getTime() > Date.now()
+      );
+
+      const updatePayload: {
+        pending_plan: string | null;
+        pending_invoice_id: string | null;
+        updated_at: string;
+        subscription_status?: string;
+      } = {
+        pending_plan: null,
+        pending_invoice_id: null,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (hasValidPeriod) {
+        updatePayload.subscription_status = "active";
+      }
+
       const { error } = await supabaseAdmin
         .from("organizations")
-        .update({
-          pending_plan: null,
-          pending_invoice_id: null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq("id", orgId);
 
       if (error) {
@@ -589,6 +643,7 @@ export async function cancelPendingUpgradeAction(): Promise<{
 
     try {
       revalidatePath("/billing");
+      revalidatePath("/dashboard");
     } catch {
       // Ignora em testes
     }
@@ -602,4 +657,5 @@ export async function cancelPendingUpgradeAction(): Promise<{
     };
   }
 }
+
 

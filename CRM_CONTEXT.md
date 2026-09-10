@@ -64,8 +64,32 @@ Este arquivo é a fonte da verdade para o desenvolvimento do CRM. Qualquer modif
 ---
 
 ## 7. Protocolo de Qualidade
-- Antes de finalizar qualquer tarefa, executar a suíte Vitest (npm test) e garantir 100% de testes aprovados.
+- Antes de finalizar qualquer tarefa, executar a suíte Vitest (`npm run test`) e Playwright (`npx playwright test`), garantindo 100% de testes aprovados.
 
+---
+
+## 8. Provisionamento Atômico e Ciclo de Vida do Tenant
+- **Trigger PostgreSQL (`handle_new_user`):** Ao cadastrar um novo usuário em `/cadastro`, o PostgreSQL dispara atomicamente:
+  1. Criação da organização (`plan: 'trial'`, `subscription_status: 'trialing'`, `trial_ends_at: now() + interval '14 days'`).
+  2. Inicialização da matriz canônica de expediente e SLA (`business_hours`: Seg-Sex 08:30-18:30, Sáb 09:00-13:00, Dom fechado, `sla_mode: 'business_hours'`).
+  3. Criação do perfil em `public.profiles` com o papel `'admin'::public.user_role`.
+- **Zero Inconsistência:** O frontend nunca realiza inserts manuais fragmentados nas tabelas de tenant no momento do cadastro.
+
+---
+
+## 9. Persistência de Veículos no Estoque (`/vehicles`)
+- **Compatibilidade com Enums PostgreSQL:** Campos como `fuel`, `transmission` e `status` devem usar os valores exatos do schema (`gasolina`, `etanol`, `flex`, `diesel`, `hibrido`, `eletrico`; `manual`, `automatico`, `cvt`, `automatizado`; `disponivel`, `reservado`, `vendido`).
+- **Sanitização de Placas:** Todas as placas devem ser normalizadas via `normalizePlate()` para padrão alfanumérico sem traços (7 caracteres), aceitando formato antigo e Mercosul.
+- **Proibição de Falso Otimismo:** Falhas de persistência no Supabase devem estourar erro explícito na UI, sem retenção temporária em memória fingindo persistência.
+
+---
+
+## 10. Faturamento e Assinaturas Recorrentes Asaas
+- **Ciclos e Vigência:** Suporte nativo a ciclos mensal (`MONTHLY` -> +1 mês) e anual (`YEARLY` -> +1 ano) ao processar webhooks `PAYMENT_CONFIRMED` com atualização de `current_period_end`.
+- **Proteção de Layout Anti-Looping:** O componente `SubscriptionLayoutGuard` nunca redireciona quando a rota em navegação for `/billing` ou quando a sessão estiver no modo demo.
+- **Conta Compartilhada Asaas (Catuto Flow & Acelera Auto) & Descarte Silencioso:** A conta corporativa Asaas é compartilhada sob o mesmo CNPJ entre o CRM e o Catuto Flow. Como os webhooks disparam em broadcast, eventos cujo identificador (`payment.customer`, `payment.subscription`, `payment.id`) não pertença ao Supabase do CRM são descartados silenciosamente com HTTP 200 (`{ received: true, ignored: true, reason: 'unrelated_organization' }`). Eventos secundários/não monitorados (ex: transferências Pix, antecipações) retornam HTTP 200 (`{ received: true, ignored: true, reason: 'unhandled_event' }`), impedindo a desativação da fila da conta corporativa.
+
+---
 
 ## 🛡️ Cláusula de Proteção Absoluta: Modo de Demonstração (Demo Mode)
 
@@ -91,7 +115,7 @@ O **Ambiente de Demonstração (Demo Mode)** é um ativo crítico de conversão 
 
 ## 🛑 Cláusula de Não-Regressão, Reuso Estrito e Cirurgia de Código
 
-O Acelera Auto CRM possui arquitetura consolidada, dezenas de telas prontas e mais de 530 testes automatizados ativos. Para preservar a estabilidade e evitar retrabalho, toda IA ou desenvolvedor DEVE obedecer às seguintes diretrizes:
+O Acelera Auto CRM possui arquitetura consolidada, dezenas de telas prontas e mais de 770 testes automatizados unitários/integração além de 108 testes E2E ativos. Para preservar a estabilidade e evitar retrabalho, toda IA ou desenvolvedor DEVE obedecer às seguintes diretrizes:
 
 1. **Inspeção Prévia Obrigatória (Look Before You Leap):**
    - Antes de criar qualquer arquivo, hook, Server Action, tabela ou componente, faça uma busca no repositório (`src/hooks`, `src/app/actions`, `src/components`, `supabase/migrations`) para verificar se a funcionalidade ou estrutura similar já existe.
@@ -105,4 +129,4 @@ O Acelera Auto CRM possui arquitetura consolidada, dezenas de telas prontas e ma
    - Telas, layouts, componentes visuais (Kanban, Gráficos, Modais, Cards) e fluxos de UX já homologados não devem sofrer alterações visuais ou refatorações de design, exceto se solicitado explicitamente.
 
 4. **Inviolabilidade de Testes Existentes:**
-   - Nenhum teste existente da suíte pode ser deletado ou enfraquecido para acomodar código novo. Novas implementações devem somar testes à suíte sem quebrar os 537+ testes aprovados.
+   - Nenhum teste existente da suíte pode ser deletado ou enfraquecido para acomodar código novo. Novas implementações devem somar testes à suíte sem quebrar os 771+ testes unitários/integração e 108+ testes E2E aprovados.

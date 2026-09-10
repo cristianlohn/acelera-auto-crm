@@ -254,7 +254,11 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               maybeSingle: vi.fn().mockResolvedValue({
-                data: { id: "org-loja-prime-001", name: "Loja Prime" },
+                data: {
+                  id: "org-loja-prime-001",
+                  name: "Loja Prime",
+                  asaas_subscription_id: "pay_overdue_999",
+                },
               }),
             }),
           }),
@@ -440,6 +444,8 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
 
       const json = await response.json();
       expect(json.received).toBe(true);
+      expect(json.ignored).toBe(true);
+      expect(json.reason).toBe("unrelated_organization");
       expect(json.actionTaken).toBe("skipped_organization_not_found");
     });
   });
