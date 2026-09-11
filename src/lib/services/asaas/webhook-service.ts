@@ -237,17 +237,30 @@ export const PLAN_LIMITS_CONFIG = {
 } as const;
 
 /**
- * Identifica o plano correto a partir do externalReference, descrição ou valor da cobrança.
+ * Identifica o plano correto a partir do externalReference, descrição, valor ou plano da organização.
+ * Ordem de Resolução Mandatória:
+ * 1. Prioridade Máxima: Identificador / Metadados (parsedRefPlan, description, orgPlan / pending_plan).
+ * 2. Fallback por Preço com Mapeamento Exato e Trava de Segurança:
+ *    - R$ 297,00 ou R$ 2.970,00 -> estritamente 'starter' (NÃO PODE SER ENTERPRISE).
+ *    - R$ 497,00 ou R$ 4.970,00 -> estritamente 'pro' (NÃO PODE SER ENTERPRISE).
+ *    - R$ 897,00, R$ 1.200,00, R$ 1.297,00 ou outro valor contratual específico que não coincida com Starter ou Pro -> 'enterprise'.
+ * 3. Trava de Segurança: Sob nenhuma hipótese R$ 2.970 ou R$ 4.970 podem resultar em 'enterprise'.
  */
 export function resolvePlanFromData(
   parsedRefPlan?: string | null,
   description?: string | null,
-  paymentValue?: number | null
+  paymentValue?: number | null,
+  fallbackOrgPlan?: string | null
 ): "starter" | "pro" | "enterprise" {
-  if (parsedRefPlan && (parsedRefPlan === "starter" || parsedRefPlan === "pro" || parsedRefPlan === "enterprise")) {
-    return parsedRefPlan;
+  // 1. Prioridade Máxima: Referência externa estruturada
+  if (parsedRefPlan) {
+    const cleanRef = parsedRefPlan.toLowerCase().trim();
+    if (cleanRef === "starter" || cleanRef === "pro" || cleanRef === "enterprise") {
+      return cleanRef;
+    }
   }
 
+  // 2. Descrição textual explícita
   const descUpper = (description || "").toUpperCase();
   if (descUpper.includes("ENTERPRISE")) {
     return "enterprise";
@@ -259,15 +272,40 @@ export function resolvePlanFromData(
     return "pro";
   }
 
-  if (paymentValue) {
-    if (paymentValue <= 350 || (paymentValue >= 2500 && paymentValue <= 3500)) {
+  // 3. Fallback por Preço com Mapeamento Exato e Trava de Segurança
+  if (paymentValue !== undefined && paymentValue !== null) {
+    const val = Math.round(paymentValue * 100) / 100;
+
+    // TRAVA ABSOLUTA: Preços canônicos exatos de Starter e Pro (mensal e anual)
+    if (val === 297 || val === 2970) {
       return "starter";
     }
-    if ((paymentValue >= 400 && paymentValue <= 600) || (paymentValue >= 4500 && paymentValue <= 5500)) {
+    if (val === 497 || val === 4970) {
       return "pro";
     }
-    if (paymentValue >= 800) {
+
+    // Valores Enterprise (ex: 897, 1200, 1297)
+    // Trava de segurança: Sob nenhuma hipótese 2970 ou 4970 podem cair aqui
+    if (val >= 800 && val !== 2970 && val !== 4970) {
       return "enterprise";
+    }
+
+    // Intervalos de tolerância para Starter (ex: com centavos/taxas ou descontos promocionais)
+    if ((val >= 250 && val <= 350) || (val >= 2500 && val <= 3500)) {
+      return "starter";
+    }
+
+    // Intervalos de tolerância para Pro (ex: com centavos/taxas ou descontos promocionais)
+    if ((val >= 400 && val <= 600) || (val >= 4500 && val <= 5500)) {
+      return "pro";
+    }
+  }
+
+  // 4. Fallback contextual no plano pré-armazenado na organização
+  if (fallbackOrgPlan) {
+    const cleanOrg = fallbackOrgPlan.toLowerCase().trim();
+    if (cleanOrg === "starter" || cleanOrg === "pro" || cleanOrg === "enterprise") {
+      return cleanOrg;
     }
   }
 
@@ -488,7 +526,8 @@ export async function processAsaasWebhookEvent(
       const resolvedPlan = resolvePlanFromData(
         parsedRef?.plan,
         payment?.description || subscription?.description,
-        payment?.value
+        payment?.value,
+        org?.pending_plan || org?.plan
       );
       const targetPlan = (org?.pending_plan as "starter" | "pro" | "enterprise") || resolvedPlan;
       const maxSellers = targetPlan === "enterprise"
@@ -734,7 +773,8 @@ export async function processAsaasWebhookEvent(
           const targetPlan = resolvePlanFromData(
             parsedRef?.plan,
             subscription?.description || payment?.description,
-            subscription?.value || payment?.value
+            subscription?.value || payment?.value,
+            org?.pending_plan || org?.plan
           );
           const maxSellers = targetPlan === "enterprise"
             ? (org?.max_sellers ?? null)

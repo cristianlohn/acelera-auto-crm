@@ -75,10 +75,12 @@ export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
   },
 ];
 
-import { CANONICAL_PLANS } from "@/config/plans";
+import { CANONICAL_PLANS, isSalesRole, SALES_ROLE_ALIASES, type SalesRoleAlias } from "@/config/plans";
+
+export { isSalesRole, SALES_ROLE_ALIASES, type SalesRoleAlias };
 
 export const INITIAL_CAPACITY: TeamCapacity = {
-  currentCount: 3,
+  currentCount: 1, // Apenas Rafael Alves é vendedor nos INITIAL_TEAM_MEMBERS
   maxSellers: CANONICAL_PLANS.starter.sellerLimit,
   plan: "starter",
   planName: CANONICAL_PLANS.starter.name,

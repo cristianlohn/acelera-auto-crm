@@ -3,6 +3,10 @@
  * @description Tipagens canônicas completas para o módulo de Gestão de Equipe, Vendedores e Roleta Comercial.
  */
 
+import { isSalesRole, SALES_ROLE_ALIASES, type SalesRoleAlias } from "@/config/plans";
+
+export { isSalesRole, SALES_ROLE_ALIASES, type SalesRoleAlias };
+
 /**
  * Papéis Canônicos: 'admin' | 'gerente' | 'vendedor'
  * Mantém uniões resilientes para compatibilidade com dados externos/legados.

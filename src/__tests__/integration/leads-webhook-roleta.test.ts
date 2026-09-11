@@ -55,19 +55,66 @@ describe("[IT-ROULETTE] Roleta de Leads e Robustez (POST /api/webhooks/leads)", 
     expect(data.success).toBe(true);
     expect(data.status).toBe("novo");
     expect(data.sla_minutes).toBe(15);
-    expect(data.assigned_seller).toBe("Rafael Alves");
+    expect(data.assigned_seller).toBe("Rafael Martins");
     expect(data.distribution_mode).toBe("round_robin");
     expect(data.lead_id).toBeDefined();
   });
 
   it("[IT-ROULETTE.2] Equidade da Roleta: distribui 12 leads perfeitamente entre 4 vendedores (3 para cada)", async () => {
-    // Arrange: 4 vendedores disponíveis (Rafael Alves, Camila Dias, Lucas Santana, Beatriz Rocha)
+    // Arrange: 4 vendedores disponíveis (Rafael Martins, Amanda Souza, Camila Dias, Lucas Santana)
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+    let leadSeqCounter = 0;
+    const createProfilesChain = () => {
+      const chain: Record<string, unknown> = {};
+      chain.eq = vi.fn().mockReturnValue(chain);
+      chain.in = vi.fn().mockReturnValue(chain);
+      chain.then = (resolve: (val: unknown) => void) =>
+        resolve({
+          data: [
+            { id: "sp-001", full_name: "Rafael Martins", role: "vendedor", in_roulette: true, is_online: true },
+            { id: "sp-002", full_name: "Amanda Souza", role: "vendedor", in_roulette: true, is_online: true },
+            { id: "sp-003", full_name: "Camila Dias", role: "vendedor", in_roulette: true, is_online: true },
+            { id: "sp-004", full_name: "Lucas Santana", role: "vendedor", in_roulette: true, is_online: true },
+          ],
+          error: null,
+        });
+      return chain;
+    };
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          return {
+            select: vi.fn().mockReturnValue(createProfilesChain()),
+          };
+        }
+        if (table === "leads") {
+          return {
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockImplementation(() =>
+                  Promise.resolve({
+                    data: { id: `lead_seq_${++leadSeqCounter}` },
+                    error: null,
+                  })
+                ),
+              }),
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
+      mockSupabase as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>
+    );
+
     resetRoundRobinCursor(0);
     const sellerCounts: Record<string, number> = {
-      "Rafael Alves": 0,
+      "Rafael Martins": 0,
+      "Amanda Souza": 0,
       "Camila Dias": 0,
       "Lucas Santana": 0,
-      "Beatriz Rocha": 0,
     };
 
     // Act: 12 envios sequenciais
@@ -89,14 +136,61 @@ describe("[IT-ROULETTE] Roleta de Leads e Robustez (POST /api/webhooks/leads)", 
     }
 
     // Assert: Cada um dos 4 vendedores recebeu exatamente 3 leads
-    expect(sellerCounts["Rafael Alves"]).toBe(3);
+    expect(sellerCounts["Rafael Martins"]).toBe(3);
+    expect(sellerCounts["Amanda Souza"]).toBe(3);
     expect(sellerCounts["Camila Dias"]).toBe(3);
     expect(sellerCounts["Lucas Santana"]).toBe(3);
-    expect(sellerCounts["Beatriz Rocha"]).toBe(3);
   });
 
   it("[IT-ROULETTE.3] Concorrência em Larga Escala: processa 20 requisições simultâneas via Promise.all sem deadlock", async () => {
-    // Arrange
+    // Arrange: 4 vendedores ativos com mock de Supabase
+    vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+    let leadConcCounter = 0;
+    const createProfilesChain = () => {
+      const chain: Record<string, unknown> = {};
+      chain.eq = vi.fn().mockReturnValue(chain);
+      chain.in = vi.fn().mockReturnValue(chain);
+      chain.then = (resolve: (val: unknown) => void) =>
+        resolve({
+          data: [
+            { id: "sp-001", full_name: "Rafael Martins", role: "vendedor", in_roulette: true, is_online: true },
+            { id: "sp-002", full_name: "Amanda Souza", role: "vendedor", in_roulette: true, is_online: true },
+            { id: "sp-003", full_name: "Camila Dias", role: "vendedor", in_roulette: true, is_online: true },
+            { id: "sp-004", full_name: "Lucas Santana", role: "vendedor", in_roulette: true, is_online: true },
+          ],
+          error: null,
+        });
+      return chain;
+    };
+
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          return {
+            select: vi.fn().mockReturnValue(createProfilesChain()),
+          };
+        }
+        if (table === "leads") {
+          return {
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockImplementation(() =>
+                  Promise.resolve({
+                    data: { id: `lead_conc_${++leadConcCounter}` },
+                    error: null,
+                  })
+                ),
+              }),
+            }),
+          };
+        }
+        return {};
+      }),
+    };
+    vi.spyOn(supabaseServerModule, "createServerSupabaseClient").mockResolvedValue(
+      mockSupabase as unknown as Awaited<ReturnType<typeof supabaseServerModule.createServerSupabaseClient>>
+    );
+
     resetRoundRobinCursor(0);
     const totalRequests = 20;
     const requests = Array.from({ length: totalRequests }, (_, idx) =>
@@ -122,17 +216,17 @@ describe("[IT-ROULETTE] Roleta de Leads e Robustez (POST /api/webhooks/leads)", 
     expect(leadIds.size).toBe(totalRequests); // Todos os leads possuem IDs únicos
 
     const assignedSellers = results.map((r) => r.assigned_seller);
-    const rafaelCount = assignedSellers.filter((s) => s === "Rafael Alves").length;
+    const rafaelCount = assignedSellers.filter((s) => s === "Rafael Martins").length;
+    const amandaCount = assignedSellers.filter((s) => s === "Amanda Souza").length;
     const camilaCount = assignedSellers.filter((s) => s === "Camila Dias").length;
     const lucasCount = assignedSellers.filter((s) => s === "Lucas Santana").length;
-    const beatrizCount = assignedSellers.filter((s) => s === "Beatriz Rocha").length;
 
     // 20 dividido por 4 = 5, 5, 5, 5
-    expect(rafaelCount + camilaCount + lucasCount + beatrizCount).toBe(20);
+    expect(rafaelCount + amandaCount + camilaCount + lucasCount).toBe(20);
     expect(rafaelCount).toBe(5);
+    expect(amandaCount).toBe(5);
     expect(camilaCount).toBe(5);
     expect(lucasCount).toBe(5);
-    expect(beatrizCount).toBe(5);
   });
 
   it("[IT-ROULETTE.4] Bypass de Vendedor: respeita atribuição explícita quando 'assigned_to' ou 'seller_name' estiver no payload", async () => {

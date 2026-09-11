@@ -48,7 +48,7 @@ import {
   type UserRole,
   type InviteMemberInput,
 } from "@/lib/team-data";
-import { CANONICAL_PLANS } from "@/config/plans";
+import { CANONICAL_PLANS, isSalesRole } from "@/config/plans";
 import {
   inviteTeamMember,
   getTeamMembers,
@@ -491,13 +491,13 @@ export function SettingsForm({
     });
   };
 
-  // Filtro estrito: apenas membros com perfil 'vendedor' consomem cota comercial
-  const activeSellersCount = teamMembers.filter(
-    (m) => m.role === "vendedor" || (m as unknown as { role: string }).role === "seller"
-  ).length;
+  // Filtro estrito: apenas membros com perfil de vendas consomem cota comercial
+  const activeSellersCount = teamMembers.filter((m) => isSalesRole(m.role)).length;
 
   const hasAvailableSlots =
-    teamCapacity.maxSellers === null || activeSellersCount < teamCapacity.maxSellers;
+    teamCapacity.maxSellers === null
+      ? teamCapacity.hasAvailableSlots ?? false
+      : activeSellersCount < teamCapacity.maxSellers;
 
   // Disparo do clique no botão de Adicionar Vendedor
   const handleOpenAddMember = () => {

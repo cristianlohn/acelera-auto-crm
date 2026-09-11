@@ -6,11 +6,28 @@
 
 export type PlanId = "starter" | "pro" | "enterprise";
 
+export const SALES_ROLE_ALIASES = [
+  "vendedor",
+  "vendedora",
+  "seller",
+  "consultor",
+  "consultora",
+] as const;
+
+export type SalesRoleAlias = (typeof SALES_ROLE_ALIASES)[number];
+
+export function isSalesRole(role?: string | null): boolean {
+  if (!role) return false;
+  const normalized = role.toLowerCase().trim();
+  return (SALES_ROLE_ALIASES as readonly string[]).includes(normalized);
+}
+
 export interface PlanConfig {
   id: "starter" | "pro" | "enterprise";
   name: string;
   badge?: string;
   sellerLimit: number | null; // null = capacidade personalizada / sob consulta (elimina 999)
+  customSellerLimit?: boolean;
   unlimitedSellers?: boolean;
   monthlyPrice: number | null; // null = precificação sob consulta
   annualPrice: number | null;
@@ -72,7 +89,7 @@ export const CANONICAL_PLANS: Record<"starter" | "pro" | "enterprise", PlanConfi
     name: "Plano Enterprise",
     sellerLimit: null,
     maxSellers: null,
-    unlimitedSellers: true,
+    customSellerLimit: true,
     monthlyPrice: null,
     priceMonthly: null,
     annualPrice: null,

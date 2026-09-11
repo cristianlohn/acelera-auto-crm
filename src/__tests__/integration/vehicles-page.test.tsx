@@ -20,10 +20,11 @@
  * ============================================================================
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { VehiclesPageClient as VehiclesPage } from "@/components/vehicles/vehicles-page-client";
+import { resetMockVehicles } from "@/lib/mock-data";
 
 // ---------------------------------------------------------------------------
 // Mocks de Componentes Externos
@@ -44,6 +45,10 @@ vi.mock("next/image", () => ({
 // ---------------------------------------------------------------------------
 
 describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () => {
+  beforeEach(() => {
+    resetMockVehicles();
+  });
+
   it("[IT-07.1] Deve renderizar as métricas de topo do pátio calculadas dinamicamente", () => {
     // Arrange & Act (Dado que a tela de Estoque é montada)
     render(<VehiclesPage />);
@@ -95,8 +100,8 @@ describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () =>
       name: /buscar veículos/i,
     });
 
-    // Act (Quando buscamos pela placa 'BRA2E22')
-    await user.type(searchInput, "BRA2E22");
+    // Act (Quando buscamos pela placa Mercosul canônica do Civic 'HCT8T21')
+    await user.type(searchInput, "HCT8T21");
 
     // Assert (Apenas o Civic com essa placa deve permanecer)
     expect(screen.getByText("Honda Civic")).toBeInTheDocument();
@@ -136,14 +141,13 @@ describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () =>
     // Assert 1 (As métricas de vendas e a visão especializada devem ser exibidas)
     expect(screen.getByText("Veículos Vendidos")).toBeInTheDocument();
     expect(screen.getByText("Faturamento Realizado")).toBeInTheDocument();
-    expect(screen.getByText(/R\$\s?215\.800/)).toBeInTheDocument();
+    expect(screen.getByText(/R\$\s?260\.000/)).toBeInTheDocument();
 
-    // Valida a presença dos 3 veículos canônicos vendidos e ausência do Kwid desconexo
+    // Valida a presença dos veículos canônicos vendidos e ausência do Kwid desconexo
     expect(screen.getByText(/Tracker/)).toBeInTheDocument();
-    expect(screen.getByText(/Ka/)).toBeInTheDocument();
-    expect(screen.getByText("Roberto Mendes")).toBeInTheDocument();
-    expect(screen.getByText("Fernanda Lima")).toBeInTheDocument();
-    expect(screen.getByText("Carlos Eduardo")).toBeInTheDocument();
+    expect(screen.getByText(/Toro/)).toBeInTheDocument();
+    expect(screen.getByText("Renata Silveira")).toBeInTheDocument();
+    expect(screen.getByText("Eduardo Rocha")).toBeInTheDocument();
     expect(screen.queryByText(/Kwid/i)).not.toBeInTheDocument();
 
     // Act 2 (Quando clica de volta na aba 'Pátio Ativo')
@@ -156,7 +160,7 @@ describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () =>
   });
 
   it("[IT-07.7] Deve atualizar dinamicamente o status de um veículo pelo dropdown e refletir na listagem", async () => {
-    // Arrange (Dado o card do Civic no estado Disponível)
+    // Arrange (Dado o card do primeiro veículo no estado Disponível - Toyota Corolla)
     const user = userEvent.setup();
     render(<VehiclesPage />);
 
@@ -173,11 +177,11 @@ describe("[IT-07] Gestão de Estoque: Filtros, Grid, Métricas e Ações", () =>
     });
     await user.click(reservadoOption);
 
-    // Assert (Ao navegar para a aba 'Reservados', o Civic agora deve estar nela)
+    // Assert (Ao navegar para a aba 'Reservados', o Corolla agora deve estar nela)
     const reservadoTab = screen.getByRole("tab", { name: "Reservados" });
     await user.click(reservadoTab);
 
-    expect(screen.getByText("Honda Civic")).toBeInTheDocument();
+    expect(screen.getByText("Toyota Corolla")).toBeInTheDocument();
   });
 
   it("[IT-07.8] Deve cadastrar um novo veículo via modal e exibi-lo imediatamente no topo do grid", async () => {

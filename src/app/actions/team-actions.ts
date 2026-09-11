@@ -10,7 +10,7 @@ import { cookies } from "next/headers";
 import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
-import { CANONICAL_PLANS } from "@/config/plans";
+import { CANONICAL_PLANS, isSalesRole } from "@/config/plans";
 import { sendInviteEmailViaResend } from "@/lib/services/email/resend-service";
 import {
   salespersonFormSchema,
@@ -244,44 +244,59 @@ export async function getTeamSummaryMetricsAction(
 
 /**
  * Server Action para validação de capacidade e vagas da equipe multi-tenant.
- * Se sellerLimit === null (Enterprise), retorna hasAvailableSlots: true diretamente.
  * Gestores e administradores não consomem vagas da cota de vendedores.
+ * Para o Plano Enterprise, a capacidade efetiva deriva estritamente de org.max_sellers.
  */
-export async function validateTeamCapacityAction(explicitOrgId?: string): Promise<{
+export async function validateTeamCapacityAction(
+  explicitOrgId?: string,
+  overrideOrg?: {
+    plan?: string | null;
+    max_sellers?: number | null;
+    enterprise_unlimited?: boolean;
+    unlimited_sellers?: boolean;
+  },
+  overrideMembers?: TeamMember[]
+): Promise<{
   hasAvailableSlots: boolean;
   currentCount: number;
   maxSellers: number | null;
   planName: string;
 }> {
   const tenantContext = await resolveUserTenantContext();
-  const org = tenantContext.organization;
+  const org = overrideOrg || tenantContext.organization;
   const plan = ((org?.plan || "starter") as string).toLowerCase();
-  const planConfig = CANONICAL_PLANS[plan as "starter" | "pro" | "enterprise"] || CANONICAL_PLANS.starter;
+  const planKey = (plan === "enterprise" || plan === "pro" ? plan : "starter") as "starter" | "pro" | "enterprise";
+  const planConfig = CANONICAL_PLANS[planKey] || CANONICAL_PLANS.starter;
+
+  const members = overrideMembers || (await getTeamMembersAction(explicitOrgId));
+  const activeSellersCount = members.filter((m) => isSalesRole(m.role)).length;
 
   let sellerLimit: number | null = planConfig.sellerLimit;
-  if (plan === "enterprise") {
-    sellerLimit = (org as unknown as { max_sellers?: number | null })?.max_sellers ?? null;
-  } else if ((org as unknown as { max_sellers?: number | null })?.max_sellers) {
-    sellerLimit = (org as unknown as { max_sellers?: number | null }).max_sellers ?? planConfig.sellerLimit;
-  }
+  let hasAvailableSlots = false;
 
-  // Enterprise com capacidade sob consulta / personalizada
-  if (sellerLimit === null) {
-    return {
-      hasAvailableSlots: true,
-      currentCount: 0,
-      maxSellers: null,
-      planName: planConfig.name,
-    };
-  }
+  if (planKey === "enterprise") {
+    const orgMaxSellers = (org as unknown as { max_sellers?: number | null })?.max_sellers;
+    const isUnlimited =
+      (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.enterprise_unlimited === true ||
+      (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.unlimited_sellers === true;
 
-  const members = await getTeamMembersAction(explicitOrgId);
-  const activeSellersCount = members.filter(
-    (m) => m.role === "seller" || (m as unknown as { role: string }).role === "vendedor"
-  ).length;
+    if (typeof orgMaxSellers === "number") {
+      sellerLimit = orgMaxSellers;
+      hasAvailableSlots = activeSellersCount < orgMaxSellers;
+    } else if (isUnlimited) {
+      sellerLimit = null;
+      hasAvailableSlots = true;
+    } else {
+      sellerLimit = null;
+      hasAvailableSlots = false;
+    }
+  } else {
+    sellerLimit = (org as unknown as { max_sellers?: number | null })?.max_sellers ?? planConfig.sellerLimit;
+    hasAvailableSlots = sellerLimit !== null ? activeSellersCount < sellerLimit : false;
+  }
 
   return {
-    hasAvailableSlots: activeSellersCount < sellerLimit,
+    hasAvailableSlots,
     currentCount: activeSellersCount,
     maxSellers: sellerLimit,
     planName: planConfig.name,
