@@ -10,13 +10,7 @@ import {
   isSupabaseServerConfigured,
 } from "@/lib/supabase/server";
 import { resolveUserTenantContext } from "@/lib/auth/tenant";
-import {
-  DEMO_LEADS,
-  DEMO_ACTIVE_SELLER_NAMES,
-  DEMO_SELLERS,
-  DEMO_COCKPIT_ACTIONS,
-  DEMO_KPI_AVERAGE_TICKET,
-} from "@/lib/demo/demo-dataset";
+import { getDemoDataset } from "@/lib/demo/demo-dataset";
 import {
   calculateManagerCockpitMetrics,
   type ManagerCockpitMetrics,
@@ -35,9 +29,10 @@ export async function getManagerCockpitMetrics(
 ): Promise<ManagerCockpitMetrics> {
   const tenantContext = await resolveUserTenantContext();
 
-  // 1. Modo Demo Explícito (Sandbox Canônico)
+  // 1. Modo Demo Explícito (Sandbox Canônico Dinâmico contra Stale Timestamps)
   if (tenantContext.isDemo) {
-    const demoLeadsInput: LeadAnalyticsInput[] = DEMO_LEADS.map((l) => {
+    const demo = getDemoDataset(Date.now());
+    const demoLeadsInput: LeadAnalyticsInput[] = demo.leads.map((l) => {
       const raw = l as unknown as Record<string, unknown>;
       return {
         id: l.id,
@@ -59,15 +54,15 @@ export async function getManagerCockpitMetrics(
       };
     });
     return calculateManagerCockpitMetrics(demoLeadsInput, {
-      defaultTicket: DEMO_KPI_AVERAGE_TICKET,
+      defaultTicket: demo.kpis.averageTicket,
       isDemo: true,
-      activeSellers: DEMO_ACTIVE_SELLER_NAMES,
-      sellerProfiles: DEMO_SELLERS.map((s) => ({
+      activeSellers: demo.activeSellerNames,
+      sellerProfiles: demo.sellers.map((s) => ({
         id: s.id,
         name: s.name,
         phone: s.phone,
       })),
-      recommendedActions: DEMO_COCKPIT_ACTIONS,
+      recommendedActions: demo.cockpitActions,
       businessHours: DEFAULT_AUTOMOTIVE_SCHEDULE,
     });
   }
@@ -207,6 +202,21 @@ export async function getManagerCockpitMetrics(
           sellerPhone = prof.phone;
         }
 
+        const scheduledFollowUp =
+          (rawRow.scheduled_followup_at as string) ||
+          (rawRow.scheduledFollowUpAt as string) ||
+          (customFields.scheduled_followup_at as string) ||
+          (customFields.scheduledFollowUpAt as string) ||
+          undefined;
+
+        const isProposalFi =
+          Boolean(rawRow.proposal_fi) ||
+          Boolean(rawRow.proposalFi) ||
+          Boolean(customFields.proposal_fi) ||
+          Boolean(customFields.proposalFi) ||
+          rawRow.stage === "proposal_fi" ||
+          rawRow.stage === "financing";
+
         return {
           id: (row.id as string) || undefined,
           name: (row.name as string) || undefined,
@@ -225,6 +235,8 @@ export async function getManagerCockpitMetrics(
           vehiclePrice: estVal,
           price: estVal,
           notes: (row.notes as string) || undefined,
+          proposalFi: isProposalFi,
+          scheduledFollowUpAt: scheduledFollowUp,
         };
       });
 

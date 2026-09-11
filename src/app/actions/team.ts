@@ -19,6 +19,7 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   INITIAL_CAPACITY,
+  INITIAL_TEAM_MEMBERS,
   type TeamMember,
   type TeamCapacity,
   type InviteMemberInput,
@@ -102,7 +103,9 @@ export async function resendInviteEmailAction(email: string, name?: string, role
 let localCapacity: TeamCapacity = { ...INITIAL_CAPACITY };
 
 function getSharedDemoTeamMembers(): TeamMember[] {
-  return memoryTeamMembers.map((m) => ({
+  const roleOrder: Record<string, number> = { admin: 1, manager: 2, gerente: 2, seller: 3, vendedor: 3 };
+  const sorted = [...memoryTeamMembers].sort((a, b) => (roleOrder[a.role] || 9) - (roleOrder[b.role] || 9));
+  return sorted.map((m) => ({
     id: m.id,
     organizationId: m.organization_id,
     fullName: m.name,
@@ -122,34 +125,42 @@ export async function getTeamCapacity(): Promise<TeamCapacity> {
   const tenantContext = await resolveUserTenantContext();
   const members = await getTeamMembers();
 
+  // Gestores e Admins NÃO consomem vagas comerciais (apenas vendedores contam)
+  const sellersOnly = members.filter(
+    (m) => m.role === "vendedor" || (m as unknown as { role: string }).role === "seller"
+  );
+  const currentCount = sellersOnly.length;
+
   if (!tenantContext.isDemo && tenantContext.organizationId) {
     const org = tenantContext.organization;
     const plan = ((org?.plan || "starter") as string).toLowerCase();
-    let maxSellers = CANONICAL_PLANS.starter.maxSellers;
-    let planName = CANONICAL_PLANS.starter.name;
+    const planKey = (plan === "enterprise" || plan === "pro" ? plan : "starter") as "starter" | "pro" | "enterprise";
+    const planConfig = CANONICAL_PLANS[planKey] || CANONICAL_PLANS.starter;
 
-    if (plan === "enterprise") {
-      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || CANONICAL_PLANS.enterprise.maxSellers;
-      planName = CANONICAL_PLANS.enterprise.name;
-    } else if (plan === "pro") {
-      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || CANONICAL_PLANS.pro.maxSellers;
-      planName = CANONICAL_PLANS.pro.name;
-    } else {
-      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || CANONICAL_PLANS.starter.maxSellers;
-      planName = CANONICAL_PLANS.starter.name;
+    let maxSellers: number | null = planConfig.sellerLimit;
+    if (planKey === "enterprise") {
+      maxSellers = (org as unknown as { max_sellers?: number | null })?.max_sellers ?? null;
+    } else if ((org as unknown as { max_sellers?: number | null })?.max_sellers) {
+      maxSellers = (org as unknown as { max_sellers?: number | null }).max_sellers ?? planConfig.sellerLimit;
     }
 
+    const hasAvailableSlots = maxSellers === null || currentCount < maxSellers;
+
     return {
-      currentCount: members.length,
+      currentCount,
       maxSellers,
-      plan: (plan === "enterprise" || plan === "pro" ? plan : "starter") as "starter" | "pro" | "enterprise",
-      planName,
+      plan: planKey,
+      planName: planConfig.name,
+      hasAvailableSlots,
     };
   }
 
+  const hasAvailableSlots = localCapacity.maxSellers === null || currentCount < localCapacity.maxSellers;
+
   return {
     ...localCapacity,
-    currentCount: members.length,
+    currentCount,
+    hasAvailableSlots,
   };
 }
 
@@ -159,9 +170,14 @@ export async function getTeamCapacity(): Promise<TeamCapacity> {
 export async function getTeamMembers(): Promise<TeamMember[]> {
   const tenantContext = await resolveUserTenantContext();
 
-  // 1. Modo Demonstração explícito (ou offline sem Supabase)
-  if (tenantContext.isDemo || !tenantContext.organizationId) {
+  // 1. Modo Demonstração explícito
+  if (tenantContext.isDemo) {
     return getSharedDemoTeamMembers();
+  }
+
+  // 2. Sem organização ativa (offline / teste)
+  if (!tenantContext.organizationId) {
+    return INITIAL_TEAM_MEMBERS;
   }
 
   // 3. Usuário Autenticado Real: consulta estritamente a organização do usuário logado
@@ -235,18 +251,26 @@ export async function inviteTeamMember(
 
   // No modo demonstração o showroom opera com cota do Plano Pro (8 vagas)
   const effectiveMaxSellers = tenantContext.isDemo
-    ? CANONICAL_PLANS.pro.maxSellers
+    ? CANONICAL_PLANS.pro.sellerLimit
     : localCapacity.maxSellers;
 
-  const currentMembersCount = tenantContext.isDemo || !tenantContext.organizationId
-    ? memoryTeamMembers.filter((m) => m.organization_id === orgId).length
-    : (await getTeamMembers()).length;
+  const allMembers = tenantContext.isDemo || !tenantContext.organizationId
+    ? memoryTeamMembers.filter((m) => m.organization_id === orgId)
+    : (await getTeamMembers());
 
-  // 2. Validação da capacidade máxima do plano
-  if (currentMembersCount >= effectiveMaxSellers) {
+  // Gestores e Admins NÃO consomem vaga comercial
+  const currentSellersCount = allMembers.filter(
+    (m) => m.role === "vendedor" || (m as unknown as { role: string }).role === "seller"
+  ).length;
+
+  const isInvitingSeller = input.role === "vendedor";
+  const hasAvailableSlots = effectiveMaxSellers === null || currentSellersCount < effectiveMaxSellers;
+
+  // 2. Validação da capacidade máxima do plano (apenas novos vendedores consomem slots)
+  if (isInvitingSeller && !hasAvailableSlots) {
     return {
       success: false,
-      error: `Limite de vagas do plano atingido (${currentMembersCount}/${effectiveMaxSellers}). Faça upgrade para o ${CANONICAL_PLANS.pro.name} para adicionar até ${CANONICAL_PLANS.pro.maxSellers} vendedores.`,
+      error: `Limite de vagas do plano atingido (${currentSellersCount}/${effectiveMaxSellers}). Faça upgrade para o ${CANONICAL_PLANS.pro.name} para adicionar até ${CANONICAL_PLANS.pro.sellerLimit} vendedores.`,
       requiresUpgrade: true,
     };
   }
@@ -491,12 +515,16 @@ export async function updateCapacityForPlan(
   plan: "starter" | "pro" | "enterprise"
 ): Promise<TeamCapacity> {
   const targetPlan = CANONICAL_PLANS[plan] || CANONICAL_PLANS.starter;
+  const sellersCount = memoryTeamMembers.filter(
+    (m) => m.role === "vendedor" || (m as unknown as { role: string }).role === "seller"
+  ).length;
 
   localCapacity = {
-    currentCount: memoryTeamMembers.length,
-    maxSellers: targetPlan.maxSellers,
+    currentCount: sellersCount,
+    maxSellers: targetPlan.sellerLimit,
     plan,
     planName: targetPlan.name,
+    hasAvailableSlots: targetPlan.sellerLimit === null || sellersCount < targetPlan.sellerLimit,
   };
 
   revalidatePath("/settings");

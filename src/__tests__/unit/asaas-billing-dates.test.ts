@@ -159,7 +159,7 @@ describe("[UNIT-ASAAS-DATES] Cálculo de Vigência e Ciclo de Faturamento (curre
         id: "pay_test_002",
         customer: "cus_date_002",
         subscription: "sub_date_002",
-        value: 5970.0,
+        value: 4970.0,
         billingType: "PIX" as const,
         status: "CONFIRMED" as const,
         dueDate: "2026-09-05",

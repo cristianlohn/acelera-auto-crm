@@ -231,9 +231,9 @@ export function parseExternalReference(rawRef?: string | null): ExternalReferenc
 import { CANONICAL_PLANS } from "@/config/plans";
 
 export const PLAN_LIMITS_CONFIG = {
-  starter: { maxSellers: CANONICAL_PLANS.starter.maxSellers, name: CANONICAL_PLANS.starter.name },
-  pro: { maxSellers: CANONICAL_PLANS.pro.maxSellers, name: CANONICAL_PLANS.pro.name },
-  enterprise: { maxSellers: CANONICAL_PLANS.enterprise.maxSellers, name: CANONICAL_PLANS.enterprise.name },
+  starter: { maxSellers: CANONICAL_PLANS.starter.sellerLimit, name: CANONICAL_PLANS.starter.name },
+  pro: { maxSellers: CANONICAL_PLANS.pro.sellerLimit, name: CANONICAL_PLANS.pro.name },
+  enterprise: { maxSellers: CANONICAL_PLANS.enterprise.sellerLimit, name: CANONICAL_PLANS.enterprise.name },
 } as const;
 
 /**
@@ -260,11 +260,14 @@ export function resolvePlanFromData(
   }
 
   if (paymentValue) {
-    if (paymentValue >= 12000 || (paymentValue >= 1200 && paymentValue < 2000)) {
-      return "enterprise";
-    }
     if (paymentValue <= 350 || (paymentValue >= 2500 && paymentValue <= 3500)) {
       return "starter";
+    }
+    if ((paymentValue >= 400 && paymentValue <= 600) || (paymentValue >= 4500 && paymentValue <= 5500)) {
+      return "pro";
+    }
+    if (paymentValue >= 800) {
+      return "enterprise";
     }
   }
 
@@ -282,6 +285,7 @@ export interface OrganizationFoundData {
   pending_invoice_id?: string | null;
   asaas_subscription_id?: string | null;
   asaas_customer_id?: string | null;
+  max_sellers?: number | null;
 }
 
 /**
@@ -331,7 +335,7 @@ export async function findOrganizationByAsaasData(
   try {
     const supabaseAdmin = createAdminClient();
     const fields =
-      "id, name, plan, subscription_status, current_period_end, pending_plan, pending_invoice_id, asaas_subscription_id, asaas_customer_id";
+      "id, name, plan, subscription_status, current_period_end, pending_plan, pending_invoice_id, asaas_subscription_id, asaas_customer_id, max_sellers";
 
     // 1. Busca por externalReference (ID direto ou extraído do JSON)
     if (orgIdCandidate) {
@@ -487,7 +491,9 @@ export async function processAsaasWebhookEvent(
         payment?.value
       );
       const targetPlan = (org?.pending_plan as "starter" | "pro" | "enterprise") || resolvedPlan;
-      const maxSellers = PLAN_LIMITS_CONFIG[targetPlan].maxSellers;
+      const maxSellers = targetPlan === "enterprise"
+        ? (org?.max_sellers ?? null)
+        : PLAN_LIMITS_CONFIG[targetPlan].maxSellers;
 
       // 2. Identifica o Ciclo do Plano (Anual vs Mensal)
       let planCycle =
@@ -730,7 +736,9 @@ export async function processAsaasWebhookEvent(
             subscription?.description || payment?.description,
             subscription?.value || payment?.value
           );
-          const maxSellers = PLAN_LIMITS_CONFIG[targetPlan].maxSellers;
+          const maxSellers = targetPlan === "enterprise"
+            ? (org?.max_sellers ?? null)
+            : PLAN_LIMITS_CONFIG[targetPlan].maxSellers;
 
           const updatePayload: OrganizationUpdate = {
             subscription_status: isActive ? "active" : "inactive",

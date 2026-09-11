@@ -14,7 +14,7 @@ import type {
   Client,
   ClientFormData,
 } from "@/types/crm";
-import { DEMO_LEADS, DEMO_CLIENTS } from "@/lib/demo/demo-dataset";
+import { DEMO_LEADS, getDemoDataset } from "@/lib/demo/demo-dataset";
 
 // ---------------------------------------------------------------------------
 // Veículos de demonstração
@@ -220,8 +220,8 @@ export const mockVehicles: Vehicle[] = [
     transmission: "automatico",
     color: "Marrom Deep",
     sellerName: "Rafael Martins",
-    buyerName: "Roberto Mendes",
-    notes: "Venda recente vinculada a Rafael Martins | Comprador: Roberto Mendes",
+    buyerName: "Eduardo Rocha",
+    notes: "Venda recente vinculada a Rafael Martins | Comprador: Eduardo Rocha",
   },
 ];
 
@@ -301,7 +301,7 @@ export const mockLeads: Lead[] = [...DEMO_LEADS];
  * Total: 3 clientes compradores com R$ 215.800 em vendas e ticket médio de R$ 71.933.
  */
 export function getDemoClientsFromClosedLeads(): Client[] {
-  return [...DEMO_CLIENTS];
+  return [...getDemoDataset(Date.now()).clients];
 }
 
 // ---------------------------------------------------------------------------

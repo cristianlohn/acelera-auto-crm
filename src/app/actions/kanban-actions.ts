@@ -5,7 +5,7 @@
  * @description Server Actions multi-tenant para gerenciamento do Funil de Vendas e Kanban de Leads.
  */
 
-import { DEMO_KANBAN_LEADS } from "@/lib/demo/demo-dataset";
+import { DEMO_KANBAN_LEADS, getDemoDataset } from "@/lib/demo/demo-dataset";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
@@ -61,9 +61,10 @@ const memoryKanbanLeads: KanbanLead[] = initialMemoryKanbanLeads.map((l) => ({
 }));
 
 export async function resetMemoryKanbanLeads(): Promise<void> {
+  const freshLeads = getDemoDataset(Date.now()).kanbanLeads;
   memoryKanbanLeads.length = 0;
   memoryKanbanLeads.push(
-    ...initialMemoryKanbanLeads.map((l) => ({
+    ...freshLeads.map((l) => ({
       ...l,
       assigned_to: l.assigned_to ? { ...l.assigned_to } : null,
     }))

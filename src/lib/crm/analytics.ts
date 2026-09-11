@@ -299,6 +299,14 @@ export function generatePrescriptiveActions(
     }
 
     // Follow-up agendado e vencido (Ação Crítica)
+    const isConcluded =
+      rawStage === "won" ||
+      rawStage === "lost" ||
+      rawStatus === "fechado" ||
+      rawStatus === "ganho" ||
+      rawStatus === "perdido" ||
+      rawStatus === "vendido";
+
     const rawRecord = lead as unknown as Record<string, unknown>;
     const scheduledFollowUpStr =
       lead.scheduledFollowUpAt ||
@@ -306,7 +314,7 @@ export function generatePrescriptiveActions(
       (rawRecord.scheduledFollowUpAt as string | undefined) ||
       (rawRecord.scheduled_followup_at as string | undefined);
 
-    if (scheduledFollowUpStr && typeof scheduledFollowUpStr === "string") {
+    if (scheduledFollowUpStr && typeof scheduledFollowUpStr === "string" && !isConcluded) {
       const scheduledTime = new Date(scheduledFollowUpStr).getTime();
       if (scheduledTime < nowTime) {
         if (!overdueFollowupsBySeller[sellerName]) {
@@ -581,10 +589,12 @@ export function calculateCockpitMetrics(
   leads: LeadAnalyticsInput[],
   slaLimitMinutes = 15,
   businessHours?: StoreBusinessHours,
-  referenceNow?: Date
+  referenceNow?: Date,
+  slidingWindowDays = 7
 ) {
   const now = referenceNow ? referenceNow.getTime() : Date.now();
   const nowDate = referenceNow || new Date(now);
+  const slidingWindowMs = slidingWindowDays * 86400000;
 
   let answeredCount = 0;
   let answeredOnTimeCount = 0;
@@ -595,6 +605,16 @@ export function calculateCockpitMetrics(
   let openPendingCount = 0;
 
   leads.forEach((lead) => {
+    const rawStatus = (lead.status || "novo").toLowerCase();
+    const rawStage = (lead.stage || "").toLowerCase();
+    const isConcluded =
+      rawStage === "won" ||
+      rawStage === "lost" ||
+      rawStatus === "fechado" ||
+      rawStatus === "ganho" ||
+      rawStatus === "perdido" ||
+      rawStatus === "vendido";
+
     const createdAtStr = lead.createdAt || lead.created_at;
     const createdAt = createdAtStr ? new Date(createdAtStr).getTime() : now;
 
@@ -604,14 +624,13 @@ export function calculateCockpitMetrics(
       lead.lastContactAt ||
       lead.last_contact_at;
 
-    // Considera apenas leads atendidos ou ativos recentes (últimas 24h/7d) para o cômputo de SLA
-    const isRecentLead = createdAt >= now - 7 * 86400000;
-    const isRecentContact = contactStr ? new Date(contactStr).getTime() >= now - 7 * 86400000 : false;
-    if (!isRecentLead && !isRecentContact) {
-      return;
-    }
-
     if (contactStr) {
+      // Métricas Históricas de Desempenho: janela móvel calculada apenas sobre leads cujo primeiro atendimento já foi realizado
+      const isRecentContact = new Date(contactStr).getTime() >= now - slidingWindowMs;
+      if (!isRecentContact) {
+        return;
+      }
+
       answeredCount++;
       const responseMinutes = Math.max(
         0,
@@ -623,7 +642,8 @@ export function calculateCockpitMetrics(
       if (responseMinutes <= slaLimitMinutes) {
         answeredOnTimeCount++;
       }
-    } else {
+    } else if (!isConcluded) {
+      // Backlog Crítico em Aberto: NUNCA aplique filtro de 24h/7d que oculte leads antigos sem atendimento
       openPendingCount++;
       const waitingMinutes = Math.max(
         0,
@@ -671,6 +691,7 @@ export function calculateManagerCockpitMetrics(
     isDemo?: boolean;
     cycleTotalLeads?: number;
     slaLimitMinutes?: number;
+    slidingWindowDays?: number;
     activeSellers?: string[];
     sellerProfiles?: Array<{ id?: string; name?: string; phone?: string }>;
     businessHours?: StoreBusinessHours;
@@ -679,6 +700,8 @@ export function calculateManagerCockpitMetrics(
   const now = options?.now || new Date();
   const nowTime = now.getTime();
   const slaLimit = options?.slaLimitMinutes ?? 15;
+  const slidingWindowDays = options?.slidingWindowDays ?? 7;
+  const slidingWindowMs = slidingWindowDays * 86400000;
 
   let totalPipelineValue = 0;
   let valueAtRisk = 0;
@@ -796,13 +819,17 @@ export function calculateManagerCockpitMetrics(
     const contactStr = firstContactStr || (isNewStage ? null : lastContactStr);
     const hasContact = Boolean(contactStr);
 
-    // SLA & Risco: Considera apenas leads atendidos ou ativos nas últimas 24h/7d, sem poluição de registros legados
-    const isRecentLead = createdAtTime >= nowTime - 7 * 86400000;
-    const isRecentContact = contactStr ? new Date(contactStr).getTime() >= nowTime - 7 * 86400000 : false;
-    const evaluateForSLA = isActive || isRecentLead || isRecentContact;
+    // SLA & Risco:
+    // 1. Métricas Históricas de Desempenho (Tempo Médio de Atendimento, Taxa de SLA cumprido):
+    //    Consideram uma janela móvel calculada APENAS sobre leads cujo primeiro atendimento já foi realizado.
+    // 2. Backlog Crítico / Oportunidades Vencidas em Aberto:
+    //    NUNCA aplique filtro de 24h/7d que oculte leads antigos sem atendimento.
+    const isRecentContact = contactStr
+      ? new Date(contactStr).getTime() >= nowTime - slidingWindowMs
+      : false;
 
-    if (evaluateForSLA) {
-      if (hasContact && contactStr) {
+    if (hasContact && contactStr) {
+      if (isRecentContact || options?.isDemo) {
         answeredCount++;
         const contactTime = new Date(contactStr).getTime();
         const diffMinutes = Math.max(
@@ -817,29 +844,29 @@ export function calculateManagerCockpitMetrics(
         if (diffMinutes <= slaLimit) {
           answeredOnTimeCount++;
         }
+      }
 
-        // Se está em etapa ativa mas sem contato há mais de 48 horas
-        if (isActive) {
-          const lastContactTime = lastContactStr
-            ? new Date(lastContactStr).getTime()
-            : contactTime;
-          const hoursSinceLastContact = (nowTime - lastContactTime) / 3600000;
-          if (hoursSinceLastContact > 48) {
-            valueAtRisk += val;
-          }
-        }
-      } else {
-        // Lead em aberto (sem primeiro contato)
-        openPendingCount++;
-        openWaitingTimes.push(waitingMinutes);
-        sellerGroups[seller].waitingTimes.push(waitingMinutes);
-
-        if (waitingMinutes > slaLimit) {
-          openBreachedCount++;
-          overdueLeadsCount++;
-          withoutReturnCount++;
+      // Se está em etapa ativa mas sem contato há mais de 48 horas
+      if (isActive) {
+        const lastContactTime = lastContactStr
+          ? new Date(lastContactStr).getTime()
+          : new Date(contactStr).getTime();
+        const hoursSinceLastContact = (nowTime - lastContactTime) / 3600000;
+        if (hoursSinceLastContact > 48) {
           valueAtRisk += val;
         }
+      }
+    } else if (isActive || isNewStage) {
+      // Lead em aberto (sem primeiro contato) - NUNCA expira por janela temporal
+      openPendingCount++;
+      openWaitingTimes.push(waitingMinutes);
+      sellerGroups[seller].waitingTimes.push(waitingMinutes);
+
+      if (waitingMinutes > slaLimit) {
+        openBreachedCount++;
+        overdueLeadsCount++;
+        withoutReturnCount++;
+        valueAtRisk += val;
       }
     }
 

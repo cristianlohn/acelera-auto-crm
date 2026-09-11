@@ -5,7 +5,7 @@
  * Funcionalidades:
  * - Paywall estrito quando o período de teste expirou (`expired=true`).
  * - Escolha de ciclo de faturamento (Mensal / Anual com 2 meses grátis).
- * - Seleção de plano (Starter R$ 297, Pro R$ 597, Enterprise R$ 1297).
+ * - Seleção de plano (Starter R$ 297, Pro R$ 497, Enterprise sob consulta).
  * - Modal de Checkout seguro com seleção fiscal (CPF/CNPJ) e emissão via Asaas.
  * - Ambiente seguro e ativação imediata via gateway Asaas.
  */
@@ -43,14 +43,16 @@ import {
 } from "@/app/actions/billing-actions";
 
 import { CANONICAL_PLANS } from "@/config/plans";
+import { getSalesWhatsAppUrl } from "@/config/contact";
 
 interface Plan {
-  id: string;
+  id: "starter" | "pro" | "enterprise";
   name: string;
   badge?: string;
   description: string;
-  monthlyPrice: number;
-  annualPrice: number;
+  monthlyPrice: number | null;
+  annualPrice: number | null;
+  startingMonthlyPrice?: number;
   sellersLimit: string;
   features: string[];
   popular?: boolean;
@@ -61,9 +63,9 @@ const plans: Plan[] = [
     id: "starter",
     name: CANONICAL_PLANS.starter.name,
     description: "Para lojas e revendas de entrada",
-    monthlyPrice: CANONICAL_PLANS.starter.priceMonthly,
-    annualPrice: CANONICAL_PLANS.starter.priceYearly,
-    sellersLimit: `Até ${CANONICAL_PLANS.starter.maxSellers} vendedores inclusos`,
+    monthlyPrice: CANONICAL_PLANS.starter.monthlyPrice,
+    annualPrice: CANONICAL_PLANS.starter.annualPrice,
+    sellersLimit: `Até ${CANONICAL_PLANS.starter.sellerLimit} vendedores inclusos`,
     features: [
       "Roleta Comercial com distribuição justa (Round-Robin)",
       "Controle de plantão dos vendedores (Ligar / Pausar)",
@@ -78,11 +80,11 @@ const plans: Plan[] = [
     id: "pro",
     name: CANONICAL_PLANS.pro.name,
     popular: true,
-    badge: "Mais Popular",
+    badge: CANONICAL_PLANS.pro.badge ?? "Mais escolhido",
     description: "Para concessionárias e lojas em expansão",
-    monthlyPrice: CANONICAL_PLANS.pro.priceMonthly,
-    annualPrice: CANONICAL_PLANS.pro.priceYearly,
-    sellersLimit: `Até ${CANONICAL_PLANS.pro.maxSellers} vendedores inclusos`,
+    monthlyPrice: CANONICAL_PLANS.pro.monthlyPrice,
+    annualPrice: CANONICAL_PLANS.pro.annualPrice,
+    sellersLimit: `Até ${CANONICAL_PLANS.pro.sellerLimit} vendedores inclusos`,
     features: [
       "Todos os recursos do Plano Starter +",
       "Roleta com especialização por segmento (Novos e Seminovos)",
@@ -96,12 +98,13 @@ const plans: Plan[] = [
     id: "enterprise",
     name: CANONICAL_PLANS.enterprise.name,
     description: "Para grandes concessionárias e redes",
-    monthlyPrice: CANONICAL_PLANS.enterprise.priceMonthly,
-    annualPrice: CANONICAL_PLANS.enterprise.priceYearly,
-    sellersLimit: "Vendedores ilimitados",
+    monthlyPrice: null,
+    annualPrice: null,
+    startingMonthlyPrice: CANONICAL_PLANS.enterprise.startingMonthlyPrice ?? 897,
+    sellersLimit: "Equipe personalizada",
     features: [
       "Todos os recursos do Plano Pro +",
-      "Vendedores e usuários ilimitados na roleta",
+      "Equipe e capacidade sob consulta",
       "Distribuição avançada por múltiplos pátios e filiais",
       "Gerente de conta dedicado e SLA garantido",
       "Integração customizada via Webhook & REST API",
@@ -277,11 +280,20 @@ function BillingContent({
   const isSubscriber = subscriptionOverview?.status === "active";
 
   const handleOpenCheckout = (planId: string) => {
+    if (planId === "enterprise") {
+      const waUrl = getSalesWhatsAppUrl(
+        "Olá! Sou da concessionária e gostaria de falar com a equipe sobre o Plano Enterprise do Acelera Auto CRM."
+      );
+      if (typeof window !== "undefined") {
+        window.open(waUrl, "_blank");
+      }
+      return;
+    }
     const plan = plans.find((p) => p.id === planId) || plans[1];
     setSelectedPlanDetails({
       id: plan.id,
       name: plan.name,
-      price: isAnnual ? plan.annualPrice : plan.monthlyPrice,
+      price: (isAnnual ? plan.annualPrice : plan.monthlyPrice) ?? 497,
     });
     setIsCheckoutDialogOpen(true);
   };
@@ -508,8 +520,6 @@ function BillingContent({
             {/* Grade de Planos */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
               {plans.map((plan) => {
-                const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
-
                 return (
                   <div
                     key={plan.id}
@@ -538,18 +548,42 @@ function BillingContent({
 
                       {/* Preço */}
                       <div className="mt-6">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-3xl sm:text-4xl font-black text-white">
-                            R$ {price.toLocaleString("pt-BR")}
-                          </span>
-                          <span className="text-xs text-zinc-400">
-                            {isAnnual ? "/ano" : "/mês"}
-                          </span>
-                        </div>
-                        {isAnnual && (
-                          <p className="mt-1 text-[11px] font-medium text-emerald-400">
-                            Equivale a R$ {Math.round(price / 12).toLocaleString("pt-BR")}/mês
-                          </p>
+                        {plan.id === "enterprise" ? (
+                          <>
+                            <div className="flex items-baseline gap-1">
+                              {isAnnual ? (
+                                <span className="text-2xl sm:text-3xl font-black text-white">
+                                  Sob consulta
+                                </span>
+                              ) : (
+                                <>
+                                  <span className="text-2xl sm:text-3xl font-black text-white">
+                                    A partir de R$ {(plan.startingMonthlyPrice ?? 897).toLocaleString("pt-BR")}
+                                  </span>
+                                  <span className="text-xs text-zinc-400">/mês</span>
+                                </>
+                              )}
+                            </div>
+                            <p className="mt-1 text-[11px] font-medium text-purple-400">
+                              {isAnnual ? "Condições sob medida no plano anual" : "Customizado para a volumetria da sua rede"}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-3xl sm:text-4xl font-black text-white">
+                                R$ {((isAnnual ? plan.annualPrice : plan.monthlyPrice) ?? 0).toLocaleString("pt-BR")}
+                              </span>
+                              <span className="text-xs text-zinc-400">
+                                {isAnnual ? "/ano" : "/mês"}
+                              </span>
+                            </div>
+                            {isAnnual && plan.annualPrice && (
+                              <p className="mt-1 text-[11px] font-medium text-emerald-400">
+                                Equivale a R$ {Math.round(plan.annualPrice / 12).toLocaleString("pt-BR")}/mês
+                              </p>
+                            )}
+                          </>
                         )}
                       </div>
 
@@ -566,24 +600,52 @@ function BillingContent({
 
                     {/* Ação de Contratação */}
                     <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
-                      <Button
-                        type="button"
-                        onClick={() => handleOpenCheckout(plan.id)}
-                        data-testid={plan.id === "pro" ? "subscribe-pro-btn" : `btn-subscribe-${plan.id}`}
-                        className={cn(
-                          "w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-lg transition-all",
-                          plan.popular
-                            ? "bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-orange-500/25"
-                            : "bg-white/10 hover:bg-white/15 text-white"
-                        )}
-                      >
-                        <span>{`Assinar ${plan.name}`}</span>
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                      <p className="text-center text-[10px] text-zinc-500 flex items-center justify-center gap-1">
-                        <Lock className="h-3 w-3" />
-                        <span>Pagamento Seguro Asaas (Pix ou Cartão)</span>
-                      </p>
+                      {plan.id === "enterprise" ? (
+                        <>
+                          <a
+                            href={getSalesWhatsAppUrl(
+                              "Olá! Sou da concessionária e gostaria de falar com a equipe sobre o Plano Enterprise do Acelera Auto CRM."
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            <Button
+                              type="button"
+                              data-testid="btn-subscribe-enterprise"
+                              className="w-full h-11 text-xs sm:text-sm font-bold gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-900/30"
+                            >
+                              <span>Falar com o Acelera</span>
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                          </a>
+                          <p className="text-center text-[10px] text-zinc-500 flex items-center justify-center gap-1">
+                            <ShieldCheck className="h-3 w-3 text-purple-400" />
+                            <span>Atendimento consultivo e proposta personalizada</span>
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            type="button"
+                            onClick={() => handleOpenCheckout(plan.id)}
+                            data-testid={plan.id === "pro" ? "subscribe-pro-btn" : `btn-subscribe-${plan.id}`}
+                            className={cn(
+                              "w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-lg transition-all",
+                              plan.popular
+                                ? "bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 text-white hover:from-orange-600 hover:to-red-700 shadow-orange-500/25"
+                                : "bg-white/10 hover:bg-white/15 text-white"
+                            )}
+                          >
+                            <span>{`Assinar ${plan.name}`}</span>
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                          <p className="text-center text-[10px] text-zinc-500 flex items-center justify-center gap-1">
+                            <Lock className="h-3 w-3" />
+                            <span>Pagamento Seguro Asaas (Pix ou Cartão)</span>
+                          </p>
+                        </>
+                      )}
                     </div>
                   </div>
                 );

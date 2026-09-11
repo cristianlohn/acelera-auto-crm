@@ -75,7 +75,7 @@ describe("[UNIT-SUBSCRIPTION-CHECKOUT] Validação do Parâmetro cycle no Asaas"
     const payload = capturedBody as unknown as SubPayload;
     expect(payload).not.toBeNull();
     expect(payload.cycle).toBe("YEARLY");
-    expect(payload.value).toBe(5970);
+    expect(payload.value).toBe(4970);
   });
 
   it("[TEST-CYCLE-2] deve validar que a submissão de plano mensal envia cycle: 'MONTHLY' para a API Asaas", async () => {
@@ -118,7 +118,7 @@ describe("[UNIT-SUBSCRIPTION-CHECKOUT] Validação do Parâmetro cycle no Asaas"
     const payload2 = capturedBody as unknown as SubPayload;
     expect(payload2).not.toBeNull();
     expect(payload2.cycle).toBe("MONTHLY");
-    expect(payload2.value).toBe(597);
+    expect(payload2.value).toBe(497);
   });
 
   it("[TEST-CYCLE-3] normalização de variantes (annual, annually, anual) mapeia corretamente para 'YEARLY'", async () => {

@@ -13,7 +13,7 @@ import { Check, Sparkles, Rocket, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { CONTACT_CONFIG, getSalesWhatsAppUrl } from "@/config/contact";
-import { CANONICAL_PLANS } from "@/config/plans";
+import { CANONICAL_PLANS, formatPlanSellerLimit } from "@/config/plans";
 
 export type BillingCycle = "mensal" | "anual";
 
@@ -94,14 +94,14 @@ export function PricingSection() {
 
               {/* Badge de capacidade de vendedores */}
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2.5 py-1 text-[11px] font-medium text-orange-300 border border-orange-500/20">
-                <span>Até {CANONICAL_PLANS.starter.maxSellers} vendedores inclusos</span>
+                <span>Até {CANONICAL_PLANS.starter.sellerLimit} vendedores inclusos</span>
               </div>
 
               {/* Preço Dinâmico */}
               <div className="mt-5 sm:mt-6">
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl sm:text-4xl font-black text-white">
-                    {isAnnual ? `R$ ${CANONICAL_PLANS.starter.priceYearly.toLocaleString("pt-BR")}` : `R$ ${CANONICAL_PLANS.starter.priceMonthly}`}
+                    {isAnnual ? `R$ ${CANONICAL_PLANS.starter.annualPrice?.toLocaleString("pt-BR")}` : `R$ ${CANONICAL_PLANS.starter.monthlyPrice}`}
                   </span>
                   <span className="text-xs text-zinc-400">
                     {isAnnual ? "/ano" : "/mês"}
@@ -138,11 +138,7 @@ export function PricingSection() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Gestão da carteira de clientes e estoque da loja</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Suporte via WhatsApp</span>
+                  <span>Gestão de estoque integrada</span>
                 </li>
               </ul>
             </div>
@@ -150,9 +146,9 @@ export function PricingSection() {
             <Link href="/dashboard/leads" className="mt-6 sm:mt-8">
               <Button
                 variant="outline"
-                className="w-full border-white/20 bg-zinc-800/80 text-xs font-semibold text-white hover:bg-zinc-700 transition-colors shadow-sm"
+                className="w-full border-white/20 text-xs font-semibold text-white hover:bg-white/10"
               >
-                Testar Plano Starter Grátis
+                Testar Grátis por 14 Dias
               </Button>
             </Link>
           </div>
@@ -161,7 +157,7 @@ export function PricingSection() {
           <div className="relative flex flex-col justify-between rounded-2xl border-2 border-orange-500 bg-gradient-to-b from-[#181822] to-[#121216] p-6 sm:p-8 shadow-2xl shadow-orange-500/15">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-3.5 py-0.5 text-[10px] font-bold text-white tracking-wider uppercase shadow flex items-center gap-1">
               <Sparkles className="w-3 h-3" />
-              <span>Mais Popular</span>
+              <span>{CANONICAL_PLANS.pro.badge ?? "Mais escolhido"}</span>
             </div>
 
             <div>
@@ -176,14 +172,14 @@ export function PricingSection() {
 
               {/* Badge de capacidade */}
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-300 border border-orange-500/30">
-                <span>Até {CANONICAL_PLANS.pro.maxSellers} vendedores inclusos</span>
+                <span>Até {CANONICAL_PLANS.pro.sellerLimit} vendedores inclusos</span>
               </div>
 
               {/* Preço Dinâmico */}
               <div className="mt-5 sm:mt-6">
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl sm:text-4xl font-black text-white">
-                    {isAnnual ? `R$ ${CANONICAL_PLANS.pro.priceYearly.toLocaleString("pt-BR")}` : `R$ ${CANONICAL_PLANS.pro.priceMonthly}`}
+                    {isAnnual ? `R$ ${CANONICAL_PLANS.pro.annualPrice?.toLocaleString("pt-BR")}` : `R$ ${CANONICAL_PLANS.pro.monthlyPrice}`}
                   </span>
                   <span className="text-xs text-zinc-400">
                     {isAnnual ? "/ano" : "/mês"}
@@ -191,7 +187,7 @@ export function PricingSection() {
                 </div>
                 {isAnnual && (
                   <p className="mt-1 text-[11px] text-emerald-400 font-medium">
-                    Equivale a R$ 497,50/mês (Economia de R$ 1.194)
+                    Equivale a R$ 414,17/mês (Economia de R$ 994)
                   </p>
                 )}
               </div>
@@ -248,19 +244,27 @@ export function PricingSection() {
 
               {/* Badge de capacidade */}
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-purple-500/10 px-2.5 py-1 text-[11px] font-medium text-purple-300 border border-purple-500/20">
-                <span>Vendedores ilimitados</span>
+                <span>{formatPlanSellerLimit(CANONICAL_PLANS.enterprise.sellerLimit)}</span>
               </div>
 
               {/* Preço */}
               <div className="mt-5 sm:mt-6">
                 <div className="flex items-baseline gap-1">
-                  <span className="text-xl sm:text-3xl font-black text-white">
-                    A partir de R$ {CANONICAL_PLANS.enterprise.priceMonthly.toLocaleString("pt-BR")}
-                  </span>
-                  <span className="text-xs text-zinc-400">/mês</span>
+                  {isAnnual ? (
+                    <span className="text-xl sm:text-3xl font-black text-white">
+                      Sob consulta
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-xl sm:text-3xl font-black text-white">
+                        A partir de R$ {(CANONICAL_PLANS.enterprise.startingMonthlyPrice ?? 897).toLocaleString("pt-BR")}
+                      </span>
+                      <span className="text-xs text-zinc-400">/mês</span>
+                    </>
+                  )}
                 </div>
                 <p className="mt-1 text-[11px] text-zinc-400">
-                  Customizado para a volumetria da sua rede
+                  {isAnnual ? "Condições especiais sob medida para redes" : "Customizado para a volumetria da sua rede"}
                 </p>
               </div>
 
@@ -272,19 +276,23 @@ export function PricingSection() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Vendedores ilimitados na roleta e na esteira de atendimento</span>
+                  <span>Equipe e capacidade sob consulta</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Ingestão de leads de alto volume</span>
+                  <span>Múltiplas lojas e filiais</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Onboarding guiado com configuração inicial e treino da equipe</span>
+                  <span>API dedicada e integrações customizadas</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Atendimento dedicado com gerente de contas</span>
+                  <span>Onboarding assistido e gerente de contas</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-purple-400 shrink-0" />
+                  <span>SLA de suporte dedicado</span>
                 </li>
               </ul>
             </div>
@@ -300,7 +308,7 @@ export function PricingSection() {
                 className="w-full border-purple-500/30 text-xs font-semibold text-purple-200 hover:bg-purple-500/10 flex items-center justify-center gap-2"
               >
                 <MessageCircle className="w-4 h-4 text-purple-400" />
-                <span>Falar com Consultor</span>
+                <span>Falar com o Acelera</span>
               </Button>
             </a>
           </div>

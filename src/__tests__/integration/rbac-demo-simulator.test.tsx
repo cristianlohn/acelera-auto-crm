@@ -92,8 +92,8 @@ describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstraç�
       </DemoRoleProvider>
     );
 
-    // Assert inicial (Admin vê todos os leads, ex: Leandro Cunha, Vanessa Martins)
-    expect(screen.getByText("Vanessa Martins")).toBeInTheDocument();
+    // Assert inicial (Admin vê todos os leads, ex: Felipe Albuquerque, Camila Duarte)
+    expect(screen.getByText("Camila Duarte")).toBeInTheDocument();
 
     // Act (Clica no botão de Vendedor)
     const vendedorBtn = screen.getByRole("button", { name: /vendedor \(rafael alves\)/i });
@@ -103,9 +103,9 @@ describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstraç�
 
     // Assert (Badge de filtro de vendedor é exibido e apenas leads do Rafael Alves estão visíveis)
     expect(screen.getByText(/meus leads \(rafael alves\)/i)).toBeInTheDocument();
-    expect(screen.getAllByText("Leandro Cunha")[0]).toBeInTheDocument(); // Lead do Rafael Alves
-    expect(screen.getAllByText("Monica Pires")[0]).toBeInTheDocument(); // Lead do Rafael Alves
-    expect(screen.queryByText("Vanessa Martins")).not.toBeInTheDocument(); // Lead da Beatriz Rocha
+    expect(screen.getAllByText("Felipe Albuquerque")[0]).toBeInTheDocument(); // Lead do Rafael
+    expect(screen.getAllByText("Leonardo Vargas")[0]).toBeInTheDocument(); // Lead do Rafael
+    expect(screen.queryByText("Camila Duarte")).not.toBeInTheDocument(); // Lead da Amanda Souza
   });
 
   it("[IT-16.4] Deve alternar para perfil 'Gerente' restaurando visão consolidada no Kanban e Relatórios", async () => {

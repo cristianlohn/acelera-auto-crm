@@ -491,9 +491,17 @@ export function SettingsForm({
     });
   };
 
+  // Filtro estrito: apenas membros com perfil 'vendedor' consomem cota comercial
+  const activeSellersCount = teamMembers.filter(
+    (m) => m.role === "vendedor" || (m as unknown as { role: string }).role === "seller"
+  ).length;
+
+  const hasAvailableSlots =
+    teamCapacity.maxSellers === null || activeSellersCount < teamCapacity.maxSellers;
+
   // Disparo do clique no botão de Adicionar Vendedor
   const handleOpenAddMember = () => {
-    if (teamMembers.length >= teamCapacity.maxSellers) {
+    if (!hasAvailableSlots) {
       setIsUpgradeModalOpen(true);
     } else {
       setInviteError(null);
@@ -538,13 +546,15 @@ export function SettingsForm({
     });
   };
 
-  const occupancyPercent = Math.min(
-    100,
-    Math.round((teamMembers.length / teamCapacity.maxSellers) * 100)
-  );
+  const occupancyPercent =
+    teamCapacity.maxSellers !== null && teamCapacity.maxSellers > 0
+      ? Math.min(100, Math.round((activeSellersCount / teamCapacity.maxSellers) * 100))
+      : 0;
 
   const upgradeWhatsappUrl = getSalesWhatsAppUrl(
-    `Olá! Sou da ${store.tradeName} e atingi o limite de ${teamCapacity.maxSellers} vagas da minha equipe. Gostaria de saber mais sobre o upgrade para o ${CANONICAL_PLANS.pro.name}!`
+    teamCapacity.maxSellers !== null
+      ? `Olá! Sou da ${store.tradeName} e atingi o limite de ${teamCapacity.maxSellers} vagas da minha equipe. Gostaria de saber mais sobre o upgrade para o ${CANONICAL_PLANS.pro.name}!`
+      : `Olá! Sou da ${store.tradeName} e gostaria de saber mais sobre a expansão de equipe no plano ${teamCapacity.planName}!`
   );
 
   return (
@@ -1128,7 +1138,9 @@ export function SettingsForm({
                       Capacidade de Vendedores do Plano
                     </h2>
                     <p className="text-xs text-muted-foreground">
-                      {teamMembers.length}/{teamCapacity.maxSellers} Vagas ocupadas no {teamCapacity.planName}
+                      {teamCapacity.maxSellers !== null
+                        ? `${activeSellersCount}/${teamCapacity.maxSellers} Vagas ocupadas no ${teamCapacity.planName}`
+                        : `${activeSellersCount} Vendedores ativos • Equipe personalizada (${teamCapacity.planName})`}
                     </p>
                   </div>
 
@@ -1145,47 +1157,53 @@ export function SettingsForm({
                 </div>
 
                 {/* Barra de Progresso Visual de Ocupação */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs font-medium">
-                    <span className="text-muted-foreground">Ocupação de Vagas</span>
-                    <span
-                      className={cn(
-                        "font-bold",
-                        occupancyPercent >= 100
-                          ? "text-orange-500"
-                          : "text-emerald-500"
-                      )}
-                    >
-                      {occupancyPercent}%
-                    </span>
-                  </div>
-                  <div
-                    role="progressbar"
-                    aria-valuenow={teamMembers.length}
-                    aria-valuemin={0}
-                    aria-valuemax={teamCapacity.maxSellers}
-                    className="h-2 w-full overflow-hidden rounded-full bg-muted/60"
-                  >
+                {teamCapacity.maxSellers !== null ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs font-medium">
+                      <span className="text-muted-foreground">Ocupação de Vagas Comerciais</span>
+                      <span
+                        className={cn(
+                          "font-bold",
+                          occupancyPercent >= 100
+                            ? "text-orange-500"
+                            : "text-emerald-500"
+                        )}
+                      >
+                        {occupancyPercent}%
+                      </span>
+                    </div>
                     <div
-                      className={cn(
-                        "h-full transition-all duration-300 rounded-full",
-                        occupancyPercent >= 100
-                          ? "bg-orange-500"
-                          : "bg-emerald-500"
-                      )}
-                      style={{ width: `${occupancyPercent}%` }}
-                    />
+                      role="progressbar"
+                      aria-valuenow={activeSellersCount}
+                      aria-valuemin={0}
+                      aria-valuemax={teamCapacity.maxSellers}
+                      className="h-2 w-full overflow-hidden rounded-full bg-muted/60"
+                    >
+                      <div
+                        className={cn(
+                          "h-full transition-all duration-300 rounded-full",
+                          occupancyPercent >= 100
+                            ? "bg-orange-500"
+                            : "bg-emerald-500"
+                        )}
+                        style={{ width: `${occupancyPercent}%` }}
+                      />
+                    </div>
+                    {activeSellersCount >= teamCapacity.maxSellers ? (
+                      <p className="text-[11px] text-orange-400 font-medium">
+                        ⚠️ Limite atingido. Faça upgrade para adicionar mais vendedores à equipe. Gestores e administradores não consomem vagas.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-muted-foreground">
+                        {teamCapacity.maxSellers - activeSellersCount} vaga(s) de vendedor disponível(is) no seu plano atual. Gestores e administradores não consomem vagas.
+                      </p>
+                    )}
                   </div>
-                  {teamMembers.length >= teamCapacity.maxSellers ? (
-                    <p className="text-[11px] text-orange-400 font-medium">
-                      ⚠️ Limite atingido. Faça upgrade para adicionar mais vendedores à equipe.
-                    </p>
-                  ) : (
-                    <p className="text-[11px] text-muted-foreground">
-                      {teamCapacity.maxSellers - teamMembers.length} vaga(s) disponível(is) no seu plano atual.
-                    </p>
-                  )}
-                </div>
+                ) : (
+                  <div className="rounded-lg bg-purple-500/10 border border-purple-500/20 p-3 text-xs text-purple-200">
+                    <span className="font-semibold">Equipe personalizada / Vagas sob consulta.</span> Gestores e administradores incluídos sem consumir capacidade.
+                  </div>
+                )}
               </div>
 
               {/* Tabela de Membros da Equipe */}
@@ -1745,7 +1763,7 @@ export function SettingsForm({
                 Diferenciais do {CANONICAL_PLANS.pro.name}:
               </p>
               <ul className="space-y-1.5 text-muted-foreground list-disc pl-4">
-                <li>Até <strong>{CANONICAL_PLANS.pro.maxSellers} vendedores simultâneos</strong> vinculados à concessionária.</li>
+                <li>Até <strong>{CANONICAL_PLANS.pro.sellerLimit} vendedores simultâneos</strong> vinculados à concessionária.</li>
                 <li>Relatórios avançados de ranking comercial e metas individuais.</li>
                 <li>Suporte prioritário via WhatsApp com SLA de 15 minutos.</li>
                 <li>Integração oficial de estoque Webmotors e iCarros.</li>

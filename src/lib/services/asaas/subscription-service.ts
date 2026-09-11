@@ -25,20 +25,20 @@ export const BILLING_PLANS_CONFIG: Record<string, PlanConfig> = {
   starter: {
     id: "starter",
     name: CANONICAL_PLANS.starter.name,
-    monthlyPrice: CANONICAL_PLANS.starter.priceMonthly,
-    annualPrice: CANONICAL_PLANS.starter.priceYearly,
+    monthlyPrice: CANONICAL_PLANS.starter.monthlyPrice ?? 297,
+    annualPrice: CANONICAL_PLANS.starter.annualPrice ?? 2970,
   },
   pro: {
     id: "pro",
     name: CANONICAL_PLANS.pro.name,
-    monthlyPrice: CANONICAL_PLANS.pro.priceMonthly,
-    annualPrice: CANONICAL_PLANS.pro.priceYearly,
+    monthlyPrice: CANONICAL_PLANS.pro.monthlyPrice ?? 497,
+    annualPrice: CANONICAL_PLANS.pro.annualPrice ?? 4970,
   },
   enterprise: {
     id: "enterprise",
     name: CANONICAL_PLANS.enterprise.name,
-    monthlyPrice: CANONICAL_PLANS.enterprise.priceMonthly,
-    annualPrice: CANONICAL_PLANS.enterprise.priceYearly,
+    monthlyPrice: CANONICAL_PLANS.enterprise.startingMonthlyPrice ?? 897,
+    annualPrice: (CANONICAL_PLANS.enterprise.startingMonthlyPrice ?? 897) * 10,
   },
 };
 

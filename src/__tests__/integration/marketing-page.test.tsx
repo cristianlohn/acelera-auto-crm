@@ -181,18 +181,18 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     expect(
       screen.getByRole("heading", { name: "Plano Pro" })
     ).toBeInTheDocument();
-    expect(screen.getByText("R$ 597")).toBeInTheDocument();
-    expect(screen.getByText("Mais Popular")).toBeInTheDocument();
-    expect(screen.getByText(/até 8 vendedores inclusos/i)).toBeInTheDocument();
+    expect(screen.getByText("R$ 497")).toBeInTheDocument();
+    expect(screen.getByText("Mais escolhido")).toBeInTheDocument();
+    expect(screen.getByText(/até 8 vendedores/i)).toBeInTheDocument();
 
     expect(
       screen.getByRole("heading", { name: "Plano Enterprise" })
     ).toBeInTheDocument();
-    expect(screen.getByText(/a partir de r\$ 1\.297/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/vendedores ilimitados/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/a partir de r\$ 897/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/equipe personalizada/i).length).toBeGreaterThanOrEqual(1);
 
-    // Link WhatsApp Consultor no Enterprise
-    const consultorBtn = screen.getByRole("link", { name: /falar com consultor/i });
+    // Link WhatsApp Comercial no Enterprise
+    const consultorBtn = screen.getByRole("link", { name: /falar com o acelera/i });
     expect(consultorBtn).toHaveAttribute("href", expect.stringContaining("5547996348698"));
 
     // Bloco de Taxa de Setup
@@ -212,7 +212,7 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
 
     // Assert 1 (Verifica valores anuais com desconto de 2 meses grátis)
     expect(screen.getByText("R$ 2.970")).toBeInTheDocument();
-    expect(screen.getByText("R$ 5.970")).toBeInTheDocument();
+    expect(screen.getByText("R$ 4.970")).toBeInTheDocument();
     expect(screen.getAllByText("/ano").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/2 meses grátis/i)).toBeInTheDocument();
 
@@ -222,7 +222,7 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
 
     // Assert 2 (Verifica restauração dos valores mensais)
     expect(screen.getByText("R$ 297")).toBeInTheDocument();
-    expect(screen.getByText("R$ 597")).toBeInTheDocument();
+    expect(screen.getByText("R$ 497")).toBeInTheDocument();
     expect(screen.getAllByText("/mês").length).toBeGreaterThanOrEqual(2);
   });
 

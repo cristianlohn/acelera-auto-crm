@@ -115,10 +115,18 @@ export async function createSubscriptionCheckoutAction(
       };
     }
 
+    if (planId === "enterprise") {
+      return {
+        success: false,
+        error:
+          "O Plano Enterprise possui contratação sob consulta e atendimento consultivo. Entre em contato com nossa equipe comercial.",
+      };
+    }
+
     if (!BILLING_PLANS_CONFIG[planId]) {
       return {
         success: false,
-        error: `Plano '${planId}' inválido. Escolha entre Starter, Pro ou Enterprise.`,
+        error: `Plano '${planId}' inválido. Escolha entre Starter ou Pro.`,
       };
     }
 
@@ -309,7 +317,7 @@ export async function getSubscriptionOverviewAction(): Promise<SubscriptionOverv
           planName: "Plano Pro",
           status: "active",
           billingCycle: "mensal",
-          price: 597,
+          price: 497,
           nextDueDate: demoDue.toISOString(),
           daysRemaining: 18,
           paymentMethod: {
@@ -481,7 +489,7 @@ export async function getSubscriptionInvoicesAction(): Promise<GetInvoicesResult
             id: "pay_demo_01",
             dueDate: d1.toISOString().split("T")[0],
             paymentDate: d1.toISOString().split("T")[0],
-            value: 597,
+            value: 497,
             billingType: "CREDIT_CARD",
             status: "RECEIVED",
             invoiceUrl: "https://sandbox.asaas.com/i/demo01",
@@ -491,7 +499,7 @@ export async function getSubscriptionInvoicesAction(): Promise<GetInvoicesResult
             id: "pay_demo_02",
             dueDate: d2.toISOString().split("T")[0],
             paymentDate: d2.toISOString().split("T")[0],
-            value: 597,
+            value: 497,
             billingType: "CREDIT_CARD",
             status: "RECEIVED",
             invoiceUrl: "https://sandbox.asaas.com/i/demo02",
@@ -501,7 +509,7 @@ export async function getSubscriptionInvoicesAction(): Promise<GetInvoicesResult
             id: "pay_demo_03",
             dueDate: d3.toISOString().split("T")[0],
             paymentDate: d3.toISOString().split("T")[0],
-            value: 597,
+            value: 497,
             billingType: "PIX",
             status: "RECEIVED",
             invoiceUrl: "https://sandbox.asaas.com/i/demo03",

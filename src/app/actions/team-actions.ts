@@ -10,6 +10,7 @@ import { cookies } from "next/headers";
 import { createServerSupabaseClient, isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import { CANONICAL_PLANS } from "@/config/plans";
 import { sendInviteEmailViaResend } from "@/lib/services/email/resend-service";
 import {
   salespersonFormSchema,
@@ -75,7 +76,9 @@ export async function getTeamMembersAction(explicitOrgId?: string): Promise<Team
 
         return {
           ...m,
-          avg_sla_minutes: avgSla > 0 ? avgSla : (m.avg_sla_minutes || 0),
+          avg_sla_minutes: answeredItems.length > 0 ? avgSla : (m.avg_sla_minutes || 0),
+          sla_sample_count: m.sla_sample_count ?? answeredItems.length,
+          attended_leads_count: m.attended_leads_count ?? answeredItems.length,
         };
       });
   }
@@ -188,21 +191,27 @@ export async function getSalespeopleAction(explicitOrgId?: string): Promise<Team
 }
 
 /**
- * Calcula métricas agregadas da equipe para os cards de resumo.
+ * Calcula métricas agregadas da equipe para os cards de resumo a partir de uma lista de membros.
  */
-export async function getTeamSummaryMetricsAction(explicitOrgId?: string): Promise<TeamSummaryMetrics> {
-  const members = await getTeamMembersAction(explicitOrgId);
-
+export function calculateTeamSummaryMetrics(members: TeamMember[]): TeamSummaryMetrics {
   const totalMembers = members.length;
-  const activeInRoulette = members.filter((m) => m.in_roulette && m.status === "active").length;
+  const activeInRoulette = members.filter((m) => m.in_roulette && (m.status === "active" || m.status === "ativo")).length;
   const totalMonthlyGoal = members.reduce((acc, m) => acc + (m.monthly_goal_units || 0), 0);
   const totalCurrentSales = members.reduce((acc, m) => acc + (m.current_sales_units || 0), 0);
 
-  // Considera apenas membros em atividade comercial com SLA registrado (> 0 e ativos),
-  // sem diluição por média aritmética crua com vendedores/diretores que têm 0.0
-  const activeSellersWithSla = members.filter(
-    (m) => (m.avg_sla_minutes || 0) > 0 && (m.status === "active" || m.status === "ativo")
-  );
+  // Considera apenas membros em atividade comercial com SLA registrado (com amostras válidas e ativos),
+  // sem diluição por média aritmética crua com colaboradores sem histórico.
+  // Um vendedor com atendimento imediato (tempo 0.0 após arredondamento) possui dados válidos e não deve ser tratado como "sem histórico".
+  const activeSellersWithSla = members.filter((m) => {
+    const isMemberActive = m.status === "active" || m.status === "ativo";
+    if (!isMemberActive) return false;
+
+    return m.sla_sample_count !== undefined
+      ? m.sla_sample_count > 0
+      : m.attended_leads_count !== undefined
+      ? m.attended_leads_count > 0
+      : (m.avg_sla_minutes || 0) > 0;
+  });
   const totalSla = activeSellersWithSla.reduce((acc, m) => acc + (m.avg_sla_minutes || 0), 0);
   const teamAvgSlaMinutes =
     activeSellersWithSla.length > 0
@@ -219,6 +228,63 @@ export async function getTeamSummaryMetricsAction(explicitOrgId?: string): Promi
     totalCurrentSales,
     teamAvgSlaMinutes,
     goalCompletionPercentage,
+  };
+}
+
+/**
+ * Consulta e calcula métricas agregadas da equipe para os cards de resumo.
+ */
+export async function getTeamSummaryMetricsAction(
+  explicitOrgId?: string,
+  overrideMembers?: TeamMember[]
+): Promise<TeamSummaryMetrics> {
+  const members = overrideMembers || (await getTeamMembersAction(explicitOrgId));
+  return calculateTeamSummaryMetrics(members);
+}
+
+/**
+ * Server Action para validação de capacidade e vagas da equipe multi-tenant.
+ * Se sellerLimit === null (Enterprise), retorna hasAvailableSlots: true diretamente.
+ * Gestores e administradores não consomem vagas da cota de vendedores.
+ */
+export async function validateTeamCapacityAction(explicitOrgId?: string): Promise<{
+  hasAvailableSlots: boolean;
+  currentCount: number;
+  maxSellers: number | null;
+  planName: string;
+}> {
+  const tenantContext = await resolveUserTenantContext();
+  const org = tenantContext.organization;
+  const plan = ((org?.plan || "starter") as string).toLowerCase();
+  const planConfig = CANONICAL_PLANS[plan as "starter" | "pro" | "enterprise"] || CANONICAL_PLANS.starter;
+
+  let sellerLimit: number | null = planConfig.sellerLimit;
+  if (plan === "enterprise") {
+    sellerLimit = (org as unknown as { max_sellers?: number | null })?.max_sellers ?? null;
+  } else if ((org as unknown as { max_sellers?: number | null })?.max_sellers) {
+    sellerLimit = (org as unknown as { max_sellers?: number | null }).max_sellers ?? planConfig.sellerLimit;
+  }
+
+  // Enterprise com capacidade sob consulta / personalizada
+  if (sellerLimit === null) {
+    return {
+      hasAvailableSlots: true,
+      currentCount: 0,
+      maxSellers: null,
+      planName: planConfig.name,
+    };
+  }
+
+  const members = await getTeamMembersAction(explicitOrgId);
+  const activeSellersCount = members.filter(
+    (m) => m.role === "seller" || (m as unknown as { role: string }).role === "vendedor"
+  ).length;
+
+  return {
+    hasAvailableSlots: activeSellersCount < sellerLimit,
+    currentCount: activeSellersCount,
+    maxSellers: sellerLimit,
+    planName: planConfig.name,
   };
 }
 

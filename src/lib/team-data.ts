@@ -20,9 +20,10 @@ export interface TeamMember {
 
 export interface TeamCapacity {
   currentCount: number;
-  maxSellers: number;
+  maxSellers: number | null;
   plan: "starter" | "pro" | "enterprise";
   planName: string;
+  hasAvailableSlots?: boolean;
 }
 
 export interface InviteMemberInput {
@@ -65,29 +66,9 @@ export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
   {
     id: "mem-003",
     organizationId: "org-001",
-    fullName: "Rafael Martins",
-    email: "rafael.martins@autoprime.com.br",
+    fullName: "Rafael Alves",
+    email: "rafael.alves@autoprime.com.br",
     phone: "+5547999883300",
-    role: "vendedor",
-    status: "active",
-    createdAt: new Date(Date.now() - 15 * 86_400_000).toISOString(),
-  },
-  {
-    id: "mem-004",
-    organizationId: "org-001",
-    fullName: "Amanda Souza",
-    email: "amanda.souza@autoprime.com.br",
-    phone: "+5547999884400",
-    role: "vendedor",
-    status: "active",
-    createdAt: new Date(Date.now() - 15 * 86_400_000).toISOString(),
-  },
-  {
-    id: "mem-005",
-    organizationId: "org-001",
-    fullName: "Lucas Ferreira",
-    email: "lucas.ferreira@autoprime.com.br",
-    phone: "+5547999885500",
     role: "vendedor",
     status: "active",
     createdAt: new Date(Date.now() - 15 * 86_400_000).toISOString(),
@@ -98,7 +79,8 @@ import { CANONICAL_PLANS } from "@/config/plans";
 
 export const INITIAL_CAPACITY: TeamCapacity = {
   currentCount: 3,
-  maxSellers: CANONICAL_PLANS.starter.maxSellers,
+  maxSellers: CANONICAL_PLANS.starter.sellerLimit,
   plan: "starter",
   planName: CANONICAL_PLANS.starter.name,
+  hasAvailableSlots: true,
 };

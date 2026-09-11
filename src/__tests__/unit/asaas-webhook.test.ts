@@ -143,7 +143,7 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
             id: "pay_987654",
             customer: "cus_000001",
             subscription: "sub_000001",
-            value: 597.0,
+            value: 497.0,
             billingType: "PIX",
             status: "CONFIRMED",
             dueDate: "2026-09-27",
@@ -178,7 +178,7 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
       );
     });
 
-    it("deve processar PAYMENT_CONFIRMED de upgrade para Enterprise e persistir max_sellers: 999", async () => {
+    it("deve processar PAYMENT_CONFIRMED de upgrade para Enterprise e preservar max_sellers (sem forçar 999)", async () => {
       vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
       const mockUpdate = vi.fn().mockReturnValue({
@@ -190,7 +190,7 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               maybeSingle: vi.fn().mockResolvedValue({
-                data: { id: "org-loja-prime-001", name: "Loja Prime" },
+                data: { id: "org-loja-prime-001", name: "Loja Prime", max_sellers: null },
               }),
             }),
           }),
@@ -235,7 +235,7 @@ describe("[UNIT-ASAAS-WEBHOOK] Processamento Seguro e Idempotente de Webhooks As
         expect.objectContaining({
           subscription_status: "active",
           plan: "enterprise",
-          max_sellers: 999,
+          max_sellers: null,
         })
       );
     });

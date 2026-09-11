@@ -23,6 +23,9 @@ import { Button } from "@/components/ui/button";
 import { Check, Zap, Sparkles, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { CANONICAL_PLANS } from "@/config/plans";
+import { getSalesWhatsAppUrl } from "@/config/contact";
+
 export interface ChangePlanModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -44,27 +47,27 @@ const PLAN_OPTIONS: PlanOption[] = [
   {
     id: "starter",
     tier: 1,
-    name: "Plano Starter",
+    name: CANONICAL_PLANS.starter.name,
     monthlyPrice: 297,
-    sellersLimit: "Até 3 vendedores",
+    sellersLimit: `Até ${CANONICAL_PLANS.starter.sellerLimit} vendedores`,
     description: "Para lojas de entrada iniciando automação comercial",
     highlights: ["Roleta Round-Robin", "Kanban com SLA", "WhatsApp em 1 clique"],
   },
   {
     id: "pro",
     tier: 2,
-    name: "Plano Pro",
-    monthlyPrice: 597,
-    sellersLimit: "Até 8 vendedores",
+    name: CANONICAL_PLANS.pro.name,
+    monthlyPrice: 497,
+    sellersLimit: `Até ${CANONICAL_PLANS.pro.sellerLimit} vendedores`,
     description: "Para lojas em expansão com visão executiva e auditoria",
     highlights: ["Cockpit do Gestor", "Roleta Novos & Seminovos", "Auditoria de SLA"],
   },
   {
     id: "enterprise",
     tier: 3,
-    name: "Plano Enterprise",
-    monthlyPrice: 1297,
-    sellersLimit: "Vendedores ilimitados",
+    name: CANONICAL_PLANS.enterprise.name,
+    monthlyPrice: CANONICAL_PLANS.enterprise.startingMonthlyPrice ?? 897,
+    sellersLimit: "Equipe personalizada",
     description: "Para redes e grandes concessionárias com múltiplos pátios",
     highlights: ["Múltiplos Pátios & Filiais", "Gerente de Conta Dedicado", "Webhooks & API Custom"],
   },
@@ -81,6 +84,18 @@ export function ChangePlanModal({
     normCurrent === "enterprise" ? 3 : normCurrent === "starter" ? 1 : 2;
 
   const handleAction = (planId: string) => {
+    if (planId === "enterprise") {
+      if (onSelectPlan) {
+        onSelectPlan(planId);
+      } else if (typeof window !== "undefined") {
+        window.open(
+          getSalesWhatsAppUrl("Olá! Gostaria de saber mais sobre o Plano Enterprise do Acelera Auto CRM."),
+          "_blank"
+        );
+      }
+      onClose();
+      return;
+    }
     if (onSelectPlan) {
       onSelectPlan(planId);
     }
