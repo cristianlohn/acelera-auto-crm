@@ -12,6 +12,7 @@
 
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CANONICAL_PLANS } from "@/config/plans";
 
 export interface PlanConfig {
   id: string;
@@ -23,21 +24,21 @@ export interface PlanConfig {
 export const BILLING_PLANS_CONFIG: Record<string, PlanConfig> = {
   starter: {
     id: "starter",
-    name: "Plano Starter",
-    monthlyPrice: 297,
-    annualPrice: 2970,
+    name: CANONICAL_PLANS.starter.name,
+    monthlyPrice: CANONICAL_PLANS.starter.priceMonthly,
+    annualPrice: CANONICAL_PLANS.starter.priceYearly,
   },
   pro: {
     id: "pro",
-    name: "Plano Pro",
-    monthlyPrice: 597,
-    annualPrice: 5970,
+    name: CANONICAL_PLANS.pro.name,
+    monthlyPrice: CANONICAL_PLANS.pro.priceMonthly,
+    annualPrice: CANONICAL_PLANS.pro.priceYearly,
   },
   enterprise: {
     id: "enterprise",
-    name: "Plano Enterprise",
-    monthlyPrice: 1297,
-    annualPrice: 12970,
+    name: CANONICAL_PLANS.enterprise.name,
+    monthlyPrice: CANONICAL_PLANS.enterprise.priceMonthly,
+    annualPrice: CANONICAL_PLANS.enterprise.priceYearly,
   },
 };
 

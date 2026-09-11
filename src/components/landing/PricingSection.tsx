@@ -13,6 +13,7 @@ import { Check, Sparkles, Rocket, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { CONTACT_CONFIG, getSalesWhatsAppUrl } from "@/config/contact";
+import { CANONICAL_PLANS } from "@/config/plans";
 
 export type BillingCycle = "mensal" | "anual";
 
@@ -84,7 +85,7 @@ export function PricingSection() {
             <div>
               <div className="flex items-center justify-between">
                 <h3 className="text-base sm:text-lg font-bold text-white">
-                  Plano Starter
+                  {CANONICAL_PLANS.starter.name}
                 </h3>
               </div>
               <p className="mt-1 text-xs text-zinc-400">
@@ -93,14 +94,14 @@ export function PricingSection() {
 
               {/* Badge de capacidade de vendedores */}
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2.5 py-1 text-[11px] font-medium text-orange-300 border border-orange-500/20">
-                <span>Até 3 vendedores inclusos</span>
+                <span>Até {CANONICAL_PLANS.starter.maxSellers} vendedores inclusos</span>
               </div>
 
               {/* Preço Dinâmico */}
               <div className="mt-5 sm:mt-6">
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl sm:text-4xl font-black text-white">
-                    {isAnnual ? "R$ 2.970" : "R$ 297"}
+                    {isAnnual ? `R$ ${CANONICAL_PLANS.starter.priceYearly.toLocaleString("pt-BR")}` : `R$ ${CANONICAL_PLANS.starter.priceMonthly}`}
                   </span>
                   <span className="text-xs text-zinc-400">
                     {isAnnual ? "/ano" : "/mês"}
@@ -166,7 +167,7 @@ export function PricingSection() {
             <div>
               <div className="flex items-center justify-between">
                 <h3 className="text-base sm:text-lg font-bold text-white">
-                  Plano Pro
+                  {CANONICAL_PLANS.pro.name}
                 </h3>
               </div>
               <p className="mt-1 text-xs text-zinc-400">
@@ -175,14 +176,14 @@ export function PricingSection() {
 
               {/* Badge de capacidade */}
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-300 border border-orange-500/30">
-                <span>Até 8 vendedores inclusos</span>
+                <span>Até {CANONICAL_PLANS.pro.maxSellers} vendedores inclusos</span>
               </div>
 
               {/* Preço Dinâmico */}
               <div className="mt-5 sm:mt-6">
                 <div className="flex items-baseline gap-1">
                   <span className="text-2xl sm:text-4xl font-black text-white">
-                    {isAnnual ? "R$ 5.970" : "R$ 597"}
+                    {isAnnual ? `R$ ${CANONICAL_PLANS.pro.priceYearly.toLocaleString("pt-BR")}` : `R$ ${CANONICAL_PLANS.pro.priceMonthly}`}
                   </span>
                   <span className="text-xs text-zinc-400">
                     {isAnnual ? "/ano" : "/mês"}
@@ -238,7 +239,7 @@ export function PricingSection() {
             <div>
               <div className="flex items-center justify-between">
                 <h3 className="text-base sm:text-lg font-bold text-white">
-                  Plano Enterprise
+                  {CANONICAL_PLANS.enterprise.name}
                 </h3>
               </div>
               <p className="mt-1 text-xs text-zinc-400">
@@ -254,7 +255,7 @@ export function PricingSection() {
               <div className="mt-5 sm:mt-6">
                 <div className="flex items-baseline gap-1">
                   <span className="text-xl sm:text-3xl font-black text-white">
-                    A partir de R$ 1.297
+                    A partir de R$ {CANONICAL_PLANS.enterprise.priceMonthly.toLocaleString("pt-BR")}
                   </span>
                   <span className="text-xs text-zinc-400">/mês</span>
                 </div>

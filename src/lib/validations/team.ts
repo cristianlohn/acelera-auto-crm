@@ -23,10 +23,10 @@ export const salespersonFormSchema = z.object({
       const sanitized = sanitizeWhatsAppPhone(val);
       return sanitized.startsWith("+") ? sanitized : `+${sanitized}`;
     }),
-  role: z.enum(["seller", "sdr", "manager"]).default("seller"),
+  role: z.enum(["seller", "sdr", "manager", "admin", "gerente", "vendedor", "vendedora"]).default("seller"),
   segment: z.enum(["new_cars", "used_cars", "f_and_i", "all"]).default("all"),
   in_roulette: z.boolean().default(true),
-  status: z.enum(["active", "paused", "vacation"]).default("active"),
+  status: z.enum(["active", "paused", "vacation", "pending", "ativo", "pausado"]).default("active"),
   monthly_goal_units: z.coerce.number().min(1, "A meta mensal deve ser de no mínimo 1 veículo").default(10),
 });
 

@@ -1,12 +1,13 @@
 /**
  * @file demo-dataset.ts
- * @description Fonte Canônica Única de Dados e Indicadores da Empresa de Demonstração (DEFAULT_DEMO_ORG_ID).
+ * @description Fonte Canônica Única de Dados e Indicadores da Auto Prime Veículos (DEFAULT_DEMO_ORG_ID).
  *
  * Consolida:
- * 1. Equipe Comercial Oficial (4 vendedores com metas e SLAs canônicos)
- * 2. Funil de Vendas Demo (24 leads distribuídos com 3 vendas ganhas totalizando R$ 215.800)
- * 3. Carteira de Clientes Demo (/clients com 3 compradores gerados dos leads fechados)
- * 4. Métricas e KPIs Executivos Unificados (SLA médio 8,2 min, ticket R$ 71.933, conversão 12.5%)
+ * 1. Equipe Comercial Oficial Auto Prime (5 membros com hierarquia, plantão e metas)
+ * 2. Funil de Vendas Demo (8 cenários comerciais canônicos com datas relativas a Date.now())
+ * 3. Carteira de Clientes Demo (/clients com compradores e reservas)
+ * 4. Métricas e KPIs Executivos Unificados
+ * 5. Ações Prescritivas Demo do Cockpit do Gestor
  */
 
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/constants";
@@ -15,76 +16,101 @@ import type { Lead, Client, ClientStatus, LeadStatus, LeadOrigin } from "@/types
 import type { KanbanLead, LeadStage } from "@/types/kanban";
 
 // ---------------------------------------------------------------------------
-// 1. Equipe Comercial Oficial da Empresa Demo (4 Vendedores)
+// 1. Funções Auxiliares de Datas Dinâmicas Relativas a Date.now()
+// ---------------------------------------------------------------------------
+
+const now = Date.now();
+export const minutesAgo = (m: number) => new Date(now - m * 60 * 1000).toISOString();
+export const hoursAgo = (h: number) => new Date(now - h * 3600 * 1000).toISOString();
+
+// ---------------------------------------------------------------------------
+// 2. Equipe Comercial Oficial Auto Prime Veículos (Hierarquia & Plantão)
 // ---------------------------------------------------------------------------
 
 export const DEMO_SELLERS: TeamMember[] = [
   {
     id: "sp-001",
     organization_id: DEFAULT_DEMO_ORG_ID,
-    name: "Rafael Alves",
-    email: "rafael.alves@aceleraauto.com.br",
-    phone: "+5511988887777",
+    name: "Rafael Martins",
+    email: "rafael.martins@autoprime.com.br",
+    phone: "+5547999883300",
     role: "seller",
     segment: "all",
     in_roulette: true,
     status: "active",
     monthly_goal_units: 15,
-    current_sales_units: 2,
-    avg_sla_minutes: 6.0,
+    current_sales_units: 1, // Venda concluída vinculada (Fiat Toro)
+    avg_sla_minutes: 10.3,  // Tempo médio dinâmico de 1º contato (leads atendidos)
     created_at: "2026-07-01T10:00:00.000Z",
   },
   {
     id: "sp-002",
     organization_id: DEFAULT_DEMO_ORG_ID,
-    name: "Camila Dias",
-    email: "camila.dias@aceleraauto.com.br",
-    phone: "+5511977776666",
+    name: "Amanda Souza",
+    email: "amanda.souza@autoprime.com.br",
+    phone: "+5547999884400",
     role: "seller",
     segment: "all",
     in_roulette: true,
     status: "active",
     monthly_goal_units: 12,
-    current_sales_units: 1,
-    avg_sla_minutes: 7.0,
+    current_sales_units: 1, // Venda concluída vinculada (Chevrolet Tracker)
+    avg_sla_minutes: 8.0,   // Tempo médio dinâmico de 1º contato (leads atendidos)
     created_at: "2026-07-01T10:00:00.000Z",
   },
   {
     id: "sp-003",
     organization_id: DEFAULT_DEMO_ORG_ID,
-    name: "Lucas Santana",
-    email: "lucas.santana@aceleraauto.com.br",
-    phone: "+5511966665555",
+    name: "Lucas Ferreira",
+    email: "lucas.ferreira@autoprime.com.br",
+    phone: "+5547999885500",
     role: "seller",
     segment: "all",
-    in_roulette: true,
-    status: "active",
+    in_roulette: false,     // Fora da roleta / em intervalo
+    status: "paused",       // Status pausado
     monthly_goal_units: 10,
     current_sales_units: 0,
-    avg_sla_minutes: 11.0,
+    avg_sla_minutes: 0,
     created_at: "2026-07-01T10:00:00.000Z",
   },
   {
     id: "sp-004",
     organization_id: DEFAULT_DEMO_ORG_ID,
-    name: "Beatriz Rocha",
-    email: "beatriz.rocha@aceleraauto.com.br",
-    phone: "+5511955554444",
-    role: "seller",
+    name: "Juliana Costa",
+    email: "juliana.costa@autoprime.com.br",
+    phone: "+5547999882200",
+    role: "manager",        // Gerente Comercial (supervisão geral)
     segment: "all",
-    in_roulette: true,
+    in_roulette: false,
     status: "active",
-    monthly_goal_units: 10,
+    monthly_goal_units: 0,
     current_sales_units: 0,
-    avg_sla_minutes: 9.0,
+    avg_sla_minutes: 0,
+    created_at: "2026-07-01T10:00:00.000Z",
+  },
+  {
+    id: "sp-005",
+    organization_id: DEFAULT_DEMO_ORG_ID,
+    name: "Roberto Silva",
+    email: "roberto.silva@autoprime.com.br",
+    phone: "+5547999881100",
+    role: "admin",          // Diretor / Titular
+    segment: "all",
+    in_roulette: false,
+    status: "active",
+    monthly_goal_units: 0,
+    current_sales_units: 0,
+    avg_sla_minutes: 0,
     created_at: "2026-07-01T10:00:00.000Z",
   },
 ];
 
-export const DEMO_ACTIVE_SELLER_NAMES = DEMO_SELLERS.map((s) => s.name);
+export const DEMO_ACTIVE_SELLER_NAMES = DEMO_SELLERS.filter(
+  (s) => s.role === "seller" && s.status === "active"
+).map((s) => s.name);
 
 // ---------------------------------------------------------------------------
-// 2. Leads do Funil de Vendas Demo (24 Leads Canônicos)
+// 3. Leads do Funil de Vendas Demo (8 Cenários Comerciais Canônicos)
 // ---------------------------------------------------------------------------
 
 export interface DemoLeadItem {
@@ -93,6 +119,8 @@ export interface DemoLeadItem {
   phone: string;
   email?: string;
   vehicleInterest: string;
+  vehicleId?: string;
+  vehicleName?: string;
   status: LeadStatus;
   stage: LeadStage;
   sellerId: string;
@@ -101,617 +129,409 @@ export interface DemoLeadItem {
   estimatedValue: number;
   origin: LeadOrigin;
   source: string;
-  firstContactMinutes: number; // Para cálculo consistente do SLA
+  firstContactMinutes: number; // Minutos decorridos até o primeiro contato
+  slaMinutesElapsed: number;   // Tempo decorrido de fila ou SLA
+  createdAt: string;
+  firstContactAt: string | null;
+  lastContactAt: string | null;
+  scheduledFollowUpAt?: string | null;
   notes?: string;
   proposalFi?: boolean;
+  lostReason?: string;
 }
 
 export const DEMO_LEAD_ITEMS: DemoLeadItem[] = [
-  // --- 1. Novos Leads (6 leads na Roleta) ---
+  // Cenário A: Aguardando Primeiro Atendimento (SLA Ativo)
   {
     id: "lead-k-101",
-    name: "Leandro Cunha",
-    phone: "+5511988882222",
-    email: "leandro.cunha@email.com",
-    vehicleInterest: "Jeep Renegade Longitude 2023",
+    name: "Felipe Albuquerque",
+    phone: "+5547991234567",
+    email: "felipe.albuquerque@email.com",
+    vehicleInterest: "Toyota Corolla 2.0 XEi 2023",
+    vehicleId: "v-001",
+    vehicleName: "Toyota Corolla 2.0 XEi 2023",
     status: "novo",
     stage: "new",
     sellerId: "sp-001",
-    sellerName: "Rafael Alves",
-    sellerPhone: "+5511988887777",
-    estimatedValue: 125000,
-    origin: "whatsapp",
-    source: "whatsapp",
-    firstContactMinutes: 6,
-    notes: "Chegou pelo anúncio de Renegade seminovo.",
+    sellerName: "Rafael Martins",
+    sellerPhone: "+5547999883300",
+    estimatedValue: 138900,
+    origin: "instagram",
+    source: "meta_ads",
+    firstContactMinutes: 0,
+    slaMinutesElapsed: 8,
+    createdAt: minutesAgo(8),
+    firstContactAt: null,
+    lastContactAt: minutesAgo(8),
+    notes: "Aguardando primeiro atendimento na roleta. SLA ativo dentro da meta (15 min).",
   },
+
+  // Cenário B: Recém-Atendido no Prazo (Sucesso de SLA)
   {
     id: "lead-k-102",
-    name: "Monica Pires",
-    phone: "+5511988889999",
-    email: "monica.pires@email.com",
-    vehicleInterest: "Honda HR-V EXL 2023",
-    status: "novo",
-    stage: "new",
-    sellerId: "sp-001",
-    sellerName: "Rafael Alves",
-    sellerPhone: "+5511988887777",
-    estimatedValue: 149000,
+    name: "Camila Duarte",
+    phone: "+5547992345678",
+    email: "camila.duarte@email.com",
+    vehicleInterest: "Volkswagen T-Cross Highline 2022",
+    vehicleId: "v-002",
+    vehicleName: "Volkswagen T-Cross Highline 2022",
+    status: "atendimento",
+    stage: "in_contact",
+    sellerId: "sp-002",
+    sellerName: "Amanda Souza",
+    sellerPhone: "+5547999884400",
+    estimatedValue: 119500,
     origin: "webmotors",
     source: "webmotors",
-    firstContactMinutes: 6,
-    notes: "Solicitou simulação de entrada de R$ 50k.",
+    firstContactMinutes: 9,
+    slaMinutesElapsed: 9,
+    createdAt: minutesAgo(35),
+    firstContactAt: minutesAgo(26), // 35 - 9 min = 26 min atrás
+    lastContactAt: minutesAgo(26),
+    notes: "Recém-atendido no prazo. Primeiro contato feito aos 9 min com sucesso.",
   },
+
+  // Cenário C: Follow-up Crítico / Ação Atrasada
   {
     id: "lead-k-103",
-    name: "Otavio Vasques",
-    phone: "+5511977770000",
-    email: "otavio.vasques@email.com",
-    vehicleInterest: "Toyota Corolla Cross XRE 2023",
-    status: "novo",
-    stage: "new",
-    sellerId: "sp-002",
-    sellerName: "Camila Dias",
-    sellerPhone: "+5511977776666",
-    estimatedValue: 155000,
-    origin: "instagram",
-    source: "meta_ads",
-    firstContactMinutes: 7,
-    notes: "Lead novo na roleta aguardando mensagem inicial.",
+    name: "Rodrigo Mendes",
+    phone: "+5547993456789",
+    email: "rodrigo.mendes@email.com",
+    vehicleInterest: "Jeep Compass Longitude 2021",
+    vehicleId: "v-003",
+    vehicleName: "Jeep Compass Longitude 2021",
+    status: "atendimento",
+    stage: "in_contact",
+    sellerId: "sp-001",
+    sellerName: "Rafael Martins",
+    sellerPhone: "+5547999883300",
+    estimatedValue: 124000,
+    origin: "site",
+    source: "google",
+    firstContactMinutes: 12,
+    slaMinutesElapsed: 12,
+    createdAt: hoursAgo(16),
+    firstContactAt: hoursAgo(15.8),
+    lastContactAt: hoursAgo(2),
+    scheduledFollowUpAt: hoursAgo(2), // Agendamento de follow-up vencido há 2h
+    notes: "Em negociação. Agendamento de follow-up vencido há 2 horas. Aciona Ações Críticas no Cockpit.",
   },
+
+  // Cenário D: Visita / Test-Drive Agendado
   {
     id: "lead-k-104",
-    name: "Paula Silveira",
-    phone: "+5511977771111",
-    email: "paula.silveira@email.com",
-    vehicleInterest: "Hyundai HB20 Platinum 2023",
-    status: "novo",
-    stage: "new",
+    name: "Beatriz Santos",
+    phone: "+5547994567890",
+    email: "beatriz.santos@email.com",
+    vehicleInterest: "Honda Civic Touring 2021",
+    vehicleId: "v-005",
+    vehicleName: "Honda Civic Touring 2021",
+    status: "visita",
+    stage: "test_drive",
     sellerId: "sp-002",
-    sellerName: "Camila Dias",
-    sellerPhone: "+5511977776666",
-    estimatedValue: 85000,
-    origin: "site",
-    source: "site",
-    firstContactMinutes: 7,
-    notes: "Cadastro via formulário do site oficial.",
+    sellerName: "Amanda Souza",
+    sellerPhone: "+5547999884400",
+    estimatedValue: 142000,
+    origin: "indicacao",
+    source: "indicacao",
+    firstContactMinutes: 10,
+    slaMinutesElapsed: 10,
+    createdAt: hoursAgo(5),
+    firstContactAt: hoursAgo(4.8),
+    lastContactAt: hoursAgo(1),
+    notes: "Visita e test-drive agendados para hoje às 16:30 na concessionária.",
   },
+
+  // Cenário E: Proposta em Análise
   {
     id: "lead-k-105",
-    name: "Renato Barros",
-    phone: "+5511966661111",
-    email: "renato.barros@email.com",
-    vehicleInterest: "Chevrolet Montana Premier 2023",
-    status: "novo",
-    stage: "new",
-    sellerId: "sp-003",
-    sellerName: "Lucas Santana",
-    sellerPhone: "+5511966665555",
-    estimatedValue: 128000,
-    origin: "olx",
-    source: "olx",
-    firstContactMinutes: 11,
-    notes: "Procura picape para uso urbano e trabalho.",
+    name: "Leonardo Vargas",
+    phone: "+5547995678901",
+    email: "leonardo.vargas@email.com",
+    vehicleInterest: "Hyundai HB20 Platinum Plus 2024",
+    vehicleId: "v-006",
+    vehicleName: "Hyundai HB20 Platinum Plus 2024",
+    status: "proposta",
+    stage: "proposal",
+    sellerId: "sp-001",
+    sellerName: "Rafael Martins",
+    sellerPhone: "+5547999883300",
+    estimatedValue: 92000,
+    origin: "patio_balcao",
+    source: "patio",
+    firstContactMinutes: 8,
+    slaMinutesElapsed: 8,
+    createdAt: hoursAgo(12),
+    firstContactAt: hoursAgo(11.8),
+    lastContactAt: hoursAgo(3),
+    notes: "Proposta formalizada de R$ 92.000 em análise pelo cliente.",
   },
+
+  // Cenário F: Financiamento Bancário / F&I
   {
     id: "lead-k-106",
-    name: "Sabrina Rezende",
-    phone: "+5511955556666",
-    email: "sabrina.rezende@email.com",
-    vehicleInterest: "Fiat Strada Volcano 2023",
-    status: "novo",
-    stage: "new",
-    sellerId: "sp-004",
-    sellerName: "Beatriz Rocha",
-    sellerPhone: "+5511955554444",
-    estimatedValue: 115000,
-    origin: "whatsapp",
-    source: "whatsapp",
-    firstContactMinutes: 9,
-    notes: "Lead novo distribuído pela roleta automática.",
+    name: "Marcos Valério",
+    phone: "+5547996789012",
+    email: "marcos.valerio@email.com",
+    vehicleInterest: "Toyota Hilux SRX 2022",
+    vehicleId: "v-007",
+    vehicleName: "Toyota Hilux SRX 2022",
+    status: "proposta",
+    stage: "proposal_fi",
+    proposalFi: true,
+    sellerId: "sp-002",
+    sellerName: "Amanda Souza",
+    sellerPhone: "+5547999884400",
+    estimatedValue: 245000,
+    origin: "webmotors",
+    source: "webmotors",
+    firstContactMinutes: 7,
+    slaMinutesElapsed: 7,
+    createdAt: hoursAgo(18),
+    firstContactAt: hoursAgo(17.8),
+    lastContactAt: hoursAgo(2),
+    notes: "Veículo reservado. Ficha em análise de crédito na mesa F&I.",
   },
 
-  // --- 2. Em Atendimento (8 leads - Beatriz Rocha: 4) ---
+  // Cenário G: Venda Concluída / Ganho
   {
     id: "lead-k-107",
-    name: "Vanessa Martins",
-    phone: "+5511955551111",
-    email: "vanessa.martins@email.com",
-    vehicleInterest: "Fiat Pulse Audace 2023",
-    status: "atendimento",
-    stage: "in_contact",
-    sellerId: "sp-004",
-    sellerName: "Beatriz Rocha",
-    sellerPhone: "+5511955554444",
-    estimatedValue: 98000,
-    origin: "whatsapp",
-    source: "whatsapp",
-    firstContactMinutes: 9,
-    notes: "Em negociação de valor e simulação de entrada de R$ 30k.",
+    name: "Renata Silveira",
+    phone: "+5547997890123",
+    email: "renata.silveira@email.com",
+    vehicleInterest: "Chevrolet Tracker Premier 2022",
+    vehicleId: "v-009",
+    vehicleName: "Chevrolet Tracker Premier 2022",
+    status: "fechado",
+    stage: "won",
+    sellerId: "sp-002",
+    sellerName: "Amanda Souza",
+    sellerPhone: "+5547999884400",
+    estimatedValue: 108000,
+    origin: "instagram",
+    source: "meta_ads",
+    firstContactMinutes: 6,
+    slaMinutesElapsed: 6,
+    createdAt: hoursAgo(8),
+    firstContactAt: hoursAgo(7.9),
+    lastContactAt: hoursAgo(1),
+    notes: "Venda concluída hoje! Valor R$ 108.000. Veículo Chevrolet Tracker Premier.",
   },
+
+  // Cenário H: Oportunidade Perdida com Motivo Canônico
   {
     id: "lead-k-108",
-    name: "Bruno Carvalho",
-    phone: "+5511955552222",
-    email: "bruno.carvalho@email.com",
-    vehicleInterest: "Renault Duster Iconic 2022",
-    status: "atendimento",
-    stage: "in_contact",
-    sellerId: "sp-004",
-    sellerName: "Beatriz Rocha",
-    sellerPhone: "+5511955554444",
-    estimatedValue: 92000,
-    origin: "instagram",
-    source: "meta_ads",
-    firstContactMinutes: 9,
-    notes: "Tirando dúvidas sobre consumo e revisões de garantia.",
-  },
-  {
-    id: "lead-k-109",
-    name: "Clarice Fontes",
-    phone: "+5511955553333",
-    email: "clarice.fontes@email.com",
-    vehicleInterest: "Nissan Kicks Advance 2023",
-    status: "atendimento",
-    stage: "in_contact",
-    sellerId: "sp-004",
-    sellerName: "Beatriz Rocha",
-    sellerPhone: "+5511955554444",
-    estimatedValue: 112000,
-    origin: "site",
-    source: "site",
-    firstContactMinutes: 9,
-    notes: "Enviou fotos do carro usado para pré-avaliação.",
-  },
-  {
-    id: "lead-k-110",
-    name: "Danilo Siqueira",
-    phone: "+5511955554444",
-    email: "danilo.siqueira@email.com",
-    vehicleInterest: "Peugeot 208 Griffe 2023",
-    status: "atendimento",
-    stage: "in_contact",
-    sellerId: "sp-004",
-    sellerName: "Beatriz Rocha",
-    sellerPhone: "+5511955554444",
-    estimatedValue: 89000,
-    origin: "olx",
-    source: "olx",
-    firstContactMinutes: 9,
-    notes: "Solicitou vídeo detalhado do painel digital e teto panorâmico.",
-  },
-  {
-    id: "lead-k-111",
-    name: "Gabriel Nogueira",
-    phone: "+5511988883333",
-    email: "gabriel.nogueira@email.com",
-    vehicleInterest: "Chevrolet Onix Plus Premier 2023",
-    status: "atendimento",
-    stage: "in_contact",
+    name: "Gustavo Pinheiro",
+    phone: "+5547998901234",
+    email: "gustavo.pinheiro@email.com",
+    vehicleInterest: "Fiat Toro Volcano 2023",
+    vehicleId: "v-010",
+    vehicleName: "Fiat Toro Volcano 2023",
+    status: "fechado",
+    stage: "lost",
+    lostReason: "comprou_concorrente",
     sellerId: "sp-001",
-    sellerName: "Rafael Alves",
-    sellerPhone: "+5511988887777",
-    estimatedValue: 89900,
-    origin: "whatsapp",
-    source: "whatsapp",
-    firstContactMinutes: 6,
-    notes: "Avaliando opções de financiamento com taxa zero.",
-  },
-  {
-    id: "lead-k-112",
-    name: "Helena Castro",
-    phone: "+5511988885555",
-    email: "helena.castro@email.com",
-    vehicleInterest: "Toyota Yaris Sedan XLS 2023",
-    status: "atendimento",
-    stage: "in_contact",
-    sellerId: "sp-001",
-    sellerName: "Rafael Alves",
-    sellerPhone: "+5511988887777",
-    estimatedValue: 95000,
-    origin: "webmotors",
-    source: "webmotors",
-    firstContactMinutes: 6,
-    notes: "Interessada em câmbio automático confiável para viagens.",
-  },
-  {
-    id: "lead-k-113",
-    name: "Igor Valente",
-    phone: "+5511977778888",
-    email: "igor.valente@email.com",
-    vehicleInterest: "Volkswagen Polo Comfortline 2023",
-    status: "atendimento",
-    stage: "in_contact",
-    sellerId: "sp-002",
-    sellerName: "Camila Dias",
-    sellerPhone: "+5511977776666",
-    estimatedValue: 87000,
-    origin: "instagram",
-    source: "meta_ads",
-    firstContactMinutes: 7,
-    notes: "Primeiro carro para o filho, focado em segurança e consumo.",
-  },
-  {
-    id: "lead-k-114",
-    name: "Jessica Barreto",
-    phone: "+5511977779999",
-    email: "jessica.barreto@email.com",
-    vehicleInterest: "Fiat Fastback Audace 2023",
-    status: "atendimento",
-    stage: "in_contact",
-    sellerId: "sp-002",
-    sellerName: "Camila Dias",
-    sellerPhone: "+5511977776666",
-    estimatedValue: 119000,
-    origin: "site",
-    source: "site",
-    firstContactMinutes: 7,
-    notes: "Interessada em agendar test-drive para o próximo sábado.",
-  },
-
-  // --- 3. Visita / Test-Drive (4 leads - Lucas Santana: 2) ---
-  {
-    id: "lead-k-115",
-    name: "Thiago Ribeiro",
-    phone: "+5511977773333",
-    email: "thiago.ribeiro@email.com",
-    vehicleInterest: "Jeep Compass Longitude 2023",
-    status: "visita",
-    stage: "test_drive",
-    sellerId: "sp-003",
-    sellerName: "Lucas Santana",
-    sellerPhone: "+5511966665555",
-    estimatedValue: 168000,
-    origin: "webmotors",
-    source: "webmotors",
-    firstContactMinutes: 11,
-    notes: "Visita agendada para test-drive amanhã às 14h.",
-  },
-  {
-    id: "lead-k-116",
-    name: "Patrícia Vieira",
-    phone: "+5591889765432",
-    email: "patricia.vieira@uol.com.br",
-    vehicleInterest: "Toyota Corolla XEi 2022",
-    status: "visita",
-    stage: "test_drive",
-    sellerId: "sp-003",
-    sellerName: "Lucas Santana",
-    sellerPhone: "+5511966665555",
-    estimatedValue: 135000,
+    sellerName: "Rafael Martins",
+    sellerPhone: "+5547999883300",
+    estimatedValue: 152000,
     origin: "olx",
     source: "olx",
     firstContactMinutes: 11,
-    notes: "Cliente visitou o pátio e gostou do estado dos pneus.",
-  },
-  {
-    id: "lead-k-117",
-    name: "Marcelo Dantas",
-    phone: "+5511988884444",
-    email: "marcelo.dantas@email.com",
-    vehicleInterest: "Volkswagen Nivus Highline 2022",
-    status: "visita",
-    stage: "test_drive",
-    sellerId: "sp-001",
-    sellerName: "Rafael Alves",
-    sellerPhone: "+5511988887777",
-    estimatedValue: 118000,
-    origin: "instagram",
-    source: "meta_ads",
-    firstContactMinutes: 6,
-    notes: "Test-drive realizado com sucesso. Aguarda proposta formal.",
-  },
-  {
-    id: "lead-k-118",
-    name: "Juliana Peixoto",
-    phone: "+5511977775555",
-    email: "juliana.peixoto@email.com",
-    vehicleInterest: "Hyundai Creta Ultimate 2023",
-    status: "visita",
-    stage: "test_drive",
-    sellerId: "sp-002",
-    sellerName: "Camila Dias",
-    sellerPhone: "+5511977776666",
-    estimatedValue: 145000,
-    origin: "site",
-    source: "site",
-    firstContactMinutes: 7,
-    notes: "Visita na concessionária com a família para ver o espaço interno.",
-  },
-
-  // --- 4. Propostas (3 leads - Lucas Santana: 3, somando 5 em proposta/visita) ---
-  {
-    id: "lead-k-119",
-    name: "Luciana Prado",
-    phone: "+5511999995555",
-    email: "luciana.prado@email.com",
-    vehicleInterest: "Volkswagen T-Cross Highline 2022",
-    status: "proposta",
-    stage: "proposal",
-    sellerId: "sp-003",
-    sellerName: "Lucas Santana",
-    sellerPhone: "+5511966665555",
-    estimatedValue: 126000,
-    origin: "webmotors",
-    source: "webmotors",
-    firstContactMinutes: 11,
-    proposalFi: true,
-    notes: "Dando Onix 2021 na troca de um T-Cross Highline. Análise F&I Itaú.",
-  },
-  {
-    id: "lead-k-120",
-    name: "Rodrigo Meirelles",
-    phone: "+5511988886666",
-    email: "rodrigo.meirelles@email.com",
-    vehicleInterest: "Honda HR-V Advance 2023",
-    status: "proposta",
-    stage: "proposal",
-    sellerId: "sp-003",
-    sellerName: "Lucas Santana",
-    sellerPhone: "+5511966665555",
-    estimatedValue: 159000,
-    origin: "site",
-    source: "site",
-    firstContactMinutes: 11,
-    notes: "Proposta enviada com avaliação do usado na troca.",
-  },
-  {
-    id: "lead-k-121",
-    name: "Mariana Albuquerque",
-    phone: "+5547998877665",
-    email: "mariana.albuquerque@gmail.com",
-    vehicleInterest: "Toyota Corolla Altis Hybrid 2023",
-    status: "proposta",
-    stage: "proposal",
-    sellerId: "sp-003",
-    sellerName: "Lucas Santana",
-    sellerPhone: "+5511966665555",
-    estimatedValue: 162000,
-    origin: "whatsapp",
-    source: "whatsapp",
-    firstContactMinutes: 11,
-    proposalFi: true,
-    notes: "Ficha bancária aprovada Banco BV aguardando assinatura.",
-  },
-
-  // --- 5. Vendas Fechadas (3 leads - Total: R$ 215.800) ---
-  {
-    id: "lead-k-122",
-    name: "Roberto Mendes",
-    phone: "+5511988881111",
-    email: "roberto.mendes@email.com",
-    vehicleInterest: "Honda Civic EXL 2.0 CVT 2022",
-    status: "fechado",
-    stage: "won",
-    sellerId: "sp-001",
-    sellerName: "Rafael Alves",
-    sellerPhone: "+5511988887777",
-    estimatedValue: 90000,
-    origin: "site",
-    source: "site",
-    firstContactMinutes: 6,
-    notes: "Venda concluída de Honda Civic com entrada e financiamento Santander.",
-  },
-  {
-    id: "lead-k-123",
-    name: "Carlos Eduardo",
-    phone: "+5511977772222",
-    email: "carlos.eduardo@email.com",
-    vehicleInterest: "Ford Ka SE Plus 1.0 2021",
-    status: "fechado",
-    stage: "won",
-    sellerId: "sp-001",
-    sellerName: "Rafael Alves",
-    sellerPhone: "+5511988887777",
-    estimatedValue: 52900,
-    origin: "olx",
-    source: "olx",
-    firstContactMinutes: 6,
-    notes: "Venda fechada de Ford Ka à vista com transferência imediata.",
-  },
-  {
-    id: "lead-k-124",
-    name: "Fernanda Lima",
-    phone: "+5511966663333",
-    email: "fernanda.lima@email.com",
-    vehicleInterest: "Chevrolet Tracker Premier 1.2 Turbo 2022",
-    status: "fechado",
-    stage: "won",
-    sellerId: "sp-002",
-    sellerName: "Camila Dias",
-    sellerPhone: "+5511977776666",
-    estimatedValue: 72900,
-    origin: "whatsapp",
-    source: "whatsapp",
-    firstContactMinutes: 7,
-    notes: "Venda concluída de Chevrolet Tracker. Cliente satisfeita com o test-drive.",
+    slaMinutesElapsed: 11,
+    createdAt: hoursAgo(20),
+    firstContactAt: hoursAgo(19.8),
+    lastContactAt: hoursAgo(4),
+    notes: "Fechou com outra loja por diferença na avaliação do usado.",
   },
 ];
 
 // ---------------------------------------------------------------------------
-// 3. Conversão para Tipos CRM Padrão (Lead, KanbanLead)
+// 4. Conversão para Tipos CRM Padrão (Lead, KanbanLead)
 // ---------------------------------------------------------------------------
 
-const baseTime = Date.now();
+export const DEMO_LEADS: Lead[] = DEMO_LEAD_ITEMS.map((item) => ({
+  id: item.id,
+  name: item.name,
+  phone: item.phone,
+  email: item.email,
+  vehicleInterest: item.vehicleInterest,
+  vehicleId: item.vehicleId,
+  vehicleName: item.vehicleName,
+  status: item.status,
+  stage: item.stage,
+  sellerId: item.sellerId,
+  sellerName: item.sellerName,
+  sellerPhone: item.sellerPhone,
+  origin: item.origin,
+  organizationId: DEFAULT_DEMO_ORG_ID,
+  estimatedValue: item.estimatedValue,
+  notes: item.notes,
+  createdAt: item.createdAt,
+  firstContactAt: item.firstContactAt,
+  lastContactAt: item.lastContactAt,
+  proposalFi: item.proposalFi,
+}));
 
-function getDemoLeadTimestamps(item: DemoLeadItem, idx: number, base: number) {
-  if (item.status === "novo" || item.stage === "new") {
-    // 6 novos leads na roleta aguardando primeiro contato com tempo de fila decorrido (> 15 min para justificar o alerta)
-    const queueMinutesList = [28, 24, 22, 19, 31, 18];
-    const queueMinutes = queueMinutesList[idx] ?? 20;
-    const createdAt = new Date(base - queueMinutes * 60000).toISOString();
-    return {
-      createdAt,
-      firstContactAt: null,
-      lastContactAt: createdAt,
-      slaMinutesElapsed: queueMinutes,
-    };
-  }
-
-  if (item.status === "proposta" || item.stage === "proposal") {
-    // 3 propostas de clientes com mais de 24h sem retorno no funil (Há 28h, alinhado à ação do Lucas Santana)
-    const createdAt = new Date(base - 48 * 3600000).toISOString();
-    const firstContactAt = new Date(new Date(createdAt).getTime() + item.firstContactMinutes * 60000).toISOString();
-    const lastContactAt = new Date(base - 28 * 3600000).toISOString();
-    return {
-      createdAt,
-      firstContactAt,
-      lastContactAt,
-      slaMinutesElapsed: item.firstContactMinutes,
-    };
-  }
-
-  if (item.status === "visita" || item.stage === "test_drive") {
-    const createdAt = new Date(base - 36 * 3600000).toISOString();
-    const firstContactAt = new Date(new Date(createdAt).getTime() + item.firstContactMinutes * 60000).toISOString();
-    const lastContactAt = new Date(base - 6 * 3600000).toISOString();
-    return {
-      createdAt,
-      firstContactAt,
-      lastContactAt,
-      slaMinutesElapsed: item.firstContactMinutes,
-    };
-  }
-
-  if (item.status === "fechado" || item.stage === "won") {
-    const createdAt = new Date(base - 72 * 3600000).toISOString();
-    const firstContactAt = new Date(new Date(createdAt).getTime() + item.firstContactMinutes * 60000).toISOString();
-    const lastContactAt = new Date(base - 12 * 3600000).toISOString();
-    return {
-      createdAt,
-      firstContactAt,
-      lastContactAt,
-      slaMinutesElapsed: item.firstContactMinutes,
-    };
-  }
-
-  // Em atendimento (8 leads)
-  const createdAt = new Date(base - 10 * 3600000).toISOString();
-  const firstContactAt = new Date(new Date(createdAt).getTime() + item.firstContactMinutes * 60000).toISOString();
-  const lastContactAt = new Date(base - 2 * 3600000).toISOString();
-  return {
-    createdAt,
-    firstContactAt,
-    lastContactAt,
-    slaMinutesElapsed: item.firstContactMinutes,
-  };
-}
-
-export const DEMO_LEADS: Lead[] = DEMO_LEAD_ITEMS.map((item, idx) => {
-  const ts = getDemoLeadTimestamps(item, idx, baseTime);
-
-  return {
-    id: item.id,
-    name: item.name,
-    phone: item.phone,
-    email: item.email,
-    vehicleInterest: item.vehicleInterest,
-    status: item.status,
-    stage: item.stage,
-    sellerId: item.sellerId,
-    sellerName: item.sellerName,
-    sellerPhone: item.sellerPhone,
-    origin: item.origin,
-    organizationId: DEFAULT_DEMO_ORG_ID,
-    estimatedValue: item.estimatedValue,
-    notes: item.notes,
-    createdAt: ts.createdAt,
-    firstContactAt: ts.firstContactAt,
-    lastContactAt: ts.lastContactAt,
-    proposalFi: item.proposalFi,
-  };
-});
-
-export const DEMO_KANBAN_LEADS: KanbanLead[] = DEMO_LEAD_ITEMS.map((item, idx) => {
-  const ts = getDemoLeadTimestamps(item, idx, baseTime);
-  return {
-    id: item.id,
-    organization_id: DEFAULT_DEMO_ORG_ID,
-    name: item.name,
-    phone: item.phone,
-    email: item.email,
-    source: item.source,
-    vehicle_of_interest: item.vehicleInterest,
-    assigned_to: {
-      id: item.sellerId,
-      name: item.sellerName,
-      phone: item.sellerPhone,
-    },
-    assigned_to_name: item.sellerName,
-    stage: item.stage,
-    sla_minutes: 15,
-    sla_minutes_elapsed: ts.slaMinutesElapsed,
-    created_at: ts.createdAt,
-    updated_at: ts.lastContactAt,
-    value: item.estimatedValue,
-    estimated_value: item.estimatedValue,
-    segment: "used_cars",
-    notes: item.notes,
-  };
-});
+export const DEMO_KANBAN_LEADS: KanbanLead[] = DEMO_LEAD_ITEMS.map((item) => ({
+  id: item.id,
+  organization_id: DEFAULT_DEMO_ORG_ID,
+  name: item.name,
+  phone: item.phone,
+  email: item.email,
+  source: item.source,
+  vehicle_of_interest: item.vehicleInterest,
+  vehicle_id: item.vehicleId,
+  vehicle_name: item.vehicleName,
+  assigned_to: {
+    id: item.sellerId,
+    name: item.sellerName,
+    phone: item.sellerPhone,
+  },
+  assigned_to_name: item.sellerName,
+  stage: item.stage,
+  sla_minutes: 15,
+  sla_minutes_elapsed: item.slaMinutesElapsed,
+  created_at: item.createdAt,
+  updated_at: item.lastContactAt || item.createdAt,
+  value: item.estimatedValue,
+  estimated_value: item.estimatedValue,
+  segment: "used_cars",
+  notes: item.notes,
+  lost_reason: item.lostReason,
+}));
 
 // ---------------------------------------------------------------------------
-// 4. Carteira de Clientes Demo (/clients com 3 Compradores dos Leads Fechados)
+// 5. Carteira de Clientes Demo (/clients)
 // ---------------------------------------------------------------------------
 
 export const DEMO_CLIENTS: Client[] = [
   {
     id: "cli-demo-01",
-    name: "Roberto Mendes",
-    phone: "+5511988881111",
-    email: "roberto.mendes@email.com",
+    name: "Felipe Albuquerque",
+    phone: "(47) 99123-4567",
+    email: "felipe.albuquerque@email.com",
     document: "111.222.333-44",
-    status: "comprador" as ClientStatus,
-    sellerName: "Rafael Alves",
-    vehiclePreference: "Honda Civic EXL 2.0 CVT 2022",
-    totalPurchased: 90000,
-    purchasesCount: 1,
-    lastInteractionAt: "2026-09-07T14:30:00.000Z",
-    notes: "Compra concluída de Honda Civic à vista com financiamento Santander.",
+    status: "ativo" as ClientStatus,
+    sellerName: "Rafael Martins",
+    vehiclePreference: "Toyota Corolla 2.0 XEi 2023",
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: minutesAgo(8),
+    notes: "Interesse em Toyota Corolla 2023. Em atendimento com Rafael Martins.",
   },
   {
     id: "cli-demo-02",
-    name: "Carlos Eduardo",
-    phone: "+5511977772222",
-    email: "carlos.eduardo@email.com",
+    name: "Camila Duarte",
+    phone: "(47) 99234-5678",
+    email: "camila.duarte@email.com",
     document: "222.333.444-55",
-    status: "comprador" as ClientStatus,
-    sellerName: "Rafael Alves",
-    vehiclePreference: "Ford Ka SE Plus 1.0 2021",
-    totalPurchased: 52900,
-    purchasesCount: 1,
-    lastInteractionAt: "2026-09-06T11:20:00.000Z",
-    notes: "Compra fechada de Ford Ka à vista com transferência imediata.",
+    status: "ativo" as ClientStatus,
+    sellerName: "Amanda Souza",
+    vehiclePreference: "Volkswagen T-Cross Highline 2022",
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: minutesAgo(26),
+    notes: "Interesse em VW T-Cross 2022. Primeiro contato realizado por Amanda Souza.",
   },
   {
     id: "cli-demo-03",
-    name: "Fernanda Lima",
-    phone: "+5511966663333",
-    email: "fernanda.lima@email.com",
+    name: "Rodrigo Mendes",
+    phone: "(47) 99345-6789",
+    email: "rodrigo.mendes@email.com",
     document: "333.444.555-66",
+    status: "ativo" as ClientStatus,
+    sellerName: "Rafael Martins",
+    vehiclePreference: "Jeep Compass Longitude 2021",
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: hoursAgo(2),
+    notes: "Interesse em Jeep Compass 2021. Em negociação com follow-up pendente.",
+  },
+  {
+    id: "cli-demo-04",
+    name: "Beatriz Santos",
+    phone: "(47) 99456-7890",
+    email: "beatriz.santos@email.com",
+    document: "444.555.666-77",
+    status: "ativo" as ClientStatus,
+    sellerName: "Amanda Souza",
+    vehiclePreference: "Honda Civic Touring 2021",
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: hoursAgo(1),
+    notes: "Interesse em Honda Civic Touring. Visita e test-drive agendados para hoje às 16:30.",
+  },
+  {
+    id: "cli-demo-05",
+    name: "Leonardo Vargas",
+    phone: "(47) 99567-8901",
+    email: "leonardo.vargas@email.com",
+    document: "555.666.777-88",
+    status: "ativo" as ClientStatus,
+    sellerName: "Rafael Martins",
+    vehiclePreference: "Hyundai HB20 Platinum Plus 2024",
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: hoursAgo(3),
+    notes: "Interesse em Hyundai HB20. Proposta formalizada de R$ 92.000 em análise.",
+  },
+  {
+    id: "cli-demo-06",
+    name: "Marcos Valério",
+    phone: "(47) 99678-9012",
+    email: "marcos.valerio@email.com",
+    document: "666.777.888-99",
+    status: "ativo" as ClientStatus,
+    sellerName: "Amanda Souza",
+    vehiclePreference: "Toyota Hilux SRX 2022",
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: hoursAgo(2),
+    notes: "Toyota Hilux SRX reservada. Ficha de financiamento em análise na mesa de crédito F&I.",
+  },
+  {
+    id: "cli-demo-07",
+    name: "Renata Silveira",
+    phone: "(47) 99789-0123",
+    email: "renata.silveira@email.com",
+    document: "777.888.999-00",
     status: "comprador" as ClientStatus,
-    sellerName: "Camila Dias",
-    vehiclePreference: "Chevrolet Tracker Premier 1.2 Turbo 2022",
-    totalPurchased: 72900,
+    sellerName: "Amanda Souza",
+    vehiclePreference: "Chevrolet Tracker Premier 2022",
+    totalPurchased: 108000,
     purchasesCount: 1,
-    lastInteractionAt: "2026-09-05T16:45:00.000Z",
-    notes: "Compra concluída de Chevrolet Tracker. Cliente satisfeita com o pós-venda.",
+    lastInteractionAt: hoursAgo(1),
+    notes: "Cliente Ativo (Venda Ganha). Comprou Chevrolet Tracker Premier hoje à vista por R$ 108.000.",
+  },
+  {
+    id: "cli-demo-08",
+    name: "Gustavo Pinheiro",
+    phone: "(47) 99890-1234",
+    email: "gustavo.pinheiro@email.com",
+    document: "888.999.000-11",
+    status: "inativo" as ClientStatus,
+    sellerName: "Rafael Martins",
+    vehiclePreference: "Fiat Toro Volcano 2023",
+    totalPurchased: 0,
+    purchasesCount: 0,
+    lastInteractionAt: hoursAgo(4),
+    notes: "Inativo / Perdido. Desistiu da compra da Fiat Toro Volcano (comprou no concorrente por diferença na avaliação do usado).",
   },
 ];
 
 // ---------------------------------------------------------------------------
-// 5. Constantes Consolidadas e Métricas da Empresa Demo
+// 6. Constantes Consolidadas e Métricas da Empresa Demo
 // ---------------------------------------------------------------------------
 
-export const DEMO_KPI_TOTAL_REVENUE = 215800; // R$ 90.000 + R$ 52.900 + R$ 72.900
-export const DEMO_KPI_WON_COUNT = 3;
-export const DEMO_KPI_TOTAL_LEADS = 24;
-export const DEMO_KPI_AVERAGE_TICKET = 71933; // 215.800 / 3
-export const DEMO_KPI_CONVERSION_RATE = 12.5; // (3 / 24) * 100
-export const DEMO_KPI_GLOBAL_SLA_MINUTES = 8.2; // Média global ~8 min
+export const DEMO_KPI_TOTAL_REVENUE = 108000; // R$ 108.000 da venda ganha hoje
+export const DEMO_KPI_WON_COUNT = 1;
+export const DEMO_KPI_TOTAL_LEADS = 8;
+export const DEMO_KPI_AVERAGE_TICKET = 108000;
+export const DEMO_KPI_CONVERSION_RATE = 12.5; // (1 / 8) * 100
+export const DEMO_KPI_GLOBAL_SLA_MINUTES = 9.1; // Média de tempo de primeiro contato (Amanda 8.0 + Rafael 10.3)
 
 // ---------------------------------------------------------------------------
-// 6. Ações Prescritivas Demo do Cockpit do Gestor
+// 7. Ações Prescritivas Demo do Cockpit do Gestor
 // ---------------------------------------------------------------------------
 
 export interface DemoCockpitActionItem {
@@ -729,46 +549,24 @@ export interface DemoCockpitActionItem {
 export const DEMO_COCKPIT_ACTIONS: DemoCockpitActionItem[] = [
   {
     id: "act-demo-rafael",
-    sellerName: "Rafael Alves",
-    avatar: "RA",
-    actionText: "2 novos leads aguardando 1º contato no funil",
-    leadCount: 2,
+    sellerName: "Rafael Martins",
+    avatar: "RM",
+    actionText: "Follow-up de Rodrigo Mendes (Jeep Compass 2021) vencido há 2h",
+    leadCount: 1,
     urgencyType: "danger",
-    timeText: "Há 28 min",
-    defaultMessage: "Olá Rafael, identifiquei no Acelera que você possui 2 novos leads aguardando resposta há mais de 15 minutos. Vamos priorizar o contato agora para não esfriar!",
-    phone: "+5511988887777",
+    timeText: "Há 2h",
+    defaultMessage: "Olá Rafael, identifiquei no Acelera que o follow-up de Rodrigo Mendes (Jeep Compass 2021) está vencido há 2 horas. Vamos priorizar esse contato para não perder a venda!",
+    phone: "+5547999883300",
   },
   {
-    id: "act-demo-camila",
-    sellerName: "Camila Dias",
-    avatar: "CD",
-    actionText: "2 novos leads aguardando 1º contato no funil",
-    leadCount: 2,
-    urgencyType: "danger",
-    timeText: "Há 22 min",
-    defaultMessage: "Olá Camila, identifiquei no Acelera que você possui 2 novos leads aguardando resposta há mais de 15 minutos. Vamos priorizar o contato agora para não esfriar!",
-    phone: "+5511977776666",
-  },
-  {
-    id: "act-demo-lucas",
-    sellerName: "Lucas Santana",
-    avatar: "LS",
-    actionText: "3 propostas de clientes com mais de 24h sem retorno no funil",
-    leadCount: 3,
+    id: "act-demo-amanda",
+    sellerName: "Amanda Souza",
+    avatar: "AS",
+    actionText: "Ficha de financiamento de Marcos Valério (Toyota Hilux SRX) em análise",
+    leadCount: 1,
     urgencyType: "warning",
-    timeText: "Há 28h",
-    defaultMessage: "Oi Lucas, temos 3 propostas de clientes com mais de 24h sem retorno no funil. Consegue fazer um follow-up com eles hoje?",
-    phone: "+5511966665555",
-  },
-  {
-    id: "act-demo-beatriz",
-    sellerName: "Beatriz Rocha",
-    avatar: "BR",
-    actionText: "4 leads em atendimento aguardando avanço para visita",
-    leadCount: 4,
-    urgencyType: "warning",
-    timeText: "Há 9 min",
-    defaultMessage: "Oi Beatriz, você tem 4 leads em atendimento no funil. Vamos acelerar o convite para o test-drive na loja?",
-    phone: "+5511955554444",
+    timeText: "Há 2h",
+    defaultMessage: "Oi Amanda, temos a ficha de Marcos Valério (Hilux SRX) em análise na mesa de crédito. Consegue verificar o status junto ao operador bancário?",
+    phone: "+5547999884400",
   },
 ];

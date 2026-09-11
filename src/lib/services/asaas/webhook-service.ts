@@ -228,10 +228,12 @@ export function parseExternalReference(rawRef?: string | null): ExternalReferenc
   };
 }
 
+import { CANONICAL_PLANS } from "@/config/plans";
+
 export const PLAN_LIMITS_CONFIG = {
-  starter: { maxSellers: 3, name: "Plano Starter" },
-  pro: { maxSellers: 8, name: "Plano Pro" },
-  enterprise: { maxSellers: 999, name: "Plano Enterprise" },
+  starter: { maxSellers: CANONICAL_PLANS.starter.maxSellers, name: CANONICAL_PLANS.starter.name },
+  pro: { maxSellers: CANONICAL_PLANS.pro.maxSellers, name: CANONICAL_PLANS.pro.name },
+  enterprise: { maxSellers: CANONICAL_PLANS.enterprise.maxSellers, name: CANONICAL_PLANS.enterprise.name },
 } as const;
 
 /**

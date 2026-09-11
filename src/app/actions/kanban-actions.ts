@@ -166,9 +166,12 @@ export async function getKanbanLeadsAction(
     }
     const allOrgLeads = memoryKanbanLeads.filter((l) => l.organization_id === DEFAULT_DEMO_ORG_ID);
     if (!allowAll) {
-      // Vendedor: visualiza apenas os leads atribuídos a si ("Rafael Alves" ou "sp-001")
+      // Vendedor: visualiza apenas os leads atribuídos a si ("Rafael Martins", "Rafael Alves" ou "sp-001")
       return allOrgLeads.filter(
-        (l) => l.assigned_to_name === "Rafael Alves" || l.assigned_to?.id === "sp-001"
+        (l) =>
+          l.assigned_to_name === "Rafael Martins" ||
+          l.assigned_to_name === "Rafael Alves" ||
+          l.assigned_to?.id === "sp-001"
       );
     }
     return allOrgLeads;
@@ -342,6 +345,7 @@ export async function getKanbanLeadsAction(
         l.assigned_to_name === "Roleta Automática" ||
         l.assigned_to?.id === tenantContext.userId ||
         l.assigned_to_name === tenantContext.profile?.full_name ||
+        l.assigned_to_name === "Rafael Martins" ||
         l.assigned_to_name === "Rafael Alves" ||
         l.assigned_to?.id === "sp-001"
     );

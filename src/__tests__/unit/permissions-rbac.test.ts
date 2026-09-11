@@ -169,7 +169,9 @@ describe("[UNIT-RBAC] Isolamento de Dados por Papel de Vendedor", () => {
     expect(sellerLeads.length).toBeGreaterThan(0);
     sellerLeads.forEach((lead) => {
       expect(
-        lead.assigned_to_name === "Rafael Alves" || lead.assigned_to?.id === "sp-001"
+        lead.assigned_to_name === "Rafael Alves" ||
+        lead.assigned_to_name === "Rafael Martins" ||
+        lead.assigned_to?.id === "sp-001"
       ).toBe(true);
     });
   });
@@ -178,10 +180,10 @@ describe("[UNIT-RBAC] Isolamento de Dados por Papel de Vendedor", () => {
     const adminLeads = await getKanbanLeadsAction(undefined, "admin");
     const managerLeads = await getKanbanLeadsAction(undefined, "manager");
 
-    expect(adminLeads.length).toBe(24);
-    expect(managerLeads.length).toBe(24);
+    expect(adminLeads.length).toBe(8);
+    expect(managerLeads.length).toBe(8);
 
-    // Contém vendedores múltiplos (ex: Rafael Alves, Juliana Costa, Marcos Ferreira)
+    // Contém vendedores múltiplos (ex: Rafael Martins, Amanda Souza)
     const sellerNames = new Set(adminLeads.map((l) => l.assigned_to_name));
     expect(sellerNames.size).toBeGreaterThan(1);
   });
@@ -201,7 +203,9 @@ describe("[UNIT-RBAC] Isolamento de Dados por Papel de Vendedor", () => {
     expect(sellerLeads.length).toBeLessThan(adminLeads.length);
     sellerLeads.forEach((l) => {
       expect(
-        l.sellerName === "Rafael Alves" || l.sellerName?.toLowerCase().includes("vendedor")
+        l.sellerName === "Rafael Alves" ||
+        l.sellerName === "Rafael Martins" ||
+        l.sellerName?.toLowerCase().includes("vendedor")
       ).toBe(true);
     });
   });

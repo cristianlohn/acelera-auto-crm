@@ -55,6 +55,7 @@ export async function getManagerCockpitMetrics(
         estimatedValue: l.estimatedValue,
         notes: l.notes,
         proposalFi: l.proposalFi,
+        scheduledFollowUpAt: typeof raw.scheduledFollowUpAt === "string" ? raw.scheduledFollowUpAt : undefined,
       };
     });
     return calculateManagerCockpitMetrics(demoLeadsInput, {

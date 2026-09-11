@@ -13,13 +13,16 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { LogOut, TrendingUp } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut, TrendingUp, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 import { useDemoRole } from "@/context/demo-role-context";
 import {
   logoutAction,
   getCurrentUserProfileAction,
   type UserProfileInfo,
 } from "@/app/actions/auth";
+import { resetDemoStateAction } from "@/app/actions/demo-reset-actions";
 import { isSuperAdmin, normalizeRole } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SoundToggle } from "@/components/audio/sound-toggle";
@@ -36,9 +39,38 @@ export function UserNav({
   className = "",
   initialProfile,
 }: UserNavProps) {
-  const { role, sellerName, isDemoMode } = useDemoRole();
+  const { role, sellerName, isDemoMode, roleConfig } = useDemoRole();
+  let router: ReturnType<typeof useRouter> | null = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    router = useRouter();
+  } catch {
+    // Graceful fallback para testes e ambientes fora do AppRouterContext
+  }
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [realProfile, setRealProfile] = useState<UserProfileInfo | null>(initialProfile || null);
+
+  const handleResetDemo = async () => {
+    setIsResetting(true);
+    try {
+      const res = await resetDemoStateAction();
+      if (res.success) {
+        toast.success(res.message);
+        if (router) {
+          router.refresh();
+        } else if (typeof window !== "undefined") {
+          window.location.reload();
+        }
+      } else {
+        toast.error(res.message);
+      }
+    } catch {
+      toast.error("Erro ao restaurar dados da demonstração.");
+    } finally {
+      setIsResetting(false);
+    }
+  };
 
   // Busca dados reais do usuário autenticado quando não estiver no Modo Demonstração
   useEffect(() => {
@@ -91,7 +123,7 @@ export function UserNav({
         .map((part) => part[0])
         .slice(0, 2)
         .join("")
-        .toUpperCase() || "GE"
+        .toUpperCase() || "RS"
     );
   };
 
@@ -99,11 +131,15 @@ export function UserNav({
   // Se for Modo Demonstração -> usa o perfil da persona selecionada no simulador
   // Se for Usuário Real -> usa os dados retornados do Supabase / sessão real (NUNCA nomes mockados)
   const displayName = isDemoMode
-    ? sellerName || "Gestor Demonstração"
+    ? (role === "vendedor" || role === "seller"
+        ? (sellerName || "Rafael Martins")
+        : roleConfig?.name || "Roberto Silva")
     : realProfile?.fullName || "Colaborador";
 
   const displayEmail = isDemoMode
-    ? "demo@aceleraautocrm.com.br"
+    ? (role === "vendedor" || role === "seller"
+        ? "rafael.martins@autoprime.com.br"
+        : roleConfig?.email || "roberto.silva@autoprime.com.br")
     : realProfile?.email || "";
 
   const activeRole = isDemoMode ? role : realProfile?.role || "seller";
@@ -165,6 +201,20 @@ export function UserNav({
         </div>
         <TrendingUp className="h-3.5 w-3.5 shrink-0 text-orange-500" />
       </div>
+
+      {isDemoMode && (
+        <button
+          id="btn-reset-demo-state"
+          type="button"
+          disabled={isResetting}
+          onClick={handleResetDemo}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-orange-200 dark:border-orange-800/50 bg-orange-50/80 dark:bg-orange-950/40 px-3 py-1.5 text-xs font-semibold text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-all active:scale-[0.98] disabled:opacity-50 shadow-sm"
+          title="Restaurar estado inicial determinístico da demonstração"
+        >
+          <RotateCcw className={cn("h-3.5 w-3.5 text-orange-600 dark:text-orange-400", isResetting && "animate-spin")} />
+          <span>{isResetting ? "Restaurando..." : "Restaurar Demonstração"}</span>
+        </button>
+      )}
 
       <div className="flex items-center gap-2">
         <ThemeToggle className="flex-1" showLabel={true} />

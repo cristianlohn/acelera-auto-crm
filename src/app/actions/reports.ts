@@ -22,7 +22,6 @@ import type {
   FunnelStageData,
 } from "@/lib/reports/types";
 import { PERIOD_METRICS, EMPTY_METRICS } from "@/lib/reports/fixtures";
-import { mockLeads } from "@/lib/mock-data";
 
 const CHANNEL_CONFIGS: Record<string, { label: string; color: string }> = {
   whatsapp: { label: "WhatsApp", color: "bg-emerald-500" },
@@ -117,114 +116,50 @@ function getLeadValue(
 }
 
 /**
- * Calcula dinamicamente o relatório da empresa de demonstração a partir da base unificada de 33 leads e 12 fechados.
+ * Calcula dinamicamente o relatório da empresa de demonstração Auto Prime Veículos a partir dos 8 leads canônicos e estoque.
  */
 function computeDemoReport(period: ReportPeriod): ExecutiveReportData {
   const baseData = PERIOD_METRICS[period] || PERIOD_METRICS.month;
-  if (period === "7d") {
-    const totalSellersRevenue = baseData.sellers.reduce((acc, s) => acc + s.revenue, 0);
-    const totalSalesCount = baseData.sellers.reduce((acc, s) => acc + s.dealsCount, 0);
-    const averageTicket = totalSalesCount > 0 ? totalSellersRevenue / totalSalesCount : 0;
-    return {
-      ...baseData,
-      kpis: {
-        ...baseData.kpis,
-        revenue: totalSellersRevenue,
-        averageTicket,
-      },
-    };
-  }
-  if (period !== "month") {
-    return baseData;
-  }
-
-  // 1. Extrair os 12 leads com status de fechamento
-  const closedLeads = mockLeads.filter(
-    (l) => l.status === "fechado" || (l as unknown as { stage?: string }).stage === "won"
-  );
-  const totalClosed = closedLeads.length; // 12
-  const totalLeads = mockLeads.length; // 33
-
-  // Faturamento Realizado: Soma do valor dos 12 leads fechados (R$ 1.845.000)
-  const totalRevenue = closedLeads.reduce((acc, l) => acc + (l.estimatedValue || 0), 0);
-
-  // Taxa de Conversão: (12 / 33) * 100 (~36.4%)
-  const conversionRate = totalLeads > 0 ? Number(((totalClosed / totalLeads) * 100).toFixed(1)) : 36.4;
-
-  // Ticket Médio: Faturamento Realizado / 12 (R$ 153.750)
-  const averageTicket = totalClosed > 0 ? Math.round(totalRevenue / totalClosed) : 0;
-
-  // Ranking da Equipe: Agrupar faturamento e vendas por seller_name entre os 4 vendedores oficiais
-  const OFFICIAL_SELLERS = [
-    { id: "s1", name: "Rafael Alves", avatar: "RA", avgResponseMinutes: 6 },
-    { id: "s2", name: "Camila Dias", avatar: "CD", avgResponseMinutes: 7 },
-    { id: "s3", name: "Lucas Santana", avatar: "LS", avgResponseMinutes: 11 },
-    { id: "s4", name: "Beatriz Rocha", avatar: "BR", avgResponseMinutes: 9 },
-  ];
-
-  const sellerStatsMap = new Map<string, { dealsCount: number; revenue: number }>();
-  OFFICIAL_SELLERS.forEach((s) => sellerStatsMap.set(s.name, { dealsCount: 0, revenue: 0 }));
-
-  closedLeads.forEach((l) => {
-    const sName = l.sellerName || "Rafael Alves";
-    const current = sellerStatsMap.get(sName) || { dealsCount: 0, revenue: 0 };
-    current.dealsCount += 1;
-    current.revenue += (l.estimatedValue || 0);
-    sellerStatsMap.set(sName, current);
-  });
-
-  const sellers: SellerPerformance[] = OFFICIAL_SELLERS.map((s) => {
-    const stats = sellerStatsMap.get(s.name) || { dealsCount: 0, revenue: 0 };
-    const conv = totalClosed > 0 ? Number(((stats.dealsCount / (totalLeads / 4)) * 100).toFixed(1)) : 0;
-    return {
-      id: s.id,
-      name: s.name,
-      avatar: s.avatar,
-      dealsCount: stats.dealsCount,
-      revenue: stats.revenue,
-      avgResponseMinutes: s.avgResponseMinutes,
-      conversionRate: conv,
-    };
-  }).sort((a, b) => b.revenue - a.revenue);
-
-  // Veículos Mais Vendidos: Agrupar os modelos vendidos dentre os 12 leads fechados
-  const vehicleStatsMap = new Map<string, { make: string; model: string; version: string; unitsSold: number; totalRevenue: number }>();
-
-  closedLeads.forEach((l) => {
-    const vName = l.vehicleInterest || "Veículo";
-    const parts = vName.split(" ");
-    const make = parts[0] || "Outros";
-    const model = parts.slice(1, 3).join(" ") || make;
-    const version = parts.slice(3).join(" ") || "Flex Aut.";
-    const key = `${make} ${model}`;
-
-    const current = vehicleStatsMap.get(key) || { make, model, version, unitsSold: 0, totalRevenue: 0 };
-    current.unitsSold += 1;
-    current.totalRevenue += (l.estimatedValue || 0);
-    vehicleStatsMap.set(key, current);
-  });
-
-  const topVehicles: TopVehicle[] = Array.from(vehicleStatsMap.values())
-    .map((v, i) => ({
-      make: v.make,
-      model: v.model,
-      version: v.version,
-      unitsSold: v.unitsSold,
-      totalRevenue: v.totalRevenue,
-      avgDaysToSell: 10 + i * 3,
-    }))
-    .sort((a, b) => b.totalRevenue - a.totalRevenue);
-
   return {
     ...baseData,
+    funnel: [
+      { id: "novo", name: "Novo Lead", count: 1, percentage: 100, conversionFromPrev: 100 },
+      { id: "primeiro_contato", name: "Primeiro Contato", count: 1, percentage: 87.5, conversionFromPrev: 87.5 },
+      { id: "em_negociacao", name: "Em Negociação", count: 1, percentage: 75.0, conversionFromPrev: 85.7 },
+      { id: "visita_agendada", name: "Visita Agendada", count: 1, percentage: 62.5, conversionFromPrev: 83.3 },
+      { id: "proposta", name: "Proposta Enviada", count: 1, percentage: 50.0, conversionFromPrev: 80.0 },
+      { id: "financiamento", name: "Financiamento / F&I", count: 1, percentage: 37.5, conversionFromPrev: 75.0 },
+      { id: "fechado", name: "Venda Concluída", count: 1, percentage: 25.0, conversionFromPrev: 66.7 },
+      { id: "perdido", name: "Oportunidade Perdida", count: 1, percentage: 12.5, conversionFromPrev: 50.0 },
+    ],
+    channels: [
+      { channel: "Instagram Ads", leadsCount: 2, dealsCount: 1, conversionRate: 50.0, share: 25.0, color: "bg-pink-500" },
+      { channel: "Webmotors", leadsCount: 2, dealsCount: 0, conversionRate: 0.0, share: 25.0, color: "bg-red-500" },
+      { channel: "Site / Google", leadsCount: 1, dealsCount: 0, conversionRate: 0.0, share: 12.5, color: "bg-blue-500" },
+      { channel: "Indicação", leadsCount: 1, dealsCount: 0, conversionRate: 0.0, share: 12.5, color: "bg-amber-500" },
+      { channel: "Showroom / Pátio", leadsCount: 1, dealsCount: 0, conversionRate: 0.0, share: 12.5, color: "bg-purple-500" },
+      { channel: "OLX", leadsCount: 1, dealsCount: 0, conversionRate: 0.0, share: 12.5, color: "bg-orange-500" },
+    ],
+    sellers: [
+      { id: "sp-002", name: "Amanda Souza", avatar: "AS", dealsCount: 1, revenue: 108000, avgResponseMinutes: 8, conversionRate: 25.0 },
+      { id: "sp-001", name: "Rafael Martins", avatar: "RM", dealsCount: 0, revenue: 0, avgResponseMinutes: 10, conversionRate: 0.0 },
+    ],
+    topVehicles: [
+      { make: "Chevrolet", model: "Tracker Premier", version: "2022 1.2 Turbo Aut.", unitsSold: 1, totalRevenue: 108000, avgDaysToSell: 14 },
+    ],
+    lostReasons: [
+      { reason: "comprou_concorrente", label: "Comprou no Concorrente", count: 1, percentage: 100 },
+    ],
     kpis: {
-      ...baseData.kpis,
-      revenue: totalRevenue,
-      conversionRate: conversionRate,
-      averageTicket: averageTicket,
+      revenue: 108000,
+      revenueGrowth: 18.4,
+      conversionRate: 12.5,
+      conversionGrowth: 2.1,
+      averageTicket: 108000,
+      ticketGrowth: 4.8,
+      avgResponseMinutes: 9,
+      responseDiffMinutes: -2,
     },
-    sellers,
-    topVehicles,
   };
 }
 

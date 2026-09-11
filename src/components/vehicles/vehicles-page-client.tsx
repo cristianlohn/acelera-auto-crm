@@ -16,7 +16,15 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   DollarSign,
+  UploadCloud,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { VehicleCard } from "@/components/vehicles/vehicle-card";
 import { NewVehicleModal } from "@/components/vehicles/new-vehicle-modal";
@@ -260,6 +268,35 @@ export function VehiclesPageClient({
               <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
               <span>Baixar Planilha Modelo (CSV)</span>
             </a>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button
+                  id="btn-import-stock"
+                  type="button"
+                  className="hidden md:inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-muted hover:border-orange-500/40 transition-all shadow-sm shrink-0"
+                  title="Importar planilha de veículos em massa"
+                >
+                  <UploadCloud className="h-3.5 w-3.5 text-orange-500 shrink-0" />
+                  <span>Importar Estoque</span>
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                    <UploadCloud className="h-5 w-5 text-orange-500" />
+                    Importação de Estoque
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="py-5 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-600">
+                    <FileSpreadsheet className="h-6 w-6" />
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Integração e importação em massa disponíveis no ambiente de produção. Conecte suas planilhas ou plataformas na ativação da conta.
+                  </p>
+                </div>
+              </DialogContent>
+            </Dialog>
             <div className="w-full sm:w-auto">
               <NewVehicleModal onAdd={handleAdd} />
             </div>

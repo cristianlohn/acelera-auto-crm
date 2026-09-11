@@ -63,6 +63,7 @@ export interface ExecutiveReportData {
   channels: ChannelPerformance[];
   sellers: SellerPerformance[];
   topVehicles: TopVehicle[];
+  lostReasons?: Array<{ reason: string; label: string; count: number; percentage: number }>;
 }
 
 export interface ReportFilterOptions {

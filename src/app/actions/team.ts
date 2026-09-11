@@ -18,14 +18,16 @@ import {
 } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  INITIAL_TEAM_MEMBERS,
   INITIAL_CAPACITY,
   type TeamMember,
   type TeamCapacity,
   type InviteMemberInput,
   type InviteResult,
 } from "@/lib/team-data";
-import { resolveUserTenantContext } from "@/lib/auth/tenant";
+import { CANONICAL_PLANS } from "@/config/plans";
+import { memoryTeamMembers } from "@/lib/crm/team-memory";
+import type { TeamMember as SharedTeamMember } from "@/types/team";
+import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 
 import {
   inviteTeamMemberAction as _inviteTeamMemberAction,
@@ -96,9 +98,22 @@ export async function resendInviteEmailAction(email: string, name?: string, role
   return _resendInviteEmailAction(email, name, role);
 }
 
-// Estado local para ambiente de desenvolvimento/testes
-const localTeamMembers: TeamMember[] = [...INITIAL_TEAM_MEMBERS];
+// Estado local para capacidade e fallback de equipe
 let localCapacity: TeamCapacity = { ...INITIAL_CAPACITY };
+
+function getSharedDemoTeamMembers(): TeamMember[] {
+  return memoryTeamMembers.map((m) => ({
+    id: m.id,
+    organizationId: m.organization_id,
+    fullName: m.name,
+    email: m.email,
+    phone: m.phone,
+    role: (m.role === "manager" ? "gerente" : m.role === "seller" ? "vendedor" : "admin") as "admin" | "gerente" | "vendedor",
+    status: (m.status === "pending" ? "pending" : "active") as "active" | "pending",
+    avatarUrl: null,
+    createdAt: m.created_at,
+  }));
+}
 
 /**
  * Retorna o status de ocupação da equipe vs capacidade do plano da organização atual.
@@ -110,18 +125,18 @@ export async function getTeamCapacity(): Promise<TeamCapacity> {
   if (!tenantContext.isDemo && tenantContext.organizationId) {
     const org = tenantContext.organization;
     const plan = ((org?.plan || "starter") as string).toLowerCase();
-    let maxSellers = 3;
-    let planName = "Plano Starter";
+    let maxSellers = CANONICAL_PLANS.starter.maxSellers;
+    let planName = CANONICAL_PLANS.starter.name;
 
     if (plan === "enterprise") {
-      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || 999;
-      planName = "Plano Enterprise";
+      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || CANONICAL_PLANS.enterprise.maxSellers;
+      planName = CANONICAL_PLANS.enterprise.name;
     } else if (plan === "pro") {
-      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || 8;
-      planName = "Plano Pro";
+      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || CANONICAL_PLANS.pro.maxSellers;
+      planName = CANONICAL_PLANS.pro.name;
     } else {
-      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || 3;
-      planName = "Plano Starter";
+      maxSellers = (org as unknown as { max_sellers?: number })?.max_sellers || CANONICAL_PLANS.starter.maxSellers;
+      planName = CANONICAL_PLANS.starter.name;
     }
 
     return {
@@ -134,7 +149,7 @@ export async function getTeamCapacity(): Promise<TeamCapacity> {
 
   return {
     ...localCapacity,
-    currentCount: localTeamMembers.length,
+    currentCount: members.length,
   };
 }
 
@@ -145,13 +160,8 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
   const tenantContext = await resolveUserTenantContext();
 
   // 1. Modo Demonstração explícito (ou offline sem Supabase)
-  if (tenantContext.isDemo) {
-    return [...localTeamMembers];
-  }
-
-  // 2. Sem organização vinculada ou ambiente de teste
-  if (!tenantContext.organizationId) {
-    return [...localTeamMembers];
+  if (tenantContext.isDemo || !tenantContext.organizationId) {
+    return getSharedDemoTeamMembers();
   }
 
   // 3. Usuário Autenticado Real: consulta estritamente a organização do usuário logado
@@ -220,18 +230,26 @@ export async function inviteTeamMember(
   }
 
   const cleanEmail = input.email.trim().toLowerCase();
+  const tenantContext = await resolveUserTenantContext();
+  const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  // No modo demonstração o showroom opera com cota do Plano Pro (8 vagas)
+  const effectiveMaxSellers = tenantContext.isDemo
+    ? CANONICAL_PLANS.pro.maxSellers
+    : localCapacity.maxSellers;
+
+  const currentMembersCount = tenantContext.isDemo || !tenantContext.organizationId
+    ? memoryTeamMembers.filter((m) => m.organization_id === orgId).length
+    : (await getTeamMembers()).length;
 
   // 2. Validação da capacidade máxima do plano
-  if (localTeamMembers.length >= localCapacity.maxSellers) {
+  if (currentMembersCount >= effectiveMaxSellers) {
     return {
       success: false,
-      error: `Limite de vagas do plano atingido (${localTeamMembers.length}/${localCapacity.maxSellers}). Faça upgrade para o Plano Pro para adicionar até 8 vendedores.`,
+      error: `Limite de vagas do plano atingido (${currentMembersCount}/${effectiveMaxSellers}). Faça upgrade para o ${CANONICAL_PLANS.pro.name} para adicionar até ${CANONICAL_PLANS.pro.maxSellers} vendedores.`,
       requiresUpgrade: true,
     };
   }
-
-  const tenantContext = await resolveUserTenantContext();
-  const orgId = tenantContext.organizationId || "org-001";
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.NEXT_PUBLIC_APP_URL ||
@@ -353,7 +371,7 @@ export async function inviteTeamMember(
     }
   } else {
     // 3. Verifica duplicidade de e-mail na equipe local (em modo demo/offline)
-    const emailExists = localTeamMembers.some(
+    const emailExists = memoryTeamMembers.some(
       (m) => m.email.toLowerCase() === cleanEmail
     );
     if (emailExists) {
@@ -383,7 +401,25 @@ export async function inviteTeamMember(
     createdAt: new Date().toISOString(),
   };
 
-  localTeamMembers.push(newMember);
+  // Sincroniza com o estado em memória compartilhado (team-memory)
+  const sharedMember: SharedTeamMember = {
+    id: memberId,
+    organization_id: orgId,
+    name: input.fullName.trim(),
+    email: cleanEmail,
+    phone: input.phone.trim(),
+    role: (input.role === "gerente" ? "manager" : "seller") as "manager" | "seller",
+    segment: "all",
+    in_roulette: true,
+    status: "active",
+    monthly_goal_units: 10,
+    current_sales_units: 0,
+    avg_sla_minutes: 0,
+    created_at: newMember.createdAt,
+  };
+  if (!memoryTeamMembers.some((m) => m.email.toLowerCase() === cleanEmail)) {
+    memoryTeamMembers.unshift(sharedMember);
+  }
 
   try {
     revalidatePath("/settings");
@@ -416,17 +452,17 @@ export async function removeTeamMember(
   const cleanId = memberId.startsWith("inv-") ? memberId.replace(/^inv-/, "") : memberId;
   const cleanEmail = memberEmail?.trim().toLowerCase();
 
-  for (let i = localTeamMembers.length - 1; i >= 0; i--) {
-    const m = localTeamMembers[i];
+  for (let i = memoryTeamMembers.length - 1; i >= 0; i--) {
+    const m = memoryTeamMembers[i];
     if (
       m.id === memberId ||
       m.id === cleanId ||
       (cleanEmail && m.email?.toLowerCase() === cleanEmail)
     ) {
-      if (m.role === "admin") {
+      if ((m.role as string) === "admin") {
         return { success: false, error: "O proprietário da loja não pode ser desvinculado." };
       }
-      localTeamMembers.splice(i, 1);
+      memoryTeamMembers.splice(i, 1);
     }
   }
 
@@ -454,17 +490,13 @@ export async function removeTeamMember(
 export async function updateCapacityForPlan(
   plan: "starter" | "pro" | "enterprise"
 ): Promise<TeamCapacity> {
-  const limits = {
-    starter: { maxSellers: 3, planName: "Plano Starter" },
-    pro: { maxSellers: 8, planName: "Plano Pro" },
-    enterprise: { maxSellers: 25, planName: "Plano Enterprise" },
-  };
+  const targetPlan = CANONICAL_PLANS[plan] || CANONICAL_PLANS.starter;
 
   localCapacity = {
-    currentCount: localTeamMembers.length,
-    maxSellers: limits[plan].maxSellers,
+    currentCount: memoryTeamMembers.length,
+    maxSellers: targetPlan.maxSellers,
     plan,
-    planName: limits[plan].planName,
+    planName: targetPlan.name,
   };
 
   revalidatePath("/settings");

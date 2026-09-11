@@ -17,7 +17,7 @@ import {
   type SalespersonFormData,
   type UpdateSalespersonFormData,
 } from "@/lib/validations/team";
-import type { TeamMember, TeamSummaryMetrics } from "@/types/team";
+import type { TeamMember, TeamRole, TeamSummaryMetrics } from "@/types/team";
 import { ROULETTE_STATUS_COOKIE, getRouletteStatusMap } from "@/lib/services/team-status";
 
 export type { TeamMember, TeamMember as SalespersonMember } from "@/types/team";
@@ -38,7 +38,7 @@ export interface InviteTeamMemberInput {
   name: string;
   email: string;
   phone: string;
-  role?: "seller" | "sdr" | "manager" | "admin" | "gerente" | "vendedor";
+  role?: TeamRole;
   specialization?: string;
   segment?: "all" | "new_cars" | "used_cars" | "f_and_i";
   in_roulette?: boolean;
@@ -52,6 +52,7 @@ export interface ActionResult {
 }
 
 import { memoryTeamMembers } from "@/lib/crm/team-memory";
+import { DEMO_LEAD_ITEMS } from "@/lib/demo/demo-dataset";
 
 /**
  * Consulta a lista completa de membros da equipe com métricas de desempenho.
@@ -61,7 +62,22 @@ export async function getTeamMembersAction(explicitOrgId?: string): Promise<Team
   const orgId = explicitOrgId || tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
   if (tenantContext.isDemo || orgId === DEFAULT_DEMO_ORG_ID) {
-    return memoryTeamMembers.filter((m) => m.organization_id === DEFAULT_DEMO_ORG_ID);
+    return memoryTeamMembers
+      .filter((m) => m.organization_id === DEFAULT_DEMO_ORG_ID)
+      .map((m) => {
+        const demoItems = DEMO_LEAD_ITEMS.filter(
+          (item) => item.sellerId === m.id || item.sellerName.toLowerCase() === m.name.toLowerCase()
+        );
+        const answeredItems = demoItems.filter((item) => item.firstContactMinutes > 0);
+        const avgSla = answeredItems.length > 0
+          ? Number((answeredItems.reduce((acc, item) => acc + item.firstContactMinutes, 0) / answeredItems.length).toFixed(1))
+          : 0;
+
+        return {
+          ...m,
+          avg_sla_minutes: avgSla > 0 ? avgSla : (m.avg_sla_minutes || 0),
+        };
+      });
   }
 
   if (isSupabaseServerConfigured() && orgId) {
@@ -182,8 +198,16 @@ export async function getTeamSummaryMetricsAction(explicitOrgId?: string): Promi
   const totalMonthlyGoal = members.reduce((acc, m) => acc + (m.monthly_goal_units || 0), 0);
   const totalCurrentSales = members.reduce((acc, m) => acc + (m.current_sales_units || 0), 0);
 
-  const totalSla = members.reduce((acc, m) => acc + (m.avg_sla_minutes || 0), 0);
-  const teamAvgSlaMinutes = totalMembers > 0 ? Number((totalSla / totalMembers).toFixed(1)) : 0;
+  // Considera apenas membros em atividade comercial com SLA registrado (> 0 e ativos),
+  // sem diluição por média aritmética crua com vendedores/diretores que têm 0.0
+  const activeSellersWithSla = members.filter(
+    (m) => (m.avg_sla_minutes || 0) > 0 && (m.status === "active" || m.status === "ativo")
+  );
+  const totalSla = activeSellersWithSla.reduce((acc, m) => acc + (m.avg_sla_minutes || 0), 0);
+  const teamAvgSlaMinutes =
+    activeSellersWithSla.length > 0
+      ? Number((totalSla / activeSellersWithSla.length).toFixed(1))
+      : 0;
 
   const goalCompletionPercentage =
     totalMonthlyGoal > 0 ? Math.min(100, Math.round((totalCurrentSales / totalMonthlyGoal) * 100)) : 0;
@@ -759,7 +783,7 @@ export async function createSalespersonAction(
   let name = "";
   let email = "";
   let phone = "";
-  let role: "seller" | "sdr" | "manager" = "seller";
+  let role: TeamMember["role"] = "seller";
   let segment: TeamMember["segment"] = "all";
   let in_roulette = true;
   let monthly_goal_units = 10;
@@ -768,7 +792,7 @@ export async function createSalespersonAction(
     name = String(rawInput.get("name") || rawInput.get("seller_name") || "");
     email = String(rawInput.get("email") || rawInput.get("seller_email") || "");
     phone = String(rawInput.get("phone") || rawInput.get("seller_phone") || "");
-    role = (rawInput.get("role") as "seller" | "sdr" | "manager") || "seller";
+    role = (rawInput.get("role") as TeamMember["role"]) || "seller";
     segment = (rawInput.get("segment") as TeamMember["segment"]) || "all";
     in_roulette =
       rawInput.get("in_roulette") === "true" ||

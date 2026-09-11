@@ -327,6 +327,7 @@ function SalespersonFormInner({ initialData, onClose, onSuccess }: FormInnerProp
             <option value="seller" className="bg-zinc-900 text-white">Vendedor / Consultor</option>
             <option value="sdr" className="bg-zinc-900 text-white">SDR / Pré-vendedor</option>
             <option value="manager" className="bg-zinc-900 text-white">Gerente Comercial</option>
+            <option value="admin" className="bg-zinc-900 text-white">Diretor / Titular</option>
           </select>
         </div>
 

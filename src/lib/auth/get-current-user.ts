@@ -72,9 +72,9 @@ export async function getCurrentUserAndTenant(
     return {
       success: true,
       context: {
-        userId: "test-user-uuid-1",
-        email: "consultor.teste@concessionaria.com.br",
-        name: "Consultor de Testes",
+        userId: "roberto-silva-uuid-1",
+        email: "roberto.silva@autoprime.com.br",
+        name: "Roberto Silva",
         role: roleOverride,
         organizationId: resolvedOrgId,
       },
@@ -157,8 +157,8 @@ export async function getCurrentUserAndTenant(
       success: true,
       context: {
         userId: "demo-user-id",
-        email: "gestor.demo@concessionaria.com.br",
-        name: "Gestor Comercial (Sandbox)",
+        email: "roberto.silva@autoprime.com.br",
+        name: "Roberto Silva",
         role: "admin",
         organizationId: DEFAULT_DEMO_ORG_ID,
       },

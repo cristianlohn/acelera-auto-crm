@@ -74,7 +74,7 @@ export function MobileHeader({
 
   const profileRecord = (realProfile || initialProfile) as Record<string, unknown> | undefined;
   const displayName = isDemoMode
-    ? sellerName || (demoRole === "vendedor" ? "Rafael Alves" : demoRole === "gerente" ? "Juliana Lima" : "Carlos Souza")
+    ? sellerName || (demoRole === "vendedor" ? "Rafael Martins" : demoRole === "gerente" ? "Juliana Costa" : "Roberto Silva")
     : realProfile?.fullName ||
       (typeof profileRecord?.fullName === "string" && profileRecord.fullName) ||
       (typeof profileRecord?.full_name === "string" && profileRecord.full_name) ||
@@ -97,7 +97,7 @@ export function MobileHeader({
         .map((part) => part[0])
         .slice(0, 2)
         .join("")
-        .toUpperCase() || "CT"
+        .toUpperCase() || "RS"
     );
   };
 

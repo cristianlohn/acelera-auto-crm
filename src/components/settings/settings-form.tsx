@@ -48,6 +48,7 @@ import {
   type UserRole,
   type InviteMemberInput,
 } from "@/lib/team-data";
+import { CANONICAL_PLANS } from "@/config/plans";
 import {
   inviteTeamMember,
   getTeamMembers,
@@ -543,7 +544,7 @@ export function SettingsForm({
   );
 
   const upgradeWhatsappUrl = getSalesWhatsAppUrl(
-    `Olá! Sou da ${store.tradeName} e atingi o limite de ${teamCapacity.maxSellers} vagas da minha equipe. Gostaria de saber mais sobre o upgrade para o Plano Pro!`
+    `Olá! Sou da ${store.tradeName} e atingi o limite de ${teamCapacity.maxSellers} vagas da minha equipe. Gostaria de saber mais sobre o upgrade para o ${CANONICAL_PLANS.pro.name}!`
   );
 
   return (
@@ -1741,10 +1742,10 @@ export function SettingsForm({
 
             <div className="rounded-xl border bg-muted/20 p-4 space-y-2 text-xs">
               <p className="text-foreground font-semibold">
-                Diferenciais do Plano Pro:
+                Diferenciais do {CANONICAL_PLANS.pro.name}:
               </p>
               <ul className="space-y-1.5 text-muted-foreground list-disc pl-4">
-                <li>Até <strong>8 vendedores simultâneos</strong> vinculados à concessionária.</li>
+                <li>Até <strong>{CANONICAL_PLANS.pro.maxSellers} vendedores simultâneos</strong> vinculados à concessionária.</li>
                 <li>Relatórios avançados de ranking comercial e metas individuais.</li>
                 <li>Suporte prioritário via WhatsApp com SLA de 15 minutos.</li>
                 <li>Integração oficial de estoque Webmotors e iCarros.</li>

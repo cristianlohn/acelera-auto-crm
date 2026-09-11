@@ -251,7 +251,7 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
       expect(metrics.bottlenecks?.hotLeadsCount).toBe(0);
     });
 
-    it("deve retornar métricas e gargalos harmonizados no modo demo (3 propostas sem follow-up e 6 novos leads na roleta)", async () => {
+    it("deve retornar métricas e gargalos harmonizados no modo demo da Auto Prime Veículos", async () => {
       vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
         isDemo: true,
         needsOnboarding: false,
@@ -264,15 +264,20 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
 
       const metrics = await getManagerCockpitMetrics();
 
-      expect(metrics.bottlenecks?.proposalsWithoutFollowupCount).toBe(3);
-      expect(metrics.bottlenecks?.withoutReturnCount).toBe(6);
-      expect(metrics.overdueLeadsCount).toBe(6);
+      expect(metrics.totalLeads).toBe(8);
+      expect(metrics.wonLeadsCount).toBe(1);
+      expect(metrics.bottlenecks?.pendingFinancingCount).toBe(1);
       expect(metrics.recommendedActions).toBeDefined();
 
-      const lucasAction = metrics.recommendedActions?.find((a) => a.sellerName === "Lucas Santana");
-      expect(lucasAction).toBeDefined();
-      expect(lucasAction?.leadCount).toBe(3);
-      expect(lucasAction?.actionText).toContain("3 propostas");
+      const rafaelAction = metrics.recommendedActions?.find((a) => a.sellerName === "Rafael Martins");
+      expect(rafaelAction).toBeDefined();
+      expect(rafaelAction?.leadCount).toBe(1);
+      expect(rafaelAction?.actionText).toContain("Rodrigo Mendes");
+
+      const amandaAction = metrics.recommendedActions?.find((a) => a.sellerName === "Amanda Souza");
+      expect(amandaAction).toBeDefined();
+      expect(amandaAction?.leadCount).toBe(1);
+      expect(amandaAction?.actionText).toContain("Marcos Valério");
     });
   });
 

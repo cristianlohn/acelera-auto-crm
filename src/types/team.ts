@@ -3,11 +3,11 @@
  * @description Tipagens completas para o módulo de Gestão de Equipe, Vendedores e Roleta Comercial.
  */
 
-export type TeamRole = "seller" | "sdr" | "manager";
+export type TeamRole = "seller" | "sdr" | "manager" | "admin" | "gerente" | "vendedor" | "vendedora";
 
 export type TeamSegment = "new_cars" | "used_cars" | "f_and_i" | "all";
 
-export type TeamMemberStatus = "active" | "paused" | "vacation" | "pending";
+export type TeamMemberStatus = "active" | "paused" | "vacation" | "pending" | "ativo" | "pausado";
 
 export interface TeamMember {
   id: string;

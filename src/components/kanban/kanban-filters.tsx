@@ -6,10 +6,14 @@
 
 "use client";
 
-import React from "react";
-import { Search, X, DollarSign, Users, LayoutDashboard, List } from "lucide-react";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Search, X, DollarSign, Users, LayoutDashboard, List, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import type { KanbanFilterState, KanbanLead } from "@/types/kanban";
+import { useDemoRole } from "@/context/demo-role-context";
+import { resetDemoStateAction } from "@/app/actions/demo-reset-actions";
 import { AddKanbanLeadModal } from "./add-kanban-lead-modal";
 
 interface KanbanFiltersProps {
@@ -49,6 +53,37 @@ export function KanbanFilters({
   viewMode = "kanban",
   onViewModeChange,
 }: KanbanFiltersProps) {
+  const { isDemoMode } = useDemoRole();
+  let router: ReturnType<typeof useRouter> | null = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    router = useRouter();
+  } catch {
+    // Graceful fallback para testes e ambientes fora do AppRouterContext
+  }
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleResetDemo = async () => {
+    setIsResetting(true);
+    try {
+      const res = await resetDemoStateAction();
+      if (res.success) {
+        toast.success(res.message);
+        if (router) {
+          router.refresh();
+        } else if (typeof window !== "undefined") {
+          window.location.reload();
+        }
+      } else {
+        toast.error(res.message);
+      }
+    } catch {
+      toast.error("Erro ao restaurar demonstração.");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   const hasActiveFilters =
     filters.search.trim() !== "" ||
     filters.sellerId !== "all" ||
@@ -179,6 +214,19 @@ export function KanbanFilters({
             <span className="text-zinc-500 hidden sm:inline">em negociação</span>
           </div>
           <div className="h-4 w-px bg-white/10" />
+          {isDemoMode && (
+            <button
+              id="btn-kanban-reset-demo"
+              type="button"
+              disabled={isResetting}
+              onClick={handleResetDemo}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20 text-xs font-medium transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              title="Restaurar dados iniciais da demonstração"
+            >
+              <RotateCcw className={`h-3.5 w-3.5 ${isResetting ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{isResetting ? "..." : "Reset Demo"}</span>
+            </button>
+          )}
           <AddKanbanLeadModal
             onLeadAdded={onLeadAdded || (() => {})}
             availableSellers={sellers}

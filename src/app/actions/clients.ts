@@ -12,7 +12,7 @@ import {
 } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
-import { mockClients, getDemoClientsFromClosedLeads } from "@/lib/mock-data";
+import { getDemoClientsFromClosedLeads } from "@/lib/mock-data";
 import {
   saveClientSchema,
   clientFiltersSchema,
@@ -41,8 +41,13 @@ function mapDbRowToClient(row: ClientRow): Client {
   };
 }
 
-// Armazenamento em memória para o Modo Demonstração (base unificada dos 12 leads fechados)
+// Armazenamento em memória para o Modo Demonstração (base unificada dos 8 leads)
 const memoryClients: Client[] = getDemoClientsFromClosedLeads();
+
+export async function resetMemoryClients(): Promise<void> {
+  memoryClients.length = 0;
+  memoryClients.push(...getDemoClientsFromClosedLeads());
+}
 
 /**
  * Obtém a listagem de clientes filtrada por organização, busca e status.

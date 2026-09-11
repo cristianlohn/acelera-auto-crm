@@ -239,7 +239,7 @@ export function TeamTable({
                         <div>
                           <div className="font-bold text-white flex items-center gap-2">
                             <span>{member.name}</span>
-                            {member.status === "active" ? (
+                            {member.status === "active" || member.status === "ativo" ? (
                               <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-semibold">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
                                 <span>Ativo</span>
@@ -284,7 +284,13 @@ export function TeamTable({
                             : "Geral (Todos)"}
                         </span>
                         <div className="text-[10px] text-zinc-500 capitalize">
-                          {member.role === "manager" ? "Gerente" : member.role === "sdr" ? "SDR / Pré-venda" : "Vendedor"}
+                          {member.role === "admin"
+                            ? "Diretor"
+                            : member.role === "manager" || member.role === "gerente"
+                            ? "Gerente"
+                            : member.role === "sdr"
+                            ? "SDR / Pré-venda"
+                            : "Vendedor"}
                         </div>
                       </div>
                     </td>

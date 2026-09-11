@@ -177,9 +177,9 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
     // Deve ser idêntico à fixture de Este Mês
     expect(data.kpis.revenue).toBe(PERIOD_METRICS.month.kpis.revenue);
     expect(data.kpis.conversionRate).toBe(PERIOD_METRICS.month.kpis.conversionRate);
-    expect(data.funnel).toHaveLength(5);
-    expect(data.channels).toHaveLength(5);
-    expect(data.sellers).toHaveLength(4);
+    expect(data.funnel).toHaveLength(8);
+    expect(data.channels).toHaveLength(6);
+    expect(data.sellers).toHaveLength(2);
 
     // Nunca invoca createServerSupabaseClient
     expect(supabaseServerModule.createServerSupabaseClient).not.toHaveBeenCalled();

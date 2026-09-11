@@ -42,6 +42,8 @@ import {
   type SubscriptionOverviewData,
 } from "@/app/actions/billing-actions";
 
+import { CANONICAL_PLANS } from "@/config/plans";
+
 interface Plan {
   id: string;
   name: string;
@@ -57,11 +59,11 @@ interface Plan {
 const plans: Plan[] = [
   {
     id: "starter",
-    name: "Plano Starter",
+    name: CANONICAL_PLANS.starter.name,
     description: "Para lojas e revendas de entrada",
-    monthlyPrice: 297,
-    annualPrice: 2970,
-    sellersLimit: "Até 3 vendedores inclusos",
+    monthlyPrice: CANONICAL_PLANS.starter.priceMonthly,
+    annualPrice: CANONICAL_PLANS.starter.priceYearly,
+    sellersLimit: `Até ${CANONICAL_PLANS.starter.maxSellers} vendedores inclusos`,
     features: [
       "Roleta Comercial com distribuição justa (Round-Robin)",
       "Controle de plantão dos vendedores (Ligar / Pausar)",
@@ -74,13 +76,13 @@ const plans: Plan[] = [
   },
   {
     id: "pro",
-    name: "Plano Pro",
+    name: CANONICAL_PLANS.pro.name,
     popular: true,
     badge: "Mais Popular",
     description: "Para concessionárias e lojas em expansão",
-    monthlyPrice: 597,
-    annualPrice: 5970,
-    sellersLimit: "Até 8 vendedores inclusos",
+    monthlyPrice: CANONICAL_PLANS.pro.priceMonthly,
+    annualPrice: CANONICAL_PLANS.pro.priceYearly,
+    sellersLimit: `Até ${CANONICAL_PLANS.pro.maxSellers} vendedores inclusos`,
     features: [
       "Todos os recursos do Plano Starter +",
       "Roleta com especialização por segmento (Novos e Seminovos)",
@@ -92,10 +94,10 @@ const plans: Plan[] = [
   },
   {
     id: "enterprise",
-    name: "Plano Enterprise",
+    name: CANONICAL_PLANS.enterprise.name,
     description: "Para grandes concessionárias e redes",
-    monthlyPrice: 1297,
-    annualPrice: 12970,
+    monthlyPrice: CANONICAL_PLANS.enterprise.priceMonthly,
+    annualPrice: CANONICAL_PLANS.enterprise.priceYearly,
     sellersLimit: "Vendedores ilimitados",
     features: [
       "Todos os recursos do Plano Pro +",

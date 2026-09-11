@@ -97,6 +97,8 @@ export interface LeadAnalyticsInput {
   notes?: string;
   proposalFi?: boolean;
   isFinancing?: boolean;
+  scheduledFollowUpAt?: string | null;
+  scheduled_followup_at?: string | null;
 }
 
 /**
@@ -233,6 +235,8 @@ export function generatePrescriptiveActions(
   const overdueNewLeadsBySeller: Record<string, LeadAnalyticsInput[]> = {};
   // 2. Agrupar propostas paradas (> 24h) por vendedor
   const stalledProposalsBySeller: Record<string, LeadAnalyticsInput[]> = {};
+  // 3. Agrupar follow-ups com agendamento vencido por vendedor (Ações Críticas)
+  const overdueFollowupsBySeller: Record<string, LeadAnalyticsInput[]> = {};
 
   for (const lead of leads) {
     const rawStatus = (lead.status || "novo").toLowerCase();
@@ -291,6 +295,24 @@ export function generatePrescriptiveActions(
           stalledProposalsBySeller[sellerName] = [];
         }
         stalledProposalsBySeller[sellerName].push(lead);
+      }
+    }
+
+    // Follow-up agendado e vencido (Ação Crítica)
+    const rawRecord = lead as unknown as Record<string, unknown>;
+    const scheduledFollowUpStr =
+      lead.scheduledFollowUpAt ||
+      lead.scheduled_followup_at ||
+      (rawRecord.scheduledFollowUpAt as string | undefined) ||
+      (rawRecord.scheduled_followup_at as string | undefined);
+
+    if (scheduledFollowUpStr && typeof scheduledFollowUpStr === "string") {
+      const scheduledTime = new Date(scheduledFollowUpStr).getTime();
+      if (scheduledTime < nowTime) {
+        if (!overdueFollowupsBySeller[sellerName]) {
+          overdueFollowupsBySeller[sellerName] = [];
+        }
+        overdueFollowupsBySeller[sellerName].push(lead);
       }
     }
   }
@@ -427,6 +449,63 @@ export function generatePrescriptiveActions(
     });
   }
 
+  // Gera ações para Follow-ups Atrasados (Ações Críticas)
+  for (const [sellerName, sellerLeads] of Object.entries(overdueFollowupsBySeller)) {
+    const count = sellerLeads.length;
+    const firstLead = sellerLeads[0];
+    const rawRecord = firstLead as unknown as Record<string, unknown>;
+    const scheduledStr = (firstLead.scheduledFollowUpAt || firstLead.scheduled_followup_at || rawRecord.scheduledFollowUpAt || rawRecord.scheduled_followup_at) as string;
+    const hoursOverdue = Math.max(1, Math.round((nowTime - new Date(scheduledStr).getTime()) / 3600000));
+    const leadName = firstLead.name || "Cliente";
+    const vehicle = firstLead.vehicleInterest || firstLead.vehicle_interest;
+    const vehicleInfo = vehicle ? ` (${vehicle})` : "";
+
+    const initials =
+      sellerName
+        .split(" ")
+        .map((n) => n[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join("")
+        .toUpperCase() || "VD";
+
+    const sellerFirstName = sellerName.split(" ")[0] || sellerName;
+
+    const rawPhone =
+      firstLead.sellerPhone ||
+      firstLead.seller_phone ||
+      sellerPhoneMap.get(sellerName.toLowerCase()) ||
+      (firstLead.sellerId ? sellerPhoneMap.get(firstLead.sellerId) : "") ||
+      (firstLead.seller_id ? sellerPhoneMap.get(firstLead.seller_id) : "") ||
+      "";
+
+    const digitsOnly = rawPhone.replace(/\D/g, "");
+    const phone = digitsOnly.length > 0 ? (digitsOnly.startsWith("55") ? digitsOnly : `55${digitsOnly}`) : "";
+
+    const timeText = `Há ${hoursOverdue}h`;
+    const actionText =
+      count === 1
+        ? `Follow-up de ${leadName}${vehicleInfo} vencido há ${hoursOverdue}h`
+        : `${count} follow-ups críticos atrasados`;
+
+    const defaultMessage =
+      count === 1
+        ? `Olá ${sellerFirstName}, o agendamento de follow-up de ${leadName}${vehicleInfo} está vencido há ${hoursOverdue} horas. Vamos priorizar esse contato para não perder a oportunidade!`
+        : `Olá ${sellerFirstName}, você possui ${count} agendamentos de follow-up vencidos no Acelera. Vamos priorizar os contatos para não esfriar!`;
+
+    actions.push({
+      id: `act-followup-${sellerName.replace(/\s+/g, "-").toLowerCase()}`,
+      sellerName,
+      avatar: initials,
+      actionText,
+      leadCount: count,
+      urgencyType: "danger",
+      timeText,
+      defaultMessage,
+      phone,
+    });
+  }
+
   return actions;
 }
 
@@ -524,6 +603,13 @@ export function calculateCockpitMetrics(
       lead.first_contact_at ||
       lead.lastContactAt ||
       lead.last_contact_at;
+
+    // Considera apenas leads atendidos ou ativos recentes (últimas 24h/7d) para o cômputo de SLA
+    const isRecentLead = createdAt >= now - 7 * 86400000;
+    const isRecentContact = contactStr ? new Date(contactStr).getTime() >= now - 7 * 86400000 : false;
+    if (!isRecentLead && !isRecentContact) {
+      return;
+    }
 
     if (contactStr) {
       answeredCount++;
@@ -646,8 +732,14 @@ export function calculateManagerCockpitMetrics(
   for (const lead of leads) {
     const rawStatus = (lead.status || "novo").toLowerCase();
     const rawStage = (lead.stage || "").toLowerCase();
-    const isActive = ACTIVE_STATUSES.has(rawStatus);
-    const isWon = WON_STATUSES.has(rawStatus);
+    const isWon =
+      rawStage === "won" ||
+      (WON_STATUSES.has(rawStatus) && rawStage !== "lost" && rawStatus !== "perdido");
+    const isActive =
+      (ACTIVE_STATUSES.has(rawStatus) || ACTIVE_STATUSES.has(rawStage)) &&
+      !isWon &&
+      rawStage !== "lost" &&
+      rawStatus !== "perdido";
     const val = estimateLeadVehicleValue(lead, options?.defaultTicket ?? 0);
 
     const seller =
@@ -704,43 +796,50 @@ export function calculateManagerCockpitMetrics(
     const contactStr = firstContactStr || (isNewStage ? null : lastContactStr);
     const hasContact = Boolean(contactStr);
 
-    if (hasContact && contactStr) {
-      answeredCount++;
-      const contactTime = new Date(contactStr).getTime();
-      const diffMinutes = Math.max(
-        0,
-        options?.businessHours && !options?.isDemo
-          ? calculateBusinessMinutesElapsed(new Date(createdAtTime), new Date(contactStr), options.businessHours)
-          : (contactTime - createdAtTime) / 60000
-      );
-      contactResponseTimes.push(diffMinutes);
-      sellerGroups[seller].responseTimes.push(diffMinutes);
+    // SLA & Risco: Considera apenas leads atendidos ou ativos nas últimas 24h/7d, sem poluição de registros legados
+    const isRecentLead = createdAtTime >= nowTime - 7 * 86400000;
+    const isRecentContact = contactStr ? new Date(contactStr).getTime() >= nowTime - 7 * 86400000 : false;
+    const evaluateForSLA = isActive || isRecentLead || isRecentContact;
 
-      if (diffMinutes <= slaLimit) {
-        answeredOnTimeCount++;
-      }
+    if (evaluateForSLA) {
+      if (hasContact && contactStr) {
+        answeredCount++;
+        const contactTime = new Date(contactStr).getTime();
+        const diffMinutes = Math.max(
+          0,
+          options?.businessHours && !options?.isDemo
+            ? calculateBusinessMinutesElapsed(new Date(createdAtTime), new Date(contactStr), options.businessHours)
+            : (contactTime - createdAtTime) / 60000
+        );
+        contactResponseTimes.push(diffMinutes);
+        sellerGroups[seller].responseTimes.push(diffMinutes);
 
-      // Se está em etapa ativa mas sem contato há mais de 48 horas
-      if (isActive) {
-        const lastContactTime = lastContactStr
-          ? new Date(lastContactStr).getTime()
-          : contactTime;
-        const hoursSinceLastContact = (nowTime - lastContactTime) / 3600000;
-        if (hoursSinceLastContact > 48) {
+        if (diffMinutes <= slaLimit) {
+          answeredOnTimeCount++;
+        }
+
+        // Se está em etapa ativa mas sem contato há mais de 48 horas
+        if (isActive) {
+          const lastContactTime = lastContactStr
+            ? new Date(lastContactStr).getTime()
+            : contactTime;
+          const hoursSinceLastContact = (nowTime - lastContactTime) / 3600000;
+          if (hoursSinceLastContact > 48) {
+            valueAtRisk += val;
+          }
+        }
+      } else {
+        // Lead em aberto (sem primeiro contato)
+        openPendingCount++;
+        openWaitingTimes.push(waitingMinutes);
+        sellerGroups[seller].waitingTimes.push(waitingMinutes);
+
+        if (waitingMinutes > slaLimit) {
+          openBreachedCount++;
+          overdueLeadsCount++;
+          withoutReturnCount++;
           valueAtRisk += val;
         }
-      }
-    } else {
-      // Lead em aberto (sem primeiro contato)
-      openPendingCount++;
-      openWaitingTimes.push(waitingMinutes);
-      sellerGroups[seller].waitingTimes.push(waitingMinutes);
-
-      if (waitingMinutes > slaLimit) {
-        openBreachedCount++;
-        overdueLeadsCount++;
-        withoutReturnCount++;
-        valueAtRisk += val;
       }
     }
 

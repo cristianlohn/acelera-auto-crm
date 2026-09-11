@@ -147,7 +147,7 @@ function ReportsPageContent() {
   );
 
   const currentData = reportData || (isDemoMode ? PERIOD_METRICS[period] : EMPTY_METRICS);
-  const { kpis, funnel, channels, sellers, topVehicles } = currentData;
+  const { kpis, funnel, channels, sellers, topVehicles, lostReasons } = currentData;
 
   // No filtro de 7 dias, o Faturamento Realizado deriva estritamente da soma de todos os consultores do ranking
   const totalRevenue = useMemo(() => {
@@ -666,6 +666,49 @@ function ReportsPageContent() {
             )}
           </section>
         </div>
+
+        {/* 4. Motivos de Perda (Desqualificação e Perda de Oportunidades) */}
+        {lostReasons && lostReasons.length > 0 && (
+          <section
+            aria-label="Motivos de Perda"
+            className="rounded-xl border bg-card p-4 sm:p-5 shadow-sm"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                  <Target className="h-4 w-4 text-red-500" />
+                  Motivos de Perda de Oportunidades
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Diagnóstico canônico de leads perdidos na esteira comercial
+                </p>
+              </div>
+              <span className="rounded-md bg-red-100 dark:bg-red-950/60 px-2 py-1 text-[11px] font-semibold text-red-700 dark:text-red-300">
+                {lostReasons.reduce((acc, r) => acc + r.count, 0)} perda(s)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {lostReasons.map((item) => (
+                <div
+                  key={item.reason}
+                  className="flex items-center justify-between rounded-lg border border-border/80 bg-muted/20 p-3"
+                >
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">{item.label}</p>
+                    <p className="text-[10px] text-muted-foreground">Código: {item.reason}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-red-600 dark:text-red-400">
+                      {item.count} lead{item.count !== 1 ? "s" : ""}
+                    </span>
+                    <p className="text-[10px] text-muted-foreground">({item.percentage}%)</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

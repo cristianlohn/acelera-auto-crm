@@ -78,7 +78,10 @@ export async function getLeads(overrideRole?: string): Promise<Lead[]> {
   if (tenantContext.isDemo || (!tenantContext.organizationId && !isSupabaseServerConfigured())) {
     if (!allowAll) {
       return mockLeads.filter(
-        (l) => l.sellerName === "Rafael Alves" || l.sellerName?.toLowerCase().includes("vendedor")
+        (l) =>
+          l.sellerName === "Rafael Martins" ||
+          l.sellerName === "Rafael Alves" ||
+          l.sellerName?.toLowerCase().includes("vendedor")
       );
     }
     return mockLeads;
