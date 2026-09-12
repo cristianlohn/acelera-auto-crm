@@ -52,9 +52,10 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
     await page.goto("/dashboard/leads");
     await page.waitForLoadState("domcontentloaded");
 
-    const closeTourBtn = page.locator('#btn-close-tour, button[aria-label="Fechar tour"]');
-    if (await closeTourBtn.isVisible().catch(() => false)) {
+    const closeTourBtn = page.getByRole("button", { name: /fechar tour/i });
+    if (await closeTourBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await closeTourBtn.click();
+      await expect(page.getByRole("dialog", { name: /tour guiado/i })).toBeHidden({ timeout: 5000 });
     }
   }
 

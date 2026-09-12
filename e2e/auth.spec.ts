@@ -92,26 +92,44 @@ test.describe("Autenticação e Layout da Página de Login", () => {
     // 1. Entra no CRM via demo
     await page.goto("/login");
     await page.click('[data-testid="demo-login-button"]');
-    await page.waitForURL("**/leads");
+    await page.waitForURL("**/dashboard/leads");
+    await page.waitForLoadState("domcontentloaded");
+    await expect(
+      page.getByRole("heading", { level: 1, name: /funil de vendas/i })
+    ).toBeVisible({ timeout: 15000 });
+
+    // Fecha o tour guiado se estiver visível para desobstruir a interface
+    const closeTourBtn = page.getByRole("button", { name: /fechar tour/i });
+    if (await closeTourBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await closeTourBtn.click();
+      await expect(page.getByRole("dialog", { name: /tour guiado/i })).toBeHidden({ timeout: 5000 });
+    }
 
     // 2. Clica no botão de Logout na sidebar (ou no sheet do mobile)
     const isMobile = await page.evaluate(() => window.innerWidth < 1024);
     if (isMobile) {
       const menuBtn = page.locator('button[aria-label="Abrir menu"]');
-      await menuBtn.click();
+      await expect(menuBtn).toBeVisible({ timeout: 10000 });
       const mobileLogoutBtn = page.locator("#btn-logout-mobile");
-      await expect(mobileLogoutBtn).toBeVisible({ timeout: 10000 });
-      await page.waitForTimeout(300);
-      await mobileLogoutBtn.click({ force: true });
+      await expect(async () => {
+        if (await closeTourBtn.isVisible().catch(() => false)) {
+          await closeTourBtn.click();
+          await expect(page.getByRole("dialog", { name: /tour guiado/i })).toBeHidden({ timeout: 2000 });
+        }
+        if (!(await mobileLogoutBtn.isVisible())) {
+          await menuBtn.click();
+        }
+        await expect(mobileLogoutBtn).toBeVisible({ timeout: 2000 });
+      }).toPass({ timeout: 15000 });
+      await mobileLogoutBtn.click();
     } else {
       const logoutBtn = page.locator("#btn-logout-sidebar");
       await expect(logoutBtn).toBeVisible({ timeout: 10000 });
-      await logoutBtn.click({ force: true });
+      await logoutBtn.click();
     }
 
-    // 3. Aguarda redirecionamento para a tela de login
-    await page.waitForURL("**/login");
-    await expect(page).toHaveURL(/.*login/);
+    // 3. Aguarda redirecionamento para a tela de login via asserção web-first
+    await expect(page).toHaveURL(/.*\/login/, { timeout: 15000 });
 
     // 4. Valida limpeza de cookies de demo
     const cookies = await page.context().cookies();
