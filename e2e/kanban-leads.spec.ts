@@ -142,18 +142,18 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
     await searchInput.clear();
     await expect(searchInput).toHaveValue("");
 
-    // 3. Filtro por Vendedor (Rafael Alves)
+    // 3. Filtro por Vendedor (Rafael Martins)
     const sellerFilter = page.locator('[data-testid="select-seller-filter"]');
     await expect(sellerFilter).toBeVisible({ timeout: 10000 });
-    await sellerFilter.selectOption({ label: "Rafael Alves" });
+    await sellerFilter.selectOption({ label: "Rafael Martins" });
 
-    // Todos os cards visíveis devem pertencer a Rafael Alves
+    // Todos os cards visíveis devem pertencer a Rafael Martins
     const visibleCards = page.locator('[data-testid="kanban-card"]').filter({ visible: true });
     const count = await visibleCards.count();
     expect(count).toBeGreaterThan(0);
 
     for (let i = 0; i < count; i++) {
-      await expect(visibleCards.nth(i).locator('[data-testid="lead-seller-name"]')).toHaveText("Rafael Alves");
+      await expect(visibleCards.nth(i).locator('[data-testid="lead-seller-name"]')).toHaveText("Rafael Martins");
     }
   });
 
