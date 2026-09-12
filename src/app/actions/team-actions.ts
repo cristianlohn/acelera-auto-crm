@@ -193,7 +193,7 @@ export async function getSalespeopleAction(explicitOrgId?: string): Promise<Team
 /**
  * Calcula métricas agregadas da equipe para os cards de resumo a partir de uma lista de membros.
  */
-export function calculateTeamSummaryMetrics(members: TeamMember[]): TeamSummaryMetrics {
+function calculateTeamSummaryMetrics(members: TeamMember[]): TeamSummaryMetrics {
   const totalMembers = members.length;
   const activeInRoulette = members.filter((m) => m.in_roulette && (m.status === "active" || m.status === "ativo")).length;
   const totalMonthlyGoal = members.reduce((acc, m) => acc + (m.monthly_goal_units || 0), 0);
