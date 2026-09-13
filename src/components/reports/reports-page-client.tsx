@@ -76,6 +76,7 @@ interface KPIStatCardProps {
   icon: React.ComponentType<{ className?: string }>;
   iconBg: string;
   iconColor: string;
+  hasPreviousPeriod?: boolean;
 }
 
 function KPIStatCard({
@@ -86,7 +87,18 @@ function KPIStatCard({
   icon: Icon,
   iconBg,
   iconColor,
+  hasPreviousPeriod,
 }: KPIStatCardProps) {
+  const isNeutralOrNoComparison =
+    !growth ||
+    growth === "+0%" ||
+    growth === "0%" ||
+    growth === "+0.0%" ||
+    growth === "0.0%" ||
+    growth === "0 min" ||
+    growth === "+0 min" ||
+    hasPreviousPeriod === false;
+
   return (
     <div className="relative overflow-hidden rounded-xl border bg-card p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
       <div className="flex items-start justify-between">
@@ -96,22 +108,30 @@ function KPIStatCard({
             {value}
           </p>
           <div className="mt-1 flex items-center gap-1 text-xs">
-            {isPositive ? (
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+            {isNeutralOrNoComparison ? (
+              <span className="text-[10px] text-muted-foreground">
+                Primeiro ciclo de monitoramento
+              </span>
             ) : (
-              <TrendingDown className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+              <>
+                {isPositive ? (
+                  <TrendingUp className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                ) : (
+                  <TrendingDown className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                )}
+                <span
+                  className={cn(
+                    "font-semibold",
+                    isPositive
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-rose-600 dark:text-rose-400"
+                  )}
+                >
+                  {growth}
+                </span>
+                <span className="text-[10px] text-muted-foreground">vs anterior</span>
+              </>
             )}
-            <span
-              className={cn(
-                "font-semibold",
-                isPositive
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-rose-600 dark:text-rose-400"
-              )}
-            >
-              {growth}
-            </span>
-            <span className="text-[10px] text-muted-foreground">vs anterior</span>
           </div>
         </div>
         <div
@@ -175,6 +195,21 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
   const averageTicket = useMemo(() => {
     return totalSalesCount > 0 ? totalRevenue / totalSalesCount : (kpis.averageTicket || 0);
   }, [totalSalesCount, totalRevenue, kpis.averageTicket]);
+
+  // Denominador geral de oportunidades do funil comercial
+  const funnelTotalOpportunities = useMemo(() => {
+    const firstStage = funnel[0];
+    if (firstStage && typeof firstStage.totalLeads === "number" && firstStage.totalLeads > 0) {
+      return firstStage.totalLeads;
+    }
+    if (firstStage && typeof firstStage.reachedLeadsCount === "number" && firstStage.reachedLeadsCount > 0) {
+      return firstStage.reachedLeadsCount;
+    }
+    if (firstStage && typeof firstStage.count === "number" && firstStage.count > 0) {
+      return firstStage.count;
+    }
+    return 0;
+  }, [funnel]);
 
   // Derivação dinâmica do canal com maior taxa de conversão (won / total)
   const channelInsightText = useMemo(() => {
@@ -418,39 +453,49 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
               return (
                 <div className="space-y-4">
                   <div className="space-y-3">
-                    {stagesToRender.map((stage, idx) => (
-                      <div key={stage.id} className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold text-foreground flex items-center gap-1.5">
-                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-orange-100 text-[10px] font-bold text-orange-600 dark:bg-orange-950/80 dark:text-orange-400">
-                              {idx + 1}
-                            </span>
-                            {stage.name}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-foreground">
-                              {stage.count} leads
-                            </span>
-                            <span className="text-[11px] text-muted-foreground">
-                              ({stage.percentage}%)
-                            </span>
-                            {idx > 0 && (
-                              <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                                {stage.conversionFromPrev}% conv.
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                    {stagesToRender.map((stage, idx) => {
+                      const stageTotal = stage.totalLeads ?? funnelTotalOpportunities;
+                      const reached = stage.reachedLeadsCount ?? stage.count;
+                      const current = stage.currentLeadsCount ?? 0;
 
-                        {/* Barra de Progresso do Estágio */}
-                        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-500"
-                            style={{ width: `${stage.percentage}%` }}
-                          />
+                      return (
+                        <div key={stage.id} className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-foreground flex items-center gap-1.5">
+                              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-orange-100 text-[10px] font-bold text-orange-600 dark:bg-orange-950/80 dark:text-orange-400">
+                                {idx + 1}
+                              </span>
+                              {stage.name}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-foreground">
+                                {reached} de {stageTotal} oportunidades ({stage.percentage}%)
+                              </span>
+                              {idx > 0 && (
+                                <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                                  {stage.conversionFromPrev}% conv.
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Barra de Progresso do Estágio */}
+                          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-500"
+                              style={{ width: `${stage.percentage}%` }}
+                            />
+                          </div>
+
+                          {/* Detalhe discreto de leads parados atualmente na etapa */}
+                          {current > 0 && (
+                            <p className="text-[11px] text-muted-foreground">
+                              {current} {current === 1 ? "lead em andamento nesta etapa" : "leads em andamento nesta etapa"}
+                            </p>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Desfechos em Venda Concluída e Descarte / Perdido */}
@@ -468,7 +513,7 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
                               <span>Venda Concluída</span>
                             </span>
                             <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                              {wonStage.count} {wonStage.count === 1 ? "lead" : "leads"} ({wonStage.percentage}%)
+                              {(wonStage.reachedLeadsCount ?? wonStage.count)} de {(wonStage.totalLeads ?? funnelTotalOpportunities)} oportunidades ({wonStage.percentage}%)
                             </span>
                           </div>
                           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-emerald-950/20 dark:bg-emerald-950/50">
@@ -477,6 +522,11 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
                               style={{ width: `${wonStage.percentage}%` }}
                             />
                           </div>
+                          {(wonStage.currentLeadsCount ?? 0) > 0 && (
+                            <p className="mt-1 text-[10px] text-emerald-600/80 dark:text-emerald-400/80">
+                              {wonStage.currentLeadsCount} {wonStage.currentLeadsCount === 1 ? "venda finalizada" : "vendas finalizadas"}
+                            </p>
+                          )}
                         </div>
 
                         {/* 2. Ramificação Perdido */}
@@ -487,7 +537,7 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
                               <span>Perdido</span>
                             </span>
                             <span className="text-xs font-black text-rose-600 dark:text-rose-400">
-                              {lostStage.count} {lostStage.count === 1 ? "lead" : "leads"} ({lostStage.percentage}%)
+                              {(lostStage.reachedLeadsCount ?? lostStage.count)} de {(lostStage.totalLeads ?? funnelTotalOpportunities)} oportunidades ({lostStage.percentage}%)
                             </span>
                           </div>
                           <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-rose-950/20 dark:bg-rose-950/50">
@@ -496,6 +546,11 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
                               style={{ width: `${lostStage.percentage}%` }}
                             />
                           </div>
+                          {(lostStage.currentLeadsCount ?? 0) > 0 && (
+                            <p className="mt-1 text-[10px] text-rose-600/80 dark:text-rose-400/80">
+                              {lostStage.currentLeadsCount} {lostStage.currentLeadsCount === 1 ? "oportunidade descartada" : "oportunidades descartadas"}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -558,7 +613,10 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
                           {chan.dealsCount}
                         </div>
                         <div className="col-span-3 text-right font-bold text-foreground">
-                          {chan.conversionRate}%
+                          <span>{chan.conversionRate}%</span>
+                          <span className="block text-[10px] font-normal text-muted-foreground">
+                            {chan.dealsCount} {chan.dealsCount === 1 ? "venda" : "vendas"} de {chan.leadsCount} leads
+                          </span>
                         </div>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -615,6 +673,12 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
               <div className="divide-y">
                 {sellers.map((seller, index) => {
                   const isTop1 = index === 0;
+                  const sellerTotalLeads =
+                    seller.totalLeads ??
+                    (seller.conversionRate > 0
+                      ? Math.round(seller.dealsCount / (seller.conversionRate / 100))
+                      : seller.dealsCount);
+
                   return (
                     <div
                       key={seller.id}
@@ -656,7 +720,7 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
                             )}
                           </div>
                           <p className="text-[11px] text-muted-foreground">
-                            {seller.dealsCount} {seller.dealsCount === 1 ? "venda concluída" : "vendas concluídas"} • SLA: {seller.avgResponseMinutes} min
+                            {seller.dealsCount} {seller.dealsCount === 1 ? "venda concluída" : "vendas concluídas"} de {sellerTotalLeads} leads ({seller.conversionRate}%) • SLA: {seller.avgResponseMinutes} min
                             {seller.pipelineValue ? ` • ${formatCurrency(seller.pipelineValue)} em propostas` : ""}
                           </p>
                         </div>
@@ -667,7 +731,7 @@ function ReportsPageContent({ initialData }: { initialData?: ExecutiveReportData
                           {formatCurrency(seller.revenue)}
                         </p>
                         <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                          {seller.conversionRate}% conv.
+                          {seller.dealsCount} {seller.dealsCount === 1 ? "venda" : "vendas"} de {sellerTotalLeads} leads ({seller.conversionRate}%)
                         </span>
                       </div>
                     </div>

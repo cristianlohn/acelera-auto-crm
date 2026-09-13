@@ -158,7 +158,7 @@ export function Hero() {
           </div>
 
           <p className="mt-3 text-[10px] sm:text-[11px] text-zinc-500 text-center italic">
-            * Dados, volumes e métricas ilustrativos simulando o fluxo em tempo real da plataforma.
+            * Dados ilustrativos para demonstrar o funcionamento do Acelera Auto CRM.
           </p>
         </div>
       </div>

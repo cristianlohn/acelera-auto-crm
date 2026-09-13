@@ -27,7 +27,12 @@ export interface FunnelStageData {
   count: number;
   percentage: number;
   conversionFromPrev: number;
+  currentLeadsCount?: number;
+  reachedLeadsCount?: number;
+  totalLeads?: number;
 }
+
+export type { StageMetric } from "./funnel-metrics";
 
 export interface ChannelPerformance {
   channel: string;
@@ -47,6 +52,7 @@ export interface SellerPerformance {
   avgResponseMinutes: number;
   conversionRate: number;
   pipelineValue?: number;
+  totalLeads?: number;
 }
 
 export interface TopVehicle {

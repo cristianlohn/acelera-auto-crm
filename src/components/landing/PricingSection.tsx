@@ -147,7 +147,7 @@ export function PricingSection() {
               </ul>
             </div>
 
-            <Link href="/dashboard/leads" className="mt-6 sm:mt-8">
+            <Link href="/register?plan=starter" className="mt-6 sm:mt-8">
               <Button
                 variant="outline"
                 className="w-full border-white/20 text-xs font-semibold text-white hover:bg-white/10"
@@ -227,7 +227,7 @@ export function PricingSection() {
               </ul>
             </div>
 
-            <Link href="/dashboard/leads" className="mt-6 sm:mt-8">
+            <Link href="/register?plan=pro" className="mt-6 sm:mt-8">
               <Button className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-xs font-bold text-white shadow-lg shadow-orange-500/30 hover:from-orange-600 hover:to-red-700">
                 Testar Plano Pro Grátis
               </Button>
@@ -347,7 +347,7 @@ export function PricingSection() {
             </div>
 
             <div className="shrink-0 w-full md:w-auto">
-              <Link href="/dashboard/leads">
+              <Link href="/dashboard">
                 <Button
                   variant="outline"
                   className="w-full md:w-auto border-orange-500/30 text-xs font-semibold text-orange-300 hover:bg-orange-500/10"

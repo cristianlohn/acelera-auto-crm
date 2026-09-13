@@ -298,21 +298,29 @@ export async function getExecutiveReportData(
       return st === "lost";
     }).length;
 
+    // Contagem de leads parados atualmente por etapa (current)
+    const currentNew = periodLeads.filter((l) => normalizeLeadStage(l.status || (l as { stage?: string }).stage) === "new").length;
+    const currentFirstContact = periodLeads.filter((l) => normalizeLeadStage(l.status || (l as { stage?: string }).stage) === "first_contact").length;
+    const currentVisit = periodLeads.filter((l) => normalizeLeadStage(l.status || (l as { stage?: string }).stage) === "visit").length;
+    const currentProposal = periodLeads.filter((l) => normalizeLeadStage(l.status || (l as { stage?: string }).stage) === "proposal").length;
+    const currentWon = wonCount;
+    const currentLost = perdidoCount;
+
     const stagesRaw = [
-      { id: "novo", name: "Novos Leads", count: novoCount },
-      { id: "primeiro_contato", name: "Primeiro Contato", count: contatoCount },
-      { id: "visita", name: "Visita / Test Drive", count: visitaCount },
-      { id: "proposta", name: "Proposta & F&I", count: propostaCount },
-      { id: "fechado", name: "Venda Concluída", count: wonCount },
-      { id: "perdido", name: "Perdido", count: perdidoCount },
+      { id: "novo", name: "Novos Leads", count: novoCount, reachedLeadsCount: novoCount, currentLeadsCount: currentNew, totalLeads },
+      { id: "primeiro_contato", name: "Primeiro Contato", count: contatoCount, reachedLeadsCount: contatoCount, currentLeadsCount: currentFirstContact, totalLeads },
+      { id: "visita", name: "Visita / Test Drive", count: visitaCount, reachedLeadsCount: visitaCount, currentLeadsCount: currentVisit, totalLeads },
+      { id: "proposta", name: "Proposta & F&I", count: propostaCount, reachedLeadsCount: propostaCount, currentLeadsCount: currentProposal, totalLeads },
+      { id: "fechado", name: "Venda Concluída", count: wonCount, reachedLeadsCount: wonCount, currentLeadsCount: currentWon, totalLeads },
+      { id: "perdido", name: "Perdido", count: perdidoCount, reachedLeadsCount: perdidoCount, currentLeadsCount: currentLost, totalLeads },
     ];
 
     let prev = novoCount > 0 ? novoCount : totalLeads;
     const funnel: FunnelStageData[] = stagesRaw.map((st, idx) => {
-      const percentage = totalLeads > 0 ? Math.round((st.count / totalLeads) * 1000) / 10 : 0;
+      const percentage = totalLeads > 0 ? Math.round((st.reachedLeadsCount / totalLeads) * 1000) / 10 : 0;
       const conversionFromPrev =
-        idx === 0 ? 100 : prev > 0 ? Math.round((st.count / prev) * 1000) / 10 : 0;
-      if (st.count > 0 && idx < 4) prev = st.count;
+        idx === 0 ? 100 : prev > 0 ? Math.round((st.reachedLeadsCount / prev) * 1000) / 10 : 0;
+      if (st.reachedLeadsCount > 0 && idx < 4) prev = st.reachedLeadsCount;
       return {
         ...st,
         percentage,
@@ -470,6 +478,7 @@ export async function getExecutiveReportData(
         revenue: s.revenue,
         avgResponseMinutes: avgSLA,
         conversionRate: conv,
+        totalLeads: s.totalLeads,
       };
     });
 

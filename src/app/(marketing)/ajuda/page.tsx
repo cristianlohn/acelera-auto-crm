@@ -92,8 +92,8 @@ export const CANONICAL_HELP_TOPICS: HelpTopicItem[] = [
     categoryLabel: "Roleta e Regras de SLA",
     question: "Quais são os limites de tempo e o funcionamento do semáforo de SLA?",
     answer:
-      "O Acelera Auto CRM adota uma régua visual canônica de SLA no Kanban: 🟢 Verde (ótimo atendimento, até 5 minutos), 🟡 Amarelo (atenção necessária, entre 5 e 10 minutos) e 🔴 Vermelho (SLA Estourado, acima de 10 minutos sem primeiro contato). Assim que o vendedor aciona o botão de WhatsApp ou avança o lead para 'Em Atendimento', o cronômetro do SLA é automaticamente interrompido e a métrica de tempo de resposta é salva nos relatórios.",
-    highlight: "Meta canônica de primeiro contato em até 10 minutos.",
+      "O Acelera Auto CRM adota uma régua visual canônica de SLA no Kanban: 🟢 Verde (ótimo atendimento, até 5 minutos), 🟡 Amarelo (atenção necessária, entre 5 e 15 minutos) e 🔴 Vermelho (SLA Estourado, acima de 15 minutos sem primeiro contato). O cronômetro inicia com a chegada do lead e é pausado no CRM ao registrar o primeiro contato ou avançar o card para a etapa 'Primeiro Contato'. A abertura do WhatsApp abre a conversa externa e deve ser registrada no CRM para comprovar o atendimento.",
+    highlight: "Meta canônica de primeiro contato em até 15 minutos.",
   },
   {
     id: "roleta-3",
@@ -101,7 +101,7 @@ export const CANONICAL_HELP_TOPICS: HelpTopicItem[] = [
     categoryLabel: "Roleta e Regras de SLA",
     question: "O que é o cockpit 'Dinheiro na Mesa' e como cobrar vendedores em atraso?",
     answer:
-      "O painel executivo 'Dinheiro na Mesa' rastreia gargalos e negócios parados em tempo real: leads com primeiro contato atrasado (>10 min), propostas enviadas sem retorno (>24h) e clientes com financiamento pendente (>48h). O gestor conta com um botão de cobrança rápida em 1 clique que abre o WhatsApp do vendedor com mensagem personalizada para destravar a negociação.",
+      "O painel executivo 'Dinheiro na Mesa' rastreia gargalos e negócios parados em tempo real: leads com primeiro contato atrasado (>15 min), propostas enviadas sem retorno (>24h) e clientes com financiamento pendente (>48h). O gestor conta com um botão de cobrança rápida em 1 clique que abre o WhatsApp do vendedor com mensagem personalizada para destravar a negociação.",
     highlight: "Cobrança via WhatsApp em 1 clique pelo gestor comercial.",
   },
 

@@ -122,7 +122,7 @@ export default function MarketingPage() {
                 Funil Kanban Visual com SLA de Atendimento
               </h3>
               <p className="mt-2 text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                Acompanhe o lead desde o primeiro contato até o fechamento com semáforo visual de urgência. Alertas visuais e temporizadores automáticos impedem que leads esfriem sem resposta.
+                Acompanhe o lead desde o primeiro contato até o fechamento com semáforo visual de urgência. Alertas visuais e temporizadores automáticos ajudam sua equipe a identificar leads sem retorno antes que esfriem.
               </p>
               <div className="mt-3.5 sm:mt-4 inline-flex items-center gap-2 text-xs font-semibold text-orange-400">
                 <Clock className="h-4 w-4 shrink-0" />

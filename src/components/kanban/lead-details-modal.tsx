@@ -204,9 +204,6 @@ export function LeadDetailsModal({
                   {lead.source.toUpperCase()}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Lead ID: <span className="font-mono">{lead.id}</span>
-              </p>
             </div>
           </div>
 
@@ -235,7 +232,7 @@ export function LeadDetailsModal({
                   currentStageConfig?.badgeColor || "bg-slate-500/10 text-slate-400 border-slate-500/20"
                 )}
               >
-                Atual: {currentStageConfig?.title || lead.stage}
+                Atual: {currentStageConfig?.title || (lead.stage === "proposal_fi" ? "Financiamento / F&I" : lead.stage)}
               </span>
             </div>
 
@@ -366,8 +363,15 @@ export function LeadDetailsModal({
                         {localVehicleName || lead.vehicle_of_interest}
                       </span>
                       {lead.segment && (
-                        <span className="block text-[10px] text-slate-500 dark:text-slate-400 capitalize">
-                          Categoria: {lead.segment.replace("_", " ")}
+                        <span className="block text-[10px] text-slate-500 dark:text-slate-400">
+                          Categoria:{" "}
+                          {lead.segment === "used_cars" || (lead.segment as string).toLowerCase() === "used" || (lead.segment as string).toLowerCase() === "used cars"
+                            ? "Seminovos / Usados"
+                            : lead.segment === "new_cars"
+                            ? "Novos / 0km"
+                            : lead.segment === "f_and_i"
+                            ? "Financiamento / F&I"
+                            : lead.segment.replace("_", " ")}
                         </span>
                       )}
                     </div>
@@ -514,6 +518,7 @@ export function LeadDetailsModal({
           {/* Metadados / Timeline */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 text-[10px] text-slate-400 border-t border-slate-200 dark:border-slate-800/60">
             <span>Criado em: {formatDateBR(lead.created_at)}</span>
+            <span className="font-mono text-slate-400 dark:text-slate-500">Ref: {lead.id}</span>
             <span>Última atualização: {formatDateBR(lead.updated_at)}</span>
           </div>
         </div>
