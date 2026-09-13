@@ -13,7 +13,6 @@ import Link from "next/link";
 import { ArrowRight, Play, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { initDemoModeCookies } from "@/lib/auth/demo-helpers";
-import { getSalesWhatsAppUrl } from "@/config/contact";
 
 export function Hero() {
   return (
@@ -23,17 +22,17 @@ export function Hero() {
         <div className="inline-flex max-w-full items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-[11px] sm:text-xs font-semibold text-orange-400 shadow-sm transition hover:bg-orange-500/20">
           <span className="flex h-2 w-2 rounded-full bg-orange-500 animate-pulse shrink-0" />
           <span className="truncate sm:whitespace-normal">
-            ⚡ O CRM que não deixa sua revenda perder leads por demora no atendimento
+            ⚡ Identifique leads sem retorno antes que esfriem no atendimento
           </span>
         </div>
 
         {/* Headline Principal de Alto Impacto Comercial */}
         <h1 className="mt-5 text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-tight sm:leading-tight break-words">
-          O CRM que não deixa sua revenda{" "}
+          Identifique leads sem retorno{" "}
           <span className="bg-gradient-to-r from-orange-400 via-orange-500 to-red-500 bg-clip-text text-transparent">
-            perder leads por demora
+            antes que esfriem
           </span>{" "}
-          no atendimento
+          no atendimento da sua revenda
         </h1>
 
         {/* Subheadline com a História Comercial */}
@@ -47,31 +46,26 @@ export function Hero() {
 
         {/* Duplo CTA de Ação Imediata */}
         <div className="mt-7 sm:mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 w-full max-w-md sm:max-w-none mx-auto">
-          <Link href="/dashboard/leads" onClick={initDemoModeCookies} className="w-full sm:w-auto">
+          <Link href="/register" className="w-full sm:w-auto">
             <Button
               size="lg"
               className="w-full sm:w-auto gap-2 bg-gradient-to-r from-orange-500 via-orange-600 to-red-600 px-5 py-5 sm:px-6 sm:py-6 text-sm sm:text-base font-bold text-white shadow-xl shadow-orange-500/30 hover:from-orange-600 hover:to-red-700 hover:shadow-orange-500/50 transition-all hover:scale-105 active:scale-95"
             >
-              <span>Experimentar Demonstração Gratuita</span>
+              <span>Começar Teste Grátis de 14 Dias</span>
               <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />
             </Button>
           </Link>
 
-          <a
-            href={getSalesWhatsAppUrl("Olá! Gostaria de agendar um tour guiado pelo Acelera Auto CRM para conhecer a plataforma.")}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full sm:w-auto"
-          >
+          <Link href="/dashboard" onClick={initDemoModeCookies} className="w-full sm:w-auto">
             <Button
               variant="outline"
               size="lg"
               className="w-full sm:w-auto gap-2 border-white/15 bg-white/5 px-5 py-5 sm:px-6 sm:py-6 text-sm sm:text-base font-semibold text-zinc-200 hover:bg-white/10 hover:text-white transition"
             >
               <Play className="h-4 w-4 text-orange-400 fill-orange-400 shrink-0" />
-              <span>Agendar Tour Guiado</span>
+              <span>Explorar Demonstração</span>
             </Button>
-          </a>
+          </Link>
         </div>
 
         {/* Chamada para a Demo Aberta */}
@@ -162,6 +156,10 @@ export function Hero() {
               </div>
             </div>
           </div>
+
+          <p className="mt-3 text-[10px] sm:text-[11px] text-zinc-500 text-center italic">
+            * Dados, volumes e métricas ilustrativos simulando o fluxo em tempo real da plataforma.
+          </p>
         </div>
       </div>
     </section>

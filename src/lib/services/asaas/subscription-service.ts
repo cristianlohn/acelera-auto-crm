@@ -760,3 +760,49 @@ export async function cancelAsaasPendingCharge(identifier?: string | null): Prom
   }
 }
 
+/**
+ * Atualiza o valor e descrição da recorrência de uma assinatura no Asaas.
+ */
+export async function updateAsaasSubscriptionRecurrence(
+  subscriptionId: string,
+  value: number,
+  description?: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!subscriptionId) {
+    return { success: false, error: "ID da assinatura não fornecido." };
+  }
+
+  let config: { apiUrl: string; apiKey: string };
+  try {
+    config = getAsaasConfig();
+  } catch {
+    // Ambiente de desenvolvimento ou testes sem credenciais Asaas
+    return { success: true };
+  }
+
+  try {
+    const response = await fetch(`${config.apiUrl}/subscriptions/${subscriptionId}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        access_token: config.apiKey,
+      },
+      body: JSON.stringify({
+        value,
+        description: description || undefined,
+        updatePendingPayments: true,
+      }),
+    });
+
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.warn("[Asaas API] Falha ao atualizar valor da assinatura:", errBody);
+      return { success: false, error: `Falha na API Asaas: ${response.statusText}` };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("[Asaas API Error] Erro ao comunicar com Asaas:", err);
+    return { success: false, error: "Erro de comunicação com o gateway Asaas." };
+  }
+}

@@ -57,14 +57,14 @@ export const CANONICAL_PLANS: Record<"starter" | "pro" | "enterprise", PlanConfi
     annualPrice: 2970,
     priceYearly: 2970,
     features: [
-      "Até 3 vendedores",
-      "Gestor e Admin incluídos (não consomem vagas)",
-      "Cockpit do Gestor",
-      "Monitoramento de SLA",
-      "Roleta de Leads",
-      "Gestão de estoque integrada",
+      "Até 3 vendedores inclusos (gestores isentos)",
+      "Cockpit do Gestor com alertas em tempo real",
+      "Monitoramento de SLA de Primeiro Atendimento",
+      "Roleta inteligente de distribuição de leads (Round-Robin)",
+      "Perfis com visão separada (Gestor vs. Vendedor)",
+      "Gestão de estoque e carteira de clientes",
+      "Contato com o lead via WhatsApp em 1 clique",
       "Implantação assistida incluída (R$ 0 setup)",
-      "Suporte padrão",
     ],
   },
   pro: {
@@ -79,13 +79,13 @@ export const CANONICAL_PLANS: Record<"starter" | "pro" | "enterprise", PlanConfi
     annualPrice: 4970,
     priceYearly: 4970,
     features: [
-      "Até 8 vendedores",
-      "Gestor e Admin incluídos (não consomem vagas)",
-      "Gestão avançada de SLA e alertas críticos",
-      "Cockpit completo do gestor",
-      "Relatórios e métricas de conversão",
-      "Implantação assistida incluída (R$ 0 setup)",
-      "Suporte prioritário",
+      "Todos os recursos do Plano Starter +",
+      "Até 8 vendedores inclusos (gestores isentos)",
+      "Possibilidade de adicionar vendedores extras (R$ 49/mês)",
+      "Relatórios analíticos de funil e taxa de conversão",
+      "Auditoria de motivos de perda e desempenho individual",
+      "Exportação de dados e relatórios em CSV",
+      "Suporte prioritário via WhatsApp",
     ],
   },
   enterprise: {
@@ -101,11 +101,12 @@ export const CANONICAL_PLANS: Record<"starter" | "pro" | "enterprise", PlanConfi
     startingMonthlyPrice: 897,
     customPricing: true,
     features: [
-      "Equipe e capacidade sob consulta",
-      "Múltiplas lojas e filiais",
-      "API dedicada e integrações customizadas",
-      "Onboarding assistido e gerente de contas",
-      "SLA de suporte dedicado",
+      "Todos os recursos do Plano Pro +",
+      "Volume de vendedores customizado em contrato",
+      "Condições especiais para redes com múltiplos CNPJs",
+      "Suporte à integração direta via Webhooks e API",
+      "Onboarding assistido com gerente de contas dedicado",
+      "SLA de suporte prioritário",
     ],
   },
 };
@@ -118,5 +119,6 @@ export function formatPlanSellerLimit(sellerLimit: number | null | undefined): s
   if (sellerLimit === null || sellerLimit === undefined) {
     return "Equipe personalizada";
   }
-  return `Até ${sellerLimit} vendedores`;
+  return `Até ${sellerLimit} vendedores inclusos (gestores isentos)`;
 }
+

@@ -187,19 +187,17 @@ export function ManagerActionCockpit({
   const bottleneckMetrics: BottleneckMetric[] = [
     {
       id: "sem-retorno",
-      count: activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0,
+      count: overdueCount,
       label: "Leads sem retorno",
       description:
-        (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0) === 6
-          ? "6 novos leads na roleta aguardando primeiro contato"
-          : (activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0) > 0
-          ? `${activeMetrics.bottlenecks?.withoutReturnCount ?? activeMetrics.overdueLeadsCount ?? 0} novos leads na roleta aguardando primeiro contato`
-          : "Tempo de espera estourado (> 15 min no primeiro contato)",
+        overdueCount > 0
+          ? `${overdueCount} lead(s) com tempo de espera estourado (> 15 min)`
+          : "Nenhum lead com tempo de espera estourado (> 15 min)",
       icon: Clock,
-      color: "text-red-500",
-      bgColor: "bg-red-500/10",
-      borderColor: "border-red-500/30",
-      urgency: "critico",
+      color: overdueCount > 0 ? "text-red-500" : "text-emerald-500",
+      bgColor: overdueCount > 0 ? "bg-red-500/10" : "bg-emerald-500/10",
+      borderColor: overdueCount > 0 ? "border-red-500/30" : "border-emerald-500/30",
+      urgency: overdueCount > 0 ? "critico" : "info",
     },
     {
       id: "propostas-paradas",
@@ -401,16 +399,38 @@ export function ManagerActionCockpit({
                 </div>
               </div>
               <div className="mt-3 space-y-1.5">
-                <div className="flex items-center justify-between text-[10px] text-zinc-400">
-                  <span>Meta: &lt; 15 minutos</span>
-                  <span
-                    className="font-semibold text-red-400"
-                    title="Felipe Albuquerque aguardando primeiro atendimento há mais de 5 min"
-                  >
-                    {isDemoMode || overdueCount === 0 || overdueCount === 1
-                      ? "Leads com atendimento atrasado: 1"
-                      : `Leads com atendimento atrasado: ${overdueCount}`}
-                  </span>
+                <div className="flex flex-col gap-1 text-[10px] text-zinc-400">
+                  <div className="flex items-center justify-between">
+                    <span>Meta: &lt; 15 minutos</span>
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        overdueCount > 0 ? "text-red-400" : "text-emerald-400"
+                      )}
+                      title={
+                        overdueCount > 0
+                          ? `${overdueCount} lead(s) com atendimento atrasado`
+                          : "Felipe Albuquerque aguardando 1º contato há 8 min (dentro do prazo de 15 min)"
+                      }
+                    >
+                      Leads com atendimento atrasado: {overdueCount}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-emerald-400 font-medium">
+                      SLA Geral: {complianceRate}% no prazo
+                    </span>
+                    <span
+                      className="text-zinc-400"
+                      title={
+                        isDemoMode
+                          ? "Felipe Albuquerque, 8 min decorridos, dentro do prazo"
+                          : "Leads aguardando 1º contato"
+                      }
+                    >
+                      Leads aguardando 1º contato: {isDemoMode ? 1 : (activeMetrics.bottlenecks?.withoutReturnCount ?? 0)}
+                    </span>
+                  </div>
                 </div>
                 <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
                   <div

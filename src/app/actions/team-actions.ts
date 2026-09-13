@@ -21,6 +21,7 @@ import {
 import type { TeamMember, TeamRole, TeamSummaryMetrics, TeamCapacity } from "@/types/team";
 import { calculateEffectiveSellerLimit, type OrgCapacityInput } from "@/lib/team-data";
 import { ROULETTE_STATUS_COOKIE, getRouletteStatusMap } from "@/lib/services/team-status";
+import { adjustExtraSeatsRecurrenceAction as adjustExtraSeatsRecurrenceActionImpl } from "./billing-actions";
 
 export type { TeamMember, TeamMember as SalespersonMember, TeamCapacity } from "@/types/team";
 export type {
@@ -1473,4 +1474,11 @@ export async function removeMemberAction(memberId: string, orgId?: string) {
 }
 export async function acceptOrganizationInviteAction(token: string) {
   return acceptInviteAction(token);
+}
+
+export async function adjustExtraSeatsRecurrenceAction(params: {
+  extraSellersCount: number;
+  organizationId?: string;
+}) {
+  return adjustExtraSeatsRecurrenceActionImpl(params);
 }

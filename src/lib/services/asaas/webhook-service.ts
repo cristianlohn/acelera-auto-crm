@@ -9,8 +9,19 @@ import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import type { Database } from "@/types/database.types";
 import { resolvePeriodEndDate, calculatePeriodEndDate } from "./subscription-service";
+import {
+  resolvePlanFromData,
+  type PlanResolutionInput,
+  type PlanResolutionResult,
+} from "@/lib/billing/plan-resolution";
 
-export { resolvePeriodEndDate, calculatePeriodEndDate };
+export {
+  resolvePeriodEndDate,
+  calculatePeriodEndDate,
+  resolvePlanFromData,
+  type PlanResolutionInput,
+  type PlanResolutionResult,
+};
 
 type OrganizationUpdate = Database["public"]["Tables"]["organizations"]["Update"];
 
@@ -236,82 +247,6 @@ export const PLAN_LIMITS_CONFIG = {
   enterprise: { maxSellers: CANONICAL_PLANS.enterprise.sellerLimit, name: CANONICAL_PLANS.enterprise.name },
 } as const;
 
-/**
- * Identifica o plano correto a partir do externalReference, descrição, valor ou plano da organização.
- * Ordem de Resolução Mandatória:
- * 1. Prioridade Máxima: Identificador / Metadados (parsedRefPlan, description, orgPlan / pending_plan).
- * 2. Fallback por Preço com Mapeamento Exato e Trava de Segurança:
- *    - R$ 297,00 ou R$ 2.970,00 -> estritamente 'starter' (NÃO PODE SER ENTERPRISE).
- *    - R$ 497,00 ou R$ 4.970,00 -> estritamente 'pro' (NÃO PODE SER ENTERPRISE).
- *    - R$ 897,00, R$ 1.200,00, R$ 1.297,00 ou outro valor contratual específico que não coincida com Starter ou Pro -> 'enterprise'.
- * 3. Trava de Segurança: Sob nenhuma hipótese R$ 2.970 ou R$ 4.970 podem resultar em 'enterprise'.
- */
-export function resolvePlanFromData(
-  parsedRefPlan?: string | null,
-  description?: string | null,
-  paymentValue?: number | null,
-  fallbackOrgPlan?: string | null
-): "starter" | "pro" | "enterprise" {
-  // 1. Prioridade Máxima: Referência externa estruturada
-  if (parsedRefPlan) {
-    const cleanRef = parsedRefPlan.toLowerCase().trim();
-    if (cleanRef === "starter" || cleanRef === "pro" || cleanRef === "enterprise") {
-      return cleanRef;
-    }
-  }
-
-  // 2. Descrição textual explícita
-  const descUpper = (description || "").toUpperCase();
-  if (descUpper.includes("ENTERPRISE")) {
-    return "enterprise";
-  }
-  if (descUpper.includes("STARTER")) {
-    return "starter";
-  }
-  if (descUpper.includes("PRO")) {
-    return "pro";
-  }
-
-  // 3. Fallback por Preço com Mapeamento Exato e Trava de Segurança
-  if (paymentValue !== undefined && paymentValue !== null) {
-    const val = Math.round(paymentValue * 100) / 100;
-
-    // TRAVA ABSOLUTA: Preços canônicos exatos de Starter e Pro (mensal e anual)
-    if (val === 297 || val === 2970) {
-      return "starter";
-    }
-    if (val === 497 || val === 4970) {
-      return "pro";
-    }
-
-    // Valores Enterprise (ex: 897, 1200, 1297)
-    // Trava de segurança: Sob nenhuma hipótese 2970 ou 4970 podem cair aqui
-    if (val >= 800 && val !== 2970 && val !== 4970) {
-      return "enterprise";
-    }
-
-    // Intervalos de tolerância para Starter (ex: com centavos/taxas ou descontos promocionais)
-    if ((val >= 250 && val <= 350) || (val >= 2500 && val <= 3500)) {
-      return "starter";
-    }
-
-    // Intervalos de tolerância para Pro (ex: com centavos/taxas ou descontos promocionais)
-    if ((val >= 400 && val <= 600) || (val >= 4500 && val <= 5500)) {
-      return "pro";
-    }
-  }
-
-  // 4. Fallback contextual no plano pré-armazenado na organização
-  if (fallbackOrgPlan) {
-    const cleanOrg = fallbackOrgPlan.toLowerCase().trim();
-    if (cleanOrg === "starter" || cleanOrg === "pro" || cleanOrg === "enterprise") {
-      return cleanOrg;
-    }
-  }
-
-  return "pro";
-}
-
 export interface OrganizationFoundData {
   id: string;
   name: string;
@@ -324,6 +259,41 @@ export interface OrganizationFoundData {
   asaas_subscription_id?: string | null;
   asaas_customer_id?: string | null;
   max_sellers?: number | null;
+  extra_sellers_count?: number | null;
+}
+
+/**
+ * Busca a organização no banco de dados diretamente por seu ID único.
+ */
+export async function getOrganizationById(orgId?: string | null): Promise<OrganizationFoundData | null> {
+  if (!orgId) return null;
+
+  if (!isSupabaseServerConfigured()) {
+    return {
+      id: orgId,
+      name: "Concessionária Local",
+      plan: "starter",
+      subscription_status: "active",
+      extra_sellers_count: 0,
+    };
+  }
+
+  try {
+    const supabaseAdmin = createAdminClient();
+    const fields =
+      "id, name, plan, subscription_status, current_period_end, pending_plan, pending_invoice_id, asaas_subscription_id, asaas_customer_id, max_sellers, extra_sellers_count";
+
+    const { data } = await supabaseAdmin
+      .from("organizations")
+      .select(fields)
+      .eq("id", orgId)
+      .maybeSingle();
+
+    return data as unknown as OrganizationFoundData;
+  } catch (err) {
+    console.warn("[Asaas Webhook] Erro ao buscar organização por ID:", err);
+    return null;
+  }
 }
 
 /**
@@ -522,20 +492,23 @@ export async function processAsaasWebhookEvent(
     case "PAYMENT_RECEIVED": {
       actionTaken = "payment_confirmed_subscription_activated";
 
-      // 1. Identifica o Plano com 100% de Precisão (prioriza pending_plan se houver upgrade em andamento)
-      const resolvedPlan = resolvePlanFromData(
-        parsedRef?.plan,
-        payment?.description || subscription?.description,
-        payment?.value,
-        org?.pending_plan || org?.plan
-      );
-      const targetPlan = (org?.pending_plan as "starter" | "pro" | "enterprise") || resolvedPlan;
+      // 1. Obter organização atualizada e resolver plano com 100% de precisão
+      const currentOrg = org?.id ? (await getOrganizationById(org.id)) || org : org;
+      const resolution = resolvePlanFromData({
+        value: payment?.value,
+        description: payment?.description || subscription?.description,
+        externalReference: externalRef,
+        fallbackOrgPlan: currentOrg?.pending_plan || currentOrg?.plan,
+      });
+      const resolvedPlan = resolution.plan;
+      const targetPlan = (currentOrg?.pending_plan as "starter" | "pro" | "enterprise") || resolvedPlan;
       const maxSellers = targetPlan === "enterprise"
-        ? (org?.max_sellers ?? null)
+        ? (currentOrg?.max_sellers ?? null)
         : PLAN_LIMITS_CONFIG[targetPlan].maxSellers;
 
       // 2. Identifica o Ciclo do Plano (Anual vs Mensal)
       let planCycle =
+        resolution.cycle ||
         parsedRef?.cycle ||
         subscription?.cycle ||
         payment?.cycle ||
@@ -555,8 +528,8 @@ export async function processAsaasWebhookEvent(
       }
 
       if (
-        org?.billing_cycle === "YEARLY" ||
-        org?.billing_cycle === "ANNUAL"
+        currentOrg?.billing_cycle === "YEARLY" ||
+        currentOrg?.billing_cycle === "ANNUAL"
       ) {
         planCycle = "YEARLY";
       }
@@ -578,6 +551,10 @@ export async function processAsaasWebhookEvent(
             updated_at: new Date().toISOString(),
           };
 
+          if (resolution.extraSellersCount > 0) {
+            updatePayload.extra_sellers_count = resolution.extraSellersCount;
+          }
+
           if (subscriptionId) {
             updatePayload.asaas_subscription_id = subscriptionId;
           }
@@ -594,7 +571,7 @@ export async function processAsaasWebhookEvent(
             console.error(`[Asaas Webhook] Erro ao atualizar organização para 'active' e '${targetPlan}':`, updateError);
           } else {
             console.log(
-              `[Asaas Webhook] Organização ${targetOrgId} ativada com sucesso: plan='${targetPlan}', max_sellers=${maxSellers}, subscription_status='active', current_period_end='${currentPeriodEnd}' (ciclo: ${planCycle})`
+              `[Asaas Webhook] Organização ${targetOrgId} ativada com sucesso: plan='${targetPlan}', max_sellers=${maxSellers}, extra_sellers_count=${updatePayload.extra_sellers_count ?? currentOrg?.extra_sellers_count ?? 0}, subscription_status='active', current_period_end='${currentPeriodEnd}' (ciclo: ${planCycle})`
             );
           }
         } catch (err) {
@@ -770,14 +747,16 @@ export async function processAsaasWebhookEvent(
       if (isSupabaseServerConfigured() && targetOrgId) {
         try {
           const supabaseAdmin = createAdminClient();
-          const targetPlan = resolvePlanFromData(
-            parsedRef?.plan,
-            subscription?.description || payment?.description,
-            subscription?.value || payment?.value,
-            org?.pending_plan || org?.plan
-          );
+          const currentOrg = org?.id ? (await getOrganizationById(org.id)) || org : org;
+          const resolution = resolvePlanFromData({
+            value: subscription?.value || payment?.value,
+            description: subscription?.description || payment?.description,
+            externalReference: externalRef,
+            fallbackOrgPlan: currentOrg?.pending_plan || currentOrg?.plan,
+          });
+          const targetPlan = resolution.plan;
           const maxSellers = targetPlan === "enterprise"
-            ? (org?.max_sellers ?? null)
+            ? (currentOrg?.max_sellers ?? null)
             : PLAN_LIMITS_CONFIG[targetPlan].maxSellers;
 
           const updatePayload: OrganizationUpdate = {
@@ -785,6 +764,10 @@ export async function processAsaasWebhookEvent(
             current_period_end: periodEnd,
             updated_at: new Date().toISOString(),
           };
+
+          if (resolution.extraSellersCount > 0) {
+            updatePayload.extra_sellers_count = resolution.extraSellersCount;
+          }
 
           if (customerId) updatePayload.asaas_customer_id = customerId;
           if (subscriptionId) updatePayload.asaas_subscription_id = subscriptionId;

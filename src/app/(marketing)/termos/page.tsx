@@ -80,6 +80,9 @@ export default function TermosPage() {
               <p>
                 1.2. A licença outorgada não implica, em hipótese alguma, na cessão, venda ou transferência definitiva do código-fonte, marca, algoritmos ou infraestrutura de software do Acelera Auto CRM.
               </p>
+              <p>
+                1.3. <strong>Meta de Disponibilidade (SLA de Uptime):</strong> A Licenciante estabelece como meta de disponibilidade (uptime) da plataforma o percentual de <strong>99,5% (noventa e nove inteiros e cinco décimos por cento)</strong> ao mês, ressalvadas paradas programadas para manutenção preventiva comunicadas com antecedência e oscilações decorrentes de instabilidades generalizadas de infraestrutura de rede externa ou de terceiros.
+              </p>
             </div>
           </section>
 
@@ -137,7 +140,21 @@ export default function TermosPage() {
                 4.1. O acesso ao sistema está condicionado ao pagamento da mensalidade correspondente ao plano escolhido (Starter, Pro ou Enterprise) e da respectiva <strong>Taxa de Implantação e Onboarding Guiado (Setup)</strong> no valor estipulado na contratação.
               </p>
               <p>
-                4.2. Em caso de inadimplência superior a <strong>5 (cinco) dias úteis</strong> a contar da data de vencimento da fatura, o acesso ao painel do CRM poderá ser suspenso temporariamente até a regularização financeira, sem prejuízo da manutenção dos dados cadastrais pelo prazo regulamentar.
+                4.2. <strong>Capacidade Canônica dos Planos:</strong>
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-zinc-400">
+                <li><strong>Plano Starter:</strong> contempla capacidade de até <strong>3 (três) vendedores comerciais</strong> ativos simultaneamente na roleta de leads;</li>
+                <li><strong>Plano Pro:</strong> contempla capacidade de até <strong>8 (oito) vendedores comerciais</strong> ativos simultaneamente na roleta de leads;</li>
+                <li><strong>Plano Enterprise:</strong> contempla capacidade customizada sob demanda acordada na contratação institucional.</li>
+              </ul>
+              <p>
+                4.3. <strong>Assentos Extras de Vendedores:</strong> A Loja Contratante poderá contratar assentos adicionais de vendedores comerciais de forma dinâmica ao valor fixo de <strong>R$ 49,00/mês por vendedor extra</strong>, preservando todas as vantagens e estabilidade do seu plano contratado sem a necessidade de migração forçada de categoria.
+              </p>
+              <p>
+                4.4. <strong>Isenção de Cargos de Gestão:</strong> Usuários com atribuição de papéis de gestão e supervisão (Administrador, Gerente ou Diretor) são <strong>estritamente isentos</strong> da contagem de vagas de vendedores na roleta de atendimento comercial, possuindo acesso administrativo ilimitado sem consumir assentos contratados.
+              </p>
+              <p>
+                4.5. Em caso de inadimplência superior a <strong>5 (cinco) dias úteis</strong> a contar da data de vencimento da fatura, o acesso ao painel do CRM poderá ser suspenso temporariamente até a regularização financeira, sem prejuízo da manutenção dos dados cadastrais pelo prazo regulamentar.
               </p>
             </div>
           </section>
@@ -152,10 +169,10 @@ export default function TermosPage() {
             </div>
             <div className="pl-9 space-y-2">
               <p>
-                5.1. A Loja Contratante poderá solicitar o cancelamento de sua assinatura a qualquer momento, sem fidelidade forçada, respeitadas as condições e eventuais descontos concedidos em planos de periodicidade anual.
+                5.1. <strong>Política &quot;Cancele quando quiser&quot;:</strong> Em assinaturas com ciclo de cobrança mensal, a Loja Contratante usufrui da política <em>&quot;Cancele quando quiser&quot;</em>, podendo solicitar a descontinuação do serviço a qualquer tempo sem aplicação de multas rescisórias, cláusulas punitivas de carência ou fidelidade compulsória. Em planos de contratação anual com descontos concedidos, aplicam-se as condições pactuadas na adesão.
               </p>
               <p>
-                5.2. Antes do encerramento definitivo da conta, o administrador poderá efetuar o download e a <strong>exportação completa dos dados cadastrais de leads e veículos em formato aberto padrão (CSV)</strong>.
+                5.2. <strong>Exportação Completa (CSV):</strong> Antes do encerramento definitivo da conta, é garantido ao administrador o direito irrestrito de efetuar o download e a <strong>exportação completa dos dados cadastrais de leads e veículos em formato aberto padrão (CSV)</strong>, assegurando a soberania e a portabilidade das informações da concessionária.
               </p>
             </div>
           </section>

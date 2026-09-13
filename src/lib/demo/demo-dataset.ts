@@ -291,7 +291,7 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       firstContactAt: hoursAgo(15.8),
       lastContactAt: hoursAgo(2),
       scheduledFollowUpAt: hoursAgo(2), // Agendamento vencido há 2h
-      notes: "Em negociação. Agendamento de follow-up vencido há 2 horas. Aciona Ações Críticas no Cockpit.",
+      notes: "Em negociação. Agendamento de follow-up vencido há 2 horas.",
     },
 
     // 4. Cenário D: Visita / Test-Drive Agendado (Horário útil no futuro)

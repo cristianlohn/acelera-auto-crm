@@ -65,12 +65,12 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
 
     // Assert (Então o badge e a headline principal contra perda de leads são exibidos)
     expect(
-      screen.getAllByText(/o crm que não deixa sua revenda perder leads por demora no atendimento/i).length
+      screen.getAllByText(/identifique leads sem retorno antes que esfriem/i).length
     ).toBeGreaterThanOrEqual(1);
 
     expect(
       screen.getByRole("heading", {
-        name: /o crm que não deixa sua revenda perder leads por demora no atendimento/i,
+        name: /identifique leads sem retorno antes que esfriem/i,
       })
     ).toBeInTheDocument();
 
@@ -81,22 +81,19 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
 
     expect(
       screen.getByRole("button", {
-        name: /experimentar demonstração gratuita/i,
+        name: /começar teste grátis de 14 dias/i,
       })
     ).toBeInTheDocument();
 
-    const tourBtn = screen.getByRole("button", {
-      name: /agendar tour guiado/i,
+    const demoBtns = screen.getAllByRole("button", {
+      name: /explorar demonstração/i,
     });
-    expect(tourBtn).toBeInTheDocument();
+    expect(demoBtns.length).toBeGreaterThanOrEqual(1);
 
-    const tourLink = screen.getByRole("link", {
-      name: /agendar tour guiado/i,
+    const demoLinks = screen.getAllByRole("link", {
+      name: /explorar demonstração/i,
     });
-    expect(tourLink).toHaveAttribute("href", expect.stringContaining("5547996348698"));
-    expect(tourLink).toHaveAttribute("href", expect.stringContaining("tour%20guiado"));
-    expect(tourLink).toHaveAttribute("target", "_blank");
-    expect(tourLink).toHaveAttribute("rel", "noopener noreferrer");
+    expect(demoLinks[0]).toHaveAttribute("href", "/dashboard");
   });
 
   it("[IT-11.3] Deve renderizar os 4 cards de funcionalidades no Bento Grid", () => {
@@ -241,7 +238,8 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     const leadsLinks = links.filter(
       (link) =>
         link.getAttribute("href") === "/dashboard/leads" ||
-        link.getAttribute("href") === "/leads"
+        link.getAttribute("href") === "/leads" ||
+        link.getAttribute("href") === "/dashboard"
     );
 
     expect(leadsLinks.length).toBeGreaterThanOrEqual(4);

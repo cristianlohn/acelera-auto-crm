@@ -141,8 +141,8 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
         name: "Lead A3",
         status: "novo",
         origin: "site",
-        seller_name: "Camila Dias",
-        seller_id: "usr-camila",
+        seller_name: "Amanda Souza",
+        seller_id: "usr-amanda",
         vehicle_interest: "Jeep Compass",
         created_at: now,
       },
@@ -179,7 +179,7 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
     expect(data.kpis.conversionRate).toBe(PERIOD_METRICS.month.kpis.conversionRate);
     expect(data.funnel).toHaveLength(8);
     expect(data.channels).toHaveLength(6);
-    expect(data.sellers).toHaveLength(2);
+    expect(data.sellers).toHaveLength(3);
 
     // Nunca invoca createServerSupabaseClient
     expect(supabaseServerModule.createServerSupabaseClient).not.toHaveBeenCalled();
@@ -267,8 +267,8 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
     expect(data.sellers[0].dealsCount).toBe(1);
     expect(data.sellers[0].revenue).toBe(150000);
 
-    // Camila Dias teve 0 vendas fechadas e 1 lead
-    expect(data.sellers[1].name).toBe("Camila Dias");
+    // Amanda Souza teve 0 vendas fechadas e 1 lead
+    expect(data.sellers[1].name).toBe("Amanda Souza");
     expect(data.sellers[1].dealsCount).toBe(0);
     expect(data.sellers[1].revenue).toBe(0);
   });

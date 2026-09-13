@@ -418,7 +418,7 @@ export function AddKanbanLeadModal({
                 <option value="new" className="bg-zinc-900 text-white">Novo Lead (Aguardando Resposta)</option>
                 <option value="in_contact" className="bg-zinc-900 text-white">Primeiro Contato Realizado</option>
                 <option value="visit_scheduled" className="bg-zinc-900 text-white">Visita / Test-Drive Agendado</option>
-                <option value="proposal_fi" className="bg-zinc-900 text-white">Proposta / Financiamento F&I</option>
+                <option value="proposal_fi" className="bg-zinc-900 text-white">Financiamento / F&I</option>
               </select>
             </div>
           </div>

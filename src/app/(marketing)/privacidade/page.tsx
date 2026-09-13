@@ -76,10 +76,10 @@ export default function PrivacidadePage() {
             </div>
             <div className="pl-9 space-y-2">
               <p>
-                1.1. <strong>Loja/Concessionária Contratante (CONTROLADORA):</strong> É a titular e responsável direta pela coleta, consentimento e base legal do tratamento dos dados de seus clientes, potenciais compradores e leads automotivos.
+                1.1. <strong>Loja/Concessionária Contratante (CONTROLADORA):</strong> É a titular e responsável direta pelas decisões referentes ao tratamento de dados pessoais, coleta de consentimento, legítimo interesse e definição das diretrizes de atendimento aos clientes e potenciais compradores (leads automotivos).
               </p>
               <p>
-                1.2. <strong>Acelera Auto CRM / Catuto Soluções Digitais (OPERADORA):</strong> Atua estritamente como provedora da infraestrutura técnica de software, armazenamento em nuvem e processamento dos dados, sob as ordens e instruções da Loja Controladora.
+                1.2. <strong>Acelera Auto CRM / Catuto Soluções Digitais (OPERADORA):</strong> Atua estritamente como agente de tratamento na qualidade de Operadora, fornecendo a infraestrutura tecnológica de software, processamento automatizado de regras de roleta e armazenamento seguro em nuvem, sob as ordens e instruções lícitas da Loja Controladora.
               </p>
             </div>
           </section>
@@ -90,17 +90,29 @@ export default function PrivacidadePage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold">
                 2
               </div>
-              <h2>Coleta e Finalidade dos Dados</h2>
+              <h2>Bases Legais e Finalidade do Tratamento</h2>
             </div>
             <div className="pl-9 space-y-2">
               <p>
-                2.1. <strong>Dados da Loja Contratante:</strong> Coletamos Razão Social, Nome Fantasia, CNPJ/CPF, e-mail corporativo, telefone e dados de login estritamente para a emissão de faturamento, autenticação segura e suporte técnico.
+                2.1. O tratamento de dados pessoais realizado no âmbito da plataforma Acelera Auto CRM está estritamente fundamentado nas seguintes hipóteses legais previstas no <strong>Artigo 7º da Lei Geral de Proteção de Dados (Lei nº 13.709/2018)</strong>:
               </p>
+              <ul className="list-disc pl-5 space-y-1 text-zinc-400">
+                <li>
+                  <strong>Art. 7º, V (Execução de Contrato):</strong> Tratamento estritamente necessário para a execução do contrato de prestação de serviços de CRM e licenciamento de software SaaS, incluindo autenticação de usuários, faturamento de assinaturas, automação de funil comercial e distribuição de leads.
+                </li>
+                <li>
+                  <strong>Art. 7º, IX (Legítimo Interesse):</strong> Tratamento voltado ao apoio, fomento e monitoramento de qualidade do atendimento comercial automotivo (como cronometragem de SLA de primeiro contato), prevenção a fraudes e garantia da segurança das redes e sistemas.
+                </li>
+              </ul>
               <p>
-                2.2. <strong>Dados de Leads e Compradores:</strong> O sistema armazena Nome, Telefone/WhatsApp, e-mail, veículo de interesse e histórico de interações enviados via Webhook, formulários integrados ou cadastro manual, com a finalidade exclusiva de organização do Funil Kanban e roteamento ágil de vendas.
+                2.2. <strong>Dados Coletados:</strong>
               </p>
+              <ul className="list-disc pl-5 space-y-1 text-zinc-400">
+                <li><strong>Dados da Loja Contratante:</strong> Razão Social, Nome Fantasia, CNPJ/CPF, e-mail corporativo, telefone e credenciais criptografadas de acesso.</li>
+                <li><strong>Dados de Leads e Compradores:</strong> Nome completo, telefone/WhatsApp, e-mail, veículo de interesse e histórico de conversas capturados via formulários, portais parceiros (Webmotors, iCarros, OLX) ou inserção manual no painel.</li>
+              </ul>
               <p>
-                2.3. Em nenhuma circunstância o Acelera Auto CRM comercializa, compartilha ou utiliza os dados de leads da sua concessionária para finalidades alheias à execução do serviço contratado.
+                2.3. <strong>Compromisso Categórico de Não-Comercialização:</strong> A Licenciante assume o compromisso irrevogável de que <strong>em nenhuma hipótese comercializa, aluga, monetiza, cede ou compartilha os dados de clientes, estoques ou leads de sua concessionária com terceiros</strong> para finalidades publicitárias, campanhas não autorizadas ou enriquecimento de bases externas.
               </p>
             </div>
           </section>
@@ -118,10 +130,10 @@ export default function PrivacidadePage() {
                 3.1. Toda a comunicação trafegada entre o navegador do usuário e nossos servidores é protegida por criptografia de ponta a ponta via <strong>HTTPS / TLS 1.3</strong>.
               </p>
               <p>
-                3.2. Os dados residem em bancos relacionais PostgreSQL com <strong>Row Level Security (RLS)</strong> ativado, garantindo isolamento lógico estrito entre tenants (lojas). Nenhuma concessionária possui visibilidade sobre estoques, leads ou métricas de outra empresa.
+                3.2. <strong>Isolamento Lógico Multi-Tenant:</strong> Os dados residem em bancos relacionais PostgreSQL com <strong>Row Level Security (RLS)</strong> ativado e auditado. Cada consulta ao banco de dados valida criptograficamente o identificador único do tenant da loja (organização), impedindo categoricamente vazamentos cruzados de estoques, leads ou métricas financeiras entre lojas concorrentes.
               </p>
               <p>
-                3.3. As senhas de acesso são irreversivelmente criptografadas através de algoritmos de hashing seguro (bcrypt/argon2).
+                3.3. As senhas de acesso e tokens de integração são irreversivelmente processados com algoritmos de hashing seguro de última geração (bcrypt e HMAC-SHA256).
               </p>
             </div>
           </section>
@@ -132,21 +144,23 @@ export default function PrivacidadePage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold">
                 4
               </div>
-              <h2>Direitos dos Titulares de Dados</h2>
+              <h2>Subprocessadores Autorizados de Infraestrutura</h2>
             </div>
             <div className="pl-9 space-y-2">
               <p>
-                4.1. Conforme previsto no Artigo 18 da LGPD, os titulares de dados pessoais possuem direito de:
+                4.1. Para a prestação de serviços com nível corporativo de segurança e disponibilidade, a Operadora mantém contrato de subprocessamento com os seguintes provedores homologados:
               </p>
               <ul className="list-disc pl-5 space-y-1 text-zinc-400">
-                <li>Confirmar a existência e obter acesso aos seus dados pessoais armazenados;</li>
-                <li>Solicitar a retificação de dados incompletos, inexatos ou desatualizados;</li>
-                <li>Requerer a exclusão definitiva ou anonimização de seus registros;</li>
-                <li>Obter a portabilidade dos dados através de exportação padrão em formato CSV.</li>
+                <li>
+                  <strong>Supabase Inc.:</strong> Infraestrutura de banco de dados PostgreSQL relacional gerenciado, autenticação com isolamento RLS e backups contínuos em nuvem de alta segurança.
+                </li>
+                <li>
+                  <strong>Asaas Gestão Financeira S.A.:</strong> Gateway financeiro e processamento seguro de cobranças (Pix, cartões de crédito e boletos) sob certificação PCI-DSS e regulação do Banco Central do Brasil.
+                </li>
+                <li>
+                  <strong>Vercel Inc.:</strong> Infraestrutura de computação de borda (Edge Network) e hospedagem de aplicação com proteção anti-DDoS e certificações SOC 2 Tipo II e ISO 27001.
+                </li>
               </ul>
-              <p>
-                4.2. As solicitações devem ser geridas diretamente pelo painel administrativo da Loja Controladora ou encaminhadas ao nosso canal de privacidade.
-              </p>
             </div>
           </section>
 
@@ -156,11 +170,35 @@ export default function PrivacidadePage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold">
                 5
               </div>
+              <h2>Direitos dos Titulares de Dados</h2>
+            </div>
+            <div className="pl-9 space-y-2">
+              <p>
+                5.1. Conforme previsto no Artigo 18 da LGPD, os titulares de dados pessoais possuem direito de:
+              </p>
+              <ul className="list-disc pl-5 space-y-1 text-zinc-400">
+                <li>Confirmar a existência e obter acesso aos seus dados pessoais armazenados;</li>
+                <li>Solicitar a retificação de dados incompletos, inexatos ou desatualizados;</li>
+                <li>Requerer a exclusão definitiva ou anonimização de seus registros;</li>
+                <li>Obter a portabilidade dos dados através de exportação padrão em formato CSV.</li>
+              </ul>
+              <p>
+                5.2. As solicitações devem ser geridas diretamente pelo painel administrativo da Loja Controladora ou encaminhadas ao nosso canal de privacidade.
+              </p>
+            </div>
+          </section>
+
+          {/* Cláusula 6 */}
+          <section className="space-y-3">
+            <div className="flex items-center gap-2 text-base sm:text-lg font-bold text-white">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold">
+                6
+              </div>
               <h2>Canal de Contato e Encarregado (DPO)</h2>
             </div>
             <div className="pl-9 space-y-2">
               <p>
-                5.1. Para exercer quaisquer direitos decorrentes da LGPD ou esclarecer dúvidas operacionais sobre esta Política de Privacidade, entre em contato com nosso Encarregado de Proteção de Dados:
+                6.1. Para exercer quaisquer direitos decorrentes da LGPD ou esclarecer dúvidas operacionais sobre esta Política de Privacidade, entre em contato com nosso Encarregado de Proteção de Dados:
               </p>
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3.5 text-emerald-300 font-medium space-y-1">
                 <p className="flex items-center gap-2">

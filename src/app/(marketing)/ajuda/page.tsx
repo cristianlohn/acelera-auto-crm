@@ -1,12 +1,16 @@
 /**
  * @file page.tsx
- * @description Central de Ajuda & FAQ Público do Acelera Auto CRM (/ajuda).
+ * @description Central de Ajuda & FAQ do Acelera Auto CRM (/ajuda).
  *
  * Funcionalidades:
- * - Header com busca instantânea e filtros por categorias.
+ * - Header com busca instantânea e filtros por categorias canônicas.
  * - Guia de Início Rápido em 3 Passos.
- * - Respostas Comerciais e Técnicas Estruturadas (Roleta de Vendedores, ERPs Legados, Estoque/CSV, LGPD).
- * - Canais de Suporte Direto e Integração.
+ * - 4 Seções de Accordions Canônicas:
+ *   1. "Como Conectar Webhooks de Portais"
+ *   2. "Roleta e Regras de SLA"
+ *   3. "Gestão de Equipe e Assentos Extras"
+ *   4. "Segurança e Exportação de Dados"
+ * - Canais de Suporte Direto (WhatsApp e E-mail Oficial) e Guia de Integração.
  */
 
 "use client";
@@ -19,7 +23,7 @@ import {
   Sparkles,
   MessageCircle,
   Cpu,
-  Layers,
+  Users,
   ShieldCheck,
   Zap,
   Mail,
@@ -31,24 +35,151 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { FAQ_QUESTIONS } from "@/components/landing/FAQSection";
 import { CONTACT_CONFIG, getSupportWhatsAppUrl } from "@/config/contact";
+
+export interface HelpTopicItem {
+  id: string;
+  category: "webhooks" | "roleta" | "equipe" | "seguranca";
+  categoryLabel: string;
+  question: string;
+  answer: string;
+  highlight?: string;
+}
+
+export const CANONICAL_HELP_TOPICS: HelpTopicItem[] = [
+  // 1. Como Conectar Webhooks de Portais
+  {
+    id: "webhooks-1",
+    category: "webhooks",
+    categoryLabel: "Como Conectar Webhooks de Portais",
+    question: "Como conectar Webmotors, iCarros, OLX e portais automotivos via Webhook?",
+    answer:
+      "Configure o webhook no portal parceiro apontando para a URL canônica https://app.aceleraautocrm.com.br/api/v1/webhooks/leads. No cabeçalho da requisição HTTP, envie a sua chave de autenticação x-api-key gerada no menu 'Configurações > Integrações'. Novos leads são recebidos em milissegundos, classificados e inseridos automaticamente na coluna 'Novo' do Funil Kanban e na roleta de distribuição da equipe.",
+    highlight: "Recebimento instantâneo em tempo real com validação segura de API Key.",
+  },
+  {
+    id: "webhooks-2",
+    category: "webhooks",
+    categoryLabel: "Como Conectar Webhooks de Portais",
+    question: "Como integrar formulários do site e campanhas de Meta Ads / Google Ads?",
+    answer:
+      "Basta utilizar o mesmo endpoint POST /api/v1/webhooks/leads enviando o payload no formato JSON. Se você utiliza ferramentas de automação como Zapier, Make, n8n ou formulários Elementor e RD Station, basta mapear os campos 'name', 'phone', 'email' e 'notes' (com o modelo do veículo). O CRM faz a sanitização do número de WhatsApp e atribuição imediata ao vendedor da vez.",
+    highlight: "Compatível com Zapier, Make, n8n, Meta Lead Ads e formulários de sites.",
+  },
+  {
+    id: "webhooks-3",
+    category: "webhooks",
+    categoryLabel: "Como Conectar Webhooks de Portais",
+    question: "Quais campos são aceitos no payload JSON do Webhook de Leads?",
+    answer:
+      "O payload suporta: name (nome completo do cliente), phone (telefone com DDD), email, model (veículo de interesse), origin (ex: webmotors, icarros, olx, site, meta_ads), notes (mensagem original do lead) e plate (placa do carro ofertado na troca). O sistema possui tratamento tolerante a falhas (graceful degradation), garantindo taxa zero de perda de leads mesmo que campos secundários venham em branco.",
+    highlight: "Processamento tolerante a falhas: nenhum lead é descartado.",
+  },
+
+  // 2. Roleta e Regras de SLA
+  {
+    id: "roleta-1",
+    category: "roleta",
+    categoryLabel: "Roleta e Regras de SLA",
+    question: "Como funciona a Roleta Automática (Round-Robin) na distribuição de leads?",
+    answer:
+      "A Roleta de Vendedores distribui os novos leads de forma rigorosamente sequencial e balanceada entre todos os consultores comerciais ativos da concessionária. Caso algum vendedor esteja ausente, de folga ou inativo, o sistema pula para o próximo automaticamente. O gestor também pode efetuar atribuição manual ou remanejamento de leads a qualquer momento pelo Kanban.",
+    highlight: "Distribuição sequencial justa e automática entre vendedores ativos.",
+  },
+  {
+    id: "roleta-2",
+    category: "roleta",
+    categoryLabel: "Roleta e Regras de SLA",
+    question: "Quais são os limites de tempo e o funcionamento do semáforo de SLA?",
+    answer:
+      "O Acelera Auto CRM adota uma régua visual canônica de SLA no Kanban: 🟢 Verde (ótimo atendimento, até 5 minutos), 🟡 Amarelo (atenção necessária, entre 5 e 10 minutos) e 🔴 Vermelho (SLA Estourado, acima de 10 minutos sem primeiro contato). Assim que o vendedor aciona o botão de WhatsApp ou avança o lead para 'Em Atendimento', o cronômetro do SLA é automaticamente interrompido e a métrica de tempo de resposta é salva nos relatórios.",
+    highlight: "Meta canônica de primeiro contato em até 10 minutos.",
+  },
+  {
+    id: "roleta-3",
+    category: "roleta",
+    categoryLabel: "Roleta e Regras de SLA",
+    question: "O que é o cockpit 'Dinheiro na Mesa' e como cobrar vendedores em atraso?",
+    answer:
+      "O painel executivo 'Dinheiro na Mesa' rastreia gargalos e negócios parados em tempo real: leads com primeiro contato atrasado (>10 min), propostas enviadas sem retorno (>24h) e clientes com financiamento pendente (>48h). O gestor conta com um botão de cobrança rápida em 1 clique que abre o WhatsApp do vendedor com mensagem personalizada para destravar a negociação.",
+    highlight: "Cobrança via WhatsApp em 1 clique pelo gestor comercial.",
+  },
+
+  // 3. Gestão de Equipe e Assentos Extras
+  {
+    id: "equipe-1",
+    category: "equipe",
+    categoryLabel: "Gestão de Equipe e Assentos Extras",
+    question: "Qual a capacidade de vendedores nos planos Starter e Pro?",
+    answer:
+      "O Plano Starter contempla capacidade de até 3 (três) vendedores comerciais simultâneos na roleta de distribuição. O Plano Pro contempla capacidade nativa para até 8 (oito) vendedores comerciais. Para redes e grandes grupos com mais de 8 vendedores que demandem arquitetura dedicada, disponibilizamos o Plano Enterprise com capacidade customizada.",
+    highlight: "Starter: 3 vendedores • Pro: 8 vendedores • Enterprise: customizado.",
+  },
+  {
+    id: "equipe-2",
+    category: "equipe",
+    categoryLabel: "Gestão de Equipe e Assentos Extras",
+    question: "Como funciona a contratação de Assentos Extras (R$ 49/mês)?",
+    answer:
+      "Se sua loja crescer e precisar de mais vendedores sem necessidade de migrar para uma categoria superior de plano, você pode contratar assentos adicionais de vendedores comerciais por apenas R$ 49,00/mês por assento extra. O valor é consolidado de forma transparente na fatura recorrente do Asaas e a liberação de novos vendedores no painel ocorre de forma imediata.",
+    highlight: "Assentos adicionais por R$ 49/mês sem upgrade forçado de plano.",
+  },
+  {
+    id: "equipe-3",
+    category: "equipe",
+    categoryLabel: "Gestão de Equipe e Assentos Extras",
+    question: "Cargos de gestão (Admin, Gerente e Diretor) ocupam vagas de vendedores?",
+    answer:
+      "Não! De acordo com a arquitetura canônica do produto, usuários com papéis de Administrador, Gerente ou Diretor são 100% isentos da cota de vagas da roleta. Eles possuem acesso administrativo irrestrito ao sistema, visualizam todos os dados e configuram regras sem consumir os assentos de vendedores contratados.",
+    highlight: "Isenção total: Admin, Gerente e Diretor não consomem vagas de vendedores.",
+  },
+
+  // 4. Segurança e Exportação de Dados
+  {
+    id: "seguranca-1",
+    category: "seguranca",
+    categoryLabel: "Segurança e Exportação de Dados",
+    question: "Como o Acelera Auto CRM garante o isolamento multi-tenant dos dados?",
+    answer:
+      "A segurança dos dados é garantida por políticas estritas de Row Level Security (RLS) no PostgreSQL / Supabase. Cada requisição ao banco de dados valida criptograficamente a organização do usuário logado, impedindo em nível de infraestrutura qualquer possibilidade de uma loja concorrente visualizar leads, dados de estoque ou conversas de outra empresa.",
+    highlight: "Isolamento lógico absoluto multi-tenant via Row Level Security (RLS).",
+  },
+  {
+    id: "seguranca-2",
+    category: "seguranca",
+    categoryLabel: "Segurança e Exportação de Dados",
+    question: "Quais são os subprocessadores autorizados sob a LGPD?",
+    answer:
+      "Operamos com infraestrutura de nuvem de padrão corporativo: Supabase Inc. (banco de dados PostgreSQL com RLS, backups criptografados e autenticação segura), Asaas Gestão Financeira S.A. (gateway financeiro regulado pelo Banco Central e certificado PCI-DSS) e Vercel Inc. (hospedagem em nuvem de borda com certificações SOC 2 Tipo II e ISO 27001).",
+    highlight: "Subprocessadores homologados: Supabase, Asaas e Vercel.",
+  },
+  {
+    id: "seguranca-3",
+    category: "seguranca",
+    categoryLabel: "Segurança e Exportação de Dados",
+    question: "Como funciona a exportação em CSV e a política 'Cancele quando quiser'?",
+    answer:
+      "Sua concessionária tem total soberania sobre suas informações. O administrador pode a qualquer momento exportar os dados completos de leads, histórico e estoque de veículos em formato padrão (.CSV). Além disso, em planos mensais vigora a política 'Cancele quando quiser', permitindo o cancelamento a qualquer momento sem multas rescisórias ou amarras.",
+    highlight: "Exportação irrestrita em CSV e política 'Cancele quando quiser' sem multas.",
+  },
+];
 
 const HELP_CATEGORIES = [
   { id: "todos", label: "Todas as Dúvidas", icon: Sparkles },
-  { id: "roleta", label: "Atendimento & Roleta", icon: MessageCircle },
-  { id: "erps", label: "ERPs & Webhooks", icon: Cpu },
-  { id: "estoque", label: "Estoque & Fotos", icon: Layers },
-  { id: "seguranca", label: "Segurança & LGPD", icon: ShieldCheck },
+  { id: "webhooks", label: "Como Conectar Webhooks de Portais", icon: Cpu },
+  { id: "roleta", label: "Roleta e Regras de SLA", icon: MessageCircle },
+  { id: "equipe", label: "Gestão de Equipe e Assentos Extras", icon: Users },
+  { id: "seguranca", label: "Segurança e Exportação de Dados", icon: ShieldCheck },
 ];
 
 export default function MarketingHelpPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("todos");
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({
-    "faq-roleta-1": true,
-    "faq-roleta-2": true,
-    "faq-erps-1": true,
+    "webhooks-1": true,
+    "roleta-1": true,
+    "equipe-1": true,
+    "seguranca-1": true,
   });
 
   const toggleItem = (id: string) => {
@@ -56,7 +187,7 @@ export default function MarketingHelpPage() {
   };
 
   const filteredQuestions = useMemo(() => {
-    return FAQ_QUESTIONS.filter((item) => {
+    return CANONICAL_HELP_TOPICS.filter((item) => {
       const matchCategory =
         selectedCategory === "todos" || item.category === selectedCategory;
       const q = searchQuery.toLowerCase().trim();
@@ -69,6 +200,23 @@ export default function MarketingHelpPage() {
       return matchCategory && matchSearch;
     });
   }, [selectedCategory, searchQuery]);
+
+  // Agrupamento das perguntas pelas 4 categorias canônicas para visualização estruturada
+  const groupedSections = useMemo(() => {
+    const categories: { id: "webhooks" | "roleta" | "equipe" | "seguranca"; title: string; icon: typeof Cpu }[] = [
+      { id: "webhooks", title: "Como Conectar Webhooks de Portais", icon: Cpu },
+      { id: "roleta", title: "Roleta e Regras de SLA", icon: MessageCircle },
+      { id: "equipe", title: "Gestão de Equipe e Assentos Extras", icon: Users },
+      { id: "seguranca", title: "Segurança e Exportação de Dados", icon: ShieldCheck },
+    ];
+
+    return categories
+      .map((cat) => ({
+        ...cat,
+        items: filteredQuestions.filter((item) => item.category === cat.id),
+      }))
+      .filter((cat) => cat.items.length > 0);
+  }, [filteredQuestions]);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white py-12 sm:py-20">
@@ -99,7 +247,7 @@ export default function MarketingHelpPage() {
             Central de Ajuda & Guia Comercial
           </h1>
           <p className="mt-3 text-sm sm:text-base text-zinc-400">
-            Respostas completas sobre a operação do Acelera Auto CRM, automação de WhatsApp, integração com ERPs e segurança.
+            Respostas completas sobre a operação do Acelera Auto CRM, conexão de webhooks, roleta de SLA, gestão de equipe e conformidade com a LGPD.
           </p>
 
           {/* Barra de Busca Instantânea */}
@@ -109,7 +257,7 @@ export default function MarketingHelpPage() {
               id="help-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Digite sua dúvida (ex: roleta, ERP Altimus, webhook, LGPD)..."
+              placeholder="Buscar por webhook, roleta, SLA, assentos extras, LGPD..."
               className="pl-11 pr-4 bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-500 focus-visible:ring-orange-500 h-12 rounded-2xl text-sm"
               aria-label="Buscar na central de ajuda"
             />
@@ -190,9 +338,9 @@ export default function MarketingHelpPage() {
           })}
         </div>
 
-        {/* Tópicos de Ajuda / FAQ Accordion */}
-        <div className="mt-8 space-y-3">
-          {filteredQuestions.length === 0 ? (
+        {/* 4 Seções de Accordions Canônicas */}
+        <div className="mt-10 space-y-8">
+          {groupedSections.length === 0 ? (
             <div className="text-center py-12 border border-dashed border-zinc-800 rounded-2xl bg-zinc-950 p-6">
               <p className="text-sm text-zinc-400">
                 Nenhum tópico encontrado para &ldquo;{searchQuery}&rdquo;.
@@ -210,63 +358,81 @@ export default function MarketingHelpPage() {
               </Button>
             </div>
           ) : (
-            filteredQuestions.map((item) => {
-              const isOpen = Boolean(openItems[item.id]);
+            groupedSections.map((section) => {
+              const SectionIcon = section.icon;
               return (
-                <article
-                  key={item.id}
-                  className={cn(
-                    "rounded-2xl border transition-all duration-200 overflow-hidden",
-                    isOpen
-                      ? "border-orange-500/40 bg-zinc-900/80 shadow-lg shadow-orange-950/20"
-                      : "border-zinc-800/80 bg-zinc-950/60 hover:border-zinc-700 hover:bg-zinc-900/40"
-                  )}
-                >
-                  <button
-                    id={`help-btn-${item.id}`}
-                    onClick={() => toggleItem(item.id)}
-                    className="w-full flex items-center justify-between p-5 text-left text-white gap-3 transition-colors"
-                    aria-expanded={isOpen}
-                    aria-controls={`help-content-${item.id}`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="shrink-0 flex h-6 w-6 items-center justify-center rounded-lg bg-orange-500/10 text-orange-400 text-xs font-bold border border-orange-500/20">
-                        ?
-                      </span>
-                      <div>
-                        <span className="text-sm sm:text-base font-semibold text-zinc-100 leading-snug">
-                          {item.question}
-                        </span>
-                        <span className="ml-2 text-[10px] uppercase font-bold text-orange-400/80 tracking-wider">
-                          [{item.categoryLabel}]
-                        </span>
-                      </div>
+                <section key={section.id} className="space-y-3">
+                  <div className="flex items-center gap-2.5 pb-2 border-b border-zinc-800/80">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500/10 text-orange-400 border border-orange-500/20">
+                      <SectionIcon className="h-4 w-4" />
                     </div>
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-200",
-                        isOpen && "rotate-180 text-orange-400"
-                      )}
-                    />
-                  </button>
+                    <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                      {section.title}
+                    </h2>
+                    <span className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400">
+                      {section.items.length} {section.items.length === 1 ? "tópico" : "tópicos"}
+                    </span>
+                  </div>
 
-                  {isOpen && (
-                    <div
-                      id={`help-content-${item.id}`}
-                      className="px-5 pb-5 pt-0 border-t border-zinc-800/60 mt-1"
-                    >
-                      <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed pt-3">
-                        {item.answer}
-                      </p>
-                      {item.highlight && (
-                        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-300 border border-orange-500/20">
-                          <CheckCircle2 className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-                          <span>{item.highlight}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </article>
+                  <div className="space-y-3">
+                    {section.items.map((item) => {
+                      const isOpen = Boolean(openItems[item.id]);
+                      return (
+                        <article
+                          key={item.id}
+                          className={cn(
+                            "rounded-2xl border transition-all duration-200 overflow-hidden",
+                            isOpen
+                              ? "border-orange-500/40 bg-zinc-900/80 shadow-lg shadow-orange-950/20"
+                              : "border-zinc-800/80 bg-zinc-950/60 hover:border-zinc-700 hover:bg-zinc-900/40"
+                          )}
+                        >
+                          <button
+                            id={`help-btn-${item.id}`}
+                            onClick={() => toggleItem(item.id)}
+                            className="w-full flex items-center justify-between p-5 text-left text-white gap-3 transition-colors"
+                            aria-expanded={isOpen}
+                            aria-controls={`help-content-${item.id}`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="shrink-0 flex h-6 w-6 items-center justify-center rounded-lg bg-orange-500/10 text-orange-400 text-xs font-bold border border-orange-500/20">
+                                ?
+                              </span>
+                              <div>
+                                <span className="text-sm sm:text-base font-semibold text-zinc-100 leading-snug">
+                                  {item.question}
+                                </span>
+                              </div>
+                            </div>
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 shrink-0 text-zinc-400 transition-transform duration-200",
+                                isOpen && "rotate-180 text-orange-400"
+                              )}
+                            />
+                          </button>
+
+                          {isOpen && (
+                            <div
+                              id={`help-content-${item.id}`}
+                              className="px-5 pb-5 pt-0 border-t border-zinc-800/60 mt-1"
+                            >
+                              <p className="text-xs sm:text-sm text-zinc-300 leading-relaxed pt-3">
+                                {item.answer}
+                              </p>
+                              {item.highlight && (
+                                <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-300 border border-orange-500/20">
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+                                  <span>{item.highlight}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
               );
             })
           )}

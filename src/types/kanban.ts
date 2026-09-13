@@ -118,7 +118,7 @@ export const KANBAN_STAGES_CONFIG: Omit<KanbanColumnConfig, "leads" | "totalValu
   },
   {
     id: "won",
-    title: "Venda Fechada",
+    title: "Venda Concluída",
     shortTitle: "Ganha",
     color: "text-emerald-400",
     bgColor: "bg-emerald-950/20",
@@ -128,7 +128,7 @@ export const KANBAN_STAGES_CONFIG: Omit<KanbanColumnConfig, "leads" | "totalValu
   },
   {
     id: "lost",
-    title: "Descarte / Perdido",
+    title: "Perdido",
     shortTitle: "Perdido",
     color: "text-red-400",
     bgColor: "bg-red-950/20",

@@ -86,6 +86,11 @@ export default function MarketingPage() {
                 instalação necessária
               </p>
             </div>
+            <div className="col-span-2 md:col-span-4 mt-2">
+              <p className="text-[10px] sm:text-[11px] text-zinc-500 text-center italic">
+                * Métricas ilustrativas com base no desempenho médio de revendas e concessionárias na plataforma.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -208,12 +213,12 @@ export default function MarketingPage() {
             </p>
 
             <div className="mt-6 sm:mt-8 flex justify-center">
-              <Link href="/dashboard/leads" onClick={initDemoModeCookies} className="w-full sm:w-auto">
+              <Link href="/dashboard" onClick={initDemoModeCookies} className="w-full sm:w-auto">
                 <Button
                   size="lg"
                   className="w-full sm:w-auto gap-2 bg-white px-6 py-5 sm:px-8 sm:py-6 text-xs sm:text-sm font-bold text-black shadow-xl hover:bg-zinc-100 transition-all hover:scale-105"
                 >
-                  <span>Acessar Demonstração Agora</span>
+                  <span>Explorar Demonstração</span>
                   <ArrowRight className="h-4 w-4 text-orange-600 shrink-0" />
                 </Button>
               </Link>

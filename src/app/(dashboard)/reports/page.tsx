@@ -451,22 +451,19 @@ function ReportsPageContent() {
                     ))}
                   </div>
 
-                  {/* Bifurcação em Venda Concluída (Won) e Descarte (Lost) em Paralelo */}
+                  {/* Desfechos em Venda Concluída e Descarte / Perdido */}
                   {hasBifurcation && wonStage && lostStage && (
                     <div className="pt-3 border-t border-border/60">
                       <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
-                        Desfechos do Funil (Bifurcação Paralela)
+                        Desfechos do Funil
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {/* 1. Ramificação Venda Concluída (Won) */}
+                        {/* 1. Ramificação Venda Concluída */}
                         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex flex-col justify-between">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                               <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
                               <span>Venda Concluída</span>
-                              <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-extrabold text-emerald-700 dark:text-emerald-300">
-                                Won
-                              </span>
                             </span>
                             <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
                               {wonStage.count} {wonStage.count === 1 ? "lead" : "leads"} ({wonStage.percentage}%)
@@ -480,15 +477,12 @@ function ReportsPageContent() {
                           </div>
                         </div>
 
-                        {/* 2. Ramificação Descarte / Oportunidade Perdida (Lost) */}
+                        {/* 2. Ramificação Perdido */}
                         <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 flex flex-col justify-between">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
                               <XCircle className="h-4 w-4 text-rose-500 shrink-0" />
-                              <span>Oportunidade Perdida</span>
-                              <span className="rounded-full bg-rose-500/20 px-1.5 py-0.2 text-[9px] font-extrabold text-rose-700 dark:text-rose-300">
-                                Lost
-                              </span>
+                              <span>Perdido</span>
                             </span>
                             <span className="text-xs font-black text-rose-600 dark:text-rose-400">
                               {lostStage.count} {lostStage.count === 1 ? "lead" : "leads"} ({lostStage.percentage}%)
@@ -660,7 +654,8 @@ function ReportsPageContent() {
                             )}
                           </div>
                           <p className="text-[11px] text-muted-foreground">
-                            {seller.dealsCount} vendas concluídas • SLA: {seller.avgResponseMinutes} min
+                            {seller.dealsCount} {seller.dealsCount === 1 ? "venda concluída" : "vendas concluídas"} • SLA: {seller.avgResponseMinutes} min
+                            {seller.pipelineValue ? ` • ${formatCurrency(seller.pipelineValue)} em propostas` : ""}
                           </p>
                         </div>
                       </div>
@@ -750,7 +745,7 @@ function ReportsPageContent() {
                   Motivos de Perda de Oportunidades
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Diagnóstico canônico de leads perdidos na esteira comercial
+                  Motivos declarados de leads perdidos na esteira comercial
                 </p>
               </div>
               <span className="rounded-md bg-red-100 dark:bg-red-950/60 px-2 py-1 text-[11px] font-semibold text-red-700 dark:text-red-300">
@@ -766,7 +761,7 @@ function ReportsPageContent() {
                 >
                   <div>
                     <p className="text-xs font-semibold text-foreground">{item.label}</p>
-                    <p className="text-[10px] text-muted-foreground">Código: {item.reason}</p>
+                    <p className="text-[10px] text-muted-foreground">Motivo Comercial</p>
                   </div>
                   <div className="text-right">
                     <span className="text-sm font-bold text-red-600 dark:text-red-400">

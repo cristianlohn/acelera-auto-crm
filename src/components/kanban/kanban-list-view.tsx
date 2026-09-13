@@ -44,10 +44,10 @@ const STAGE_FALLBACK_CONFIG: Record<
   in_contact: { title: "Em Atendimento", badgeColor: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
   test_drive: { title: "Visita / Test-Drive", badgeColor: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
   visit_scheduled: { title: "Visita / Test-Drive", badgeColor: "bg-purple-500/20 text-purple-400 border-purple-500/30" },
-  proposal: { title: "Proposta / F&I", badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
-  proposal_fi: { title: "Proposta / F&I", badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
-  won: { title: "Fechado", badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
-  lost: { title: "Descartado", badgeColor: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30" },
+  proposal: { title: "Proposta", badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+  proposal_fi: { title: "Financiamento / F&I", badgeColor: "bg-orange-500/20 text-orange-400 border-orange-500/30" },
+  won: { title: "Venda Concluída", badgeColor: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+  lost: { title: "Perdido", badgeColor: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30" },
 };
 
 export function KanbanListView({ leads, onSelectLead }: KanbanListViewProps) {

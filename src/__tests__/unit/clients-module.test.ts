@@ -207,7 +207,7 @@ describe("[UNIT-CLIENTS] Módulo de Carteira de Clientes", () => {
         email: "carlos.beta@email.com",
         document: "222.222.222-22",
         status: "ativo",
-        seller_name: "Camila Dias",
+        seller_name: "Amanda Souza",
         vehicle_preference: "Honda Civic EXL",
         total_purchased: 0,
         purchases_count: 0,

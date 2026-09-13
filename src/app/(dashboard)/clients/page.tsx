@@ -376,13 +376,19 @@ function AddClientModal({
                 <option value="roleta">🎯 Roleta Automática (Distribuir por Roleta)</option>
                 {teamMembers && teamMembers.length > 0 ? (
                   teamMembers
-                    .filter((m) => m.status === "active")
+                    .filter((m) => m.role === "vendedor" || m.role === "seller")
                     .map((m) => (
                       <option key={m.id} value={m.name}>
-                        {m.name} {m.role === "manager" ? "(Gestor)" : ""}
+                        {m.name}
                       </option>
                     ))
-                ) : null}
+                ) : (
+                  <>
+                    <option value="Rafael Martins">Rafael Martins</option>
+                    <option value="Amanda Souza">Amanda Souza</option>
+                    <option value="Lucas Ferreira">Lucas Ferreira</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -671,7 +677,7 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
                   <option value="todos">Todos os Vendedores</option>
                   {teamMembers && teamMembers.length > 0 ? (
                     teamMembers
-                      .filter((m) => m.status === "active" || m.status === "ativo")
+                      .filter((m) => m.role === "vendedor" || m.role === "seller")
                       .map((m) => (
                         <option key={m.id} value={m.name}>
                           {m.name}
@@ -681,6 +687,7 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
                     <>
                       <option value="Rafael Martins">Rafael Martins</option>
                       <option value="Amanda Souza">Amanda Souza</option>
+                      <option value="Lucas Ferreira">Lucas Ferreira</option>
                     </>
                   )}
                 </select>

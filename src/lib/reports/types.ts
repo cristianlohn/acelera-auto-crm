@@ -46,6 +46,7 @@ export interface SellerPerformance {
   revenue: number;
   avgResponseMinutes: number;
   conversionRate: number;
+  pipelineValue?: number;
 }
 
 export interface TopVehicle {

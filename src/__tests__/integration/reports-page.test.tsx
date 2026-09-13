@@ -51,13 +51,13 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
     // Assert (Então os 4 KPIs executivos devem estar presentes com seus respectivos valores)
     expect(screen.getByText("Faturamento Realizado")).toBeInTheDocument();
-    expect(screen.getAllByText(/R\$\s?108\.000/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/R\$\s?152\.000/).length).toBeGreaterThanOrEqual(1);
 
     expect(screen.getByText("Taxa de Conversão Global")).toBeInTheDocument();
     expect(screen.getByText("13%")).toBeInTheDocument();
 
     expect(screen.getByText("Ticket Médio por Veículo")).toBeInTheDocument();
-    expect(screen.getAllByText(/R\$\s?108\.000/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText(/R\$\s?152\.000/).length).toBeGreaterThanOrEqual(2);
 
     expect(screen.getByText("Tempo Médio de Resposta (SLA)")).toBeInTheDocument();
     expect(screen.getByText("9 min")).toBeInTheDocument();
@@ -86,7 +86,7 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
     // Assert 1 (Então '7 dias' passa a ser o ativo e o faturamento atualiza)
     expect(sevenDaysTab).toHaveAttribute("aria-selected", "true");
     expect(monthTab).toHaveAttribute("aria-selected", "false");
-    expect(screen.getAllByText(/R\$\s?108\.000/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/R\$\s?152\.000/).length).toBeGreaterThanOrEqual(1);
 
     // Act 2 (Quando o usuário clica no filtro 'Trimestre')
     await user.click(quarterTab);
@@ -119,7 +119,7 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
     expect(screen.getByText("Proposta Enviada")).toBeInTheDocument();
     expect(screen.getByText("Financiamento / F&I")).toBeInTheDocument();
     expect(screen.getByText("Venda Concluída")).toBeInTheDocument();
-    expect(screen.getByText("Oportunidade Perdida")).toBeInTheDocument();
+    expect(screen.getByText("Perdido")).toBeInTheDocument();
 
     // Valida contagem de leads no período mensal padrão (1 lead por etapa na demo)
     expect(screen.getAllByText(/1 leads?/).length).toBeGreaterThanOrEqual(1);
@@ -141,16 +141,17 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
     // Assert (Então o Top 1 deve ter badge exclusiva e dados individuais)
     expect(screen.getByText("Ranking da Equipe Comercial")).toBeInTheDocument();
-    expect(screen.getByText("Amanda Souza")).toBeInTheDocument();
+    expect(screen.getByText("Rafael Martins")).toBeInTheDocument();
     expect(screen.getByText("Top 1")).toBeInTheDocument();
     expect(screen.getByTitle("Top 1 Campeão de Vendas")).toBeInTheDocument();
 
     // Outros vendedores da equipe
-    expect(screen.getByText("Rafael Martins")).toBeInTheDocument();
+    expect(screen.getByText("Amanda Souza")).toBeInTheDocument();
 
-    // Valida métricas do líder no mês (Amanda Souza: 1 venda, R$ 108.000)
-    expect(screen.getByText(/1 vendas? concluídas/)).toBeInTheDocument();
-    expect(screen.getAllByText(/R\$\s?108\.000/).length).toBeGreaterThanOrEqual(1);
+    // Valida métricas do líder no mês (Rafael Martins: 1 venda, R$ 152.000)
+    expect(screen.getByText(/1 venda concluída/)).toBeInTheDocument();
+    expect(screen.getAllByText(/R\$\s?152\.000/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/R\$\s?506\.500/)).toBeInTheDocument();
   });
 
   it("[IT-08.5] Deve renderizar a lista de eficiência por canais de aquisição com percentuais", () => {
@@ -168,19 +169,20 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
     expect(screen.getByText("Vendas Concluídas")).toBeInTheDocument();
     expect(screen.getByText("Taxa de Conversão (%)")).toBeInTheDocument();
 
-    expect(screen.getByText("Instagram Ads")).toBeInTheDocument();
+    expect(screen.getByText("Showroom / Pátio")).toBeInTheDocument();
     expect(screen.getByText("Webmotors")).toBeInTheDocument();
+    expect(screen.getByText("Instagram Ads")).toBeInTheDocument();
     expect(screen.getByText("Site / Google")).toBeInTheDocument();
     expect(screen.getByText("OLX")).toBeInTheDocument();
     expect(screen.getByText("Indicação")).toBeInTheDocument();
 
-    // Taxa de conversão do Instagram Ads
+    // Taxa de conversão do Showroom / Pátio
     expect(screen.getByText("50%")).toBeInTheDocument();
 
     // Insight dinâmico de canal com maior conversão
     expect(
       screen.getByText(
-        /Canal com maior taxa de conversão: Instagram Ads \(50,0%\)/
+        /Canal com maior taxa de conversão: Showroom \/ Pátio \(50,0%\)/
       )
     ).toBeInTheDocument();
   });
@@ -228,10 +230,10 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
 
     // Assert (Verifica a presença dos modelos canônicos da demo)
     expect(screen.getByText("Veículos Mais Vendidos")).toBeInTheDocument();
-    expect(screen.getByText("Chevrolet Tracker Premier")).toBeInTheDocument();
+    expect(screen.getByText("Fiat Toro")).toBeInTheDocument();
 
     expect(screen.getAllByText(/1 unidade/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/R\$\s?108\.000/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/R\$\s?152\.000/).length).toBeGreaterThanOrEqual(1);
   });
 
   it("[IT-08.9] Deve exibir zeros reais e Empty State limpo para organização real sem vendas", () => {
@@ -253,8 +255,8 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
       screen.getByText("Nenhuma venda consolidada no período selecionado.")
     ).toBeInTheDocument();
 
-    // Amanda Souza ou Chevrolet Tracker não devem aparecer em organização real vazia
-    expect(screen.queryByText("Amanda Souza")).not.toBeInTheDocument();
-    expect(screen.queryByText("Chevrolet Tracker Premier")).not.toBeInTheDocument();
+    // Rafael Martins ou Fiat Toro não devem aparecer em organização real vazia
+    expect(screen.queryByText("Rafael Martins")).not.toBeInTheDocument();
+    expect(screen.queryByText("Fiat Toro")).not.toBeInTheDocument();
   });
 });

@@ -119,48 +119,7 @@ function getLeadValue(
  * Calcula dinamicamente o relatório da empresa de demonstração Auto Prime Veículos a partir dos 8 leads canônicos e estoque.
  */
 function computeDemoReport(period: ReportPeriod): ExecutiveReportData {
-  const baseData = PERIOD_METRICS[period] || PERIOD_METRICS.month;
-  return {
-    ...baseData,
-    funnel: [
-      { id: "novo", name: "Novo Lead", count: 1, percentage: 100, conversionFromPrev: 100 },
-      { id: "primeiro_contato", name: "Primeiro Contato", count: 1, percentage: 87.5, conversionFromPrev: 87.5 },
-      { id: "em_negociacao", name: "Em Negociação", count: 1, percentage: 75.0, conversionFromPrev: 85.7 },
-      { id: "visita_agendada", name: "Visita Agendada", count: 1, percentage: 62.5, conversionFromPrev: 83.3 },
-      { id: "proposta", name: "Proposta Enviada", count: 1, percentage: 50.0, conversionFromPrev: 80.0 },
-      { id: "financiamento", name: "Financiamento / F&I", count: 1, percentage: 37.5, conversionFromPrev: 75.0 },
-      { id: "fechado", name: "Venda Concluída", count: 1, percentage: 25.0, conversionFromPrev: 66.7 },
-      { id: "perdido", name: "Oportunidade Perdida", count: 1, percentage: 12.5, conversionFromPrev: 50.0 },
-    ],
-    channels: [
-      { channel: "Instagram Ads", leadsCount: 2, dealsCount: 1, conversionRate: 50.0, share: 25.0, color: "bg-pink-500" },
-      { channel: "Webmotors", leadsCount: 2, dealsCount: 0, conversionRate: 0.0, share: 25.0, color: "bg-red-500" },
-      { channel: "Site / Google", leadsCount: 1, dealsCount: 0, conversionRate: 0.0, share: 12.5, color: "bg-blue-500" },
-      { channel: "Indicação", leadsCount: 1, dealsCount: 0, conversionRate: 0.0, share: 12.5, color: "bg-amber-500" },
-      { channel: "Showroom / Pátio", leadsCount: 1, dealsCount: 0, conversionRate: 0.0, share: 12.5, color: "bg-purple-500" },
-      { channel: "OLX", leadsCount: 1, dealsCount: 0, conversionRate: 0.0, share: 12.5, color: "bg-orange-500" },
-    ],
-    sellers: [
-      { id: "sp-002", name: "Amanda Souza", avatar: "AS", dealsCount: 1, revenue: 108000, avgResponseMinutes: 8, conversionRate: 25.0 },
-      { id: "sp-001", name: "Rafael Martins", avatar: "RM", dealsCount: 0, revenue: 0, avgResponseMinutes: 10, conversionRate: 0.0 },
-    ],
-    topVehicles: [
-      { make: "Chevrolet", model: "Tracker Premier", version: "2022 1.2 Turbo Aut.", unitsSold: 1, totalRevenue: 108000, avgDaysToSell: 14 },
-    ],
-    lostReasons: [
-      { reason: "comprou_concorrente", label: "Comprou no Concorrente", count: 1, percentage: 100 },
-    ],
-    kpis: {
-      revenue: 108000,
-      revenueGrowth: 18.4,
-      conversionRate: 13,
-      conversionGrowth: 2.1,
-      averageTicket: 108000,
-      ticketGrowth: 4.8,
-      avgResponseMinutes: 9,
-      responseDiffMinutes: -2,
-    },
-  };
+  return PERIOD_METRICS[period] || PERIOD_METRICS.month;
 }
 
 /**

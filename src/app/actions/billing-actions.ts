@@ -12,6 +12,7 @@ import {
   getAsaasSubscriptionDetails,
   getAsaasSubscriptionInvoices,
   cancelAsaasPendingCharge,
+  updateAsaasSubscriptionRecurrence,
   BILLING_PLANS_CONFIG,
   type CreateSubscriptionResult,
   type SubscriptionInvoice,
@@ -20,6 +21,7 @@ import { isValidDocument, sanitizeDigits } from "@/lib/validations/document";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canManageIntegrationsAndBilling } from "@/lib/permissions";
+import { CANONICAL_PLANS, ADDITIONAL_SELLER_PRICE } from "@/config/plans";
 
 export interface CreateSubscriptionInput {
   planId: string;
@@ -662,6 +664,124 @@ export async function cancelPendingUpgradeAction(): Promise<{
     return {
       success: false,
       error: "Falha ao cancelar solicitação de upgrade.",
+    };
+  }
+}
+
+/**
+ * Ajusta dinamicamente a quantidade de assentos extras na assinatura recorrente da concessionária.
+ * Calcula o novo valor total (Plano Base + Assentos Extras * R$ 49), atualiza a assinatura no Asaas
+ * e persiste a nova contagem de assentos extras (extra_sellers_count) no banco de dados.
+ */
+export async function adjustExtraSeatsRecurrenceAction(params: {
+  extraSellersCount: number;
+}): Promise<{
+  success: boolean;
+  extraSellersCount?: number;
+  newTotalValue?: number;
+  error?: string;
+  message?: string;
+}> {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    if (!tenantContext.isDemo && !canManageIntegrationsAndBilling(tenantContext.profile?.role)) {
+      return {
+        success: false,
+        error: "Acesso restrito: Apenas administradores ou proprietários podem alterar assentos extras.",
+      };
+    }
+
+    const count = Math.max(0, Math.floor(params.extraSellersCount || 0));
+
+    if (tenantContext.isDemo) {
+      return {
+        success: true,
+        extraSellersCount: count,
+        message: `Assentos extras atualizados para ${count} com sucesso (modo demonstração).`,
+      };
+    }
+
+    const orgId = tenantContext.organizationId;
+    if (!orgId) {
+      return { success: false, error: "Organização não localizada." };
+    }
+
+    let currentPlan = tenantContext.organization?.plan || "starter";
+    let asaasSubId = (tenantContext.organization as unknown as { asaas_subscription_id?: string | null })?.asaas_subscription_id;
+
+    if (isSupabaseServerConfigured()) {
+      const supabaseAdmin = createAdminClient();
+      const { data: dbOrg } = await supabaseAdmin
+        .from("organizations")
+        .select("plan, asaas_subscription_id, extra_sellers_count")
+        .eq("id", orgId)
+        .maybeSingle();
+
+      if (dbOrg) {
+        currentPlan = dbOrg.plan || currentPlan;
+        asaasSubId = dbOrg.asaas_subscription_id || asaasSubId;
+      }
+    }
+
+    const planKey = (currentPlan.toLowerCase() in CANONICAL_PLANS
+      ? currentPlan.toLowerCase()
+      : "starter") as "starter" | "pro" | "enterprise";
+
+    if (planKey === "enterprise") {
+      return {
+        success: false,
+        error: "Planos Enterprise possuem capacidade e precificação personalizadas sob consulta.",
+      };
+    }
+
+    const baseMonthlyPrice = CANONICAL_PLANS[planKey].monthlyPrice || 297;
+    const newTotalValue = baseMonthlyPrice + count * ADDITIONAL_SELLER_PRICE;
+    const description = `Acelera Auto CRM - ${CANONICAL_PLANS[planKey].name}${count > 0 ? ` (+${count} assentos extras)` : ""}`;
+
+    // 1. Atualiza a recorrência no gateway Asaas se houver assinatura ativa
+    if (asaasSubId) {
+      try {
+        await updateAsaasSubscriptionRecurrence(asaasSubId, newTotalValue, description);
+      } catch (err) {
+        console.warn("[adjustExtraSeatsRecurrenceAction] Falha ao atualizar assinatura no Asaas:", err);
+      }
+    }
+
+    // 2. Persiste a contagem atualizada no Supabase
+    if (isSupabaseServerConfigured()) {
+      const supabaseAdmin = createAdminClient();
+      const { error: updateError } = await supabaseAdmin
+        .from("organizations")
+        .update({
+          extra_sellers_count: count,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", orgId);
+
+      if (updateError) {
+        return { success: false, error: updateError.message };
+      }
+    }
+
+    try {
+      revalidatePath("/billing");
+      revalidatePath("/team");
+      revalidatePath("/dashboard");
+    } catch {
+      // Ignora em testes
+    }
+
+    return {
+      success: true,
+      extraSellersCount: count,
+      newTotalValue,
+      message: `Assentos extras atualizados com sucesso para ${count}.`,
+    };
+  } catch (err) {
+    console.error("[adjustExtraSeatsRecurrenceAction Error]", err);
+    return {
+      success: false,
+      error: "Falha ao ajustar recorrência de assentos extras.",
     };
   }
 }

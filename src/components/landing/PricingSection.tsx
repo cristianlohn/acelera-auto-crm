@@ -94,7 +94,7 @@ export function PricingSection() {
 
               {/* Badge de capacidade de vendedores */}
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2.5 py-1 text-[11px] font-medium text-orange-300 border border-orange-500/20">
-                <span>Até {CANONICAL_PLANS.starter.sellerLimit} vendedores inclusos</span>
+                <span>Até {CANONICAL_PLANS.starter.sellerLimit} vendedores inclusos (gestores isentos)</span>
               </div>
 
               {/* Preço Dinâmico */}
@@ -122,23 +122,27 @@ export function PricingSection() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Monitoramento de SLA de Primeiro Atendimento (&lt; 15 min)</span>
+                  <span>Monitoramento de SLA de Primeiro Atendimento</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Roleta de Leads com distribuição inteligente (Round-Robin)</span>
+                  <span>Roleta inteligente de distribuição de leads (Round-Robin)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Gestão de estoque integrada</span>
+                  <span>Perfis com visão separada (Gestor vs. Vendedor)</span>
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-emerald-400 shrink-0" />
-                  <span className="text-emerald-300 font-medium">Implantação assistida incluída (R$ 0 setup)</span>
+                  <Check className="h-4 w-4 text-orange-400 shrink-0" />
+                  <span>Gestão de estoque e carteira de clientes</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
                   <span>Contato com o lead via WhatsApp em 1 clique</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span className="text-emerald-300 font-medium">Implantação assistida incluída (R$ 0 setup)</span>
                 </li>
               </ul>
             </div>
@@ -172,7 +176,7 @@ export function PricingSection() {
 
               {/* Badge de capacidade */}
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-300 border border-orange-500/30">
-                <span>Até {CANONICAL_PLANS.pro.sellerLimit} vendedores inclusos</span>
+                <span>Até {CANONICAL_PLANS.pro.sellerLimit} vendedores inclusos (gestores isentos)</span>
               </div>
 
               {/* Preço Dinâmico */}
@@ -202,19 +206,19 @@ export function PricingSection() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Roleta com especialização por segmento (Novos e Seminovos)</span>
+                  <span>Possibilidade de adicionar vendedores extras (R$ 49/mês)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Cockpit do Gestor com auditoria de tempo de resposta da equipe</span>
+                  <span>Relatórios analíticos de funil e taxa de conversão</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Isolamento total de permissões (Visão Gestor vs. Vendedor)</span>
+                  <span>Auditoria de motivos de perda e desempenho individual</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Múltiplas Chaves de API para diferentes canais de captação</span>
+                  <span>Exportação de dados e relatórios em CSV</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
@@ -276,23 +280,23 @@ export function PricingSection() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Equipe e capacidade sob consulta</span>
+                  <span>Volume de vendedores customizado em contrato</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Múltiplas lojas e filiais</span>
+                  <span>Condições especiais para redes com múltiplos CNPJs</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>API dedicada e integrações customizadas</span>
+                  <span>Suporte à integração direta via Webhooks e API</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>Onboarding assistido e gerente de contas</span>
+                  <span>Onboarding assistido com gerente de contas dedicado</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-purple-400 shrink-0" />
-                  <span>SLA de suporte dedicado</span>
+                  <span>SLA de suporte prioritário</span>
                 </li>
               </ul>
             </div>
