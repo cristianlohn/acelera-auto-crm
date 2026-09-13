@@ -18,12 +18,31 @@ export interface TeamMember {
   createdAt: string;
 }
 
+export interface OrgCapacityInput {
+  plan?: string | null;
+  max_sellers?: number | null;
+  extra_sellers_count?: number | null;
+  extra_sellers_cycle?: "monthly" | "yearly" | string | null;
+  enterprise_unlimited?: boolean | null;
+  unlimited_sellers?: boolean | null;
+}
+
 export interface TeamCapacity {
+  baseLimit: number | null;
+  extraSellersCount: number;
+  effectiveLimit: number | null; // null = ilimitado
+  currentSalesCount: number;
+  exemptMembersCount: number;
+  remainingSlots: number | null;
+  isLimitReached: boolean;
+  canAddExtra: boolean; // true para Starter e Pro
+
+  // Campos legados para compatibilidade total
   currentCount: number;
   maxSellers: number | null;
-  plan: "starter" | "pro" | "enterprise";
+  plan?: "starter" | "pro" | "enterprise";
   planName: string;
-  hasAvailableSlots?: boolean;
+  hasAvailableSlots: boolean;
 }
 
 export interface InviteMemberInput {
@@ -38,6 +57,8 @@ export interface InviteResult {
   emailSent?: boolean;
   fallbackInviteLink?: string;
   error?: string;
+  code?: string;
+  canAddExtra?: boolean;
   requiresUpgrade?: boolean;
   member?: TeamMember;
 }
@@ -79,8 +100,47 @@ import { CANONICAL_PLANS, isSalesRole, SALES_ROLE_ALIASES, type SalesRoleAlias }
 
 export { isSalesRole, SALES_ROLE_ALIASES, type SalesRoleAlias };
 
+/**
+ * Calcula a capacidade total efetiva de vendedores permitidos na organização:
+ * Capacidade Efetiva = Limite Base do Plano + Assentos Adicionais Contratados
+ * Retorna null caso a organização possua capacidade ilimitada.
+ */
+export function calculateEffectiveSellerLimit(org?: OrgCapacityInput | null): number | null {
+  if (!org) {
+    return CANONICAL_PLANS.starter.sellerLimit;
+  }
+
+  // 1. Enterprise com flag de ilimitado
+  if (org.enterprise_unlimited || org.unlimited_sellers) {
+    return null;
+  }
+
+  const extra = Math.max(0, org.extra_sellers_count ?? 0);
+  const plan = (org.plan || "starter").toLowerCase();
+
+  // 2. Enterprise com cota contratual personalizada
+  if (plan === "enterprise") {
+    if (org.max_sellers === null || org.max_sellers === undefined) {
+      return null; // fallback para ilimitado se enterprise não tiver teto explícito
+    }
+    return Math.max(0, org.max_sellers) + extra;
+  }
+
+  // 3. Planos Canônicos Padrão (Starter = 3, Pro = 8)
+  const baseLimit = CANONICAL_PLANS[plan as keyof typeof CANONICAL_PLANS]?.sellerLimit ?? 3;
+  return baseLimit + extra;
+}
+
 export const INITIAL_CAPACITY: TeamCapacity = {
-  currentCount: 1, // Apenas Rafael Alves é vendedor nos INITIAL_TEAM_MEMBERS
+  baseLimit: CANONICAL_PLANS.starter.sellerLimit,
+  extraSellersCount: 0,
+  effectiveLimit: CANONICAL_PLANS.starter.sellerLimit,
+  currentSalesCount: 1, // Apenas Rafael Alves é vendedor nos INITIAL_TEAM_MEMBERS
+  exemptMembersCount: 2, // Roberto Silva (admin) e Juliana Costa (gerente)
+  remainingSlots: (CANONICAL_PLANS.starter.sellerLimit ?? 3) - 1,
+  isLimitReached: false,
+  canAddExtra: true,
+  currentCount: 1,
   maxSellers: CANONICAL_PLANS.starter.sellerLimit,
   plan: "starter",
   planName: CANONICAL_PLANS.starter.name,

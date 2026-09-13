@@ -20,6 +20,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   INITIAL_CAPACITY,
   INITIAL_TEAM_MEMBERS,
+  calculateEffectiveSellerLimit,
   type TeamMember,
   type TeamCapacity,
   type InviteMemberInput,
@@ -126,8 +127,14 @@ export async function getTeamCapacity(): Promise<TeamCapacity> {
   const members = await getTeamMembers();
 
   // Gestores e Admins NÃO consomem vagas comerciais (apenas vendedores contam)
-  const sellersOnly = members.filter((m) => isSalesRole(m.role));
-  const currentCount = sellersOnly.length;
+  const sellersOnly = members.filter(
+    (m) => ((m.status as string) === "active" || (m.status as string) === "ativo" || !m.status) && isSalesRole(m.role)
+  );
+  const exemptOnly = members.filter(
+    (m) => ((m.status as string) === "active" || (m.status as string) === "ativo" || !m.status) && !isSalesRole(m.role)
+  );
+  const currentSalesCount = sellersOnly.length;
+  const exemptMembersCount = exemptOnly.length;
 
   if (!tenantContext.isDemo && tenantContext.organizationId) {
     const org = tenantContext.organization;
@@ -135,45 +142,76 @@ export async function getTeamCapacity(): Promise<TeamCapacity> {
     const planKey = (plan === "enterprise" || plan === "pro" ? plan : "starter") as "starter" | "pro" | "enterprise";
     const planConfig = CANONICAL_PLANS[planKey] || CANONICAL_PLANS.starter;
 
-    let maxSellers: number | null = planConfig.sellerLimit;
-    let hasAvailableSlots = false;
+    const baseLimit =
+      planKey === "enterprise"
+        ? (typeof (org as unknown as { max_sellers?: number | null })?.max_sellers === "number"
+            ? (org as unknown as { max_sellers?: number | null }).max_sellers!
+            : null)
+        : planConfig.sellerLimit;
 
-    if (planKey === "enterprise") {
-      const orgMaxSellers = (org as unknown as { max_sellers?: number | null })?.max_sellers;
-      const isUnlimited =
-        (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.enterprise_unlimited === true ||
-        (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.unlimited_sellers === true;
+    const extraSellersCount = Math.max(0, (org as unknown as { extra_sellers_count?: number })?.extra_sellers_count ?? 0);
+    const effectiveLimit = calculateEffectiveSellerLimit(org);
 
-      if (typeof orgMaxSellers === "number") {
-        maxSellers = orgMaxSellers;
-        hasAvailableSlots = currentCount < orgMaxSellers;
-      } else if (isUnlimited) {
-        maxSellers = null;
+    const isUnlimited =
+      (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.enterprise_unlimited === true ||
+      (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.unlimited_sellers === true;
+
+    let hasAvailableSlots: boolean;
+    let isLimitReached: boolean;
+    let remainingSlots: number | null;
+
+    if (effectiveLimit === null) {
+      if (isUnlimited) {
         hasAvailableSlots = true;
+        isLimitReached = false;
+        remainingSlots = null;
       } else {
-        maxSellers = null;
         hasAvailableSlots = false;
+        isLimitReached = true;
+        remainingSlots = 0;
       }
     } else {
-      maxSellers = (org as unknown as { max_sellers?: number | null })?.max_sellers ?? planConfig.sellerLimit;
-      hasAvailableSlots = maxSellers !== null ? currentCount < maxSellers : false;
+      isLimitReached = currentSalesCount >= effectiveLimit;
+      hasAvailableSlots = currentSalesCount < effectiveLimit;
+      remainingSlots = Math.max(0, effectiveLimit - currentSalesCount);
     }
 
+    const canAddExtra = planKey !== "enterprise";
+
     return {
-      currentCount,
-      maxSellers,
+      baseLimit,
+      extraSellersCount,
+      effectiveLimit,
+      currentSalesCount,
+      exemptMembersCount,
+      remainingSlots,
+      isLimitReached,
+      canAddExtra,
+
+      // Aliases legados
+      currentCount: currentSalesCount,
+      maxSellers: effectiveLimit,
       plan: planKey,
       planName: planConfig.name,
       hasAvailableSlots,
     };
   }
 
-  const hasAvailableSlots =
-    localCapacity.maxSellers === null ? false : currentCount < localCapacity.maxSellers;
+  // Fallback / Demo
+  const effectiveLimit = localCapacity.effectiveLimit ?? localCapacity.maxSellers ?? CANONICAL_PLANS.starter.sellerLimit;
+  const isLimitReached = effectiveLimit !== null ? currentSalesCount >= effectiveLimit : false;
+  const hasAvailableSlots = !isLimitReached;
+  const remainingSlots = effectiveLimit !== null ? Math.max(0, effectiveLimit - currentSalesCount) : null;
 
   return {
     ...localCapacity,
-    currentCount,
+    currentSalesCount,
+    exemptMembersCount,
+    currentCount: currentSalesCount,
+    effectiveLimit,
+    maxSellers: effectiveLimit,
+    remainingSlots,
+    isLimitReached,
     hasAvailableSlots,
   };
 }
@@ -268,7 +306,9 @@ export async function inviteTeamMember(
     : (await getTeamMembers());
 
   // Gestores e Admins NÃO consomem vaga comercial (apenas papéis de vendas contam)
-  const currentSellersCount = allMembers.filter((m) => isSalesRole(m.role)).length;
+  const currentSellersCount = allMembers.filter(
+    (m) => (m.status === "active" || m.status === "ativo" || !m.status) && isSalesRole(m.role)
+  ).length;
   const isInvitingSeller = isSalesRole(input.role);
 
   // Capacidade efetiva da organização
@@ -280,42 +320,34 @@ export async function inviteTeamMember(
     hasAvailableSlots = effectiveMaxSellers !== null ? currentSellersCount < effectiveMaxSellers : false;
   } else if (tenantContext.organizationId) {
     const org = tenantContext.organization;
-    const plan = ((org?.plan || "starter") as string).toLowerCase();
-    const planKey = (plan === "enterprise" || plan === "pro" ? plan : "starter") as "starter" | "pro" | "enterprise";
-    const planConfig = CANONICAL_PLANS[planKey] || CANONICAL_PLANS.starter;
+    effectiveMaxSellers = calculateEffectiveSellerLimit(org);
+    const isUnlimited =
+      (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.enterprise_unlimited === true ||
+      (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.unlimited_sellers === true;
 
-    if (planKey === "enterprise") {
-      const orgMaxSellers = (org as unknown as { max_sellers?: number | null })?.max_sellers;
-      const isUnlimited =
-        (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.enterprise_unlimited === true ||
-        (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.unlimited_sellers === true;
-
-      if (typeof orgMaxSellers === "number") {
-        effectiveMaxSellers = orgMaxSellers;
-        hasAvailableSlots = currentSellersCount < orgMaxSellers;
-      } else if (isUnlimited) {
-        effectiveMaxSellers = null;
-        hasAvailableSlots = true;
-      } else {
-        effectiveMaxSellers = null;
-        hasAvailableSlots = false;
-      }
+    if (effectiveMaxSellers === null) {
+      hasAvailableSlots = isUnlimited;
     } else {
-      effectiveMaxSellers = (org as unknown as { max_sellers?: number | null })?.max_sellers ?? planConfig.sellerLimit;
-      hasAvailableSlots = effectiveMaxSellers !== null ? currentSellersCount < effectiveMaxSellers : false;
+      hasAvailableSlots = currentSellersCount < effectiveMaxSellers;
     }
   } else {
-    effectiveMaxSellers = localCapacity.maxSellers;
+    effectiveMaxSellers = localCapacity.effectiveLimit ?? localCapacity.maxSellers ?? null;
     hasAvailableSlots = effectiveMaxSellers !== null ? currentSellersCount < effectiveMaxSellers : false;
   }
 
   // 2. Validação da capacidade máxima do plano (apenas novos vendedores consomem slots)
   if (isInvitingSeller && !hasAvailableSlots) {
     const limitLabel = effectiveMaxSellers !== null ? `${currentSellersCount}/${effectiveMaxSellers}` : `${currentSellersCount} (limite atingido)`;
+    const org = tenantContext.organization;
+    const plan = ((org?.plan || localCapacity.plan || "starter") as string).toLowerCase();
+    const canAddExtra = plan !== "enterprise";
+
     return {
       success: false,
       error: `Limite de vagas do plano atingido (${limitLabel}). Faça upgrade para o ${CANONICAL_PLANS.pro.name} ou contate o suporte comercial para expandir sua equipe.`,
       requiresUpgrade: true,
+      canAddExtra,
+      code: "CAPACITY_LIMIT_REACHED",
     };
   }
   const siteUrl =
@@ -560,13 +592,25 @@ export async function updateCapacityForPlan(
 ): Promise<TeamCapacity> {
   const targetPlan = CANONICAL_PLANS[plan] || CANONICAL_PLANS.starter;
   const sellersCount = memoryTeamMembers.filter((m) => isSalesRole(m.role)).length;
+  const exemptCount = memoryTeamMembers.filter((m) => !isSalesRole(m.role)).length;
+  const effectiveLimit = targetPlan.sellerLimit;
+  const isLimitReached = effectiveLimit !== null ? sellersCount >= effectiveLimit : false;
+  const remainingSlots = effectiveLimit !== null ? Math.max(0, effectiveLimit - sellersCount) : null;
 
   localCapacity = {
+    baseLimit: targetPlan.sellerLimit,
+    extraSellersCount: 0,
+    effectiveLimit,
+    currentSalesCount: sellersCount,
+    exemptMembersCount: exemptCount,
+    remainingSlots,
+    isLimitReached,
+    canAddExtra: plan !== "enterprise",
     currentCount: sellersCount,
     maxSellers: targetPlan.sellerLimit,
     plan,
     planName: targetPlan.name,
-    hasAvailableSlots: targetPlan.sellerLimit === null ? false : sellersCount < targetPlan.sellerLimit,
+    hasAvailableSlots: !isLimitReached,
   };
 
   revalidatePath("/settings");

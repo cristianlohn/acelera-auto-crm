@@ -76,3 +76,33 @@ export interface TeamSummaryMetrics {
   teamAvgSlaMinutes: number;
   goalCompletionPercentage: number;
 }
+
+export interface OrganizationCapacityInfo {
+  plan?: string | null;
+  max_sellers?: number | null;
+  extra_sellers_count?: number | null;
+  extra_sellers_cycle?: "monthly" | "yearly" | string | null;
+  enterprise_unlimited?: boolean | null;
+  unlimited_sellers?: boolean | null;
+}
+
+export type OrgCapacityInput = OrganizationCapacityInfo;
+export type { Organization } from "@/types/crm";
+
+export interface TeamCapacity {
+  baseLimit: number | null;
+  extraSellersCount: number;
+  effectiveLimit: number | null; // null = ilimitado
+  currentSalesCount: number;
+  exemptMembersCount: number;
+  remainingSlots: number | null;
+  isLimitReached: boolean;
+  canAddExtra: boolean; // true para Starter e Pro
+
+  // Campos legados para compatibilidade total
+  currentCount: number;
+  maxSellers: number | null;
+  plan?: "starter" | "pro" | "enterprise";
+  planName: string;
+  hasAvailableSlots: boolean;
+}

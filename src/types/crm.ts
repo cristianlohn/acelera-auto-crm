@@ -291,6 +291,9 @@ export interface Organization {
   subscription_status?: SubscriptionStatus | string | null;
   trial_ends_at?: string | null;
   current_period_end?: string | null;
+  max_sellers?: number | null;
+  extra_sellers_count?: number;
+  extra_sellers_cycle?: "monthly" | "yearly" | string | null;
   created_at?: string;
   updated_at?: string;
 }

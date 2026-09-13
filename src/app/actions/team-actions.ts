@@ -18,10 +18,11 @@ import {
   type SalespersonFormData,
   type UpdateSalespersonFormData,
 } from "@/lib/validations/team";
-import type { TeamMember, TeamRole, TeamSummaryMetrics } from "@/types/team";
+import type { TeamMember, TeamRole, TeamSummaryMetrics, TeamCapacity } from "@/types/team";
+import { calculateEffectiveSellerLimit, type OrgCapacityInput } from "@/lib/team-data";
 import { ROULETTE_STATUS_COOKIE, getRouletteStatusMap } from "@/lib/services/team-status";
 
-export type { TeamMember, TeamMember as SalespersonMember } from "@/types/team";
+export type { TeamMember, TeamMember as SalespersonMember, TeamCapacity } from "@/types/team";
 export type {
   SalespersonFormData as SalespersonInput,
   SalespersonFormData as SalespersonOutput,
@@ -33,6 +34,9 @@ export interface CreateSalespersonResult {
   fallbackInviteLink?: string;
   member?: TeamMember;
   error?: string;
+  code?: string;
+  canAddExtra?: boolean;
+  requiresUpgrade?: boolean;
 }
 
 export interface InviteTeamMemberInput {
@@ -245,23 +249,13 @@ export async function getTeamSummaryMetricsAction(
 /**
  * Server Action para validação de capacidade e vagas da equipe multi-tenant.
  * Gestores e administradores não consomem vagas da cota de vendedores.
- * Para o Plano Enterprise, a capacidade efetiva deriva estritamente de org.max_sellers.
+ * Para o Plano Enterprise, a capacidade efetiva deriva de calculateEffectiveSellerLimit(org).
  */
 export async function validateTeamCapacityAction(
   explicitOrgId?: string,
-  overrideOrg?: {
-    plan?: string | null;
-    max_sellers?: number | null;
-    enterprise_unlimited?: boolean;
-    unlimited_sellers?: boolean;
-  },
+  overrideOrg?: OrgCapacityInput,
   overrideMembers?: TeamMember[]
-): Promise<{
-  hasAvailableSlots: boolean;
-  currentCount: number;
-  maxSellers: number | null;
-  planName: string;
-}> {
+): Promise<TeamCapacity> {
   const tenantContext = await resolveUserTenantContext();
   const org = overrideOrg || tenantContext.organization;
   const plan = ((org?.plan || "starter") as string).toLowerCase();
@@ -269,38 +263,72 @@ export async function validateTeamCapacityAction(
   const planConfig = CANONICAL_PLANS[planKey] || CANONICAL_PLANS.starter;
 
   const members = overrideMembers || (await getTeamMembersAction(explicitOrgId));
-  const activeSellersCount = members.filter((m) => isSalesRole(m.role)).length;
+  const activeSellersCount = members.filter(
+    (m) => (m.status === "active" || m.status === "ativo" || !m.status) && isSalesRole(m.role)
+  ).length;
+  const exemptMembersCount = members.filter(
+    (m) => (m.status === "active" || m.status === "ativo" || !m.status) && !isSalesRole(m.role)
+  ).length;
 
-  let sellerLimit: number | null = planConfig.sellerLimit;
-  let hasAvailableSlots = false;
+  const baseLimit =
+    planKey === "enterprise"
+      ? (typeof org?.max_sellers === "number" ? org.max_sellers : null)
+      : planConfig.sellerLimit;
 
-  if (planKey === "enterprise") {
-    const orgMaxSellers = (org as unknown as { max_sellers?: number | null })?.max_sellers;
-    const isUnlimited =
-      (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.enterprise_unlimited === true ||
-      (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.unlimited_sellers === true;
+  const extraSellersCount = Math.max(0, org?.extra_sellers_count ?? 0);
+  const effectiveLimit = calculateEffectiveSellerLimit(org);
 
-    if (typeof orgMaxSellers === "number") {
-      sellerLimit = orgMaxSellers;
-      hasAvailableSlots = activeSellersCount < orgMaxSellers;
-    } else if (isUnlimited) {
-      sellerLimit = null;
+  const isUnlimited =
+    (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.enterprise_unlimited === true ||
+    (org as unknown as { enterprise_unlimited?: boolean; unlimited_sellers?: boolean })?.unlimited_sellers === true;
+
+  let hasAvailableSlots: boolean;
+  let isLimitReached: boolean;
+  let remainingSlots: number | null;
+
+  if (effectiveLimit === null) {
+    if (isUnlimited) {
       hasAvailableSlots = true;
+      isLimitReached = false;
+      remainingSlots = null;
     } else {
-      sellerLimit = null;
+      // Enterprise sem cota definida ("sob consulta")
       hasAvailableSlots = false;
+      isLimitReached = true;
+      remainingSlots = 0;
     }
   } else {
-    sellerLimit = (org as unknown as { max_sellers?: number | null })?.max_sellers ?? planConfig.sellerLimit;
-    hasAvailableSlots = sellerLimit !== null ? activeSellersCount < sellerLimit : false;
+    isLimitReached = activeSellersCount >= effectiveLimit;
+    hasAvailableSlots = activeSellersCount < effectiveLimit;
+    remainingSlots = Math.max(0, effectiveLimit - activeSellersCount);
   }
 
+  const canAddExtra = planKey !== "enterprise";
+
   return {
-    hasAvailableSlots,
+    baseLimit,
+    extraSellersCount,
+    effectiveLimit,
+    currentSalesCount: activeSellersCount,
+    exemptMembersCount,
+    remainingSlots,
+    isLimitReached,
+    canAddExtra,
+
+    // Aliases legados para compatibilidade total
     currentCount: activeSellersCount,
-    maxSellers: sellerLimit,
+    maxSellers: effectiveLimit,
+    plan: planKey,
     planName: planConfig.name,
+    hasAvailableSlots,
   };
+}
+
+/**
+ * Consulta a capacidade da equipe para a organização logada ou explícita.
+ */
+export async function getTeamCapacity(explicitOrgId?: string): Promise<TeamCapacity> {
+  return validateTeamCapacityAction(explicitOrgId);
 }
 
 /**
@@ -318,6 +346,8 @@ export async function inviteSellerAction(formData: {
   data?: unknown;
   inviteToken?: string;
   isExistingUser?: boolean;
+  canAddExtra?: boolean;
+  code?: string;
 }> {
   try {
     const cleanEmail = (formData.email || "").trim().toLowerCase();
@@ -328,6 +358,24 @@ export async function inviteSellerAction(formData: {
         success: false,
         error: "Informe um endereço de e-mail corporativo válido.",
       };
+    }
+
+    // Validação estrita de capacidade se for função comercial
+    const isSeller = isSalesRole(formData.role || "seller");
+    if (isSeller) {
+      const capacity = await validateTeamCapacityAction();
+      if (capacity.isLimitReached || !capacity.hasAvailableSlots) {
+        const limitLabel =
+          capacity.effectiveLimit !== null
+            ? `${capacity.currentSalesCount}/${capacity.effectiveLimit}`
+            : `${capacity.currentSalesCount} (limite atingido)`;
+        return {
+          success: false,
+          error: `Limite de vagas do plano atingido (${limitLabel}). Adquira vagas adicionais de vendedores ou faça upgrade do seu plano.`,
+          canAddExtra: capacity.canAddExtra,
+          code: "CAPACITY_LIMIT_REACHED",
+        };
+      }
     }
 
     const tenantContext = await resolveUserTenantContext();
@@ -688,6 +736,24 @@ export async function inviteTeamMemberAction(
   const cleanEmail = validData.email.trim().toLowerCase();
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
+
+  // Validação estrita de capacidade se for função comercial
+  if (isSalesRole(validData.role)) {
+    const capacity = await validateTeamCapacityAction();
+    if (capacity.isLimitReached || !capacity.hasAvailableSlots) {
+      const limitLabel =
+        capacity.effectiveLimit !== null
+          ? `${capacity.currentSalesCount}/${capacity.effectiveLimit}`
+          : `${capacity.currentSalesCount} (limite atingido)`;
+      return {
+        success: false,
+        error: `Limite de vagas do plano atingido (${limitLabel}). Adquira vagas adicionais de vendedores ou faça upgrade do seu plano.`,
+        canAddExtra: capacity.canAddExtra,
+        requiresUpgrade: true,
+        code: "CAPACITY_LIMIT_REACHED",
+      };
+    }
+  }
 
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||

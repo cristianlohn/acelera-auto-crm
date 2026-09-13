@@ -62,6 +62,8 @@ export interface Database {
           trial_ends_at?: string | null;
           current_period_end?: string | null;
           max_sellers?: number | null;
+          extra_sellers_count?: number;
+          extra_sellers_cycle?: string | null;
           asaas_customer_id?: string | null;
           asaas_subscription_id?: string | null;
           pending_plan?: string | null;
@@ -80,6 +82,8 @@ export interface Database {
           trial_ends_at?: string | null;
           current_period_end?: string | null;
           max_sellers?: number | null;
+          extra_sellers_count?: number;
+          extra_sellers_cycle?: string | null;
           asaas_customer_id?: string | null;
           asaas_subscription_id?: string | null;
           pending_plan?: string | null;
@@ -98,6 +102,8 @@ export interface Database {
           trial_ends_at?: string | null;
           current_period_end?: string | null;
           max_sellers?: number | null;
+          extra_sellers_count?: number;
+          extra_sellers_cycle?: string | null;
           asaas_customer_id?: string | null;
           asaas_subscription_id?: string | null;
           pending_plan?: string | null;
