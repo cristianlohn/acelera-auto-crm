@@ -160,7 +160,7 @@ function ReportsPageContent() {
 
   // Contagem de vendas fechadas para cálculo de Ticket Médio estritamente dinâmico (faturamento ÷ vendas)
   const totalSalesCount = useMemo(() => {
-    const closedStage = funnel.find((f) => f.id === "fechado");
+    const closedStage = funnel.find((f) => f.id === "fechado" || f.id === "won");
     if (closedStage && typeof closedStage.count === "number" && closedStage.count > 0) {
       return closedStage.count;
     }
@@ -399,18 +399,18 @@ function ReportsPageContent() {
                 </p>
               </div>
               <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">
-                {funnel.some((s) => s.id === "fechado") && funnel.some((s) => s.id === "perdido")
+                {funnel.some((s) => s.id === "fechado" || s.id === "won") && funnel.some((s) => s.id === "perdido" || s.id === "lost")
                   ? "6 Etapas + Desfechos"
                   : `${funnel.length} Etapas`}
               </span>
             </div>
 
             {(() => {
-              const wonStage = funnel.find((s) => s.id === "fechado");
-              const lostStage = funnel.find((s) => s.id === "perdido");
+              const wonStage = funnel.find((s) => s.id === "fechado" || s.id === "won");
+              const lostStage = funnel.find((s) => s.id === "perdido" || s.id === "lost");
               const hasBifurcation = Boolean(wonStage && lostStage);
               const stagesToRender = hasBifurcation
-                ? funnel.filter((s) => s.id !== "fechado" && s.id !== "perdido")
+                ? funnel.filter((s) => s.id !== "fechado" && s.id !== "perdido" && s.id !== "won" && s.id !== "lost")
                 : funnel;
 
               return (

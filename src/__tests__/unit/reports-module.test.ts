@@ -272,4 +272,114 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
     expect(data.sellers[1].dealsCount).toBe(0);
     expect(data.sellers[1].revenue).toBe(0);
   });
+
+  it("[REP-06] Computa corretamente faturamento de Rogerio Klug (Ford Ka R$ 52.900, Venda Concluída) em organização real com 29 leads", async () => {
+    const ORG_PROD = "33333333-cccc-3333-cccc-333333333333";
+    const now = new Date().toISOString();
+
+    // Cria 28 leads em negociação e 1 lead fechado de Rogerio Klug
+    const prodLeads: typeof dbLeads = [];
+    for (let i = 1; i <= 28; i++) {
+      prodLeads.push({
+        id: `lead-active-${i}`,
+        organization_id: ORG_PROD,
+        name: `Lead Ativo ${i}`,
+        status: i <= 10 ? "novo" : i <= 20 ? "atendimento" : "proposta",
+        origin: i % 2 === 0 ? "webmotors" : "site",
+        seller_name: "Cristian Lohn",
+        seller_id: "usr-cristian",
+        vehicle_interest: "Carro Geral",
+        created_at: now,
+      });
+    }
+
+    // Lead de Rogerio Klug com Ford Ka
+    prodLeads.push({
+      id: "lead-rogerio-klug",
+      organization_id: ORG_PROD,
+      name: "Rogerio Klug",
+      status: "Venda Concluída" as unknown as "fechado",
+      origin: "site",
+      seller_name: "Cristian Lohn",
+      seller_id: "usr-cristian",
+      vehicle_interest: "Ford Ka",
+      custom_fields: { sale_value: 52900 },
+      created_at: now,
+    });
+
+    dbLeads.push(...prodLeads);
+
+    vi.spyOn(tenantAuthModule, "resolveUserTenantContext").mockResolvedValueOnce({
+      userId: "user-cristian",
+      organizationId: ORG_PROD,
+      profile: {
+        id: "user-cristian",
+        role: "admin",
+        organization_id: ORG_PROD,
+        full_name: "Cristian Lohn",
+        email: "cristianlohn@hotmail.com",
+        phone: null,
+        avatar_url: null,
+        created_at: "",
+        updated_at: "",
+      },
+      organization: null,
+      isDemo: false,
+      needsOnboarding: false,
+    });
+
+    const data = await getExecutiveReportData("month");
+
+    // Valida faturamento consolidado de Rogerio Klug
+    expect(data.kpis.revenue).toBe(52900);
+    expect(data.kpis.averageTicket).toBe(52900);
+    expect(data.funnel[0].count).toBe(29); // 29 leads totais
+    expect(data.funnel[4].count).toBe(1); // 1 venda concluída
+
+    // Valida que o veículo vendido é Ford Ka
+    expect(data.topVehicles.length).toBeGreaterThanOrEqual(1);
+    expect(data.topVehicles[0].make).toBe("Ford");
+    expect(data.topVehicles[0].model).toBe("Ka");
+    expect(data.topVehicles[0].totalRevenue).toBe(52900);
+
+    // Valida ranking de equipe
+    expect(data.sellers[0].name).toBe("Cristian Lohn");
+    expect(data.sellers[0].dealsCount).toBe(1);
+    expect(data.sellers[0].revenue).toBe(52900);
+  });
+
+  it("[REP-07] Mapeia todos os slugs e nomes canônicos de etapas do Kanban", async () => {
+    const { normalizeLeadStage } = await import("@/app/actions/reports");
+
+    // Novos Leads
+    expect(normalizeLeadStage("novo")).toBe("new");
+    expect(normalizeLeadStage("novos_leads")).toBe("new");
+    expect(normalizeLeadStage("Novos Leads")).toBe("new");
+
+    // Primeiro Contato
+    expect(normalizeLeadStage("primeiro_contato")).toBe("in_contact");
+    expect(normalizeLeadStage("Primeiro Contato")).toBe("in_contact");
+    expect(normalizeLeadStage("em_atendimento")).toBe("in_contact");
+
+    // Visita / Test Drive
+    expect(normalizeLeadStage("visita")).toBe("test_drive");
+    expect(normalizeLeadStage("Visita / Test Drive")).toBe("test_drive");
+    expect(normalizeLeadStage("test_drive")).toBe("test_drive");
+
+    // Proposta & F&I
+    expect(normalizeLeadStage("proposta")).toBe("proposal");
+    expect(normalizeLeadStage("proposta_fi")).toBe("proposal");
+    expect(normalizeLeadStage("Proposta & F&I")).toBe("proposal");
+
+    // Venda Concluída
+    expect(normalizeLeadStage("won")).toBe("won");
+    expect(normalizeLeadStage("concluido")).toBe("won");
+    expect(normalizeLeadStage("venda_concluida")).toBe("won");
+    expect(normalizeLeadStage("Venda Concluída")).toBe("won");
+
+    // Descarte
+    expect(normalizeLeadStage("lost")).toBe("lost");
+    expect(normalizeLeadStage("descarte")).toBe("lost");
+    expect(normalizeLeadStage("perdido")).toBe("lost");
+  });
 });

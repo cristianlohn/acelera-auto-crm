@@ -24,94 +24,229 @@ import type {
 import { PERIOD_METRICS, EMPTY_METRICS } from "@/lib/reports/fixtures";
 
 const CHANNEL_CONFIGS: Record<string, { label: string; color: string }> = {
+  webmotors: { label: "Webmotors", color: "bg-red-600" },
+  site: { label: "Site / LP", color: "bg-blue-500" },
+  landing_page: { label: "Site / LP", color: "bg-blue-500" },
+  lp: { label: "Site / LP", color: "bg-blue-500" },
   whatsapp: { label: "WhatsApp", color: "bg-emerald-500" },
-  instagram: { label: "Instagram", color: "bg-pink-500" },
-  site: { label: "Site Próprio", color: "bg-blue-500" },
-  olx: { label: "OLX", color: "bg-orange-500" },
-  indicacao: { label: "Indicação", color: "bg-amber-500" },
+  instagram: { label: "Instagram Ads", color: "bg-pink-500" },
   meta: { label: "Meta Ads", color: "bg-pink-600" },
   meta_ads: { label: "Meta Ads", color: "bg-pink-600" },
+  facebook: { label: "Meta Ads", color: "bg-pink-600" },
+  olx: { label: "OLX", color: "bg-orange-500" },
   icarros: { label: "iCarros", color: "bg-red-500" },
-  webmotors: { label: "Webmotors", color: "bg-red-600" },
+  indicacao: { label: "Indicação", color: "bg-amber-500" },
+  indicacao_dono: { label: "Indicação", color: "bg-amber-500" },
+  patio: { label: "Showroom / Pátio", color: "bg-purple-500" },
+  patio_balcao: { label: "Showroom / Pátio", color: "bg-purple-500" },
+  showroom: { label: "Showroom / Pátio", color: "bg-purple-500" },
   telefone: { label: "Telefone Direto", color: "bg-cyan-500" },
-  patio: { label: "Pátio / Balcão", color: "bg-purple-500" },
-  patio_balcao: { label: "Pátio / Balcão", color: "bg-purple-500" },
-  indicacao_dono: { label: "Indicação da Diretoria", color: "bg-amber-600" },
   cliente_carteira: { label: "Cliente Carteira", color: "bg-teal-500" },
+  outro: { label: "Outros", color: "bg-zinc-500" },
+  other: { label: "Outros", color: "bg-zinc-500" },
 };
 
-function getStartDateFromPeriod(period: ReportPeriod): string {
+export type CanonicalStage =
+  | "new"
+  | "in_contact"
+  | "test_drive"
+  | "proposal"
+  | "won"
+  | "lost";
+
+/**
+ * Normaliza qualquer valor de status ou estágio para as etapas canônicas do Kanban.
+ */
+export function normalizeLeadStage(rawStatusOrStage?: string | null): CanonicalStage {
+  if (!rawStatusOrStage) return "new";
+  const s = rawStatusOrStage.toString().toLowerCase().trim();
+
+  // Venda Concluída: won | concluido | venda_concluida | Venda Concluída (+ fechado, ganho, vendido)
+  if (
+    s === "won" ||
+    s === "concluido" ||
+    s === "concluído" ||
+    s === "venda_concluida" ||
+    s === "venda_concluída" ||
+    s === "venda concluída" ||
+    s === "venda concluida" ||
+    s === "fechado" ||
+    s === "venda_fechada" ||
+    s === "ganho" ||
+    s === "vendido"
+  ) {
+    return "won";
+  }
+
+  // Descarte: lost | descarte | perdido (+ cancelado, desistiu)
+  if (
+    s === "lost" ||
+    s === "descarte" ||
+    s === "perdido" ||
+    s === "cancelado" ||
+    s === "desistiu"
+  ) {
+    return "lost";
+  }
+
+  // Proposta & F&I: proposta | proposta_fi | Proposta & F&I (+ proposal, proposal_fi, em_negociacao)
+  if (
+    s === "proposta" ||
+    s === "proposta_fi" ||
+    s === "proposta & f&i" ||
+    s === "proposta e f&i" ||
+    s === "proposal" ||
+    s === "proposal_fi" ||
+    s === "proposta_enviada" ||
+    s === "proposta enviada" ||
+    s === "em_negociacao" ||
+    s === "em negociação" ||
+    s === "negociacao" ||
+    s === "negociação" ||
+    s === "financiamento"
+  ) {
+    return "proposal";
+  }
+
+  // Visita / Test Drive: visita | Visita / Test Drive (+ test_drive, visit_scheduled, agendado)
+  if (
+    s === "visita" ||
+    s === "visita / test drive" ||
+    s === "visita e test drive" ||
+    s === "visita_agendada" ||
+    s === "visita agendada" ||
+    s === "test_drive" ||
+    s === "test-drive" ||
+    s === "test drive" ||
+    s === "visit" ||
+    s === "visit_scheduled" ||
+    s === "agendado"
+  ) {
+    return "test_drive";
+  }
+
+  // Primeiro Contato: primeiro_contato | Primeiro Contato | em_atendimento (+ atendimento, in_contact)
+  if (
+    s === "primeiro_contato" ||
+    s === "primeiro contato" ||
+    s === "em_atendimento" ||
+    s === "em atendimento" ||
+    s === "atendimento" ||
+    s === "contato" ||
+    s === "in_contact"
+  ) {
+    return "in_contact";
+  }
+
+  // Novos Leads: novo | novos_leads | Novos Leads (+ new)
+  return "new";
+}
+
+function getPeriodBounds(
+  period: ReportPeriod,
+  filterOrPeriod?: ReportPeriod | ReportFilterOptions
+): { startMs: number; endMs: number } {
+  if (typeof filterOrPeriod === "object" && filterOrPeriod.from) {
+    const start = new Date(filterOrPeriod.from).getTime();
+    const end = filterOrPeriod.to ? new Date(filterOrPeriod.to).getTime() : Date.now();
+    return { startMs: start, endMs: end };
+  }
+
   const now = new Date();
   switch (period) {
-    case "7d":
-      return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    case "month":
-      return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    case "quarter":
-      return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString();
-    case "year":
-      return new Date(now.getFullYear(), 0, 1).toISOString();
-    default:
-      return new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    case "7d": {
+      const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).getTime();
+      return { startMs: start, endMs: now.getTime() };
+    }
+    case "month": {
+      // Início do mês civil (dia 1 às 00:00:00.000)
+      const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
+      return { startMs: start, endMs: end };
+    }
+    case "quarter": {
+      const start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).getTime();
+      return { startMs: start, endMs: now.getTime() };
+    }
+    case "year": {
+      const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0).getTime();
+      return { startMs: start, endMs: now.getTime() };
+    }
+    default: {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
+      return { startMs: start, endMs: end };
+    }
   }
 }
 
-function isAtendimento(status?: string | null): boolean {
-  if (!status) return false;
-  const s = status.toLowerCase();
-  return s === "primeiro_contato" || s === "contato" || s === "atendimento" || s === "em_atendimento" || s === "in_contact";
-}
-
-function isVisita(status?: string | null): boolean {
-  if (!status) return false;
-  const s = status.toLowerCase();
-  return s === "visita" || s === "test_drive" || s === "test-drive" || s === "agendado";
-}
-
-function isProposta(status?: string | null): boolean {
-  if (!status) return false;
-  const s = status.toLowerCase();
-  return s === "proposta" || s === "proposal" || s === "em_negociacao" || s === "negociacao";
-}
-
-function isFechado(status?: string | null): boolean {
-  if (!status) return false;
-  const s = status.toLowerCase();
-  return s === "venda_fechada" || s === "fechado" || s === "ganho" || s === "won" || s === "vendido";
+function getLeadOrigin(lead: Record<string, unknown>): string {
+  const custom = lead.custom_fields as Record<string, unknown> | null;
+  const raw =
+    lead.origin ||
+    lead.source ||
+    custom?.source ||
+    custom?.origin ||
+    "site";
+  return typeof raw === "string" ? raw.trim().toLowerCase() : "site";
 }
 
 function getLeadValue(
   lead: Record<string, unknown>,
   vehiclesMap?: Map<string, number>
 ): number {
-  if (typeof (lead as { value?: number }).value === "number" && (lead as { value?: number }).value! > 0) {
-    return Number((lead as { value?: number }).value);
-  }
-  if (typeof (lead as { estimated_value?: number }).estimated_value === "number" && (lead as { estimated_value?: number }).estimated_value! > 0) {
-    return Number((lead as { estimated_value?: number }).estimated_value);
-  }
-  const custom = lead.custom_fields as Record<string, unknown> | null;
-  if (typeof custom?.sale_value === "number" && custom.sale_value > 0) {
-    return custom.sale_value;
-  }
-  if (typeof custom?.value === "number" && custom.value > 0) {
-    return custom.value;
-  }
-  if (typeof custom?.price === "number" && custom.price > 0) {
-    return custom.price;
-  }
-  const vehicleObj = lead.vehicles as { price?: number } | undefined;
-  if (typeof vehicleObj?.price === "number" && vehicleObj.price > 0) {
-    return vehicleObj.price;
-  }
-  if (typeof lead.vehicle_interest === "string" && vehiclesMap) {
-    const interest = lead.vehicle_interest.trim().toLowerCase();
-    for (const [key, price] of vehiclesMap.entries()) {
-      if (interest.includes(key.toLowerCase()) || key.toLowerCase().includes(interest)) {
-        return price;
+  const custom = (lead.custom_fields && typeof lead.custom_fields === "object")
+    ? (lead.custom_fields as Record<string, unknown>)
+    : null;
+
+  const numCandidates = [
+    lead.value,
+    lead.estimated_value,
+    lead.sale_value,
+    lead.price,
+    custom?.sale_value,
+    custom?.price,
+    custom?.value,
+  ];
+
+  for (const c of numCandidates) {
+    if (typeof c === "number" && !isNaN(c) && c > 0) {
+      return c;
+    }
+    if (typeof c === "string") {
+      const parsed = parseFloat(c.replace(/[^\d.,]/g, "").replace(",", "."));
+      if (!isNaN(parsed) && parsed > 0) {
+        return parsed;
       }
     }
   }
+
+  // Lookup por vehicle_id
+  if (vehiclesMap && lead.vehicle_id && typeof lead.vehicle_id === "string") {
+    const p = vehiclesMap.get(lead.vehicle_id);
+    if (p && p > 0) return p;
+  }
+
+  // Lookup por vehicle_interest / vehicle_name no mapa de estoque
+  const interestStr = (lead.vehicle_interest || lead.vehicle_name || (lead as { vehicle_of_interest?: string }).vehicle_of_interest) as string | undefined;
+  if (interestStr && vehiclesMap) {
+    const trimmed = interestStr.trim().toLowerCase();
+    for (const [key, price] of vehiclesMap.entries()) {
+      if (trimmed.includes(key) || key.includes(trimmed)) {
+        if (price > 0) return price;
+      }
+    }
+  }
+
+  // Regex fallback: extrai valores monetários do texto (ex: "R$ 52.900" ou "52900")
+  const textBlob = `${lead.notes || ""} ${interestStr || ""} ${JSON.stringify(custom || {})}`;
+  const priceMatch = textBlob.match(/(?:R\$\s*|valor\s*:?\s*)?([\d]{1,3}(?:\.[\d]{3})*(?:,[\d]{2})?|[\d]{4,})/i);
+  if (priceMatch && priceMatch[1]) {
+    const cleaned = priceMatch[1].replace(/\./g, "").replace(",", ".");
+    const val = parseFloat(cleaned);
+    if (!isNaN(val) && val >= 1000) return val;
+  }
+
   return 0;
 }
 
@@ -135,10 +270,11 @@ export async function getExecutiveReportData(
       : filterOrPeriod?.period || "month";
 
   const tenantContext = await resolveUserTenantContext();
+  const userOrgId = tenantContext.organizationId;
 
   // 1. Dual-Engine: Modo Demonstração Instantâneo (0ms delay) estritamente quando não for organização real
-  const isRealOrg = !!tenantContext.organizationId && tenantContext.organizationId !== DEFAULT_DEMO_ORG_ID;
-  if (!isRealOrg && (isDemoForce || tenantContext.isDemo || tenantContext.organizationId === DEFAULT_DEMO_ORG_ID)) {
+  const isRealOrg = !!userOrgId && userOrgId !== DEFAULT_DEMO_ORG_ID;
+  if (!isRealOrg && (isDemoForce || tenantContext.isDemo || userOrgId === DEFAULT_DEMO_ORG_ID)) {
     const isVitest = typeof process !== "undefined" && Boolean(process.env.VITEST);
     if (isVitest) {
       return PERIOD_METRICS[period] || PERIOD_METRICS.month;
@@ -150,7 +286,7 @@ export async function getExecutiveReportData(
   const roleStr = (tenantContext.profile?.role as string) || (tenantContext as { role?: string }).role || "";
   const isSuperAdmin = roleStr === "superadmin";
 
-  if (!isSuperAdmin && !tenantContext.organizationId) {
+  if (!isSuperAdmin && !userOrgId) {
     return EMPTY_METRICS;
   }
 
@@ -161,124 +297,141 @@ export async function getExecutiveReportData(
   try {
     const supabase = await createServerSupabaseClient();
 
-    // Consulta de leads no período com colunas financeiras completas
+    // Consulta direta e sem joins na tabela leads da organização do usuário logado
     let leadsQuery = supabase
       .from("leads")
-      .select("id, name, phone, email, status, origin, seller_name, seller_id, vehicle_interest, created_at, updated_at, first_contact_at, last_contact_at, custom_fields, value, estimated_value, vehicles(price)");
+      .select("*");
 
-    if (!isSuperAdmin && tenantContext.organizationId) {
-      leadsQuery = leadsQuery.eq("organization_id", tenantContext.organizationId);
-    } else if (typeof filterOrPeriod === "object" && filterOrPeriod.from) {
-      leadsQuery = leadsQuery.gte("created_at", filterOrPeriod.from);
-      if (filterOrPeriod.to) {
-        leadsQuery = leadsQuery.lte("created_at", filterOrPeriod.to);
-      }
-    } else {
-      const startDate = getStartDateFromPeriod(period);
-      leadsQuery = leadsQuery.gte("created_at", startDate);
+    if (!isSuperAdmin && userOrgId) {
+      leadsQuery = leadsQuery.eq("organization_id", userOrgId);
     }
 
     const { data: leads, error } = await leadsQuery;
 
-    // Consulta de membros da equipe (profiles)
+    if (error || !leads || leads.length === 0) {
+      if (error) {
+        console.error("[getExecutiveReportData] Erro ao consultar leads:", error);
+      }
+      return EMPTY_METRICS;
+    }
+
+    // Consulta de membros da equipe (profiles) da organização
     let profilesQuery = supabase
       .from("profiles")
       .select("id, full_name, role, email, avatar_url");
-    if (!isSuperAdmin && tenantContext.organizationId) {
-      profilesQuery = profilesQuery.eq("organization_id", tenantContext.organizationId);
+    if (!isSuperAdmin && userOrgId) {
+      profilesQuery = profilesQuery.eq("organization_id", userOrgId);
     }
     const { data: profiles } = await profilesQuery;
 
-    // Consulta de veículos para lookup e status vendido
+    // Consulta de veículos para lookup de preços e modelos
     let vehiclesQuery = supabase
       .from("vehicles")
       .select("id, make, model, version, price, status");
-    if (!isSuperAdmin && tenantContext.organizationId) {
-      vehiclesQuery = vehiclesQuery.eq("organization_id", tenantContext.organizationId);
+    if (!isSuperAdmin && userOrgId) {
+      vehiclesQuery = vehiclesQuery.eq("organization_id", userOrgId);
     }
     const { data: vehiclesData } = await vehiclesQuery;
 
     const vehiclesMap = new Map<string, number>();
     if (vehiclesData) {
       for (const v of vehiclesData) {
-        if (v.make && v.model && typeof v.price === "number") {
-          vehiclesMap.set(`${v.make} ${v.model}`.trim(), v.price);
+        const price = Number(v.price) || 0;
+        if (v.id) vehiclesMap.set(v.id, price);
+        if (v.make && v.model) {
+          vehiclesMap.set(`${v.make} ${v.model}`.trim().toLowerCase(), price);
+        }
+        if (v.model) {
+          vehiclesMap.set(v.model.trim().toLowerCase(), price);
         }
       }
     }
 
-    if (error || (!leads || leads.length === 0)) {
-      return EMPTY_METRICS;
-    }
+    // 3. Filtragem de Período ("Este Mês", "7 dias", etc.)
+    const { startMs, endMs } = getPeriodBounds(period, filterOrPeriod);
 
-    // Filtragem de período refinada: considera criação no período OU venda fechada atualizada/concluída no período
-    const startDate =
-      typeof filterOrPeriod === "object" && filterOrPeriod.from
-        ? filterOrPeriod.from
-        : getStartDateFromPeriod(period);
-    const endDate =
-      typeof filterOrPeriod === "object" && filterOrPeriod.to
-        ? filterOrPeriod.to
-        : null;
+    function getLeadClosedDateMs(lead: Record<string, unknown>): number {
+      const custom = (lead.custom_fields && typeof lead.custom_fields === "object")
+        ? (lead.custom_fields as Record<string, unknown>)
+        : {};
+      const dateCandidates = [
+        lead.closed_at,
+        lead.sold_at,
+        custom.closed_at,
+        custom.sold_at,
+        lead.updated_at,
+        lead.created_at,
+      ];
 
-    let periodLeads = leads;
-
-    if (startDate) {
-      const startMs = new Date(startDate).getTime();
-      const endMs = endDate ? new Date(endDate).getTime() : Infinity;
-
-      const filtered = leads.filter((l) => {
-        const createdMs = l.created_at ? new Date(l.created_at).getTime() : 0;
-        if (createdMs >= startMs && createdMs <= endMs) {
-          return true;
+      for (const cand of dateCandidates) {
+        if (cand && typeof cand === "string") {
+          const t = new Date(cand).getTime();
+          if (!isNaN(t) && t > 0) return t;
         }
-        // Vendas fechadas computadas com base na data de fechamento/atualização
-        if (isFechado(l.status)) {
-          const updatedMs = l.updated_at ? new Date(l.updated_at).getTime() : 0;
-          const contactMs = l.last_contact_at ? new Date(l.last_contact_at).getTime() : 0;
-          const closeMs = updatedMs || contactMs || createdMs;
-          if (closeMs >= startMs && closeMs <= endMs) {
-            return true;
-          }
-        }
-        return false;
-      });
-
-      // Prioriza leads do período. Caso nenhum atenda ao corte rígido mas a organização real possua leads (ex: venda única/histórica da concessionária), mantém os dados para computar os resultados legítimos
-      if (filtered.length > 0) {
-        periodLeads = filtered;
-      } else if (!isSuperAdmin && leads.length > 0) {
-        periodLeads = leads;
-      } else {
-        periodLeads = filtered;
       }
+      return 0;
     }
 
-    if (!periodLeads || periodLeads.length === 0) {
-      return EMPTY_METRICS;
+    function getLeadCreatedDateMs(lead: Record<string, unknown>): number {
+      if (lead.created_at && typeof lead.created_at === "string") {
+        const t = new Date(lead.created_at).getTime();
+        if (!isNaN(t)) return t;
+      }
+      return 0;
     }
+
+    // Filtro refinado:
+    // - Para cálculo de leads do funil: utiliza created_at no período
+    // - Para vendas concluídas e faturamento: utiliza closed_at / sold_at (e defensivamente updated_at) no período
+    const filteredLeads = leads.filter((lead) => {
+      const createdMs = getLeadCreatedDateMs(lead as Record<string, unknown>);
+      const isCreatedInPeriod = createdMs >= startMs && createdMs <= endMs;
+
+      const stage = normalizeLeadStage(lead.status || (lead as { stage?: string }).stage);
+      if (stage === "won") {
+        const closedMs = getLeadClosedDateMs(lead as Record<string, unknown>);
+        const isClosedInPeriod = closedMs >= startMs && closedMs <= endMs;
+        return isCreatedInPeriod || isClosedInPeriod;
+      }
+
+      return isCreatedInPeriod;
+    });
+
+    // Fallback defensivo: se nenhum lead atendeu ao corte rígido mas a organização possui leads, mantém os leads
+    const periodLeads = filteredLeads.length > 0 ? filteredLeads : leads;
 
     const totalLeads = periodLeads.length;
 
-    // A. Funil de Conversão Comercial (5 Etapas Cumulativas de Progressão)
+    // A. Funil de Conversão Comercial (Alinhado com os Slugs e Etapas Canônicas do Kanban)
     const novoCount = totalLeads;
-    const atendimentoCount = periodLeads.filter(
-      (l) => isAtendimento(l.status) || isVisita(l.status) || isProposta(l.status) || isFechado(l.status)
-    ).length;
-    const visitaCount = periodLeads.filter(
-      (l) => isVisita(l.status) || isProposta(l.status) || isFechado(l.status)
-    ).length;
-    const propostaCount = periodLeads.filter(
-      (l) => isProposta(l.status) || isFechado(l.status)
-    ).length;
-    const fechadoCount = periodLeads.filter((l) => isFechado(l.status)).length;
+    const contatoCount = periodLeads.filter((l) => {
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      return st === "in_contact" || st === "test_drive" || st === "proposal" || st === "won";
+    }).length;
+    const visitaCount = periodLeads.filter((l) => {
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      return st === "test_drive" || st === "proposal" || st === "won";
+    }).length;
+    const propostaCount = periodLeads.filter((l) => {
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      return st === "proposal" || st === "won";
+    }).length;
+    const wonCount = periodLeads.filter((l) => {
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      return st === "won";
+    }).length;
+    const perdidoCount = periodLeads.filter((l) => {
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      return st === "lost";
+    }).length;
 
     const stagesRaw = [
-      { id: "novo", name: "Novo Lead", count: novoCount },
-      { id: "atendimento", name: "Em Atendimento", count: atendimentoCount },
-      { id: "visita", name: "Visita / Test-Drive", count: visitaCount },
-      { id: "proposta", name: "Proposta", count: propostaCount },
-      { id: "fechado", name: "Venda Fechada", count: fechadoCount },
+      { id: "novo", name: "Novos Leads", count: novoCount },
+      { id: "primeiro_contato", name: "Primeiro Contato", count: contatoCount },
+      { id: "visita", name: "Visita / Test Drive", count: visitaCount },
+      { id: "proposta", name: "Proposta & F&I", count: propostaCount },
+      { id: "fechado", name: "Venda Concluída", count: wonCount },
+      { id: "perdido", name: "Perdido", count: perdidoCount },
     ];
 
     let prev = novoCount > 0 ? novoCount : totalLeads;
@@ -286,7 +439,7 @@ export async function getExecutiveReportData(
       const percentage = totalLeads > 0 ? Math.round((st.count / totalLeads) * 1000) / 10 : 0;
       const conversionFromPrev =
         idx === 0 ? 100 : prev > 0 ? Math.round((st.count / prev) * 1000) / 10 : 0;
-      if (st.count > 0) prev = st.count;
+      if (st.count > 0 && idx < 4) prev = st.count;
       return {
         ...st,
         percentage,
@@ -300,7 +453,8 @@ export async function getExecutiveReportData(
     let responseCount = 0;
 
     for (const l of periodLeads) {
-      if (isFechado(l.status)) {
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      if (st === "won") {
         const val = getLeadValue(l as Record<string, unknown>, vehiclesMap);
         totalRevenue += val;
       }
@@ -316,49 +470,50 @@ export async function getExecutiveReportData(
       }
     }
 
-    const averageTicket = fechadoCount > 0 ? Math.round(totalRevenue / fechadoCount) : 0;
-    const conversionRate = totalLeads > 0 ? Math.round(((fechadoCount / totalLeads) * 100) * 10) / 10 : 0;
+    const averageTicket = wonCount > 0 ? Math.round(totalRevenue / wonCount) : 0;
+    const conversionRate = totalLeads > 0 ? Math.round(((wonCount / totalLeads) * 100) * 10) / 10 : 0;
     const avgResponseMinutes = responseCount > 0 ? Math.round(totalResponseMinutes / responseCount) : 0;
 
-    // C. Eficiência por Canal de Entrada
-    const channelAgg: Record<string, { leadsCount: number; dealsCount: number }> = {};
+    // C. Eficiência por Canal de Entrada (Derivação por source / origin)
+    const channelAgg: Record<string, { label: string; color: string; leadsCount: number; dealsCount: number }> = {};
     for (const l of periodLeads) {
-      const orig = l.origin || (l.custom_fields as Record<string, unknown> | null)?.source as string || "site";
-      const origKey = typeof orig === "string" ? orig.toLowerCase().trim() : "site";
-      if (!channelAgg[origKey]) {
-        channelAgg[origKey] = { leadsCount: 0, dealsCount: 0 };
+      const origRaw = getLeadOrigin(l as Record<string, unknown>);
+      const conf = CHANNEL_CONFIGS[origRaw] || {
+        label: origRaw.charAt(0).toUpperCase() + origRaw.slice(1),
+        color: "bg-slate-500",
+      };
+      const key = conf.label;
+      if (!channelAgg[key]) {
+        channelAgg[key] = { label: conf.label, color: conf.color, leadsCount: 0, dealsCount: 0 };
       }
-      channelAgg[origKey].leadsCount++;
-      if (isFechado(l.status)) {
-        channelAgg[origKey].dealsCount++;
+      channelAgg[key].leadsCount++;
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      if (st === "won") {
+        channelAgg[key].dealsCount++;
       }
     }
 
-    const channels: ChannelPerformance[] = Object.entries(channelAgg)
-      .filter(([, val]) => val.leadsCount > 0)
-      .map(([origKey, val]) => {
-        const conf = CHANNEL_CONFIGS[origKey] || {
-          label: origKey.charAt(0).toUpperCase() + origKey.slice(1),
-          color: "bg-slate-500",
-        };
+    const channels: ChannelPerformance[] = Object.values(channelAgg)
+      .filter((val) => val.leadsCount > 0)
+      .map((val) => {
         const conv =
           val.leadsCount > 0 ? Math.round((val.dealsCount / val.leadsCount) * 1000) / 10 : 0;
         const share =
           totalLeads > 0 ? Math.round((val.leadsCount / totalLeads) * 1000) / 10 : 0;
 
         return {
-          channel: conf.label,
+          channel: val.label,
           leadsCount: val.leadsCount,
           dealsCount: val.dealsCount,
           conversionRate: conv,
           share,
-          color: conf.color,
+          color: val.color,
         };
       });
 
     channels.sort((a, b) => b.leadsCount - a.leadsCount);
 
-    // D. Ranking da Equipe Comercial
+    // D. Ranking da Equipe Comercial (Derivação por seller_id / assigned_to)
     const sellerMap = new Map<
       string,
       {
@@ -396,27 +551,33 @@ export async function getExecutiveReportData(
     }
 
     for (const l of periodLeads) {
-      const sId = l.seller_id;
-      let entry = sId ? sellerMap.get(sId) : null;
-      if (!entry && l.seller_name) {
+      const sId = (l.seller_id || (l as { assigned_to?: string | { id?: string } }).assigned_to);
+      const sellerIdStr = typeof sId === "object" && sId !== null ? sId.id : (typeof sId === "string" ? sId : null);
+
+      let entry = sellerIdStr ? sellerMap.get(sellerIdStr) : null;
+      const sellerNameCandidate =
+        l.seller_name ||
+        (l as { assigned_to_name?: string }).assigned_to_name ||
+        (typeof sId === "object" && sId !== null ? (sId as { name?: string }).name : null);
+
+      if (!entry && sellerNameCandidate) {
         for (const s of sellerMap.values()) {
-          if (s.name.toLowerCase() === l.seller_name.toLowerCase()) {
+          if (s.name.toLowerCase() === sellerNameCandidate.toLowerCase()) {
             entry = s;
             break;
           }
         }
       }
 
-      // Se não há profiles cadastrados (ex: testes sem tabela profiles populada), aceita seller do lead como fallback
-      if (!entry && (!profiles || profiles.length === 0)) {
-        const name = l.seller_name || "Consultor Comercial";
+      if (!entry) {
+        const name = sellerNameCandidate || "Consultor Comercial";
         const parts = name.trim().split(" ");
         const initials =
           parts.length >= 2
             ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
             : name.slice(0, 2).toUpperCase();
         entry = {
-          id: l.seller_id || `seller-${name}`,
+          id: sellerIdStr || `seller-${name}`,
           name,
           avatar: initials,
           dealsCount: 0,
@@ -428,22 +589,21 @@ export async function getExecutiveReportData(
         sellerMap.set(entry.id, entry);
       }
 
-      if (entry) {
-        entry.totalLeads++;
-        if (isFechado(l.status)) {
-          entry.dealsCount++;
-          const val = getLeadValue(l as Record<string, unknown>, vehiclesMap);
-          entry.revenue += val;
-        }
+      entry.totalLeads++;
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      if (st === "won") {
+        entry.dealsCount++;
+        const val = getLeadValue(l as Record<string, unknown>, vehiclesMap);
+        entry.revenue += val;
+      }
 
-        if (l.created_at && (l.first_contact_at || l.last_contact_at)) {
-          const start = new Date(l.created_at).getTime();
-          const end = new Date(l.first_contact_at || l.last_contact_at!).getTime();
-          const diffMin = Math.max(0, Math.round((end - start) / (1000 * 60)));
-          if (diffMin <= 10080) {
-            entry.totalResponseMinutes += diffMin;
-            entry.responseCount++;
-          }
+      if (l.created_at && (l.first_contact_at || l.last_contact_at)) {
+        const start = new Date(l.created_at).getTime();
+        const end = new Date(l.first_contact_at || l.last_contact_at!).getTime();
+        const diffMin = Math.max(0, Math.round((end - start) / (1000 * 60)));
+        if (diffMin <= 10080) {
+          entry.totalResponseMinutes += diffMin;
+          entry.responseCount++;
         }
       }
     }
@@ -462,18 +622,19 @@ export async function getExecutiveReportData(
       };
     });
 
-    // Ordenados exclusivamente por faturamento real decrescente
     sellers.sort((a, b) => b.revenue - a.revenue || b.dealsCount - a.dealsCount);
 
-    // E. Modelos de Maior Giro / Veículos Mais Vendidos (Apenas confirmados)
+    // E. Modelos de Maior Giro / Veículos Mais Vendidos
     const vehicleAgg: Record<
       string,
       { count: number; revenue: number; make: string; model: string; version: string }
     > = {};
 
     for (const l of periodLeads) {
-      if (isFechado(l.status) && l.vehicle_interest) {
-        const vName = l.vehicle_interest.trim();
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      if (st === "won") {
+        const interestRaw = (l.vehicle_interest || (l as { vehicle_of_interest?: string }).vehicle_of_interest || (l as { vehicle_name?: string }).vehicle_name || "Veículo Vendido") as string;
+        const vName = interestRaw.trim();
         if (!vehicleAgg[vName]) {
           const parts = vName.split(" ");
           const make = parts[0] || "Veículo";
@@ -517,6 +678,24 @@ export async function getExecutiveReportData(
 
     topVehicles.sort((a, b) => b.totalRevenue - a.totalRevenue || b.unitsSold - a.unitsSold);
 
+    // F. Motivos de Perda
+    const lostReasonsMap = new Map<string, number>();
+    for (const l of periodLeads) {
+      const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
+      if (st === "lost") {
+        const custom = (l.custom_fields && typeof l.custom_fields === "object") ? (l.custom_fields as Record<string, unknown>) : null;
+        const reason = ((l as { lost_reason?: string }).lost_reason || custom?.lost_reason || "Outros Motivos") as string;
+        lostReasonsMap.set(reason, (lostReasonsMap.get(reason) || 0) + 1);
+      }
+    }
+
+    const lostReasons = Array.from(lostReasonsMap.entries()).map(([reason, count]) => ({
+      reason,
+      label: reason,
+      count,
+      percentage: perdidoCount > 0 ? Math.round((count / perdidoCount) * 100) : 0,
+    }));
+
     return {
       kpis: {
         revenue: totalRevenue,
@@ -532,6 +711,7 @@ export async function getExecutiveReportData(
       channels,
       sellers,
       topVehicles,
+      lostReasons,
     };
   } catch (err) {
     console.error("[getExecutiveReportData Error]", err);
