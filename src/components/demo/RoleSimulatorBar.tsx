@@ -76,7 +76,7 @@ export function RoleSimulatorBar() {
   }[] = [
     {
       id: "vendedor",
-      label: "👤 Vendedor (Rafael Alves)",
+      label: "👤 Vendedor (Rafael Martins)",
       shortLabel: "Vendedor",
       icon: User,
     },

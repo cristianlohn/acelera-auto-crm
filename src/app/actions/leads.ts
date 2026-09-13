@@ -80,7 +80,6 @@ export async function getLeads(overrideRole?: string): Promise<Lead[]> {
       return mockLeads.filter(
         (l) =>
           l.sellerName === "Rafael Martins" ||
-          l.sellerName === "Rafael Alves" ||
           l.sellerName?.toLowerCase().includes("vendedor")
       );
     }
@@ -221,7 +220,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   ) {
     resolvedSeller =
       tenantContext.profile?.full_name?.trim() ||
-      (tenantContext.isDemo ? "Rafael Alves" : "Vendedor de Plantão");
+      (tenantContext.isDemo ? "Rafael Martins" : "Vendedor de Plantão");
   }
   const resolvedSellerId =
     resolvedInfo.sellerId ||

@@ -103,7 +103,7 @@ export function buildClientWhatsAppUrl(client: Client): string {
     ? cleanDigits
     : `55${cleanDigits}`;
   const msg = encodeURIComponent(
-    `Olá ${client.name}! Tudo bem? 😊\n\nSou da equipe da *Acelera Auto*. Estou entrando em contato para saber como podemos te ajudar com seu próximo veículo! 🚗`
+    `Olá ${client.name}! Tudo bem? 😊\n\nSou da equipe da *Auto Prime Veículos*. Estou entrando em contato para saber como podemos te ajudar com seu próximo veículo! 🚗`
   );
   return `https://wa.me/${phoneWithDDI}?text=${msg}`;
 }
@@ -573,7 +573,7 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
   const roleFilteredClients = useMemo(() => {
     if (isVendedor) {
       if (isDemoMode) {
-        const activeSeller = sellerName || "Rafael Alves";
+        const activeSeller = sellerName || "Rafael Martins";
         return safeClients.filter(
           (c) =>
             c.sellerName === activeSeller ||
@@ -666,17 +666,23 @@ function ClientsPageContent({ initialClients }: ClientsPageProps = {}) {
                   onChange={(e) => setSellerFilter(e.target.value)}
                   className="h-9 rounded-lg border bg-background px-2.5 text-xs text-foreground font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
                   aria-label="Filtrar por Vendedor"
+                  data-testid="select-seller-filter"
                 >
                   <option value="todos">Todos os Vendedores</option>
                   {teamMembers && teamMembers.length > 0 ? (
                     teamMembers
-                      .filter((m) => m.status === "active")
+                      .filter((m) => m.status === "active" || m.status === "ativo")
                       .map((m) => (
                         <option key={m.id} value={m.name}>
                           {m.name}
                         </option>
                       ))
-                  ) : null}
+                  ) : (
+                    <>
+                      <option value="Rafael Martins">Rafael Martins</option>
+                      <option value="Amanda Souza">Amanda Souza</option>
+                    </>
+                  )}
                 </select>
               </div>
             )}

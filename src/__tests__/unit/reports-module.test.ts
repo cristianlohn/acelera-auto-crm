@@ -117,7 +117,7 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
         name: "Comprador A1",
         status: "fechado",
         origin: "whatsapp",
-        seller_name: "Rafael Alves",
+        seller_name: "Rafael Martins",
         seller_id: "usr-rafael",
         vehicle_interest: "Honda Civic EXL",
         custom_fields: { sale_value: 150000 },
@@ -129,7 +129,7 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
         name: "Lead A2",
         status: "proposta",
         origin: "instagram",
-        seller_name: "Rafael Alves",
+        seller_name: "Rafael Martins",
         seller_id: "usr-rafael",
         vehicle_interest: "Toyota Corolla Cross",
         custom_fields: { sale_value: 170000 },
@@ -262,8 +262,8 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
     const data = await getExecutiveReportData("month");
 
     expect(data.sellers).toHaveLength(2);
-    // Rafael Alves teve 1 venda fechada (R$ 150.000) e 2 leads no total
-    expect(data.sellers[0].name).toBe("Rafael Alves");
+    // Rafael Martins teve 1 venda fechada (R$ 150.000) e 2 leads no total
+    expect(data.sellers[0].name).toBe("Rafael Martins");
     expect(data.sellers[0].dealsCount).toBe(1);
     expect(data.sellers[0].revenue).toBe(150000);
 

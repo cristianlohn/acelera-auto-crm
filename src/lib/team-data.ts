@@ -87,8 +87,8 @@ export const INITIAL_TEAM_MEMBERS: TeamMember[] = [
   {
     id: "mem-003",
     organizationId: "org-001",
-    fullName: "Rafael Alves",
-    email: "rafael.alves@autoprime.com.br",
+    fullName: "Rafael Martins",
+    email: "rafael.martins@autoprime.com.br",
     phone: "+5547999883300",
     role: "vendedor",
     status: "active",
@@ -135,7 +135,7 @@ export const INITIAL_CAPACITY: TeamCapacity = {
   baseLimit: CANONICAL_PLANS.starter.sellerLimit,
   extraSellersCount: 0,
   effectiveLimit: CANONICAL_PLANS.starter.sellerLimit,
-  currentSalesCount: 1, // Apenas Rafael Alves é vendedor nos INITIAL_TEAM_MEMBERS
+  currentSalesCount: 1, // Apenas Rafael Martins é vendedor nos INITIAL_TEAM_MEMBERS
   exemptMembersCount: 2, // Roberto Silva (admin) e Juliana Costa (gerente)
   remainingSlots: (CANONICAL_PLANS.starter.sellerLimit ?? 3) - 1,
   isLimitReached: false,

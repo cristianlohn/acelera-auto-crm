@@ -69,7 +69,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     : currentUserProfile?.role === "seller" || currentUserProfile?.role === "vendedor";
   const effectiveSellerName = isDemoMode
     ? sellerName
-    : (currentUserProfile?.name || currentUser?.name || (sellerName !== "Roberto Silva" && sellerName !== "Rafael Alves" ? sellerName : undefined));
+    : (currentUserProfile?.name || currentUser?.name || (sellerName !== "Roberto Silva" && sellerName !== "Rafael Martins" ? sellerName : undefined));
 
   if (initialLeads !== prevInitialLeads) {
     setPrevInitialLeads(initialLeads);

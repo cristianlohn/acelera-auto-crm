@@ -485,7 +485,7 @@ export async function POST(request: NextRequest) {
     const targetWaPhone = assignedSeller?.phone
       ? assignedSeller.phone.replace(/\D/g, "")
       : digitsOnly;
-    const sellerDisplayName = assignedSeller?.name || "Rafael Alves";
+    const sellerDisplayName = assignedSeller?.name || "Rafael Martins";
     const vehiclePart =
       vehicleName && vehicleName !== "Interesse Geral" ? ` no ${vehicleName}` : "";
     const greeting = `Olá ${normalizedLead.clientName}, tudo bem? Sou ${sellerDisplayName} da concessionária. Vi seu interesse${vehiclePart}. Como posso te ajudar hoje?`;

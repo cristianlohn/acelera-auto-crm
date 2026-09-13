@@ -307,13 +307,13 @@ export function TeamTable({
                         <span
                           className={cn(
                             "text-[11px] font-bold flex items-center gap-1",
-                            member.in_roulette ? "text-orange-400" : "text-zinc-500"
+                            member.in_roulette ? "text-emerald-400" : "text-zinc-500"
                           )}
                         >
                           {member.in_roulette ? (
                             <>
-                              <Sparkles className="h-3 w-3" />
-                              <span>No Plantão</span>
+                              <Sparkles className="h-3 w-3 text-emerald-400" />
+                              <span>Disponível</span>
                             </>
                           ) : (
                             <span>Pausado</span>

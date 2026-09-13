@@ -27,7 +27,7 @@ describe("[UNIT-EXPORT] Exportação de Relatórios do Cockpit do Gestor", () =>
     conversionRate: 20.0,
     sellerRanking: [
       {
-        sellerName: "Rafael Alves",
+        sellerName: "Rafael Martins",
         leadsCount: 20,
         activeDeals: 10,
         wonDeals: 5,
@@ -97,7 +97,7 @@ describe("[UNIT-EXPORT] Exportação de Relatórios do Cockpit do Gestor", () =>
       const csv = generateCockpitCSV(sampleMetrics, "Auto Shopping");
 
       // Rafael: 20 leads, 40.0% cota, 6.5 min SLA, 10 ativos, 5 ganhas, 25.0% conv (5/20)
-      expect(csv).toContain("Rafael Alves;20;40.0%;6.5 min;10;5;25.0%");
+      expect(csv).toContain("Rafael Martins;20;40.0%;6.5 min;10;5;25.0%");
 
       // Juliana: 15 leads, 30.0% cota, 9.2 min SLA, 8 ativos, 3 ganhas, 20.0% conv (3/15)
       expect(csv).toContain("Juliana Costa;15;30.0%;9.2 min;8;3;20.0%");

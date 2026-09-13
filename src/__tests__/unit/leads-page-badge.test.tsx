@@ -46,7 +46,7 @@ describe("[UT-LEADS-BADGE] Badge do Vendedor no Funil de Vendas", () => {
     expect(screen.queryByText(/Roberto Silva/i)).not.toBeInTheDocument();
   });
 
-  it("Em modo demonstração (isDemoMode=true), preserva persona simulada no badge ('Rafael Alves')", () => {
+  it("Em modo demonstração (isDemoMode=true), preserva persona simulada no badge ('Rafael Martins')", () => {
     render(
       <DemoRoleProvider initialRole="vendedor" initialDemoMode={true}>
         <LeadsPageClient
@@ -57,6 +57,6 @@ describe("[UT-LEADS-BADGE] Badge do Vendedor no Funil de Vendas", () => {
       </DemoRoleProvider>
     );
 
-    expect(screen.getByText(/Meus Leads \(Rafael Alves\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Meus Leads \(Rafael Martins\)/i)).toBeInTheDocument();
   });
 });

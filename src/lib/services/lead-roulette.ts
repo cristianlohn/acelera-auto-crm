@@ -50,8 +50,8 @@ const defaultMockSellers: LeadRouletteMember[] = [
   {
     id: "sp-001",
     organization_id: DEFAULT_DEMO_ORG_ID,
-    name: "Rafael Alves",
-    email: "rafael.alves@aceleraauto.com.br",
+    name: "Rafael Martins",
+    email: "rafael.martins@aceleraauto.com.br",
     phone: "+5511988887777",
     role: "seller",
     segment: "all",

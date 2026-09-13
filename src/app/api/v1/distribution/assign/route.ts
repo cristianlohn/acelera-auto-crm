@@ -42,7 +42,7 @@ import { getScopedSupabaseClient } from "@/lib/supabase/authenticated-client";
  *                 example: "00000000-0000-0000-0000-000000000000"
  *               seller_name:
  *                 type: string
- *                 example: "Rafael Alves"
+ *                 example: "Rafael Martins"
  *               trigger_roleta:
  *                 type: boolean
  *                 default: false

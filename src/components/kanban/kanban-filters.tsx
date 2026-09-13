@@ -218,6 +218,7 @@ export function KanbanFilters({
           {isDemoMode && (
             <button
               id="btn-kanban-reset-demo"
+              data-testid="btn-kanban-reset-demo"
               type="button"
               disabled={isResetting}
               onClick={handleResetDemo}
@@ -225,7 +226,7 @@ export function KanbanFilters({
               title="Restaurar dados iniciais da demonstração"
             >
               <RotateCcw className={`h-3.5 w-3.5 ${isResetting ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">{isResetting ? "..." : "Reset Demo"}</span>
+              <span className="hidden sm:inline">{isResetting ? "Restaurando..." : "Restaurar Demonstração"}</span>
             </button>
           )}
           <AddKanbanLeadModal

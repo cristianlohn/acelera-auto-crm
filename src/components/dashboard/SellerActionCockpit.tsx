@@ -50,8 +50,8 @@ export function SellerActionCockpit({
   const [notifiedActions, setNotifiedActions] = useState<Set<string>>(new Set());
 
   const activeSellerName = isDemo
-    ? (propSellerName || demoSellerName || "Rafael Alves")
-    : (propSellerName && propSellerName !== "Roberto Silva" && propSellerName !== "Rafael Alves"
+    ? (propSellerName || demoSellerName || "Rafael Martins")
+    : (propSellerName && propSellerName !== "Roberto Silva" && propSellerName !== "Rafael Martins"
         ? propSellerName
         : "Vendedor");
 
@@ -90,7 +90,7 @@ export function SellerActionCockpit({
           urgency: "critico" as const,
           phone: "5511988887777",
           defaultMessage:
-            "Olá João Ferreira! Sou o consultor Rafael Alves da concessionária. Vi seu interesse no Jeep Compass Longitude 2023. Como posso te auxiliar?",
+            "Olá João Ferreira! Sou o consultor Rafael Martins da concessionária. Vi seu interesse no Jeep Compass Longitude 2023. Como posso te auxiliar?",
         },
         {
           id: "seller-act-2",

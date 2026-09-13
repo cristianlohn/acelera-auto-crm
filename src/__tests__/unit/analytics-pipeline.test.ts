@@ -18,7 +18,7 @@ describe("[UNIT-ANALYTICS-PIPELINE] C√°lculo Estrito do Pipeline Total e Preven√
       name: `Cliente Teste ${i}`,
       phone: "11988887777",
       status: "novo",
-      sellerName: "Rafael Alves",
+      sellerName: "Rafael Martins",
       vehicleInterest: "Interesse Geral",
       estimatedValue: 0,
       createdAt: new Date(Date.now() - 3600000).toISOString(), // Criado h√° 1h (SLA estourado)
@@ -39,7 +39,7 @@ describe("[UNIT-ANALYTICS-PIPELINE] C√°lculo Estrito do Pipeline Total e Preven√
         name: "Carlos Ferreira",
         phone: "11988881111",
         status: "atendimento",
-        sellerName: "Rafael Alves",
+        sellerName: "Rafael Martins",
         vehicleInterest: "Honda Civic EXL 2023",
         estimatedValue: 149900,
         createdAt: new Date().toISOString(),

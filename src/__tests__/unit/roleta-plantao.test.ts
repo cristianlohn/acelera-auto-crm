@@ -242,7 +242,7 @@ describe("[UNIT-ROLETA-PLANTAO] Distribuição da Roleta Automática para Membro
     expect(res.sellerId).toBe("vendedor-02");
   });
 
-  it("nunca deve vazar vendedores mock (Rafael Alves) para organizações customizadas reais", async () => {
+  it("nunca deve vazar vendedores mock (Rafael Martins) para organizações customizadas reais", async () => {
     const orgId = "org-real-empty-store";
 
     const mockSupabase = {
@@ -283,7 +283,7 @@ describe("[UNIT-ROLETA-PLANTAO] Distribuição da Roleta Automática para Membro
     );
 
     const res = await resolveAssignedSellerInfo("roleta", orgId);
-    expect(res.sellerName).not.toBe("Rafael Alves");
+    expect(res.sellerName).not.toBe("Rafael Martins");
     expect(res.sellerName).not.toBe("Juliana Costa");
     expect(res.sellerName).not.toBe("Marcos Ferreira");
     expect(res.sellerName).toBe("Vendedor de Plantão");

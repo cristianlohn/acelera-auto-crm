@@ -78,7 +78,7 @@ describe("[UNIT-WHATSAPP] Serviço Modular de WhatsApp", () => {
       };
 
       const salesperson = {
-        full_name: "Rafael Alves",
+        full_name: "Rafael Martins",
         phone: "11988887777",
       };
 
@@ -204,7 +204,7 @@ describe("[UNIT-WHATSAPP] Serviço Modular de WhatsApp", () => {
           name: "João Silva",
           phone: "11999998888",
         },
-        sellerName: "Rafael Alves",
+        sellerName: "Rafael Martins",
       });
 
       expect(result).toBeDefined();
@@ -358,7 +358,7 @@ describe("[UNIT-WHATSAPP] Serviço Modular de WhatsApp", () => {
 
       const result = await sendLeadNotificationToSeller({
         sellerPhone: "11988887777",
-        sellerName: "Rafael Alves",
+        sellerName: "Rafael Martins",
         leadName: "Roberto Carlos",
         leadPhone: "11977778888",
         vehicleInterest: "Honda HR-V Touring 2024",

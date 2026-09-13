@@ -61,7 +61,7 @@ describe("[IT-15] Gestão de Equipe & Controle de Capacidade Multi-Tenant", () =
     // Assert (Nomes e cargos dos membros iniciais)
     expect(screen.getByText("Roberto Silva")).toBeInTheDocument();
     expect(screen.getByText("Juliana Costa")).toBeInTheDocument();
-    expect(screen.getByText("Rafael Alves")).toBeInTheDocument();
+    expect(screen.getByText("Rafael Martins")).toBeInTheDocument();
 
     expect(screen.getByText(/admin \/ proprietário/i)).toBeInTheDocument();
     expect(screen.getByText(/gerente comercial/i)).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe("[IT-15] Gestão de Equipe & Controle de Capacidade Multi-Tenant", () =
 
     await user.click(screen.getByRole("tab", { name: /equipe & vendedores/i }));
 
-    // Localiza botões de remover da lista (Rafael Alves é o 3º)
+    // Localiza botões de remover da lista (Rafael Martins é o 3º)
     const removeButtons = screen.getAllByRole("button", {
       name: /remover/i,
     });

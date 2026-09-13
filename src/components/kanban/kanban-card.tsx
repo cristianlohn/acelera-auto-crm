@@ -99,7 +99,10 @@ function getSlaBadgeConfig(minutes: number, stage: LeadStage) {
  * Retorna o rótulo amigável da origem do lead
  */
 function getSourceBadge(source: string) {
-  const s = source.toLowerCase();
+  const s = (source || "").toLowerCase();
+  if (s.includes("google")) {
+    return { label: "Google Ads", className: "bg-blue-500/10 text-blue-400 border-blue-500/20" };
+  }
   if (s.includes("meta") || s.includes("insta") || s.includes("face")) {
     return { label: "Meta Ads", className: "bg-pink-500/10 text-pink-400 border-pink-500/20" };
   }
@@ -112,10 +115,16 @@ function getSourceBadge(source: string) {
   if (s.includes("olx")) {
     return { label: "OLX", className: "bg-purple-500/10 text-purple-400 border-purple-500/20" };
   }
+  if (s.includes("indica") || s.includes("indicacao")) {
+    return { label: "Indicação", className: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" };
+  }
+  if (s.includes("patio") || s.includes("showroom") || s.includes("balcao")) {
+    return { label: "Showroom / Pátio", className: "bg-amber-500/10 text-amber-400 border-amber-500/20" };
+  }
   if (s.includes("landing") || s.includes("site")) {
     return { label: "Site / LP", className: "bg-blue-500/10 text-blue-400 border-blue-500/20" };
   }
-  return { label: "Direto", className: "bg-zinc-800 text-zinc-300 border-zinc-700" };
+  return { label: source || "Direto", className: "bg-zinc-800 text-zinc-300 border-zinc-700" };
 }
 
 export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps) {

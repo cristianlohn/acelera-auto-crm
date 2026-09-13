@@ -41,7 +41,7 @@ export function PricingSection() {
             Investimento simples para impulsionar suas vendas
           </p>
           <p className="mt-2 sm:mt-3 text-xs sm:text-sm text-zinc-400">
-            Sem contratos de fidelidade abusivos. Cancele quando quiser.
+            Cancele quando quiser, sem fidelidade ou multas
           </p>
 
           {/* Toggle Mensal / Anual */}
@@ -118,27 +118,27 @@ export function PricingSection() {
               <ul className="mt-5 sm:mt-6 space-y-2.5 sm:space-y-3 text-xs text-zinc-300">
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Roleta Comercial com distribuição justa (Round-Robin)</span>
+                  <span>Cockpit do Gestor com alertas em tempo real</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Controle de plantão dos vendedores (Ligar / Pausar)</span>
+                  <span>Monitoramento de SLA de Primeiro Atendimento (&lt; 15 min)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Funil Kanban de Vendas com cronômetro de SLA</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Contato com o lead via WhatsApp em 1 clique</span>
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-orange-400 shrink-0" />
-                  <span>Chave de API para ingestão automática de leads externos</span>
+                  <span>Roleta de Leads com distribuição inteligente (Round-Robin)</span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-orange-400 shrink-0" />
                   <span>Gestão de estoque integrada</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+                  <span className="text-emerald-300 font-medium">Implantação assistida incluída (R$ 0 setup)</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-orange-400 shrink-0" />
+                  <span>Contato com o lead via WhatsApp em 1 clique</span>
                 </li>
               </ul>
             </div>
@@ -157,7 +157,7 @@ export function PricingSection() {
           <div className="relative flex flex-col justify-between rounded-2xl border-2 border-orange-500 bg-gradient-to-b from-[#181822] to-[#121216] p-6 sm:p-8 shadow-2xl shadow-orange-500/15">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-3.5 py-0.5 text-[10px] font-bold text-white tracking-wider uppercase shadow flex items-center gap-1">
               <Sparkles className="w-3 h-3" />
-              <span>{CANONICAL_PLANS.pro.badge ?? "Mais escolhido"}</span>
+              <span>{CANONICAL_PLANS.pro.badge ?? "Recomendado"}</span>
             </div>
 
             <div>
@@ -328,16 +328,15 @@ export function PricingSection() {
                   <span>🚀 Implantação e Onboarding Guiado</span>
                 </h3>
                 <p className="mt-1 text-xs sm:text-sm text-zinc-300 max-w-3xl leading-relaxed">
-                  <strong className="text-orange-400 font-semibold">
-                    Taxa única de setup: R$ 997.
+                  <strong className="text-emerald-400 font-semibold">
+                    Implantação assistida incluída (R$ 0 setup).
                   </strong>{" "}
-                  Configuração inicial da concessionária, importação do estoque via planilha (CSV/Excel) e treinamento ao vivo do time de vendas.
+                  Configuração inicial da concessionária, importação do estoque via planilha (CSV/Excel) e treinamento ao vivo do time de vendas sem nenhum custo de setup.
                 </p>
                 <p className="mt-2 text-xs text-emerald-400 font-medium flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
                   <span>
-                    Consulte condições especiais de isenção de setup para
-                    contratações no plano anual.
+                    Implantação assistida e suporte inclusos em todos os planos comerciais.
                   </span>
                 </p>
               </div>

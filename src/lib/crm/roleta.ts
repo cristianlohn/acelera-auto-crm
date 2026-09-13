@@ -438,7 +438,7 @@ export async function notifyAssignedSellerViaWhatsApp({
     }
 
     // Fallback de demonstração caso o vendedor padrão não possua telefone no DB
-    if (!sellerPhone && (sellerName === "Rafael Alves" || sellerName === "Juliana Costa")) {
+    if (!sellerPhone && (sellerName === "Rafael Martins" || sellerName === "Juliana Costa")) {
       sellerPhone = "11988887777";
     }
 

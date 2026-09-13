@@ -26,19 +26,19 @@ export interface RoleConfig {
 export const ROLE_CONFIGS: Record<DemoRole, RoleConfig> = {
   vendedor: {
     role: "vendedor",
-    label: "👤 Vendedor (Rafael Alves)",
-    name: "Rafael Alves",
-    email: "rafael.alves@autoprime.com.br",
+    label: "👤 Vendedor (Rafael Martins)",
+    name: "Rafael Martins",
+    email: "rafael.martins@autoprime.com.br",
     description: "Visão focada nos próprios leads com restrição a dados estratégicos e equipe.",
-    feedbackMessage: "Visão de Vendedor ativada: exibindo apenas leads de Rafael Alves e perfil pessoal.",
+    feedbackMessage: "Visão de Vendedor ativada: exibindo apenas leads de Rafael Martins e perfil pessoal.",
   },
   seller: {
     role: "seller",
-    label: "👤 Vendedor (Rafael Alves)",
-    name: "Rafael Alves",
-    email: "rafael.alves@autoprime.com.br",
+    label: "👤 Vendedor (Rafael Martins)",
+    name: "Rafael Martins",
+    email: "rafael.martins@autoprime.com.br",
     description: "Visão focada nos próprios leads com restrição a dados estratégicos e equipe.",
-    feedbackMessage: "Visão de Vendedor ativada: exibindo apenas leads de Rafael Alves e perfil pessoal.",
+    feedbackMessage: "Visão de Vendedor ativada: exibindo apenas leads de Rafael Martins e perfil pessoal.",
   },
   gerente: {
     role: "gerente",

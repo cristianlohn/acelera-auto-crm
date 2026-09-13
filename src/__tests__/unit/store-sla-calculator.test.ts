@@ -182,7 +182,7 @@ describe("[UNIT-SLA-CALCULATOR] Engine de SLA Adaptativa por Horário da Loja", 
           status: "novo",
           createdAt: sundayReceived.toISOString(),
           estimatedValue: 120000,
-          sellerName: "Rafael Alves",
+          sellerName: "Rafael Martins",
         },
       ];
 
@@ -221,7 +221,7 @@ describe("[UNIT-SLA-CALCULATOR] Engine de SLA Adaptativa por Horário da Loja", 
           phone: "11999998888",
           status: "novo",
           createdAt: sundayReceived.toISOString(),
-          sellerName: "Rafael Alves",
+          sellerName: "Rafael Martins",
         },
       ];
 
@@ -231,7 +231,7 @@ describe("[UNIT-SLA-CALCULATOR] Engine de SLA Adaptativa por Horário da Loja", 
       });
 
       expect(actions.length).toBe(1);
-      expect(actions[0].sellerName).toBe("Rafael Alves");
+      expect(actions[0].sellerName).toBe("Rafael Martins");
       expect(actions[0].urgencyType).toBe("danger");
       expect(actions[0].timeText).toContain("25 min");
     });

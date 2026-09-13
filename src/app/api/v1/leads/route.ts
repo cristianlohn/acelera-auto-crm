@@ -119,7 +119,7 @@ import type { Database, LeadStatus } from "@/types/database.types";
  *                 default: novo
  *               seller_name:
  *                 type: string
- *                 example: Rafael Alves
+ *                 example: Rafael Martins
  *               notes:
  *                 type: string
  *                 example: Cliente esteve na loja física buscando opções de financiamento.

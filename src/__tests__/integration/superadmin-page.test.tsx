@@ -201,7 +201,7 @@ describe("[IT-14] Painel Backoffice Super Admin e Gestão de Assinaturas B2B", (
     // Arrange (Simula conta real autenticada sem organizações cadastradas)
     vi.spyOn(demoRoleModule, "useDemoRole").mockReturnValue({
       role: "superadmin",
-      sellerName: "Rafael Alves",
+      sellerName: "Rafael Martins",
       roleConfig: demoRoleModule.ROLE_CONFIGS.admin,
       isDemoMode: false,
       setIsDemoMode: vi.fn(),

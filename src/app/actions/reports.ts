@@ -153,7 +153,7 @@ function computeDemoReport(period: ReportPeriod): ExecutiveReportData {
     kpis: {
       revenue: 108000,
       revenueGrowth: 18.4,
-      conversionRate: 12.5,
+      conversionRate: 13,
       conversionGrowth: 2.1,
       averageTicket: 108000,
       ticketGrowth: 4.8,

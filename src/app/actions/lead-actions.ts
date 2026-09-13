@@ -46,7 +46,7 @@ export async function createLeadAction(
 
     const isSeller = tenantContext.profile?.role === "vendedor";
     const currentUserId = tenantContext.userId || "user-current";
-    const currentUserName = tenantContext.profile?.full_name || (tenantContext.isDemo ? "Rafael Alves" : "Consultor");
+    const currentUserName = tenantContext.profile?.full_name || (tenantContext.isDemo ? "Rafael Martins" : "Consultor");
 
     // Vendedor sempre assume a posse direta; Gestores/Admins podem atribuir a um membro específico
     let finalAssignedToId = isSeller
@@ -224,7 +224,7 @@ export async function transferLeadAction(
 
     const isSeller = tenantContext.profile?.role === "vendedor";
     const currentUserId = tenantContext.userId;
-    const currentUserName = tenantContext.profile?.full_name || (tenantContext.isDemo ? "Rafael Alves" : "Consultor");
+    const currentUserName = tenantContext.profile?.full_name || (tenantContext.isDemo ? "Rafael Martins" : "Consultor");
 
     // 1. Resolução do novo responsável
     let targetName = targetUserId;

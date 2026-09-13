@@ -21,7 +21,7 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
     kpis: {
       revenue: 108000,
       revenueGrowth: 18.4,
-      conversionRate: 12.5,
+      conversionRate: 13,
       conversionGrowth: 2.1,
       averageTicket: 108000,
       ticketGrowth: 4.8,
@@ -35,8 +35,8 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
       { id: "visita_agendada", name: "Visita Agendada", count: 1, percentage: 62.5, conversionFromPrev: 83.3 },
       { id: "proposta", name: "Proposta Enviada", count: 1, percentage: 50.0, conversionFromPrev: 80.0 },
       { id: "financiamento", name: "Financiamento / F&I", count: 1, percentage: 37.5, conversionFromPrev: 75.0 },
-      { id: "fechado", name: "Venda Concluída", count: 1, percentage: 25.0, conversionFromPrev: 66.7 },
-      { id: "perdido", name: "Oportunidade Perdida", count: 1, percentage: 12.5, conversionFromPrev: 50.0 },
+      { id: "fechado", name: "Venda Concluída", count: 1, percentage: 13, conversionFromPrev: 66.7 },
+      { id: "perdido", name: "Oportunidade Perdida", count: 1, percentage: 13, conversionFromPrev: 50.0 },
     ],
     channels: [
       { channel: "Instagram Ads", leadsCount: 2, dealsCount: 1, conversionRate: 50.0, share: 25.0, color: "bg-pink-500" },
@@ -61,7 +61,7 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
     kpis: {
       revenue: 108000,
       revenueGrowth: 18.4,
-      conversionRate: 12.5,
+      conversionRate: 13,
       conversionGrowth: 2.1,
       averageTicket: 108000,
       ticketGrowth: 4.8,
@@ -75,8 +75,8 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
       { id: "visita_agendada", name: "Visita Agendada", count: 1, percentage: 62.5, conversionFromPrev: 83.3 },
       { id: "proposta", name: "Proposta Enviada", count: 1, percentage: 50.0, conversionFromPrev: 80.0 },
       { id: "financiamento", name: "Financiamento / F&I", count: 1, percentage: 37.5, conversionFromPrev: 75.0 },
-      { id: "fechado", name: "Venda Concluída", count: 1, percentage: 25.0, conversionFromPrev: 66.7 },
-      { id: "perdido", name: "Oportunidade Perdida", count: 1, percentage: 12.5, conversionFromPrev: 50.0 },
+      { id: "fechado", name: "Venda Concluída", count: 1, percentage: 13, conversionFromPrev: 66.7 },
+      { id: "perdido", name: "Oportunidade Perdida", count: 1, percentage: 13, conversionFromPrev: 50.0 },
     ],
     channels: [
       { channel: "Instagram Ads", leadsCount: 2, dealsCount: 1, conversionRate: 50.0, share: 25.0, color: "bg-pink-500" },
@@ -123,7 +123,7 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
       { channel: "Indicação", leadsCount: 18, dealsCount: 2, conversionRate: 11.1, share: 4.9, color: "bg-amber-500" },
     ],
     sellers: [
-      { id: "s1", name: "Rafael Alves", avatar: "RA", dealsCount: 24, revenue: 2850000, avgResponseMinutes: 13, conversionRate: 23.5 },
+      { id: "s1", name: "Rafael Martins", avatar: "RM", dealsCount: 24, revenue: 2850000, avgResponseMinutes: 13, conversionRate: 23.5 },
       { id: "s2", name: "Camila Dias", avatar: "CD", dealsCount: 16, revenue: 1620000, avgResponseMinutes: 18, conversionRate: 16.1 },
       { id: "s3", name: "Lucas Santana", avatar: "LS", dealsCount: 9, revenue: 710000, avgResponseMinutes: 22, conversionRate: 11.8 },
       { id: "s4", name: "Beatriz Rocha", avatar: "BR", dealsCount: 5, revenue: 240000, avgResponseMinutes: 29, conversionRate: 8.3 },
@@ -160,7 +160,7 @@ export const PERIOD_METRICS: Record<ReportPeriod, ExecutiveReportData> = {
       { channel: "Indicação", leadsCount: 70, dealsCount: 9, conversionRate: 12.9, share: 4.9, color: "bg-amber-500" },
     ],
     sellers: [
-      { id: "s1", name: "Rafael Alves", avatar: "RA", dealsCount: 94, revenue: 10500000, avgResponseMinutes: 12, conversionRate: 24.1 },
+      { id: "s1", name: "Rafael Martins", avatar: "RM", dealsCount: 94, revenue: 10500000, avgResponseMinutes: 12, conversionRate: 24.1 },
       { id: "s2", name: "Camila Dias", avatar: "CD", dealsCount: 65, revenue: 6100000, avgResponseMinutes: 17, conversionRate: 16.8 },
       { id: "s3", name: "Lucas Santana", avatar: "LS", dealsCount: 38, revenue: 2350000, avgResponseMinutes: 21, conversionRate: 12.2 },
       { id: "s4", name: "Beatriz Rocha", avatar: "BR", dealsCount: 21, revenue: 850000, avgResponseMinutes: 28, conversionRate: 8.9 },

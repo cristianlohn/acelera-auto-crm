@@ -192,7 +192,7 @@ describe("[UNIT-CLIENTS] Módulo de Carteira de Clientes", () => {
         email: "mariana.alfa@email.com",
         document: "111.111.111-11",
         status: "comprador",
-        seller_name: "Rafael Alves",
+        seller_name: "Rafael Martins",
         vehicle_preference: "Corolla Cross XRE",
         total_purchased: 168900,
         purchases_count: 1,

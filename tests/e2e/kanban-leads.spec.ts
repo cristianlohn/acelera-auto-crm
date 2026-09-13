@@ -107,13 +107,13 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
     await expect(page.locator('[data-testid="kanban-card"]').filter({ hasText: "Corolla" }).first()).toBeVisible({ timeout: 5000 });
     await expect(page.locator('[data-testid="kanban-card"]').filter({ hasText: "Jeep" })).toHaveCount(0);
 
-    // 2. Limpa busca e filtra por Vendedor ("Rafael Alves")
+    // 2. Limpa busca e filtra por Vendedor ("Rafael Martins")
     await searchInput.fill("");
     await expect(page.locator('[data-testid="kanban-card"]').filter({ hasText: "Jeep" }).first()).toBeVisible({ timeout: 5000 });
 
     const sellerFilter = page.locator('[data-testid="select-seller-filter"]');
     await expect(sellerFilter).toBeVisible();
-    await sellerFilter.selectOption("Rafael Alves");
+    await sellerFilter.selectOption("Rafael Martins");
 
     const sellerCards = page.locator('[data-testid="kanban-card"]');
     const sellerCount = await sellerCards.count();
@@ -121,7 +121,7 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
 
     for (let i = 0; i < sellerCount; i++) {
       const cardSeller = sellerCards.nth(i).locator('[data-testid="lead-seller-name"]');
-      await expect(cardSeller).toHaveText("Rafael Alves");
+      await expect(cardSeller).toHaveText("Rafael Martins");
     }
   });
 

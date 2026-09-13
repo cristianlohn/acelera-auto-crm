@@ -182,7 +182,7 @@ describe("[UT-RT] Sincronização em Tempo Real (useLeadsRealtime)", () => {
         id: "lead-realtime-1",
         name: "Carlos Eduardo",
         status: "visita",
-        seller_name: "Rafael Alves",
+        seller_name: "Rafael Martins",
         vehicle_interest: "Toyota Corolla Cross 2024",
       },
     };
@@ -193,7 +193,7 @@ describe("[UT-RT] Sincronização em Tempo Real (useLeadsRealtime)", () => {
       expect.objectContaining({
         id: "lead-realtime-1",
         status: "visita",
-        sellerName: "Rafael Alves",
+        sellerName: "Rafael Martins",
       })
     );
   });

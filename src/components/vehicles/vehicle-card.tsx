@@ -307,6 +307,24 @@ export function VehicleCard({
               )}
             </div>
 
+          {/* Nota de Reserva / Venda */}
+          {v.status === "reservado" && (v.buyerName || v.notes) && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-300 flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+              <span className="truncate font-medium">
+                {v.notes || `Reservado para ${v.buyerName}`}
+              </span>
+            </div>
+          )}
+          {v.status === "vendido" && (v.sellerName || v.notes) && (
+            <div className="rounded-lg border border-slate-500/30 bg-slate-500/10 px-2.5 py-1.5 text-[11px] text-slate-300 flex items-center gap-1.5">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span className="truncate font-medium">
+                {v.notes || (v.sellerName ? `Vendido por ${v.sellerName}` : "Vendido")}
+              </span>
+            </div>
+          )}
+
           {/* Detalhes rápidos */}
           <div className="grid grid-cols-3 gap-2">
             <div className="flex flex-col items-center gap-0.5 rounded-lg bg-muted/60 px-2 py-1.5">

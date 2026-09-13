@@ -710,7 +710,7 @@ function AddLeadModal({
                 ))
               ) : (
                 <>
-                  <option value="Rafael Alves">Rafael Alves (Você)</option>
+                  <option value="Rafael Martins">Rafael Martins (Você)</option>
                   <option value="Juliana Costa">Juliana Costa (Vendedora)</option>
                   <option value="Marcos Ferreira">Marcos Ferreira (Gerente)</option>
                 </>

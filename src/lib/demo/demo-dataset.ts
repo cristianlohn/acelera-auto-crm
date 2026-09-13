@@ -234,7 +234,7 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       sellerPhone: "+5547999883300",
       estimatedValue: 138900,
       origin: "instagram",
-      source: "meta_ads",
+      source: "Meta Ads",
       firstContactMinutes: 0,
       slaMinutesElapsed: 8,
       createdAt: minutesAgo(8),
@@ -259,7 +259,7 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       sellerPhone: "+5547999884400",
       estimatedValue: 119500,
       origin: "webmotors",
-      source: "webmotors",
+      source: "Webmotors",
       firstContactMinutes: 9,
       slaMinutesElapsed: 9,
       createdAt: minutesAgo(35),
@@ -284,7 +284,7 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       sellerPhone: "+5547999883300",
       estimatedValue: 124000,
       origin: "site",
-      source: "google",
+      source: "Google Ads",
       firstContactMinutes: 12,
       slaMinutesElapsed: 12,
       createdAt: hoursAgo(16),
@@ -310,7 +310,7 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       sellerPhone: "+5547999884400",
       estimatedValue: 142000,
       origin: "indicacao",
-      source: "indicacao",
+      source: "Indicação",
       firstContactMinutes: 10,
       slaMinutesElapsed: 10,
       createdAt: hoursAgo(5),
@@ -336,7 +336,7 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       sellerPhone: "+5547999883300",
       estimatedValue: 92000,
       origin: "patio_balcao",
-      source: "patio",
+      source: "Showroom / Pátio",
       firstContactMinutes: 8,
       slaMinutesElapsed: 8,
       createdAt: hoursAgo(12),
@@ -362,7 +362,7 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       sellerPhone: "+5547999884400",
       estimatedValue: 245000,
       origin: "webmotors",
-      source: "webmotors",
+      source: "Webmotors",
       firstContactMinutes: 7,
       slaMinutesElapsed: 7,
       createdAt: hoursAgo(18),
@@ -386,8 +386,8 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       sellerName: "Rafael Martins",
       sellerPhone: "+5547999883300",
       estimatedValue: 152000,
-      origin: "indicacao",
-      source: "indicacao_dono",
+      origin: "patio_balcao",
+      source: "Showroom / Pátio",
       firstContactMinutes: 5,
       slaMinutesElapsed: 5,
       createdAt: hoursAgo(6),
@@ -413,7 +413,7 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       sellerPhone: "+5547999883300",
       estimatedValue: 152000,
       origin: "olx",
-      source: "olx",
+      source: "OLX",
       firstContactMinutes: 11,
       slaMinutesElapsed: 11,
       createdAt: hoursAgo(20),
@@ -645,7 +645,7 @@ export function getDemoDataset(referenceTime: number = Date.now()): DemoDataset 
       wonCount: 1,
       totalLeads: 8,
       averageTicket: 152000,
-      conversionRate: 12.5,
+      conversionRate: 13,
       globalSlaMinutes: 9.1,
     },
   };
@@ -667,7 +667,7 @@ export const DEMO_KPI_TOTAL_REVENUE = 152000;
 export const DEMO_KPI_WON_COUNT = 1;
 export const DEMO_KPI_TOTAL_LEADS = 8;
 export const DEMO_KPI_AVERAGE_TICKET = 152000;
-export const DEMO_KPI_CONVERSION_RATE = 12.5;
+export const DEMO_KPI_CONVERSION_RATE = 13;
 export const DEMO_KPI_GLOBAL_SLA_MINUTES = 9.1;
 
 // Helpers de conveniência retrocompatíveis

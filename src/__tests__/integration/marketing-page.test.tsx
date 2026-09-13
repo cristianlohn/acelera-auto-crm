@@ -167,7 +167,7 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     expect(screen.getAllByText("2%").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("[IT-11.5] Deve renderizar os 3 cartões de preços (Starter, Pro, Enterprise), limites e taxa de setup de R$ 997", () => {
+  it("[IT-11.5] Deve renderizar os 3 cartões de preços (Starter, Pro, Enterprise), limites e implantação incluída (R$ 0 setup)", () => {
     // Arrange & Act
     render(<MarketingPage />);
 
@@ -182,7 +182,7 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
       screen.getByRole("heading", { name: "Plano Pro" })
     ).toBeInTheDocument();
     expect(screen.getByText("R$ 497")).toBeInTheDocument();
-    expect(screen.getByText("Mais escolhido")).toBeInTheDocument();
+    expect(screen.getByText("Recomendado")).toBeInTheDocument();
     expect(screen.getByText(/até 8 vendedores/i)).toBeInTheDocument();
 
     expect(
@@ -199,7 +199,9 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
     expect(
       screen.getByRole("heading", { name: /implantação e onboarding guiado/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/taxa única de setup: r\$ 997/i)).toBeInTheDocument();
+    expect(
+      screen.getAllByText(/implantação assistida incluída \(r\$ 0 setup\)/i).length
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("[IT-11.6] Deve alternar o toggle de periodicidade Mensal -> Anual e recalcular valores com 2 meses grátis", () => {

@@ -75,12 +75,12 @@ describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstraç�
 
     // Assert
     expect(screen.getByText(/modo demonstração interativo/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /vendedor \(rafael alves\)/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /vendedor \(rafael martins\)/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /gerente comercial/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /admin \(dono da loja\)/i })).toBeInTheDocument();
   });
 
-  it("[IT-16.3] Deve alternar para perfil 'Vendedor' filtrando os cards do Kanban para Rafael Alves", async () => {
+  it("[IT-16.3] Deve alternar para perfil 'Vendedor' filtrando os cards do Kanban para Rafael Martins", async () => {
     // Arrange
     const user = userEvent.setup();
     render(
@@ -96,13 +96,13 @@ describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstraç�
     expect(screen.getByText("Camila Duarte")).toBeInTheDocument();
 
     // Act (Clica no botão de Vendedor)
-    const vendedorBtn = screen.getByRole("button", { name: /vendedor \(rafael alves\)/i });
+    const vendedorBtn = screen.getByRole("button", { name: /vendedor \(rafael martins\)/i });
     await act(async () => {
       await user.click(vendedorBtn);
     });
 
-    // Assert (Badge de filtro de vendedor é exibido e apenas leads do Rafael Alves estão visíveis)
-    expect(screen.getByText(/meus leads \(rafael alves\)/i)).toBeInTheDocument();
+    // Assert (Badge de filtro de vendedor é exibido e apenas leads do Rafael Martins estão visíveis)
+    expect(screen.getByText(/meus leads \(rafael martins\)/i)).toBeInTheDocument();
     expect(screen.getAllByText("Felipe Albuquerque")[0]).toBeInTheDocument(); // Lead do Rafael
     expect(screen.getAllByText("Leonardo Vargas")[0]).toBeInTheDocument(); // Lead do Rafael
     expect(screen.queryByText("Camila Duarte")).not.toBeInTheDocument(); // Lead da Amanda Souza
@@ -273,14 +273,14 @@ describe("[IT-16] Controle de Acesso RBAC e Simulador de Papéis na Demonstraç�
     expect(nameInput).toHaveValue("Roberto Silva");
     expect(emailInput).toHaveValue("roberto.silva@autoprime.com.br");
 
-    // Act 3 (Alterna para Vendedor Rafael Alves)
-    const vendedorBtn = screen.getByRole("button", { name: /vendedor \(rafael alves\)/i });
+    // Act 3 (Alterna para Vendedor Rafael Martins)
+    const vendedorBtn = screen.getByRole("button", { name: /vendedor \(rafael martins\)/i });
     await act(async () => {
       await user.click(vendedorBtn);
     });
 
-    // Assert 3 (Campos refletem Rafael Alves)
-    expect(nameInput).toHaveValue("Rafael Alves");
-    expect(emailInput).toHaveValue("rafael.alves@autoprime.com.br");
+    // Assert 3 (Campos refletem Rafael Martins)
+    expect(nameInput).toHaveValue("Rafael Martins");
+    expect(emailInput).toHaveValue("rafael.martins@autoprime.com.br");
   });
 });

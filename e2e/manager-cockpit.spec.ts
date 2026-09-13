@@ -38,7 +38,7 @@ test.describe("[E2E-COCKPIT] Cockpit do Gestor, Métricas Comerciais e Exportaç
     // 2. Valida o Card 1: Dinheiro na Mesa
     const pipelineCard = page.locator('[data-testid="card-dinheiro-na-mesa"]');
     await expect(pipelineCard).toBeVisible();
-    await expect(pipelineCard).toContainText(/dinheiro na mesa/i);
+    await expect(pipelineCard).toContainText(/(oportunidades que precisam de atenção|dinheiro na mesa)/i);
     await expect(pipelineCard).toContainText(/R\$/);
     await expect(pipelineCard).toContainText(/em risco por estouro de SLA/i);
 

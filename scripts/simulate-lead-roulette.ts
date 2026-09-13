@@ -22,7 +22,7 @@ const simulationSellers: LeadRouletteMember[] = [
   {
     id: "seller-sim-1",
     organization_id: SIM_ORG_ID,
-    name: "Rafael Alves",
+    name: "Rafael Martins",
     email: "rafael.alves@aceleraauto.com.br",
     phone: "+5511988887777",
     role: "seller",

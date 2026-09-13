@@ -16,7 +16,7 @@ vi.mock("@/app/actions/team-actions", () => ({
   getTeamMembersAction: vi.fn().mockResolvedValue([
     {
       id: "usr-01",
-      name: "Rafael Alves",
+      name: "Rafael Martins",
       email: "rafael@loja.com",
       role: "seller",
       status: "active",
@@ -45,8 +45,8 @@ vi.mock("@/app/actions/kanban-actions", () => ({
       vehicle_of_interest: input.vehicle_of_interest,
       source: input.source || "patio",
       stage: input.stage || "new",
-      assigned_to_name: input.assigned_to_name === "roleta" ? "Rafael Alves" : input.assigned_to_name,
-      assigned_to: { id: "usr-01", name: "Rafael Alves" },
+      assigned_to_name: input.assigned_to_name === "roleta" ? "Rafael Martins" : input.assigned_to_name,
+      assigned_to: { id: "usr-01", name: "Rafael Martins" },
       sla_minutes: 0,
       sla_minutes_elapsed: 0,
       created_at: new Date().toISOString(),
@@ -72,7 +72,7 @@ describe("[UNIT-MODALS] Modais de Cadastro de Lead no Funil e Cliente na Carteir
         <AddKanbanLeadModal
           onLeadAdded={onLeadAdded}
           availableSellers={[
-            { id: "usr-01", name: "Rafael Alves" },
+            { id: "usr-01", name: "Rafael Martins" },
             { id: "usr-02", name: "Juliana Costa" },
           ]}
         />

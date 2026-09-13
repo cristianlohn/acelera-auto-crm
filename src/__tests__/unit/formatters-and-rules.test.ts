@@ -318,7 +318,7 @@ describe("[SUT: whatsappUrl] Geração de Deep Links Codificados do WhatsApp", (
     email: "carlos@teste.com",
     vehicleInterest: "Honda Civic EXL 2023",
     status: "novo",
-    sellerName: "Rafael Alves",
+    sellerName: "Rafael Martins",
     lastContactAt: null,
     origin: "whatsapp",
   };

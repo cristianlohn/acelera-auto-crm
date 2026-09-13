@@ -66,8 +66,8 @@ export default async function SettingsPage(props: SettingsPageProps) {
     const cookieRole = cookieStore.get("acelera_demo_role")?.value?.toLowerCase();
     if (cookieRole === "vendedor" || cookieRole === "seller") {
       demoRole = "vendedor";
-      demoName = "Rafael Alves";
-      demoEmail = "rafael.alves@autoprime.com.br";
+      demoName = "Rafael Martins";
+      demoEmail = "rafael.martins@autoprime.com.br";
     } else if (cookieRole === "gerente" || cookieRole === "manager") {
       demoRole = "gerente";
       demoName = "Juliana Costa";

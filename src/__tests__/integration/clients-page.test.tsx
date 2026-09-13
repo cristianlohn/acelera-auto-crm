@@ -241,7 +241,7 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
       name: "Guilherme Santos",
       phone: "(11) 98877-6655",
       status: "ativo" as const,
-      sellerName: "Rafael Alves",
+      sellerName: "Rafael Martins",
       totalPurchased: 0,
       purchasesCount: 0,
       lastInteractionAt: null,
@@ -253,7 +253,7 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
     // Assert (A URL deve conter o DDI 55, apenas dígitos e mensagem formatada)
     expect(url).toContain("https://wa.me/5511988776655");
     expect(url).toContain(encodeURIComponent("Olá Guilherme Santos!"));
-    expect(url).toContain(encodeURIComponent("Acelera Auto"));
+    expect(url).toContain(encodeURIComponent("Auto Prime Veículos"));
   });
 
   it("[IT-09.9] Deve filtrar a carteira estritamente para o vendedor ativo quando em perfil Vendedor", () => {
@@ -264,7 +264,7 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
       </DemoRoleProvider>
     );
 
-    // Assert (Apenas os clientes de Rafael Alves devem ser renderizados)
+    // Assert (Apenas os clientes de Rafael Martins devem ser renderizados)
     expect(screen.getByText("Mariana Souza")).toBeInTheDocument();
     expect(screen.getByText("Carlos Mendonça")).toBeInTheDocument();
     expect(screen.getByText("Patrícia Vieira")).toBeInTheDocument();
@@ -275,7 +275,7 @@ describe("[IT-09] Gestão de Clientes (ClientsPage)", () => {
     expect(screen.queryByText("Eduardo Castro")).not.toBeInTheDocument();
 
     // Badge de carteira individual
-    expect(screen.getByText(/Minha Carteira \(Rafael Alves\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Minha Carteira \(Rafael Martins\)/i)).toBeInTheDocument();
   });
 
   it("[IT-09.10] Deve exibir o Empty State limpo e profissional quando a base real não tiver clientes", () => {

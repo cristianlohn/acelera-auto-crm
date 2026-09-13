@@ -25,6 +25,7 @@ import {
   Clock,
   Download,
   CheckCircle2,
+  XCircle,
   Users,
   Layers,
   Sparkles,
@@ -394,49 +395,118 @@ function ReportsPageContent() {
                   Funil de Conversão Comercial
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Passagem e retenção de leads entre as 5 etapas da esteira
+                  Passagem e retenção de leads entre as 6 etapas ativas da esteira
                 </p>
               </div>
               <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground">
-                5 Etapas
+                {funnel.some((s) => s.id === "fechado") && funnel.some((s) => s.id === "perdido")
+                  ? "6 Etapas + Desfechos"
+                  : `${funnel.length} Etapas`}
               </span>
             </div>
 
-            <div className="space-y-3">
-              {funnel.map((stage, idx) => (
-                <div key={stage.id} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-foreground flex items-center gap-1.5">
-                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-orange-100 text-[10px] font-bold text-orange-600 dark:bg-orange-950/80 dark:text-orange-400">
-                        {idx + 1}
-                      </span>
-                      {stage.name}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-foreground">
-                        {stage.count} leads
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        ({stage.percentage}%)
-                      </span>
-                      {idx > 0 && (
-                        <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                          {stage.conversionFromPrev}% conv.
-                        </span>
-                      )}
-                    </div>
+            {(() => {
+              const wonStage = funnel.find((s) => s.id === "fechado");
+              const lostStage = funnel.find((s) => s.id === "perdido");
+              const hasBifurcation = Boolean(wonStage && lostStage);
+              const stagesToRender = hasBifurcation
+                ? funnel.filter((s) => s.id !== "fechado" && s.id !== "perdido")
+                : funnel;
+
+              return (
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    {stagesToRender.map((stage, idx) => (
+                      <div key={stage.id} className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-foreground flex items-center gap-1.5">
+                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-orange-100 text-[10px] font-bold text-orange-600 dark:bg-orange-950/80 dark:text-orange-400">
+                              {idx + 1}
+                            </span>
+                            {stage.name}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-foreground">
+                              {stage.count} leads
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              ({stage.percentage}%)
+                            </span>
+                            {idx > 0 && (
+                              <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
+                                {stage.conversionFromPrev}% conv.
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Barra de Progresso do Estágio */}
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-500"
+                            style={{ width: `${stage.percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
-                  {/* Barra de Progresso do Estágio */}
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-orange-500 to-red-500 transition-all duration-500"
-                      style={{ width: `${stage.percentage}%` }}
-                    />
-                  </div>
+                  {/* Bifurcação em Venda Concluída (Won) e Descarte (Lost) em Paralelo */}
+                  {hasBifurcation && wonStage && lostStage && (
+                    <div className="pt-3 border-t border-border/60">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                        Desfechos do Funil (Bifurcação Paralela)
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* 1. Ramificação Venda Concluída (Won) */}
+                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                              <span>Venda Concluída</span>
+                              <span className="rounded-full bg-emerald-500/20 px-1.5 py-0.2 text-[9px] font-extrabold text-emerald-700 dark:text-emerald-300">
+                                Won
+                              </span>
+                            </span>
+                            <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                              {wonStage.count} {wonStage.count === 1 ? "lead" : "leads"} ({wonStage.percentage}%)
+                            </span>
+                          </div>
+                          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-emerald-950/20 dark:bg-emerald-950/50">
+                            <div
+                              className="h-full rounded-full bg-emerald-500 transition-all duration-500"
+                              style={{ width: `${wonStage.percentage}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* 2. Ramificação Descarte / Oportunidade Perdida (Lost) */}
+                        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 flex flex-col justify-between">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                              <XCircle className="h-4 w-4 text-rose-500 shrink-0" />
+                              <span>Oportunidade Perdida</span>
+                              <span className="rounded-full bg-rose-500/20 px-1.5 py-0.2 text-[9px] font-extrabold text-rose-700 dark:text-rose-300">
+                                Lost
+                              </span>
+                            </span>
+                            <span className="text-xs font-black text-rose-600 dark:text-rose-400">
+                              {lostStage.count} {lostStage.count === 1 ? "lead" : "leads"} ({lostStage.percentage}%)
+                            </span>
+                          </div>
+                          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-rose-950/20 dark:bg-rose-950/50">
+                            <div
+                              className="h-full rounded-full bg-rose-500 transition-all duration-500"
+                              style={{ width: `${lostStage.percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </section>
 
           {/* Desempenho por Canal & Conversão por Origem */}

@@ -19,6 +19,6 @@ insert into public.vehicles (
 insert into public.leads (
   organization_id, name, phone, email, vehicle_interest, status, seller_name, origin, last_contact_at
 ) values
-  ('a0000000-0000-0000-0000-000000000001', 'Carlos Mendonça', '11987654321', 'carlos@exemplo.com', 'Honda Civic EXL 2023', 'novo', 'Rafael Alves', 'whatsapp', now() - interval '2 hours'),
+  ('a0000000-0000-0000-0000-000000000001', 'Carlos Mendonça', '11987654321', 'carlos@exemplo.com', 'Honda Civic EXL 2023', 'novo', 'Rafael Martins', 'whatsapp', now() - interval '2 hours'),
   ('a0000000-0000-0000-0000-000000000001', 'Fernanda Souza', '21976543210', 'fernanda@exemplo.com', 'Toyota Corolla Cross', 'atendimento', 'Camila Dias', 'instagram', now() - interval '8 hours'),
-  ('a0000000-0000-0000-0000-000000000001', 'Ricardo Lima', '11965432109', 'ricardo@exemplo.com', 'Jeep Compass Longitude', 'proposta', 'Rafael Alves', 'site', now() - interval '30 hours');
+  ('a0000000-0000-0000-0000-000000000001', 'Ricardo Lima', '11965432109', 'ricardo@exemplo.com', 'Jeep Compass Longitude', 'proposta', 'Rafael Martins', 'site', now() - interval '30 hours');

@@ -169,7 +169,6 @@ describe("[UNIT-RBAC] Isolamento de Dados por Papel de Vendedor", () => {
     expect(sellerLeads.length).toBeGreaterThan(0);
     sellerLeads.forEach((lead) => {
       expect(
-        lead.assigned_to_name === "Rafael Alves" ||
         lead.assigned_to_name === "Rafael Martins" ||
         lead.assigned_to?.id === "sp-001"
       ).toBe(true);
@@ -203,7 +202,6 @@ describe("[UNIT-RBAC] Isolamento de Dados por Papel de Vendedor", () => {
     expect(sellerLeads.length).toBeLessThan(adminLeads.length);
     sellerLeads.forEach((l) => {
       expect(
-        l.sellerName === "Rafael Alves" ||
         l.sellerName === "Rafael Martins" ||
         l.sellerName?.toLowerCase().includes("vendedor")
       ).toBe(true);

@@ -74,7 +74,7 @@ export interface paths {
                             success?: boolean;
                             /** @example 00000000-0000-0000-0000-000000000000 */
                             lead_id?: string;
-                            /** @example Rafael Alves */
+                            /** @example Rafael Martins */
                             assigned_to?: string;
                             /** @example webmotors */
                             portal?: string;
@@ -261,7 +261,7 @@ export interface paths {
                             lead_id?: string;
                             /** @example received */
                             status?: string;
-                            /** @example Rafael Alves */
+                            /** @example Rafael Martins */
                             assigned_to?: string;
                             /** @example Lead recebido e processado com sucesso */
                             message?: string;
@@ -724,7 +724,7 @@ export interface paths {
                          * @enum {string}
                          */
                         status?: "novo" | "atendimento" | "visita" | "proposta" | "fechado";
-                        /** @example Rafael Alves */
+                        /** @example Rafael Martins */
                         seller_name?: string;
                         /** @example Cliente esteve na loja física buscando opções de financiamento. */
                         notes?: string;
@@ -962,7 +962,7 @@ export interface paths {
                         lead_id: string;
                         /** @example 00000000-0000-0000-0000-000000000000 */
                         seller_id?: string;
-                        /** @example Rafael Alves */
+                        /** @example Rafael Martins */
                         seller_name?: string;
                         /**
                          * @description Se verdadeiro, ignora o vendedor fornecido e calcula o próximo da fila.

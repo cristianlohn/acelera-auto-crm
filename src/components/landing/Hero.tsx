@@ -116,7 +116,7 @@ export function Hero() {
                   <p className="text-[11px] text-zinc-400">Honda Civic EXL 2023</p>
                   <div className="mt-2 flex items-center justify-between text-[10px]">
                     <span className="text-emerald-400 font-medium">🟢 há 12 min</span>
-                    <span className="text-zinc-400">Rafael Alves</span>
+                    <span className="text-zinc-400">Rafael Martins</span>
                   </div>
                 </div>
               </div>
@@ -156,7 +156,7 @@ export function Hero() {
                   <p className="text-[11px] text-emerald-300">Jeep Compass Limited 4x4</p>
                   <div className="mt-2 flex items-center justify-between text-[10px]">
                     <span className="text-emerald-400 font-bold">R$ 219.900</span>
-                    <span className="text-zinc-400">Rafael Alves</span>
+                    <span className="text-zinc-400">Rafael Martins</span>
                   </div>
                 </div>
               </div>

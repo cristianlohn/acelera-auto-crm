@@ -67,7 +67,7 @@ describe("[UNIT-CRM] Módulos Operacionais de Domínio (Leads, Veículos, Roleta
         email: "arthur@camelot.com",
         vehicle_interest: "Jeep Commander 2024",
         origin: "patio_balcao",
-        seller_name: "Rafael Alves",
+        seller_name: "Rafael Martins",
         notes: "Cliente presencial",
       });
 

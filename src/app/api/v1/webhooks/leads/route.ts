@@ -259,7 +259,7 @@ async function authenticateApiKeyHeader(request: NextRequest): Promise<ApiKeyAut
  *                   example: received
  *                 assigned_to:
  *                   type: string
- *                   example: "Rafael Alves"
+ *                   example: "Rafael Martins"
  *       400:
  *         description: Dados do lead inválidos ou incompletos.
  *       401:

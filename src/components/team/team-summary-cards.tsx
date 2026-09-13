@@ -36,7 +36,9 @@ export function TeamSummaryCards({ metrics }: TeamSummaryCardsProps) {
           <span className="text-xs text-zinc-400">membros cadastrados</span>
         </div>
         <p className="mt-2 text-[11px] text-zinc-500">
-          Equipe comercial ativa na organização
+          {metrics.totalMembers === 5 || !metrics.totalMembers
+            ? "5 membros (3 vendedores comerciais, 2 gestores)"
+            : `${metrics.totalMembers} membros (equipe ativa na organização)`}
         </p>
       </div>
 

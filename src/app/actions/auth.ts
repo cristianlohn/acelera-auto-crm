@@ -399,9 +399,9 @@ export async function getCurrentUserProfileAction(): Promise<UserProfileInfo> {
       const cookieRole = cookieStore.get("acelera_demo_role")?.value;
       if (cookieRole === "vendedor" || cookieRole === "seller") {
         demoRole = "vendedor";
-        demoName = "Rafael Alves";
-        demoEmail = "rafael.alves@autoprime.com.br";
-        demoInitials = "RA";
+        demoName = "Rafael Martins";
+        demoEmail = "rafael.martins@autoprime.com.br";
+        demoInitials = "RM";
       } else if (cookieRole === "gerente" || cookieRole === "manager") {
         demoRole = "gerente";
         demoName = "Juliana Costa";

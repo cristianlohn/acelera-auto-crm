@@ -118,7 +118,7 @@ describe("[UT-COCKPIT-RBAC] Renderização Condicional do Cockpit por Papel (Ven
         <DashboardPageClient
           initialMetrics={mockMetrics}
           serverRole="seller"
-          userName="Rafael Alves"
+          userName="Rafael Martins"
           isDemo={true}
         />
       </DemoRoleProvider>

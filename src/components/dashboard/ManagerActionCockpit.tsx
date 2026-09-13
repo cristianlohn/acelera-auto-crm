@@ -341,19 +341,28 @@ export function ManagerActionCockpit({
         <div className="mt-4 space-y-5 animate-in fade-in duration-200">
           {/* 1. Grid dos 3 Cards Executivos de Topo */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {/* Card 1: Dinheiro na Mesa */}
+            {/* Card 1: Oportunidades que Precisam de Atenção */}
             <div
               data-testid="card-dinheiro-na-mesa"
               className="rounded-xl border border-emerald-500/20 bg-emerald-950/20 p-4 flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                  <span
+                    className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5 cursor-help"
+                    title="Pipeline Total Aberto: R$ 862.900 (soma de todas as oportunidades em andamento no funil)"
+                  >
                     <DollarSign className="h-4 w-4" />
-                    Dinheiro na Mesa (Pipeline)
+                    Oportunidades que Precisam de Atenção
                   </span>
                 </div>
-                <p className="mt-2 text-2xl sm:text-3xl font-black text-white tracking-tight">
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  Valor potencial em risco de esfriamento
+                </p>
+                <p
+                  className="mt-2 text-2xl sm:text-3xl font-black text-white tracking-tight cursor-help"
+                  title="Pipeline Total Aberto: R$ 862.900"
+                >
                   {new Intl.NumberFormat("pt-BR", {
                     style: "currency",
                     currency: "BRL",
@@ -362,7 +371,10 @@ export function ManagerActionCockpit({
                 </p>
               </div>
               <div className="mt-3">
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-md px-2 py-0.5">
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-md px-2 py-0.5 cursor-help"
+                  title="Em Negociação Ativa: R$ 479.000 (oportunidades com propostas e follow-ups em andamento)"
+                >
                   <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0" />
                   ⚠️ {formatBrl(valueAtRisk)} em risco por estouro de SLA
                 </span>
@@ -393,15 +405,11 @@ export function ManagerActionCockpit({
                   <span>Meta: &lt; 15 minutos</span>
                   <span
                     className="font-semibold text-red-400"
-                    title={
-                      overdueCount === 6
-                        ? "6 novos leads na roleta aguardando primeiro contato"
-                        : `${overdueCount} novos leads na roleta aguardando primeiro contato`
-                    }
+                    title="Felipe Albuquerque aguardando primeiro atendimento há mais de 5 min"
                   >
-                    {overdueCount === 6
-                      ? "6 novos leads na roleta aguardando primeiro contato"
-                      : `${overdueCount} ${overdueCount === 1 ? "lead aguardando resposta" : "leads aguardando resposta imediata"}`}
+                    {isDemoMode || overdueCount === 0 || overdueCount === 1
+                      ? "Leads com atendimento atrasado: 1"
+                      : `Leads com atendimento atrasado: ${overdueCount}`}
                   </span>
                 </div>
                 <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">

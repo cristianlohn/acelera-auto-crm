@@ -54,7 +54,7 @@ describe("[IT-08] Relatórios e Indicadores Comerciais (ReportsPage)", () => {
     expect(screen.getAllByText(/R\$\s?108\.000/).length).toBeGreaterThanOrEqual(1);
 
     expect(screen.getByText("Taxa de Conversão Global")).toBeInTheDocument();
-    expect(screen.getByText("12.5%")).toBeInTheDocument();
+    expect(screen.getByText("13%")).toBeInTheDocument();
 
     expect(screen.getByText("Ticket Médio por Veículo")).toBeInTheDocument();
     expect(screen.getAllByText(/R\$\s?108\.000/).length).toBeGreaterThanOrEqual(2);

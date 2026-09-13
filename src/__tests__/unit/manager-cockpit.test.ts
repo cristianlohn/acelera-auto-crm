@@ -92,7 +92,7 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
           status: "atendimento",
           createdAt: new Date(referenceNow.getTime() - 20 * 60000).toISOString(),
           lastContactAt: new Date(referenceNow.getTime() - 15 * 60000).toISOString(),
-          sellerName: "Rafael Alves",
+          sellerName: "Rafael Martins",
         },
         // Lead 2: Criado há 30 min, atendido em 10 min (em conformidade)
         {
@@ -307,7 +307,7 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
 
       const metrics = calculateManagerCockpitMetrics(leads, {
         now: referenceNow,
-        activeSellers: ["Cris Test of", "Rafael Alves", "Juliana Lima"],
+        activeSellers: ["Cris Test of", "Rafael Martins", "Juliana Lima"],
       });
 
       expect(metrics.valueAtRisk).toBe(1400000);
@@ -352,13 +352,13 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
           createdAt: new Date(referenceNow.getTime() - 10 * 60000).toISOString(),
           firstContactAt: new Date(referenceNow.getTime() - 5 * 60000).toISOString(),
           lastContactAt: new Date(referenceNow.getTime() - 2 * 3600000).toISOString(),
-          sellerName: "Rafael Alves",
+          sellerName: "Rafael Martins",
         },
       ];
 
       const metrics = calculateManagerCockpitMetrics(leads, {
         now: referenceNow,
-        activeSellers: ["Rafael Alves"],
+        activeSellers: ["Rafael Martins"],
       });
 
       expect(metrics.systemRecommendations).toEqual([]);
@@ -379,7 +379,7 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
         },
       ];
 
-      const activeSellers = ["Cris Test of", "Rafael Alves", "Juliana Lima"];
+      const activeSellers = ["Cris Test of", "Rafael Martins", "Juliana Lima"];
 
       const metrics = calculateManagerCockpitMetrics(leads, {
         now: referenceNow,
@@ -389,7 +389,7 @@ describe("[UNIT-COCKPIT] Cockpit do Gestor & Agregação Analítica", () => {
       expect(metrics.sellerRanking.length).toBe(3);
 
       const cris = metrics.sellerRanking.find((s) => s.sellerName === "Cris Test of");
-      const rafael = metrics.sellerRanking.find((s) => s.sellerName === "Rafael Alves");
+      const rafael = metrics.sellerRanking.find((s) => s.sellerName === "Rafael Martins");
       const juliana = metrics.sellerRanking.find((s) => s.sellerName === "Juliana Lima");
 
       expect(cris).toBeDefined();

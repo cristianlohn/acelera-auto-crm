@@ -106,7 +106,7 @@ import type { LeadStatus } from "@/types/database.types";
  *                   example: "00000000-0000-0000-0000-000000000000"
  *                 assigned_to:
  *                   type: string
- *                   example: "Rafael Alves"
+ *                   example: "Rafael Martins"
  *                 portal:
  *                   type: string
  *                   example: "webmotors"

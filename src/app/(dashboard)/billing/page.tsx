@@ -80,7 +80,7 @@ const plans: Plan[] = [
     id: "pro",
     name: CANONICAL_PLANS.pro.name,
     popular: true,
-    badge: CANONICAL_PLANS.pro.badge ?? "Mais escolhido",
+    badge: CANONICAL_PLANS.pro.badge ?? "Recomendado",
     description: "Para concessionárias e lojas em expansão",
     monthlyPrice: CANONICAL_PLANS.pro.monthlyPrice,
     annualPrice: CANONICAL_PLANS.pro.annualPrice,

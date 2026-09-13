@@ -154,7 +154,7 @@ describe("[UNIT-LEAD-ASSIGNMENT] Regras de Origem, Atribuição Direta e Transfe
         needsOnboarding: false,
         profile: {
           id: "seller-rafael-123",
-          full_name: "Rafael Alves",
+          full_name: "Rafael Martins",
           role: "vendedor",
           organization_id: "org-loja-001",
           email: "rafael@loja.com",

@@ -62,10 +62,10 @@ const mockLead: KanbanLead = {
   vehicle_of_interest: "Honda HR-V Touring 2024",
   assigned_to: {
     id: "sp-01",
-    name: "Rafael Alves",
+    name: "Rafael Martins",
     phone: "+5511988887777",
   },
-  assigned_to_name: "Rafael Alves",
+  assigned_to_name: "Rafael Martins",
   stage: "new",
   sla_minutes: 5,
   sla_minutes_elapsed: 3,
@@ -178,7 +178,7 @@ describe("[UT-KANBAN] Drag & Drop Nativo e Modal de Detalhes", () => {
     expect(within(modal).getByTestId("lead-details-name")).toHaveTextContent("Bruno Silveira");
     expect(within(modal).getByTestId("lead-details-phone")).toHaveTextContent("+5511999998888");
     expect(within(modal).getByTestId("lead-details-vehicle")).toHaveTextContent("Honda HR-V Touring 2024");
-    expect(within(modal).getByText("Rafael Alves")).toBeInTheDocument();
+    expect(within(modal).getByText("Rafael Martins")).toBeInTheDocument();
   });
 
   it("[UT-KDD.5] Deve alterar a etapa do lead via seletor rápido no modal", async () => {

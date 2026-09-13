@@ -345,7 +345,7 @@ describe("[API-V1-LEADS] Ingestão Externa de Leads & Distribuição via Roleta"
                         {
                           id: "lead_existing_999",
                           seller_id: "sp-001",
-                          seller_name: "Rafael Alves",
+                          seller_name: "Rafael Martins",
                           notes: "Nota inicial do cliente",
                         },
                       ],

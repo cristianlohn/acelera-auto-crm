@@ -373,7 +373,7 @@ describe("[INTEGRATION-ALL-ROUTES] Blindagem e Auditoria Completa da API v1", ()
         "POST",
         {
           lead_id: "lead-test-123",
-          seller_name: "Rafael Alves",
+          seller_name: "Rafael Martins",
           trigger_roleta: false,
         },
         VALID_AUTH_HEADER

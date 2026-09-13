@@ -146,7 +146,7 @@ describe("[SECURITY-MULTI-TENANT] Isolamento Estrito Multi-Tenant e Prevenção 
           phone: "11988882222",
           vehicle_interest: "Toyota Corolla",
           status: "novo",
-          seller_name: "Rafael Alves",
+          seller_name: "Rafael Martins",
         },
         error: null,
       });
