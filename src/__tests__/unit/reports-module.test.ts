@@ -349,7 +349,7 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
   });
 
   it("[REP-07] Mapeia todos os slugs e nomes canônicos de etapas do Kanban", async () => {
-    const { normalizeLeadStage } = await import("@/app/actions/reports");
+    const { normalizeLeadStage } = await import("@/lib/reports/normalize-stage");
 
     // Novos Leads
     expect(normalizeLeadStage("novo")).toBe("new");
@@ -357,14 +357,14 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
     expect(normalizeLeadStage("Novos Leads")).toBe("new");
 
     // Primeiro Contato
-    expect(normalizeLeadStage("primeiro_contato")).toBe("in_contact");
-    expect(normalizeLeadStage("Primeiro Contato")).toBe("in_contact");
-    expect(normalizeLeadStage("em_atendimento")).toBe("in_contact");
+    expect(normalizeLeadStage("primeiro_contato")).toBe("first_contact");
+    expect(normalizeLeadStage("Primeiro Contato")).toBe("first_contact");
+    expect(normalizeLeadStage("em_atendimento")).toBe("first_contact");
 
     // Visita / Test Drive
-    expect(normalizeLeadStage("visita")).toBe("test_drive");
-    expect(normalizeLeadStage("Visita / Test Drive")).toBe("test_drive");
-    expect(normalizeLeadStage("test_drive")).toBe("test_drive");
+    expect(normalizeLeadStage("visita")).toBe("visit");
+    expect(normalizeLeadStage("Visita / Test Drive")).toBe("visit");
+    expect(normalizeLeadStage("test_drive")).toBe("visit");
 
     // Proposta & F&I
     expect(normalizeLeadStage("proposta")).toBe("proposal");

@@ -22,6 +22,7 @@ import type {
   FunnelStageData,
 } from "@/lib/reports/types";
 import { PERIOD_METRICS, EMPTY_METRICS } from "@/lib/reports/fixtures";
+import { normalizeLeadStage } from "@/lib/reports/normalize-stage";
 
 const CHANNEL_CONFIGS: Record<string, { label: string; color: string }> = {
   webmotors: { label: "Webmotors", color: "bg-red-600" },
@@ -45,102 +46,6 @@ const CHANNEL_CONFIGS: Record<string, { label: string; color: string }> = {
   outro: { label: "Outros", color: "bg-zinc-500" },
   other: { label: "Outros", color: "bg-zinc-500" },
 };
-
-export type CanonicalStage =
-  | "new"
-  | "in_contact"
-  | "test_drive"
-  | "proposal"
-  | "won"
-  | "lost";
-
-/**
- * Normaliza qualquer valor de status ou estágio para as etapas canônicas do Kanban.
- */
-export function normalizeLeadStage(rawStatusOrStage?: string | null): CanonicalStage {
-  if (!rawStatusOrStage) return "new";
-  const s = rawStatusOrStage.toString().toLowerCase().trim();
-
-  // Venda Concluída: won | concluido | venda_concluida | Venda Concluída (+ fechado, ganho, vendido)
-  if (
-    s === "won" ||
-    s === "concluido" ||
-    s === "concluído" ||
-    s === "venda_concluida" ||
-    s === "venda_concluída" ||
-    s === "venda concluída" ||
-    s === "venda concluida" ||
-    s === "fechado" ||
-    s === "venda_fechada" ||
-    s === "ganho" ||
-    s === "vendido"
-  ) {
-    return "won";
-  }
-
-  // Descarte: lost | descarte | perdido (+ cancelado, desistiu)
-  if (
-    s === "lost" ||
-    s === "descarte" ||
-    s === "perdido" ||
-    s === "cancelado" ||
-    s === "desistiu"
-  ) {
-    return "lost";
-  }
-
-  // Proposta & F&I: proposta | proposta_fi | Proposta & F&I (+ proposal, proposal_fi, em_negociacao)
-  if (
-    s === "proposta" ||
-    s === "proposta_fi" ||
-    s === "proposta & f&i" ||
-    s === "proposta e f&i" ||
-    s === "proposal" ||
-    s === "proposal_fi" ||
-    s === "proposta_enviada" ||
-    s === "proposta enviada" ||
-    s === "em_negociacao" ||
-    s === "em negociação" ||
-    s === "negociacao" ||
-    s === "negociação" ||
-    s === "financiamento"
-  ) {
-    return "proposal";
-  }
-
-  // Visita / Test Drive: visita | Visita / Test Drive (+ test_drive, visit_scheduled, agendado)
-  if (
-    s === "visita" ||
-    s === "visita / test drive" ||
-    s === "visita e test drive" ||
-    s === "visita_agendada" ||
-    s === "visita agendada" ||
-    s === "test_drive" ||
-    s === "test-drive" ||
-    s === "test drive" ||
-    s === "visit" ||
-    s === "visit_scheduled" ||
-    s === "agendado"
-  ) {
-    return "test_drive";
-  }
-
-  // Primeiro Contato: primeiro_contato | Primeiro Contato | em_atendimento (+ atendimento, in_contact)
-  if (
-    s === "primeiro_contato" ||
-    s === "primeiro contato" ||
-    s === "em_atendimento" ||
-    s === "em atendimento" ||
-    s === "atendimento" ||
-    s === "contato" ||
-    s === "in_contact"
-  ) {
-    return "in_contact";
-  }
-
-  // Novos Leads: novo | novos_leads | Novos Leads (+ new)
-  return "new";
-}
 
 function getPeriodBounds(
   period: ReportPeriod,
@@ -406,11 +311,11 @@ export async function getExecutiveReportData(
     const novoCount = totalLeads;
     const contatoCount = periodLeads.filter((l) => {
       const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
-      return st === "in_contact" || st === "test_drive" || st === "proposal" || st === "won";
+      return st === "first_contact" || (st as string) === "in_contact" || st === "visit" || (st as string) === "test_drive" || st === "proposal" || st === "won";
     }).length;
     const visitaCount = periodLeads.filter((l) => {
       const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
-      return st === "test_drive" || st === "proposal" || st === "won";
+      return st === "visit" || (st as string) === "test_drive" || st === "proposal" || st === "won";
     }).length;
     const propostaCount = periodLeads.filter((l) => {
       const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
