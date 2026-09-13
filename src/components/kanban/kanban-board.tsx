@@ -32,6 +32,7 @@ import { useLeadsRealtime } from "@/hooks/useLeadsRealtime";
 import type { Lead } from "@/types/crm";
 import { useDemoRole } from "@/context/demo-role-context";
 import { canViewAllLeads } from "@/lib/permissions";
+import { isSalesRole } from "@/config/plans";
 import type { TeamMember } from "@/types/team";
 
 const NEGOTIATION_STATUSES = [
@@ -50,6 +51,7 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
+  const [mounted, setMounted] = useState(false);
   const [leads, setLeads] = useState<KanbanLead[]>(initialLeads);
   const [prevInitialLeads, setPrevInitialLeads] = useState<KanbanLead[]>(initialLeads);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
@@ -72,6 +74,10 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     setPrevInitialLeads(initialLeads);
     setLeads(initialLeads);
   }
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isDemoMode) return;
@@ -212,17 +218,25 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
       teamMembers
         .filter(
           (m) =>
-            m.status === "active" &&
+            (m.status === "active" || m.status === "ativo") &&
+            isSalesRole(m.role) &&
             !m.name.toLowerCase().includes("fila") &&
             !m.name.toLowerCase().includes("roleta")
         )
         .forEach((m) => {
           map.set(m.name, { id: m.id, name: m.name });
         });
-      return Array.from(map.values());
     }
 
     if (isDemoMode) {
+      // Garante que os vendedores oficiais do demo sempre estejam disponíveis
+      if (!map.has("Rafael Martins")) {
+        map.set("Rafael Martins", { id: "sp-001", name: "Rafael Martins" });
+      }
+      if (!map.has("Amanda Souza")) {
+        map.set("Amanda Souza", { id: "sp-002", name: "Amanda Souza" });
+      }
+
       leads.forEach((l) => {
         if (
           l.assigned_to_name &&
@@ -485,7 +499,11 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
   };
 
   return (
-    <div className="space-y-4" data-testid="kanban-board-container">
+    <div
+      className="space-y-4"
+      data-testid="kanban-board-container"
+      data-hydrated={mounted ? "true" : "false"}
+    >
       {/* Barra de Filtros Executiva & Ação de Novo Lead */}
       <KanbanFilters
         filters={filters}

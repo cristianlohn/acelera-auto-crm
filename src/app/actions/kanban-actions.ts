@@ -39,6 +39,7 @@ export interface CreateKanbanLeadInput {
   source?: string;
   stage?: LeadStage;
   assigned_to_name?: string;
+  seller_id?: string | null;
   value?: number;
   segment?: "all" | "new_cars" | "used_cars" | "f_and_i";
   notes?: string;
@@ -805,15 +806,16 @@ export async function createKanbanLeadAction(
   const tenantContext = await resolveUserTenantContext();
   const orgId = tenantContext.organizationId || DEFAULT_DEMO_ORG_ID;
 
-  // Resolve vendedor responsável pela roleta ou pelo nome informado
+  // Resolve vendedor responsável pela roleta ou pelo ID/nome informado
+  const sellerQuery = input.seller_id || input.assigned_to_name;
   const isRoulette =
-    !input.assigned_to_name ||
-    input.assigned_to_name.toLowerCase().includes("roleta") ||
-    input.assigned_to_name.toLowerCase().includes("fila") ||
-    input.assigned_to_name === "all";
+    !sellerQuery ||
+    sellerQuery.toLowerCase().includes("roleta") ||
+    sellerQuery.toLowerCase().includes("fila") ||
+    sellerQuery === "all";
 
   const sellerInfo = await resolveAssignedSellerInfo(
-    isRoulette ? undefined : input.assigned_to_name,
+    isRoulette ? undefined : sellerQuery,
     orgId
   );
   let resolvedSeller = sellerInfo.sellerName?.trim();
@@ -828,6 +830,7 @@ export async function createKanbanLeadAction(
   }
 
   const resolvedSellerId =
+    input.seller_id ||
     sellerInfo.sellerId ||
     (tenantContext.profile?.full_name === resolvedSeller ? tenantContext.userId : undefined);
   const nowIso = new Date().toISOString();

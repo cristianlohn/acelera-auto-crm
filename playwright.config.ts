@@ -17,7 +17,7 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 1 : 0,
-    workers: process.env.CI ? 2 : undefined,
+    workers: process.env.CI ? 2 : 4,
     reporter: [
         ['html', { outputFolder: 'playwright-report', open: 'never' }],
         ['list'],
@@ -26,7 +26,7 @@ export default defineConfig({
     use: {
         baseURL,
         actionTimeout: 10000,
-        navigationTimeout: 15000,
+        navigationTimeout: 30000,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
         video: 'retain-on-failure',

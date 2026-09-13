@@ -177,6 +177,7 @@ export const createKanbanLeadSchema = z.object({
     "proposal_fi",
   ]).optional().default("new"),
   assigned_to_name: z.string().trim().optional(),
+  seller_id: z.string().trim().optional().nullable(),
   value: z.number().nonnegative().optional(),
   segment: z.enum(["all", "new_cars", "used_cars", "f_and_i"]).optional().default("all"),
   notes: z.string().trim().optional().nullable(),

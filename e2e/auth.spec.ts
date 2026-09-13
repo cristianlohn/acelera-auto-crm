@@ -92,35 +92,36 @@ test.describe("Autenticação e Layout da Página de Login", () => {
     // 1. Entra no CRM via demo
     await page.goto("/login");
     await page.click('[data-testid="demo-login-button"]');
-    await page.waitForURL("**/dashboard/leads");
-    await page.waitForLoadState("domcontentloaded");
+    await page.waitForURL("**/dashboard/leads", { timeout: 15000 });
     await expect(
       page.getByRole("heading", { level: 1, name: /funil de vendas/i })
     ).toBeVisible({ timeout: 15000 });
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
 
     // Fecha o tour guiado se estiver visível para desobstruir a interface
-    const closeTourBtn = page.getByRole("button", { name: /fechar tour/i });
-    if (await closeTourBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await closeTourBtn.click();
+    const closeTour = page.getByRole("button", { name: /fechar tour/i });
+    if (await closeTour.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await closeTour.click();
       await expect(page.getByRole("dialog", { name: /tour guiado/i })).toBeHidden({ timeout: 5000 });
     }
 
     // 2. Clica no botão de Logout na sidebar (ou no sheet do mobile)
     const isMobile = await page.evaluate(() => window.innerWidth < 1024);
     if (isMobile) {
-      const menuBtn = page.locator('button[aria-label="Abrir menu"]');
-      await expect(menuBtn).toBeVisible({ timeout: 10000 });
+      const menuBtn = page.locator('button[aria-label="Abrir menu"], [data-testid="mobile-menu-trigger"]').first();
       const mobileLogoutBtn = page.locator("#btn-logout-mobile");
+
       await expect(async () => {
-        if (await closeTourBtn.isVisible().catch(() => false)) {
-          await closeTourBtn.click();
+        if (await closeTour.isVisible().catch(() => false)) {
+          await closeTour.click();
           await expect(page.getByRole("dialog", { name: /tour guiado/i })).toBeHidden({ timeout: 2000 });
         }
-        if (!(await mobileLogoutBtn.isVisible())) {
+        if (!(await mobileLogoutBtn.isVisible().catch(() => false))) {
           await menuBtn.click();
         }
         await expect(mobileLogoutBtn).toBeVisible({ timeout: 2000 });
       }).toPass({ timeout: 15000 });
+
       await mobileLogoutBtn.click();
     } else {
       const logoutBtn = page.locator("#btn-logout-sidebar");

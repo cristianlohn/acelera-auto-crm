@@ -50,6 +50,11 @@ export function UserNav({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [realProfile, setRealProfile] = useState<UserProfileInfo | null>(initialProfile || null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleResetDemo = async () => {
     setIsResetting(true);
@@ -93,20 +98,32 @@ export function UserNav({
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
+    if (typeof document !== "undefined") {
+      document.cookie = "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      document.cookie = "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "sb-test-user=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "acelera_user_role=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      document.cookie = "acelera_demo_role=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      try {
+        localStorage.removeItem("acelera_demo_mode");
+        localStorage.removeItem("acelera_user_role");
+        localStorage.removeItem("acelera_demo_role");
+      } catch {}
+    }
     try {
-      await logoutAction();
+      await Promise.race([
+        logoutAction(),
+        new Promise((resolve) => setTimeout(resolve, 600)),
+      ]);
+    } catch {
+      // Ignora falhas de rede no logout do servidor
     } finally {
       if (typeof document !== "undefined") {
-        document.cookie =
-          "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        document.cookie =
-          "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        document.cookie =
-          "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        document.cookie =
-          "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-        document.cookie =
-          "sb-test-user=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        document.cookie = "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
       }
       // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/login";
@@ -202,7 +219,7 @@ export function UserNav({
         <TrendingUp className="h-3.5 w-3.5 shrink-0 text-orange-500" />
       </div>
 
-      {isDemoMode && (
+      {mounted && isDemoMode && (
         <button
           id="btn-reset-demo-state"
           type="button"

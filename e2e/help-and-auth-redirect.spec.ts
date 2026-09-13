@@ -20,17 +20,24 @@ test.describe("[E2E-HELP & AUTH-REDIRECT] Central de Ajuda e Redirecionamento Au
     await expect(demoBtn).toBeVisible({ timeout: 10000 });
     await demoBtn.click();
 
-    // Aguarda navegação atômica para /leads
+    // Aguarda navegação atômica para /leads e estabilização de rota
     await page.waitForURL("**/leads");
     await expect(page).toHaveURL(/.*leads/);
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
 
     // 3. Tratamento para Mobile (drawer Sheet retrátil) vs Desktop
     if (isMobile) {
       const mobileMenu = page.locator(
         '[data-testid="mobile-menu-trigger"], button[aria-label="Abrir menu"]'
       ).first();
-      await expect(mobileMenu).toBeVisible();
-      await mobileMenu.click();
+      const mobileNav = page.locator('[data-testid="mobile-nav"]');
+
+      await expect(async () => {
+        if (!(await mobileNav.isVisible().catch(() => false))) {
+          await mobileMenu.click();
+        }
+        await expect(mobileNav).toBeVisible({ timeout: 2000 });
+      }).toPass({ timeout: 15000 });
     }
 
     // 4. Localiza o link da Central de Ajuda na barra de navegação

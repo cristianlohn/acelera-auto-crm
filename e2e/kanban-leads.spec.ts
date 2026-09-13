@@ -51,6 +51,8 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
   async function navigateToKanban(page: Page) {
     await page.goto("/dashboard/leads");
     await page.waitForLoadState("domcontentloaded");
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    await page.locator('[data-testid="kanban-board-container"][data-hydrated="true"]').waitFor({ timeout: 15000 }).catch(() => {});
 
     const closeTourBtn = page.getByRole("button", { name: /fechar tour/i });
     if (await closeTourBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -146,6 +148,8 @@ test.describe("[E2E-KANBAN-LEADS] Funil de Vendas & Quadro Kanban (/dashboard/le
     // 3. Filtro por Vendedor (Rafael Martins)
     const sellerFilter = page.locator('[data-testid="select-seller-filter"]');
     await expect(sellerFilter).toBeVisible({ timeout: 10000 });
+    // Aguarda carregar opções além do placeholder
+    await expect(sellerFilter.locator("option")).not.toHaveCount(1, { timeout: 10000 });
     await sellerFilter.selectOption({ label: "Rafael Martins" });
 
     // Todos os cards visíveis devem pertencer a Rafael Martins

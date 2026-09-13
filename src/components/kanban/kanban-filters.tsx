@@ -110,6 +110,7 @@ export function KanbanFilters({
           <div className="relative min-w-[160px]">
             <select
               data-testid="select-seller-filter"
+              suppressHydrationWarning
               value={filters.sellerId}
               onChange={(e) => onFilterChange({ sellerId: e.target.value })}
               className="w-full h-9 rounded-xl bg-white/5 border border-white/10 px-3 text-xs font-medium text-white focus:outline-none focus:ring-1 focus:ring-orange-500"

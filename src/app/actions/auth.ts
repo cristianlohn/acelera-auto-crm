@@ -333,16 +333,27 @@ export async function loginAction(input: {
  */
 export async function logoutAction(): Promise<{ success: boolean }> {
   try {
-    await clearDemoCookiesAction();
     try {
       const cookieStore = await cookies();
+      cookieStore.delete("acelera_demo_mode");
       cookieStore.delete("sb-test-user");
+      cookieStore.delete("acelera_user_role");
+      cookieStore.delete("acelera_demo_role");
+      cookieStore.delete("sb-demo-auth");
+      cookieStore.delete("demo_mode");
+      cookieStore.delete("acelera_demo_session");
+      cookieStore.delete("acelera_demo_expired");
+      cookieStore.delete("acelera_subscription_status");
     } catch {
       // Ignora erro de cookie fora do context
     }
+    await clearDemoCookiesAction();
     if (isSupabaseServerConfigured()) {
       const supabase = await createServerSupabaseClient();
-      await supabase.auth.signOut();
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 1500)),
+      ]);
     }
   } catch {
     // Ignora erro de signOut fora do request context

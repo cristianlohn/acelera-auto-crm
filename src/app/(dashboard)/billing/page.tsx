@@ -130,7 +130,6 @@ function BillingContent({
 }: BillingPageProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isExpired = searchParams.get("expired") === "true";
   const { role, isDemoMode } = useDemoRole();
   const effectiveRole = normalizeRole(role);
   const canManageBilling = canManageIntegrationsAndBilling(effectiveRole);
@@ -276,8 +275,17 @@ function BillingContent({
     );
   }
 
+  const isExpiredParam = searchParams.get("expired") === "true";
+  const isTrialExpired =
+    isExpiredParam ||
+    subscriptionOverview?.status === "inactive" ||
+    (subscriptionOverview?.status === "trialing" &&
+      subscriptionOverview?.daysRemaining !== null &&
+      subscriptionOverview?.daysRemaining !== undefined &&
+      subscriptionOverview.daysRemaining <= 0);
+
   const isAnnual = billingCycle === "anual";
-  const isSubscriber = subscriptionOverview?.status === "active";
+  const isSubscriber = !isTrialExpired && subscriptionOverview?.status === "active";
 
   const handleOpenCheckout = (planId: string) => {
     if (planId === "enterprise") {
@@ -313,6 +321,19 @@ function BillingContent({
         />
       )}
       <div className="max-w-6xl mx-auto space-y-8">
+        {/* Banner de Trial Expirado */}
+        {isTrialExpired && (
+          <div
+            data-testid="trial-expired-alert"
+            className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-destructive mb-6"
+          >
+            <h3 className="font-semibold text-base">Seu período de teste grátis chegou ao fim</h3>
+            <p className="text-sm mt-1">
+              Escolha um dos planos abaixo para continuar acelerando suas vendas com o CRM.
+            </p>
+          </div>
+        )}
+
         {/* Alerta de Acesso Bloqueado / Suspenso */}
         {isBlocked && (
           <div
@@ -455,33 +476,36 @@ function BillingContent({
 
             {/* Cabeçalho: Paywall Expirado vs Gestão de Faturamento */}
             <div id="plans-section" className="text-center max-w-3xl mx-auto space-y-3">
-              {isExpired ? (
-                <div className="space-y-2 animate-in fade-in slide-in-from-top-4">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-red-500/30 bg-red-950/40 px-3.5 py-1 text-xs font-bold text-red-400">
-                    <AlertCircle className="h-4 w-4" />
-                    <span>Período de Testes Expirado</span>
-                  </div>
-                  <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-                    Seu período de teste grátis chegou ao fim
-                  </h1>
-                  <p className="text-xs sm:text-sm text-zinc-400">
-                    Para continuar recebendo leads na roleta e acelerando suas vendas sem interrupções, selecione seu plano abaixo.
-                  </p>
+              <div className="space-y-2">
+                <div
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full px-3.5 py-1 text-xs font-bold",
+                    isTrialExpired
+                      ? "border border-red-500/30 bg-red-950/40 text-red-400"
+                      : "border border-orange-500/30 bg-orange-950/40 text-orange-400"
+                  )}
+                >
+                  {isTrialExpired ? (
+                    <>
+                      <AlertCircle className="h-4 w-4" />
+                      <span>Período de Testes Expirado</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      <span>Gestão de Planos & Assinatura</span>
+                    </>
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-950/40 px-3.5 py-1 text-xs font-bold text-orange-400">
-                    <Sparkles className="h-4 w-4" />
-                    <span>Gestão de Planos & Assinatura</span>
-                  </div>
-                  <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
-                    Escolha o plano ideal para a sua concessionária
-                  </h1>
-                  <p className="text-xs sm:text-sm text-zinc-400">
-                    Aumente a capacidade da sua equipe e acelere a conversão de leads com ferramentas profissionais.
-                  </p>
-                </div>
-              )}
+                <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+                  Escolha o plano ideal para a sua concessionária
+                </h1>
+                <p className="text-xs sm:text-sm text-zinc-400">
+                  {isTrialExpired
+                    ? "Para continuar recebendo leads na roleta e acelerando suas vendas sem interrupções, selecione seu plano abaixo."
+                    : "Aumente a capacidade da sua equipe e acelere a conversão de leads com ferramentas profissionais."}
+                </p>
+              </div>
 
               {/* Toggle Mensal / Anual */}
               <div className="pt-4 flex items-center justify-center">
@@ -629,7 +653,9 @@ function BillingContent({
                           <Button
                             type="button"
                             onClick={() => handleOpenCheckout(plan.id)}
+                            id={`btn-subscribe-${plan.id}`}
                             data-testid={plan.id === "pro" ? "subscribe-pro-btn" : `btn-subscribe-${plan.id}`}
+                            aria-label={`Assinar ${plan.name}`}
                             className={cn(
                               "w-full h-11 text-xs sm:text-sm font-bold gap-2 shadow-lg transition-all",
                               plan.popular

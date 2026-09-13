@@ -24,6 +24,7 @@ import { getTeamMembersAction } from "@/app/actions/team-actions";
 import { ALLOWED_MANUAL_SOURCES } from "@/types/crm";
 import type { KanbanLead } from "@/types/kanban";
 import type { TeamMember } from "@/types/team";
+import { isSalesRole } from "@/config/plans";
 
 export interface AddKanbanLeadModalProps {
   onLeadAdded: (lead: KanbanLead) => void;
@@ -55,6 +56,7 @@ export function AddKanbanLeadModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState<CreateKanbanLeadInput>(INITIAL_LEAD_FORM);
   const [team, setTeam] = useState<TeamMember[]>([]);
+  const [sellerId, setSellerId] = useState<string>("");
 
   useEffect(() => {
     let isMounted = true;
@@ -62,13 +64,31 @@ export function AddKanbanLeadModal({
       .then((members) => {
         if (isMounted && members) {
           setTeam(members);
+          const activeS = members.filter(
+            (m) => (m.status === "active" || m.status === "ativo") && isSalesRole(m.role)
+          );
+          const hasAnySeller =
+            activeS.length > 0 || Boolean(availableSellers && availableSellers.length > 0);
+          const eligible =
+            activeS.length > 0
+              ? activeS
+              : members.filter((m) => m.status === "active" || m.status === "ativo");
+          if (!hasAnySeller && eligible.length > 0) {
+            const firstId = eligible[0].id || eligible[0].name;
+            setSellerId(firstId);
+            setForm((prev) => ({
+              ...prev,
+              seller_id: firstId,
+              assigned_to_name: eligible[0].name,
+            }));
+          }
         }
       })
       .catch(() => {});
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [availableSellers]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -78,10 +98,80 @@ export function AddKanbanLeadModal({
     const { name, value } = e.target;
     if (name === "phone") {
       setForm((prev) => ({ ...prev, phone: formatPhone(value) }));
+    } else if (name === "seller_id" || name === "assigned_to_name") {
+      setSellerId(value);
+      const matched = eligibleAssignees.find((m) => m.id === value || m.name === value);
+      setForm((prev) => ({
+        ...prev,
+        seller_id: value,
+        assigned_to_name: value === "roleta" ? "roleta" : matched ? matched.name : value,
+      }));
     } else {
       setForm((prev) => ({ ...prev, [name]: value }));
     }
   };
+
+  // Filtra vendedores comerciais ativos
+  const activeSellers = team.filter(
+    (m) =>
+      (m.status === "active" || m.status === "ativo") &&
+      isSalesRole(m.role) &&
+      !m.name.toLowerCase().includes("fila") &&
+      !m.name.toLowerCase().includes("roleta")
+  );
+
+  // Fallback defensivo: em lojas recém-criadas onde só existe o Admin/Gerente,
+  // permite atribuir ao próprio gestor até que vendedores sejam convidados.
+  const eligibleAssignees = (
+    activeSellers.length > 0
+      ? activeSellers
+      : team.filter(
+          (m) =>
+            (m.status === "active" || m.status === "ativo") &&
+            !m.name.toLowerCase().includes("fila") &&
+            !m.name.toLowerCase().includes("roleta")
+        )
+  ).concat(
+    availableSellers && availableSellers.length > 0
+      ? availableSellers
+          .filter(
+            (s) =>
+              s.name &&
+              !team.some((m) => m.name === s.name) &&
+              !s.name.toLowerCase().includes("fila") &&
+              !s.name.toLowerCase().includes("roleta")
+          )
+          .map(
+            (s) =>
+              ({
+                id: s.id,
+                name: s.name,
+                role: "seller" as const,
+                status: "active" as const,
+                email: "",
+                created_at: new Date().toISOString(),
+              } as TeamMember)
+          )
+      : []
+  );
+
+  // Verifica se há vendedores comerciais ativos na equipe ou disponíveis via prop
+  const hasSellers =
+    activeSellers.length > 0 || Boolean(availableSellers && availableSellers.length > 0);
+
+  // Auto-seleção mandatória:
+  // Se houver vendedores (ativos ou disponíveis), o padrão é "roleta".
+  // Em lojas sem vendedores (onde só existe o Admin/Gerente), seleciona automaticamente o primeiro elegível.
+  const defaultSellerId = hasSellers
+    ? "roleta"
+    : eligibleAssignees[0]?.id || eligibleAssignees[0]?.name || "";
+
+  const effectiveSellerId =
+    sellerId && (hasSellers || sellerId !== "roleta")
+      ? sellerId
+      : form.seller_id && (hasSellers || form.seller_id !== "roleta")
+        ? form.seller_id
+        : defaultSellerId;
 
   const isFormValid =
     form.name.trim().length >= 2 &&
@@ -93,15 +183,37 @@ export function AddKanbanLeadModal({
     if (!isFormValid || isSubmitting) return;
 
     setIsSubmitting(true);
+    const chosenSellerId =
+      effectiveSellerId || (hasSellers ? "roleta" : eligibleAssignees[0]?.id || "");
+    const matched = eligibleAssignees.find(
+      (m) => m.id === chosenSellerId || m.name === chosenSellerId
+    );
+    const chosenSellerName =
+      chosenSellerId === "roleta"
+        ? "roleta"
+        : matched
+          ? matched.name
+          : form.assigned_to_name || chosenSellerId;
+
     try {
-      const res = await createKanbanLeadAction(form);
+      const res = await createKanbanLeadAction({
+        ...form,
+        seller_id: chosenSellerId === "roleta" ? undefined : chosenSellerId,
+        assigned_to_name: chosenSellerName,
+      });
       if (res.success && res.lead) {
         onLeadAdded(res.lead);
         toast.success(`🎯 Lead "${res.lead.name}" cadastrado com sucesso!`, {
           description: `Vendedor: ${res.lead.assigned_to_name} • Veículo: ${res.lead.vehicle_of_interest}`,
           duration: 4000,
         });
-        setForm(INITIAL_LEAD_FORM);
+        const nextSellerId = hasSellers ? "roleta" : eligibleAssignees[0]?.id || "";
+        setSellerId(nextSellerId);
+        setForm({
+          ...INITIAL_LEAD_FORM,
+          seller_id: nextSellerId,
+          assigned_to_name: hasSellers ? "roleta" : eligibleAssignees[0]?.name || "",
+        });
         setOpen(false);
       } else {
         toast.error(res.error || "Erro ao cadastrar lead.");
@@ -112,33 +224,6 @@ export function AddKanbanLeadModal({
       setIsSubmitting(false);
     }
   };
-
-  // Vendedores exibidos no select: combina teamMembers e availableSellers
-  const sellersOptions = React.useMemo(() => {
-    const map = new Map<string, string>();
-    if (team && team.length > 0) {
-      team
-        .filter(
-          (m) =>
-            m.status === "active" &&
-            !m.name.toLowerCase().includes("fila") &&
-            !m.name.toLowerCase().includes("roleta")
-        )
-        .forEach((m) => map.set(m.name, m.name));
-    }
-    if (availableSellers && availableSellers.length > 0) {
-      availableSellers.forEach((s) => {
-        if (
-          s.name &&
-          !s.name.toLowerCase().includes("fila") &&
-          !s.name.toLowerCase().includes("roleta")
-        ) {
-          map.set(s.name, s.name);
-        }
-      });
-    }
-    return Array.from(map.values());
-  }, [team, availableSellers]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -290,24 +375,27 @@ export function AddKanbanLeadModal({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="grid gap-1.5">
               <label
-                htmlFor="lead-seller"
+                htmlFor="select-lead-seller"
                 className="text-xs font-semibold text-zinc-300"
               >
                 Vendedor Responsável
               </label>
               <select
-                id="lead-seller"
-                name="assigned_to_name"
-                value={form.assigned_to_name}
+                id="select-lead-seller"
+                data-testid="select-lead-seller"
+                name="seller_id"
+                value={effectiveSellerId}
                 onChange={handleChange}
                 className="h-9 w-full rounded-xl border border-orange-500/40 bg-orange-500/10 px-2.5 text-xs font-semibold text-orange-200 focus:outline-none focus:ring-1 focus:ring-orange-500"
               >
-                <option value="roleta" className="bg-zinc-900 text-orange-400 font-bold">
-                  🎯 Roleta Automática (Distribuir por Roleta)
-                </option>
-                {sellersOptions.map((sName) => (
-                  <option key={sName} value={sName} className="bg-zinc-900 text-white">
-                    👤 {sName}
+                {hasSellers && (
+                  <option value="roleta" className="bg-zinc-900 text-orange-400 font-bold">
+                    🎯 Roleta Automática (Distribuir por Roleta)
+                  </option>
+                )}
+                {eligibleAssignees.map((assignee) => (
+                  <option key={assignee.id || assignee.name} value={assignee.id || assignee.name} className="bg-zinc-900 text-white">
+                    👤 {assignee.name}
                   </option>
                 ))}
               </select>

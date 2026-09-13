@@ -203,22 +203,19 @@ for (const vp of NOTEBOOK_VIEWPORTS) {
     }) => {
       await page.goto("/leads", { waitUntil: "domcontentloaded" });
       await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
-      await dismissTourIfPresent(page);
+
+      const closeTour = page.getByRole("button", { name: /fechar tour/i });
+      if (await closeTour.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await closeTour.click();
+        await expect(page.getByRole("dialog", { name: /tour guiado/i })).toBeHidden({ timeout: 5000 });
+      }
 
       const btnAddLead = page.locator("#btn-add-lead, [data-testid='btn-add-lead']").first();
       await expect(btnAddLead).toBeVisible({ timeout: 15000 });
+      await btnAddLead.click();
 
-      const dialog = page.locator("#modal-add-lead, [data-testid='new-lead-modal']").first();
-
-      // Clica no trigger de forma resiliente até abrir
-      await expect(async () => {
-        if (!(await dialog.isVisible().catch(() => false))) {
-          await btnAddLead.click({ force: true });
-        }
-        await expect(dialog).toBeVisible({ timeout: 2000 });
-      }).toPass({ timeout: 15000 });
-
-      // Valida altura do modal contida no viewport
+      const dialog = page.locator('#modal-add-lead, [data-testid="new-lead-modal"]').first();
+      await expect(dialog).toBeVisible({ timeout: 10000 });
       const dialogBox = await dialog.boundingBox();
       expect(dialogBox).not.toBeNull();
       if (dialogBox) {

@@ -161,12 +161,16 @@ export function MobileHeader({
           aria-label="Abrir perfil e menu"
           title={displayName}
           data-testid="mobile-user-avatar"
+          suppressHydrationWarning
         >
           <Avatar className="h-8 w-8">
             {avatarUrl ? (
               <AvatarImage src={avatarUrl} alt={displayName} className="object-cover" />
             ) : null}
-            <AvatarFallback className="bg-gradient-to-br from-orange-400 to-red-500 text-white font-bold text-xs">
+            <AvatarFallback
+              suppressHydrationWarning
+              className="bg-gradient-to-br from-orange-400 to-red-500 text-white font-bold text-xs"
+            >
               {initials}
             </AvatarFallback>
           </Avatar>

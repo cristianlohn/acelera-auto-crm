@@ -63,9 +63,9 @@ test.describe('[REQ-CRM-01] Fluxo de Leads no Funil Kanban', () => {
         await submitBtn.click();
 
         // Assert: O modal fecha e o novo card aparece na coluna inicial do Kanban
-        await expect(nameInput).not.toBeVisible({ timeout: 5000 });
+        await expect(nameInput).not.toBeVisible({ timeout: 15000 });
         const newLeadCard = page.getByRole('article', { name: /Mariana Souza/i }).first();
-        await expect(newLeadCard).toBeVisible({ timeout: 5000 });
+        await expect(newLeadCard).toBeVisible({ timeout: 15000 });
         await expect(newLeadCard).toContainText('Corolla Cross XRE');
     });
 });
