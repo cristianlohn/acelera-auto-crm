@@ -12,7 +12,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, TrendingUp, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +27,8 @@ import { isSuperAdmin, normalizeRole } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SoundToggle } from "@/components/audio/sound-toggle";
 import { cn } from "@/lib/utils";
+
+const emptySubscribe = () => () => {};
 
 export interface UserNavProps {
   logoutButtonId?: string;
@@ -50,11 +52,7 @@ export function UserNav({
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [realProfile, setRealProfile] = useState<UserProfileInfo | null>(initialProfile || null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
   const handleResetDemo = async () => {
     setIsResetting(true);

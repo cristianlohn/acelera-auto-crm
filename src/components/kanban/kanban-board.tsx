@@ -6,7 +6,7 @@
 
 "use client";
 
-import React, { useState, useTransition, useMemo, useEffect } from "react";
+import React, { useState, useTransition, useMemo, useEffect, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import type {
   KanbanLead,
@@ -35,6 +35,8 @@ import { canViewAllLeads } from "@/lib/permissions";
 import { isSalesRole } from "@/config/plans";
 import type { TeamMember } from "@/types/team";
 
+const emptySubscribe = () => () => {};
+
 const NEGOTIATION_STATUSES = [
   "visita",
   "visit",
@@ -43,15 +45,14 @@ const NEGOTIATION_STATUSES = [
   "proposta",
   "proposal",
   "proposal_fi",
-  "negociacao",
 ];
 
-interface KanbanBoardProps {
+export interface KanbanBoardProps {
   initialLeads: KanbanLead[];
 }
 
 export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [leads, setLeads] = useState<KanbanLead[]>(initialLeads);
   const [prevInitialLeads, setPrevInitialLeads] = useState<KanbanLead[]>(initialLeads);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
@@ -74,10 +75,6 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
     setPrevInitialLeads(initialLeads);
     setLeads(initialLeads);
   }
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (isDemoMode) return;
