@@ -259,7 +259,15 @@ export async function resolveUserTenantContext(): Promise<TenantContextResult> {
         };
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "digest" in error &&
+      (error as { digest?: string }).digest === "DYNAMIC_SERVER_USAGE"
+    ) {
+      throw error;
+    }
     console.error("[Tenant Context Resolution User Auth Error]", error);
   }
 

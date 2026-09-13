@@ -382,4 +382,29 @@ describe("[UNIT-REPORTS] Módulo de Relatórios Executivos", () => {
     expect(normalizeLeadStage("descarte")).toBe("lost");
     expect(normalizeLeadStage("perdido")).toBe("lost");
   });
+
+  it("[REP-08] getReportsDashboardData consolida todos os blocos em uma única chamada (kpis, funnel, channels, teamRanking, topVehicles)", async () => {
+    vi.spyOn(tenantAuthModule, "resolveUserTenantContext").mockResolvedValueOnce({
+      userId: "user-a",
+      organizationId: ORG_A,
+      profile: { id: "user-a", role: "admin", organization_id: ORG_A, full_name: "Admin Alfa", email: "admin@alfa.com", phone: null, avatar_url: null, created_at: "", updated_at: "" },
+      organization: null,
+      isDemo: false,
+      needsOnboarding: false,
+    });
+
+    const { getReportsDashboardData } = await import("@/app/actions/reports");
+
+    const data = await getReportsDashboardData("month");
+
+    expect(data).toHaveProperty("kpis");
+    expect(data).toHaveProperty("funnel");
+    expect(data).toHaveProperty("channels");
+    expect(data).toHaveProperty("teamRanking");
+    expect(data).toHaveProperty("topVehicles");
+    expect(data.teamRanking).toBeDefined();
+    expect(Array.isArray(data.teamRanking)).toBe(true);
+    expect(data.teamRanking).toEqual(data.sellers);
+    expect(data.kpis.revenue).toBe(150000);
+  });
 });

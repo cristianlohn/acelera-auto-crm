@@ -220,38 +220,6 @@ export async function getExecutiveReportData(
       return EMPTY_METRICS;
     }
 
-    // Consulta de membros da equipe (profiles) da organização
-    let profilesQuery = supabase
-      .from("profiles")
-      .select("id, full_name, role, email, avatar_url");
-    if (!isSuperAdmin && userOrgId) {
-      profilesQuery = profilesQuery.eq("organization_id", userOrgId);
-    }
-    const { data: profiles } = await profilesQuery;
-
-    // Consulta de veículos para lookup de preços e modelos
-    let vehiclesQuery = supabase
-      .from("vehicles")
-      .select("id, make, model, version, price, status");
-    if (!isSuperAdmin && userOrgId) {
-      vehiclesQuery = vehiclesQuery.eq("organization_id", userOrgId);
-    }
-    const { data: vehiclesData } = await vehiclesQuery;
-
-    const vehiclesMap = new Map<string, number>();
-    if (vehiclesData) {
-      for (const v of vehiclesData) {
-        const price = Number(v.price) || 0;
-        if (v.id) vehiclesMap.set(v.id, price);
-        if (v.make && v.model) {
-          vehiclesMap.set(`${v.make} ${v.model}`.trim().toLowerCase(), price);
-        }
-        if (v.model) {
-          vehiclesMap.set(v.model.trim().toLowerCase(), price);
-        }
-      }
-    }
-
     // 3. Filtragem de Período ("Este Mês", "7 dias", etc.)
     const { startMs, endMs } = getPeriodBounds(period, filterOrPeriod);
 
@@ -360,7 +328,7 @@ export async function getExecutiveReportData(
     for (const l of periodLeads) {
       const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
       if (st === "won") {
-        const val = getLeadValue(l as Record<string, unknown>, vehiclesMap);
+        const val = getLeadValue(l as Record<string, unknown>);
         totalRevenue += val;
       }
 
@@ -433,28 +401,6 @@ export async function getExecutiveReportData(
       }
     >();
 
-    if (profiles && profiles.length > 0) {
-      for (const p of profiles) {
-        const name = p.full_name || p.email || "Consultor";
-        const parts = name.trim().split(" ");
-        const initials =
-          parts.length >= 2
-            ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
-            : name.slice(0, 2).toUpperCase();
-
-        sellerMap.set(p.id, {
-          id: p.id,
-          name,
-          avatar: initials,
-          dealsCount: 0,
-          totalLeads: 0,
-          revenue: 0,
-          totalResponseMinutes: 0,
-          responseCount: 0,
-        });
-      }
-    }
-
     for (const l of periodLeads) {
       const sId = (l.seller_id || (l as { assigned_to?: string | { id?: string } }).assigned_to);
       const sellerIdStr = typeof sId === "object" && sId !== null ? sId.id : (typeof sId === "string" ? sId : null);
@@ -498,7 +444,7 @@ export async function getExecutiveReportData(
       const st = normalizeLeadStage(l.status || (l as { stage?: string }).stage);
       if (st === "won") {
         entry.dealsCount++;
-        const val = getLeadValue(l as Record<string, unknown>, vehiclesMap);
+        const val = getLeadValue(l as Record<string, unknown>);
         entry.revenue += val;
       }
 
@@ -548,25 +494,8 @@ export async function getExecutiveReportData(
           vehicleAgg[vName] = { count: 0, revenue: 0, make, model, version };
         }
         vehicleAgg[vName].count++;
-        const val = getLeadValue(l as Record<string, unknown>, vehiclesMap);
+        const val = getLeadValue(l as Record<string, unknown>);
         vehicleAgg[vName].revenue += val;
-      }
-    }
-
-    if (vehiclesData) {
-      for (const v of vehiclesData) {
-        if (v.status === "vendido" || (v.status as string) === "sold") {
-          const vKey = `${v.make} ${v.model}`.trim();
-          if (!vehicleAgg[vKey]) {
-            vehicleAgg[vKey] = {
-              count: 1,
-              revenue: Number(v.price || 0),
-              make: v.make,
-              model: v.model,
-              version: v.version || "Padrão",
-            };
-          }
-        }
       }
     }
 
@@ -615,6 +544,7 @@ export async function getExecutiveReportData(
       funnel,
       channels,
       sellers,
+      teamRanking: sellers,
       topVehicles,
       lostReasons,
     };
@@ -622,4 +552,16 @@ export async function getExecutiveReportData(
     console.error("[getExecutiveReportData Error]", err);
     return EMPTY_METRICS;
   }
+}
+
+/**
+ * Server Action consolidada e unificada de relatórios.
+ * Executa uma única query Supabase na tabela `leads` da organização
+ * e processa todas as métricas em memória de forma síncrona.
+ */
+export async function getReportsDashboardData(
+  period: ReportPeriod = "month",
+  isDemoForce = false
+): Promise<ExecutiveReportData> {
+  return getExecutiveReportData(period, isDemoForce);
 }

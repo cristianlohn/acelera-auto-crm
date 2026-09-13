@@ -4,7 +4,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { getExecutiveReportData } from "@/app/actions/reports";
+import { getReportsDashboardData } from "@/app/actions/reports";
 import type {
   ReportPeriod,
   ReportFilterOptions,
@@ -19,11 +19,20 @@ export function useExecutiveReports(
   initialData?: ExecutiveReportData,
   options?: { enabled?: boolean }
 ) {
+  const period: ReportPeriod =
+    typeof filterOrPeriod === "string"
+      ? filterOrPeriod
+      : filterOrPeriod?.period || "month";
+
   return useQuery({
-    queryKey: [...REPORTS_QUERY_KEY, filterOrPeriod, isDemo],
-    queryFn: () => getExecutiveReportData(filterOrPeriod, isDemo),
+    queryKey: [...REPORTS_QUERY_KEY, period, isDemo],
+    queryFn: () => getReportsDashboardData(period, isDemo),
     initialData,
-    staleTime: 1000 * 60 * 5, // 5 minutos de cache
+    staleTime: 1000 * 60 * 5, // 5 minutos de cache em memória
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     enabled: options?.enabled ?? true,
   });
 }
+
+export const useReportsDashboardData = useExecutiveReports;

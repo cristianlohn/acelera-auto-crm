@@ -63,6 +63,7 @@ export interface ExecutiveReportData {
   funnel: FunnelStageData[];
   channels: ChannelPerformance[];
   sellers: SellerPerformance[];
+  teamRanking?: SellerPerformance[];
   topVehicles: TopVehicle[];
   lostReasons?: Array<{ reason: string; label: string; count: number; percentage: number }>;
 }
