@@ -20,7 +20,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
+import { render, screen, act, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SuperAdminPage from "@/app/(dashboard)/superadmin/page";
 import * as superadminActions from "@/app/actions/superadmin";
@@ -39,6 +39,7 @@ vi.mock("next/navigation", () => ({
 
 describe("[IT-14] Painel Backoffice Super Admin e Gestão de Assinaturas B2B", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.clearAllMocks();
     if (typeof document !== "undefined") {
       document.cookie = "acelera_demo_mode=true; path=/";
@@ -240,5 +241,39 @@ describe("[IT-14] Painel Backoffice Super Admin e Gestão de Assinaturas B2B", (
     expect(screen.getByTestId("kpi-active-dealerships")).toHaveTextContent("0");
     expect(screen.getByTestId("kpi-mrr-dealerships")).toHaveTextContent("R$ 0");
     expect(screen.getByTestId("kpi-leads-dealerships")).toHaveTextContent("0");
+  });
+
+  it("[IT-14.9] Deve renderizar o card executivo de Origem das Revendas com dados de Instagram e Direto", () => {
+    // Arrange & Act
+    render(<SuperAdminPage />);
+
+    // Assert: Card de aquisição visível
+    const acquisitionCard = screen.getByTestId("acquisition-metrics-card");
+    expect(acquisitionCard).toBeInTheDocument();
+    expect(
+      within(acquisitionCard).getByText(/origem das revendas \(canais de aquisição\)/i)
+    ).toBeInTheDocument();
+
+    // Destaque do Instagram
+    expect(within(acquisitionCard).getByText(/canal instagram/i)).toBeInTheDocument();
+    expect(within(acquisitionCard).getByText(/via bio/i)).toBeInTheDocument();
+    expect(within(acquisitionCard).getByText(/via stories/i)).toBeInTheDocument();
+
+    // Outros canais listados
+    expect(within(acquisitionCard).getByText(/^direto$/i)).toBeInTheDocument();
+  });
+
+  it("[IT-14.10] Deve renderizar badges de canal de aquisição nas lojas da listagem", () => {
+    // Arrange & Act
+    render(<SuperAdminPage />);
+
+    // Assert: Badges de origem nas lojas
+    const acquisitionBadges = screen.getAllByTestId("badge-acquisition-source");
+    expect(acquisitionBadges.length).toBeGreaterThanOrEqual(4);
+
+    const badgeTexts = acquisitionBadges.map((b) => b.textContent);
+    expect(badgeTexts.some((t) => t?.includes("Instagram"))).toBe(true);
+    expect(badgeTexts.some((t) => t?.includes("Direto"))).toBe(true);
+    expect(badgeTexts.some((t) => t?.includes("Google"))).toBe(true);
   });
 });

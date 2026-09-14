@@ -30,7 +30,29 @@ export interface DealershipAccount {
   leadsCount: number;
   trialEndsAt: string; // ISO String
   currentPeriodEnd: string; // ISO String
+  acquisitionSource?: string | null;
+  acquisitionMedium?: string | null;
+  acquisitionCampaign?: string | null;
+  acquisitionMetadata?: Record<string, unknown> | null;
   createdAt: string;
+}
+
+export interface ChannelAcquisitionMetric {
+  channel: string;
+  label: string;
+  count: number;
+  percentage: number;
+  subdetails?: { label: string; count: number }[];
+}
+
+export interface AcquisitionSummaryMetrics {
+  total: number;
+  instagramTotal: number;
+  instagramBioCount: number;
+  instagramStoriesCount: number;
+  directTotal: number;
+  otherTotal: number;
+  channels: ChannelAcquisitionMetric[];
 }
 
 export interface SuperAdminMetrics {
@@ -40,6 +62,7 @@ export interface SuperAdminMetrics {
   expiringTrialsCount: number;
   totalVehiclesManaged: number;
   totalLeadsManaged: number;
+  acquisition?: AcquisitionSummaryMetrics;
 }
 
 const now = Date.now();
@@ -64,6 +87,9 @@ export const mockDealerships: DealershipAccount[] = [
     leadsCount: 156,
     trialEndsAt: new Date(now - 30 * ONE_DAY_MS).toISOString(),
     currentPeriodEnd: new Date(now + 24 * ONE_DAY_MS).toISOString(),
+    acquisitionSource: "direct",
+    acquisitionMedium: null,
+    acquisitionCampaign: null,
     createdAt: new Date(now - 60 * ONE_DAY_MS).toISOString(),
   },
   {
@@ -85,6 +111,9 @@ export const mockDealerships: DealershipAccount[] = [
     // Expira em 1 dia (alerta <= 48h)
     trialEndsAt: new Date(now + 1 * ONE_DAY_MS).toISOString(),
     currentPeriodEnd: new Date(now + 1 * ONE_DAY_MS).toISOString(),
+    acquisitionSource: "instagram",
+    acquisitionMedium: "bio",
+    acquisitionCampaign: "perfil",
     createdAt: new Date(now - 13 * ONE_DAY_MS).toISOString(),
   },
   {
@@ -105,6 +134,9 @@ export const mockDealerships: DealershipAccount[] = [
     leadsCount: 92,
     trialEndsAt: new Date(now + 6 * ONE_DAY_MS).toISOString(),
     currentPeriodEnd: new Date(now + 6 * ONE_DAY_MS).toISOString(),
+    acquisitionSource: "instagram",
+    acquisitionMedium: "stories",
+    acquisitionCampaign: "promo_agosto",
     createdAt: new Date(now - 8 * ONE_DAY_MS).toISOString(),
   },
   {
@@ -125,6 +157,9 @@ export const mockDealerships: DealershipAccount[] = [
     leadsCount: 310,
     trialEndsAt: new Date(now - 90 * ONE_DAY_MS).toISOString(),
     currentPeriodEnd: new Date(now + 18 * ONE_DAY_MS).toISOString(),
+    acquisitionSource: "google",
+    acquisitionMedium: "cpc",
+    acquisitionCampaign: "search",
     createdAt: new Date(now - 120 * ONE_DAY_MS).toISOString(),
   },
   {
@@ -145,6 +180,9 @@ export const mockDealerships: DealershipAccount[] = [
     leadsCount: 45,
     trialEndsAt: new Date(now - 45 * ONE_DAY_MS).toISOString(),
     currentPeriodEnd: new Date(now - 3 * ONE_DAY_MS).toISOString(),
+    acquisitionSource: "direct",
+    acquisitionMedium: null,
+    acquisitionCampaign: null,
     createdAt: new Date(now - 75 * ONE_DAY_MS).toISOString(),
   },
   {
@@ -165,6 +203,9 @@ export const mockDealerships: DealershipAccount[] = [
     leadsCount: 78,
     trialEndsAt: new Date(now - 15 * ONE_DAY_MS).toISOString(),
     currentPeriodEnd: new Date(now - 15 * ONE_DAY_MS).toISOString(),
+    acquisitionSource: "instagram",
+    acquisitionMedium: "bio",
+    acquisitionCampaign: "bio_link",
     createdAt: new Date(now - 45 * ONE_DAY_MS).toISOString(),
   },
 ];
@@ -176,4 +217,79 @@ export function isExpiringSoon(trialEndsAt: string): boolean {
   const end = new Date(trialEndsAt).getTime();
   const diffHours = (end - Date.now()) / (1000 * 60 * 60);
   return diffHours > 0 && diffHours <= 48;
+}
+
+/**
+ * Agrega métricas de canais de aquisição de concessionárias (Instagram, Direto, Google, etc.).
+ */
+export function calculateAcquisitionSummary(
+  list: DealershipAccount[]
+): AcquisitionSummaryMetrics {
+  const total = list.length;
+  const instagramList = list.filter(
+    (d) => d.acquisitionSource?.toLowerCase() === "instagram"
+  );
+  const instagramTotal = instagramList.length;
+  const instagramBioCount = instagramList.filter(
+    (d) => d.acquisitionMedium?.toLowerCase() === "bio"
+  ).length;
+  const instagramStoriesCount = instagramList.filter(
+    (d) => d.acquisitionMedium?.toLowerCase() === "stories"
+  ).length;
+
+  const directList = list.filter(
+    (d) => !d.acquisitionSource || d.acquisitionSource.toLowerCase() === "direct"
+  );
+  const directTotal = directList.length;
+  const otherTotal = Math.max(0, total - instagramTotal - directTotal);
+
+  const channelsMap: Record<
+    string,
+    { label: string; count: number; subdetails?: { label: string; count: number }[] }
+  > = {
+    instagram: {
+      label: "Instagram",
+      count: instagramTotal,
+      subdetails: [
+        { label: "Bio / Link", count: instagramBioCount },
+        { label: "Stories", count: instagramStoriesCount },
+      ],
+    },
+    direct: {
+      label: "Direto",
+      count: directTotal,
+    },
+  };
+
+  for (const d of list) {
+    const src = d.acquisitionSource?.toLowerCase();
+    if (src && src !== "instagram" && src !== "direct") {
+      const key = src;
+      const label = src === "google" ? "Google Ads / Orgânico" : src.charAt(0).toUpperCase() + src.slice(1);
+      if (!channelsMap[key]) {
+        channelsMap[key] = { label, count: 0 };
+      }
+      channelsMap[key].count += 1;
+    }
+  }
+
+  const channels: ChannelAcquisitionMetric[] = Object.entries(channelsMap)
+    .map(([channel, data]) => ({
+      channel,
+      label: data.label,
+      count: data.count,
+      percentage: total > 0 ? Math.round((data.count / total) * 100) : 0,
+      subdetails: data.subdetails,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    total,
+    instagramTotal,
+    instagramBioCount,
+    instagramStoriesCount,
+    directTotal,
+    otherTotal,
+    channels,
+  };
 }

@@ -42,6 +42,7 @@ import { sanitizePhone } from "@/lib/lead-utils";
 import {
   mockDealerships,
   isExpiringSoon,
+  calculateAcquisitionSummary,
   type DealershipAccount,
   type SubscriptionStatus,
 } from "@/lib/superadmin-data";
@@ -51,6 +52,7 @@ import {
   toggleDealershipStatus,
   getDealershipsList,
 } from "@/app/actions/superadmin";
+import { AcquisitionMetricsCard } from "@/components/superadmin/acquisition-metrics-card";
 import { useDemoRole } from "@/context/demo-role-context";
 import { isSuperAdmin } from "@/lib/permissions";
 import { getCurrentUserProfileAction } from "@/app/actions/auth";
@@ -259,8 +261,9 @@ export default function SuperAdminPage() {
       .reduce((acc, curr) => acc + curr.monthlyFee, 0);
 
     const totalLeads = dealerships.reduce((acc, curr) => acc + (curr.leadsCount || 0), 0);
+    const acquisition = calculateAcquisitionSummary(dealerships);
 
-    return { totalStores, mrr, activeStores, totalLeads };
+    return { totalStores, mrr, activeStores, totalLeads, acquisition };
   }, [dealerships]);
 
   // Filtro por termo de busca e aba de status
@@ -462,7 +465,11 @@ export default function SuperAdminPage() {
       {/* ------------------------------------------------------------------ */}
       {/* Listagem de Concessionárias / Tabela Responsiva                    */}
       {/* ------------------------------------------------------------------ */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        {metrics.acquisition && metrics.acquisition.total > 0 && (
+          <AcquisitionMetricsCard metrics={metrics.acquisition} />
+        )}
+
         <div className="mb-3 flex items-center justify-between">
           <p className="text-xs font-medium text-muted-foreground">
             Exibindo {filteredDealerships.length} de {dealerships.length} concessionárias
@@ -551,6 +558,33 @@ export default function SuperAdminPage() {
                           <span className="inline-flex items-center gap-1 rounded-full bg-orange-500/20 border border-orange-500/40 px-2 py-0.5 text-[10px] font-bold text-orange-400 animate-pulse">
                             <AlertTriangle className="h-3 w-3" />
                             Expira em &le; 48h!
+                          </span>
+                        )}
+
+                        {/* Badge Discreta de Origem de Aquisição */}
+                        {dealership.acquisitionSource?.toLowerCase() === "instagram" ? (
+                          <span
+                            data-testid="badge-acquisition-source"
+                            className="inline-flex items-center gap-1 rounded-full bg-pink-500/15 border border-pink-500/30 px-2 py-0.5 text-[10px] font-semibold text-pink-400"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-pink-400" />
+                            Instagram{dealership.acquisitionMedium ? ` (${dealership.acquisitionMedium})` : ""}
+                          </span>
+                        ) : dealership.acquisitionSource?.toLowerCase() === "google" ? (
+                          <span
+                            data-testid="badge-acquisition-source"
+                            className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 border border-blue-500/30 px-2 py-0.5 text-[10px] font-semibold text-blue-400"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
+                            Google{dealership.acquisitionMedium ? ` (${dealership.acquisitionMedium})` : ""}
+                          </span>
+                        ) : (
+                          <span
+                            data-testid="badge-acquisition-source"
+                            className="inline-flex items-center gap-1 rounded-full bg-slate-500/15 border border-slate-500/30 px-2 py-0.5 text-[10px] font-semibold text-slate-400"
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                            Direto
                           </span>
                         )}
                       </div>

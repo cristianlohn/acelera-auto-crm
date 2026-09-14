@@ -20,10 +20,13 @@ import {
 import {
   mockDealerships,
   isExpiringSoon,
+  calculateAcquisitionSummary,
   type DealershipAccount,
   type DealershipPlan,
   type SubscriptionStatus,
   type SuperAdminMetrics,
+  type ChannelAcquisitionMetric,
+  type AcquisitionSummaryMetrics,
 } from "@/lib/superadmin-data";
 
 export type {
@@ -31,6 +34,8 @@ export type {
   DealershipPlan,
   SubscriptionStatus,
   SuperAdminMetrics,
+  ChannelAcquisitionMetric,
+  AcquisitionSummaryMetrics,
 };
 
 const ONE_DAY_MS = 86_400_000;
@@ -59,6 +64,10 @@ interface OrganizationWithProfilesRow {
   current_period_end?: string | null;
   vehicles_count?: number | null;
   leads_count?: number | null;
+  acquisition_source?: string | null;
+  acquisition_medium?: string | null;
+  acquisition_campaign?: string | null;
+  acquisition_metadata?: Record<string, unknown> | null;
   created_at?: string | null;
   profiles?: OrganizationProfileRow[] | null;
 }
@@ -109,6 +118,10 @@ export async function getDealershipsList(isDemo: boolean = false): Promise<Deale
         managerName: owner?.full_name || "Gestor Titular",
         managerPhone: owner?.phone || "11999998888",
         managerEmail: owner?.email || "gestor@concessionaria.com.br",
+        acquisitionSource: org.acquisition_source || null,
+        acquisitionMedium: org.acquisition_medium || null,
+        acquisitionCampaign: org.acquisition_campaign || null,
+        acquisitionMetadata: org.acquisition_metadata || null,
         createdAt: org.created_at || new Date().toISOString(),
       };
     });
@@ -140,6 +153,8 @@ function calculateMetricsFromList(list: DealershipAccount[]): SuperAdminMetrics 
     0
   );
 
+  const acquisition = calculateAcquisitionSummary(list);
+
   return {
     mrr,
     activeStores,
@@ -147,6 +162,7 @@ function calculateMetricsFromList(list: DealershipAccount[]): SuperAdminMetrics 
     expiringTrialsCount,
     totalVehiclesManaged,
     totalLeadsManaged,
+    acquisition,
   };
 }
 
