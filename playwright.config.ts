@@ -12,6 +12,7 @@ const baseURL = `http://127.0.0.1:${PORT}`;
  * Configuração E2E do Playwright - Acelera Auto CRM
  */
 export default defineConfig({
+    globalTeardown: require.resolve('./src/__tests__/e2e/teardown.ts'),
     testDir: 'e2e',
     testMatch: '**/*.spec.ts',
     fullyParallel: true,

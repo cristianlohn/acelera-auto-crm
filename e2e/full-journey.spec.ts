@@ -12,6 +12,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
+import { cleanupE2ETestData } from "@/__tests__/helpers/cleanup-test-db";
 
 test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mocks)", () => {
   // Configuração explícita para Desktop Chrome
@@ -122,12 +123,9 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
   test.afterAll(async () => {
     try {
       const admin = getAdminClient();
-      if (!admin) {
-        return;
-      }
 
       // 1. Caso userId ou organizationId não tenham sido capturados durante o teste, busca pelo e-mail
-      if ((!userId || !organizationId) && testEmail) {
+      if (admin && (!userId || !organizationId) && testEmail) {
         const { data: profile } = await admin
           .from("profiles")
           .select("id, organization_id")
@@ -140,22 +138,9 @@ test.describe.serial("[E2E-FULL-JOURNEY] Homologação Completa v1.0.0 (Sem Mock
         }
       }
 
-      // 2. Remove leads gerados para esta organização ou com o prefixo [E2E-TEST]
-      if (organizationId) {
-        await admin.from("leads").delete().eq("organization_id", organizationId);
-      } else {
-        await admin.from("leads").delete().like("name", "%[E2E-TEST]%");
-      }
-
-      // 3. Remove a organização criada (com cascata de perfis e configurações)
-      if (organizationId) {
-        await admin.from("organizations").delete().eq("id", organizationId);
-      }
-
-      // 4. Remove o usuário em auth.users
-      if (userId) {
-        await admin.auth.admin.deleteUser(userId);
-      }
+      // 2. Executa a limpeza determinística em cascata de dados [E2E-TEST],
+      // garantindo que mesmo que o teste termine prematuramente, as organizações sejam expurgadas
+      await cleanupE2ETestData(organizationId, userId);
 
       console.log(
         `[E2E Teardown] Limpeza concluída com sucesso para organizationId=${organizationId} e userId=${userId}`
