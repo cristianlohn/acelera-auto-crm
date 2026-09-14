@@ -294,6 +294,10 @@ export interface Organization {
   max_sellers?: number | null;
   extra_sellers_count?: number;
   extra_sellers_cycle?: "monthly" | "yearly" | string | null;
+  acquisition_source?: string | null;
+  acquisition_medium?: string | null;
+  acquisition_campaign?: string | null;
+  acquisition_metadata?: Record<string, unknown> | null;
   created_at?: string;
   updated_at?: string;
 }

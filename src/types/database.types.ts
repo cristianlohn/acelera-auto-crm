@@ -69,6 +69,10 @@ export interface Database {
           pending_plan?: string | null;
           pending_invoice_id?: string | null;
           business_hours?: string | null;
+          acquisition_source?: string | null;
+          acquisition_medium?: string | null;
+          acquisition_campaign?: string | null;
+          acquisition_metadata?: Record<string, unknown> | null;
           created_at: string;
           updated_at: string;
         };
@@ -89,6 +93,10 @@ export interface Database {
           pending_plan?: string | null;
           pending_invoice_id?: string | null;
           business_hours?: string | null;
+          acquisition_source?: string | null;
+          acquisition_medium?: string | null;
+          acquisition_campaign?: string | null;
+          acquisition_metadata?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -109,6 +117,10 @@ export interface Database {
           pending_plan?: string | null;
           pending_invoice_id?: string | null;
           business_hours?: string | null;
+          acquisition_source?: string | null;
+          acquisition_medium?: string | null;
+          acquisition_campaign?: string | null;
+          acquisition_metadata?: Record<string, unknown> | null;
           created_at?: string;
           updated_at?: string;
         };

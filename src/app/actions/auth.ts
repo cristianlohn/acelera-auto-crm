@@ -23,6 +23,75 @@ import {
   type OrganizationAccessStatus,
 } from "@/lib/auth/subscription";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/constants";
+import {
+  ATTRIBUTION_COOKIE_NAME,
+  parseAttributionCookie,
+  type AttributionData,
+} from "@/lib/analytics/utm";
+
+export interface RegisterOrganizationInput {
+  name: string;
+  slug?: string;
+  document?: string | null;
+  plan?: string;
+  subscription_status?: string;
+  acquisition_source?: string | null;
+  acquisition_medium?: string | null;
+  acquisition_campaign?: string | null;
+  acquisition_metadata?: Record<string, unknown> | null;
+}
+
+export interface RegisterOrganizationResult {
+  success: boolean;
+  data?: Record<string, unknown>;
+  error?: string;
+}
+
+/**
+ * Cadastra uma nova organização persistindo os dados de atribuição de tráfego (UTMs).
+ */
+export async function registerOrganizationAction(
+  input: RegisterOrganizationInput
+): Promise<RegisterOrganizationResult> {
+  try {
+    const cookieStore = await cookies();
+    const attributionRaw = cookieStore.get(ATTRIBUTION_COOKIE_NAME)?.value;
+    const attribution = parseAttributionCookie(attributionRaw);
+
+    const adminClient = createAdminClient();
+    const slug = input.slug || generateSlug(input.name);
+
+    const orgPayload = {
+      name: input.name,
+      slug,
+      document: input.document || null,
+      plan: input.plan || "trial",
+      subscription_status: input.subscription_status || "trialing",
+      acquisition_source: input.acquisition_source || attribution?.utm_source || "direct",
+      acquisition_medium: input.acquisition_medium ?? attribution?.utm_medium ?? null,
+      acquisition_campaign: input.acquisition_campaign ?? attribution?.utm_campaign ?? null,
+      acquisition_metadata:
+        input.acquisition_metadata ??
+        (attribution ? ({ ...attribution } as Record<string, unknown>) : {}),
+    };
+
+    const { data, error } = await adminClient
+      .from("organizations")
+      .insert(orgPayload)
+      .select()
+      .single();
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error ? err.message : "Erro ao registrar organização.";
+    return { success: false, error: message };
+  }
+}
 
 export interface RegisterDealershipInput {
   storeName: string;
@@ -118,16 +187,35 @@ export async function registerNewDealership(
   try {
     const supabase = await createServerSupabaseClient();
 
+    // Recupera dados de atribuição se o cookie estiver presente
+    let attribution: AttributionData | null = null;
+    try {
+      const cookieStore = await cookies();
+      const attributionRaw = cookieStore.get(ATTRIBUTION_COOKIE_NAME)?.value;
+      attribution = parseAttributionCookie(attributionRaw);
+    } catch {
+      // Ignora erro fora de request context
+    }
+
+    const userData: Record<string, unknown> = {
+      full_name: fullName.trim(),
+      store_name: storeName?.trim() || "",
+      phone: formattedPhone,
+    };
+
+    if (attribution) {
+      userData.acquisition_source = attribution.utm_source || "direct";
+      userData.acquisition_medium = attribution.utm_medium || null;
+      userData.acquisition_campaign = attribution.utm_campaign || null;
+      userData.acquisition_metadata = attribution;
+    }
+
     // 1. Cria usuário no Supabase Auth com metadados estritos para a trigger handle_new_user
     let { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
-        data: {
-          full_name: fullName.trim(),
-          store_name: storeName?.trim() || "",
-          phone: formattedPhone,
-        },
+        data: userData,
       },
     });
 
@@ -143,11 +231,7 @@ export async function registerNewDealership(
             email: email.trim(),
             password,
             email_confirm: true,
-            user_metadata: {
-              full_name: fullName.trim(),
-              store_name: storeName?.trim() || "",
-              phone: formattedPhone,
-            },
+            user_metadata: userData,
           });
 
         if (!adminUserError && adminUserData?.user) {

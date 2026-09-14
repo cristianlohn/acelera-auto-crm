@@ -140,6 +140,7 @@ import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/providers/query-provider";
 import { SoundProvider } from "@/contexts/sound-context";
+import { UtmTracker } from "@/components/analytics/utm-tracker";
 
 export default function RootLayout({
   children,
@@ -160,6 +161,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground transition-colors duration-200">
+        <UtmTracker />
         <QueryProvider>
           <ThemeProvider
             attribute="class"
