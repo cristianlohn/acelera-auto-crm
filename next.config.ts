@@ -38,6 +38,20 @@ const nextConfig: NextConfig = {
       "./**/*.md",
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/bio",
+        destination: "/?utm_source=instagram&utm_medium=bio&utm_campaign=perfil",
+        permanent: false, // HTTP 307 (redirecionamento temporário para não fixar cache de UTM)
+      },
+      {
+        source: "/insta",
+        destination: "/?utm_source=instagram&utm_medium=bio&utm_campaign=perfil",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
