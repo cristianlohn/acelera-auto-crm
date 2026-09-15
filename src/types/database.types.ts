@@ -73,6 +73,7 @@ export interface Database {
           acquisition_medium?: string | null;
           acquisition_campaign?: string | null;
           acquisition_metadata?: Record<string, unknown> | null;
+          webhook_token?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -97,6 +98,7 @@ export interface Database {
           acquisition_medium?: string | null;
           acquisition_campaign?: string | null;
           acquisition_metadata?: Record<string, unknown> | null;
+          webhook_token?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -121,6 +123,7 @@ export interface Database {
           acquisition_medium?: string | null;
           acquisition_campaign?: string | null;
           acquisition_metadata?: Record<string, unknown> | null;
+          webhook_token?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -270,6 +273,9 @@ export interface Database {
           notes: string | null;
           short_code?: string | null;
           custom_fields?: Json | null;
+          source?: string | null;
+          stage?: string | null;
+          sla_deadline?: string | null;
           value?: number | null;
           estimated_value?: number | null;
           created_at: string;
@@ -293,6 +299,9 @@ export interface Database {
           notes?: string | null;
           short_code?: string | null;
           custom_fields?: Json | null;
+          source?: string | null;
+          stage?: string | null;
+          sla_deadline?: string | null;
           value?: number | null;
           estimated_value?: number | null;
           created_at?: string;
@@ -316,6 +325,9 @@ export interface Database {
           notes?: string | null;
           short_code?: string | null;
           custom_fields?: Json | null;
+          source?: string | null;
+          stage?: string | null;
+          sla_deadline?: string | null;
           value?: number | null;
           estimated_value?: number | null;
           created_at?: string;
@@ -447,6 +459,7 @@ export interface Database {
           user_id: string;
           role: string;
           status: "pending" | "active" | "revoked" | "transferred";
+          last_lead_assigned_at?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -456,6 +469,7 @@ export interface Database {
           user_id: string;
           role?: string;
           status?: "pending" | "active" | "revoked" | "transferred";
+          last_lead_assigned_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -465,6 +479,7 @@ export interface Database {
           user_id?: string;
           role?: string;
           status?: "pending" | "active" | "revoked" | "transferred";
+          last_lead_assigned_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
