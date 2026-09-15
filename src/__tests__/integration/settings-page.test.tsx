@@ -314,4 +314,27 @@ describe("[IT-10] Configurações e Parâmetros (SettingsPage)", () => {
       screen.getByRole("heading", { name: /entrada de leads & webhooks/i })
     ).toBeInTheDocument();
   });
+
+  it("[IT-10.10] Deve garantir que a aba Loja não contenha o campo redundante de Horário de Funcionamento", async () => {
+    const user = userEvent.setup();
+    render(<SettingsPage />);
+
+    const lojaTab = screen.getByRole("tab", { name: /concessionária & loja/i });
+    await user.click(lojaTab);
+
+    expect(screen.queryByLabelText(/horário de funcionamento/i)).not.toBeInTheDocument();
+  });
+
+  it("[IT-10.11] Deve exibir o botão de envio de teste do Daily Digest na aba Preferências", async () => {
+    const user = userEvent.setup();
+    render(<SettingsPage />);
+
+    const prefTab = screen.getByRole("tab", { name: /preferências & notificações/i });
+    await user.click(prefTab);
+
+    const testDigestBtn = screen.getByRole("button", {
+      name: /enviar relatório de teste agora/i,
+    });
+    expect(testDigestBtn).toBeInTheDocument();
+  });
 });

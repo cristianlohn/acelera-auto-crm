@@ -32,7 +32,10 @@ import {
   FileJson,
   Key,
   Volume2,
+  Mail,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -70,6 +73,7 @@ import {
 } from "@/lib/permissions";
 import { WhatsAppIntegrationCard } from "./whatsapp-integration-card";
 import { StoreScheduleForm } from "./store-schedule-form";
+import { sendTestDailyDigestAction } from "@/app/actions/daily-digest-actions";
 
 // ---------------------------------------------------------------------------
 // Tipos das Abas e Configurações
@@ -354,6 +358,31 @@ export function SettingsForm({
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [teamFeedback, setTeamFeedback] = useState<string | null>(null);
   const [isTeamPending, startTeamTransition] = useTransition();
+
+  // Estado do envio de teste do Daily Digest
+  const [isSendingDigest, setIsSendingDigest] = useState(false);
+
+  const handleSendTestDigest = async () => {
+    setIsSendingDigest(true);
+    const toastId = toast.loading("Enviando relatório de teste para seu e-mail...");
+    try {
+      const res = await sendTestDailyDigestAction();
+      if (res.success) {
+        toast.success(
+          `Relatório de teste enviado para seu e-mail (${res.recipientEmail || "cadastrado"})!`,
+          { id: toastId }
+        );
+      } else {
+        toast.error(res.error || "Falha ao enviar e-mail de teste.", { id: toastId });
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Erro ao comunicar com o servidor.";
+      toast.error(msg, { id: toastId });
+    } finally {
+      setIsSendingDigest(false);
+    }
+  };
 
   // Estados do Módulo de Integrações & Webhooks
   const [showApiKey, setShowApiKey] = useState(false);
@@ -889,27 +918,6 @@ export function SettingsForm({
                       className="text-xs h-8"
                     />
                   </div>
-
-                  <div className="sm:col-span-2">
-                    <label
-                      htmlFor="store-businessHours"
-                      className="text-xs font-medium text-muted-foreground block mb-1"
-                    >
-                      Horário de Funcionamento
-                    </label>
-                    <Input
-                      id="store-businessHours"
-                      value={store.businessHours}
-                      placeholder="Ex: Segunda a Sexta: 08:00 - 18:00 | Sábado: 08:00 - 12:00"
-                      onChange={(e) =>
-                        setStore((prev) => ({
-                          ...prev,
-                          businessHours: e.target.value,
-                        }))
-                      }
-                      className="text-xs h-8"
-                    />
-                  </div>
                 </div>
               </div>
             </section>
@@ -1033,7 +1041,7 @@ export function SettingsForm({
                     />
                   </label>
 
-                  <label className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 cursor-pointer">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-lg border bg-muted/20 gap-3">
                     <div>
                       <p className="text-xs font-semibold text-foreground">
                         Resumo Diário por E-mail (Daily Digest)
@@ -1041,6 +1049,28 @@ export function SettingsForm({
                       <p className="text-[11px] text-muted-foreground">
                         Receba o relatório matinal de vendas e pendências às 08:00
                       </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        id="btn-test-daily-digest"
+                        data-testid="btn-test-daily-digest"
+                        disabled={isSendingDigest}
+                        onClick={handleSendTestDigest}
+                        className="mt-2.5 h-8 gap-1.5 text-xs font-semibold text-foreground hover:bg-muted/80 shadow-xs"
+                      >
+                        {isSendingDigest ? (
+                          <>
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-500" />
+                            <span>Enviando relatório...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-3.5 w-3.5 text-orange-500" />
+                            <span>✉️ Enviar Relatório de Teste Agora</span>
+                          </>
+                        )}
+                      </Button>
                     </div>
                     <input
                       id="pref-emailDailyDigest"
@@ -1052,9 +1082,9 @@ export function SettingsForm({
                           emailDailyDigest: e.target.checked,
                         }))
                       }
-                      className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
+                      className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500 self-start sm:self-center"
                     />
-                  </label>
+                  </div>
 
                   {/* Alertas Sonoros em Tempo Real (Web Audio) */}
                   <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
