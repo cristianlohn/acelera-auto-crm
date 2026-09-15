@@ -136,6 +136,8 @@ export default async function SettingsPage(props: SettingsPageProps) {
   const initialWebhookToken =
     (rawOrg?.webhook_token as string) ||
     (isDemo ? "tok_demo_acelera_whatsapp_123" : "");
+  const initialLeadCaptureEnabled =
+    (rawOrg?.whatsapp_lead_capture_enabled as boolean | undefined) ?? true;
 
   return (
     <div className="space-y-6">
@@ -148,6 +150,7 @@ export default async function SettingsPage(props: SettingsPageProps) {
         initialApiKeys={apiKeys}
         initialTab={initialTab}
         initialWebhookToken={initialWebhookToken}
+        initialLeadCaptureEnabled={initialLeadCaptureEnabled}
       />
     </div>
   );

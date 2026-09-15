@@ -128,6 +128,7 @@ export interface SettingsFormProps {
   initialApiKeys?: ApiKey[];
   initialTab?: SettingsTab;
   initialWebhookToken?: string | null;
+  initialLeadCaptureEnabled?: boolean;
 }
 
 const TAB_ITEMS: {
@@ -179,6 +180,7 @@ export function SettingsForm({
   initialApiKeys,
   initialTab,
   initialWebhookToken,
+  initialLeadCaptureEnabled,
 }: SettingsFormProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     if (initialTab) return initialTab;
@@ -1477,6 +1479,7 @@ export function SettingsForm({
               <WhatsAppIntegrationCard
                 webhookToken={initialWebhookToken}
                 userRole={profile.role || role}
+                initialLeadCaptureEnabled={initialLeadCaptureEnabled}
               />
 
               {/* 3. Card: Guia Passo a Passo "Como conectar seus leads" */}

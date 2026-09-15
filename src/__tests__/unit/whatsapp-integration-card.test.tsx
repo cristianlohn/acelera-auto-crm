@@ -14,6 +14,7 @@ vi.mock("@/app/actions/whatsapp-actions", () => ({
   getWhatsAppStatusAction: vi.fn(),
   connectWhatsAppAction: vi.fn(),
   disconnectWhatsAppAction: vi.fn(),
+  toggleWhatsAppLeadCaptureAction: vi.fn(),
 }));
 
 describe("[UNIT-WA-CARD] Componente WhatsAppIntegrationCard", () => {
@@ -263,5 +264,40 @@ describe("[UNIT-WA-CARD] Componente WhatsAppIntegrationCard", () => {
       screen.getByText("Tokens e URLs de integração visíveis apenas para Gestores e Administradores.")
     ).toBeInTheDocument();
   });
+
+  it("[TEST-WA-CARD-10] deve renderizar o Switch de captura de leads e alternar estado dinamicamente com optimistic update", async () => {
+    const user = userEvent.setup();
+    vi.mocked(whatsappActions.getWhatsAppStatusAction).mockResolvedValue({
+      success: true,
+      connected: true,
+      status: "connected",
+      instanceName: "acelera_loja_matriz",
+    });
+    vi.mocked(whatsappActions.toggleWhatsAppLeadCaptureAction).mockResolvedValue({
+      success: true,
+      enabled: false,
+    });
+
+    render(
+      <WhatsAppIntegrationCard
+        webhookToken="token-secret-123"
+        userRole="admin"
+        initialLeadCaptureEnabled={true}
+      />
+    );
+
+    // Deve exibir o badge 2 em 1 inicialmente
+    expect(screen.getByText(/Modo 2 em 1/i)).toBeInTheDocument();
+
+    const switchBtn = screen.getByRole("switch");
+    expect(switchBtn).toHaveAttribute("data-state", "checked");
+
+    await user.click(switchBtn);
+
+    // O switch deve alternar para desativado e o badge deve mudar para Modo Exclusivo
+    expect(whatsappActions.toggleWhatsAppLeadCaptureAction).toHaveBeenCalledWith(false);
+    expect(screen.getByText("Modo Exclusivo: Disparo de Alertas da Equipe")).toBeInTheDocument();
+  });
 });
+
 

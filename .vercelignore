@@ -1,0 +1,6 @@
+# .vercelignore
+src/__tests__
+coverage
+*.md
+walkthrough.md
+.cursor

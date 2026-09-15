@@ -16,6 +16,7 @@ import {
   connectWhatsAppAction,
   disconnectWhatsAppAction,
   configureEvolutionWebhook,
+  toggleWhatsAppLeadCaptureAction,
   resetWhatsAppDemoState,
 } from "@/app/actions/whatsapp-actions";
 import * as tenantModule from "@/lib/auth/tenant";
@@ -254,4 +255,58 @@ describe("[UNIT-WHATSAPP-ACTIONS] Integração WhatsApp (Evolution API v2)", () 
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("[TEST-WA-TOGGLE] toggleWhatsAppLeadCaptureAction", () => {
+    it("deve alternar estado com sucesso em modo demo", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: true,
+        userId: "demo-user",
+        organizationId: tenantModule.DEFAULT_DEMO_ORG_ID,
+        profile: null,
+        organization: null,
+        needsOnboarding: false,
+      });
+
+      const res = await toggleWhatsAppLeadCaptureAction(false);
+      expect(res.success).toBe(true);
+      expect(res.enabled).toBe(false);
+
+      const resTrue = await toggleWhatsAppLeadCaptureAction(true);
+      expect(resTrue.success).toBe(true);
+      expect(resTrue.enabled).toBe(true);
+    });
+
+    it("deve persistir novo estado no Supabase quando em produção", async () => {
+      vi.spyOn(tenantModule, "resolveUserTenantContext").mockResolvedValue({
+        isDemo: false,
+        userId: "real-user-123",
+        organizationId: TEST_ORG_ID,
+        profile: null,
+        organization: null,
+        needsOnboarding: false,
+      });
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+      const mockAdmin = {
+        from: vi.fn().mockReturnValue({
+          update: mockUpdate,
+        }),
+      };
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdmin as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const res = await toggleWhatsAppLeadCaptureAction(false);
+      expect(res.success).toBe(true);
+      expect(res.enabled).toBe(false);
+      expect(mockAdmin.from).toHaveBeenCalledWith("organizations");
+      expect(mockUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({ whatsapp_lead_capture_enabled: false })
+      );
+    });
+  });
 });
+

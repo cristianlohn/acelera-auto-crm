@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     // Consulta tenant pelo webhook_token
     const { data: org, error: orgError } = await supabase
       .from("organizations")
-      .select("id, name, webhook_token")
+      .select("id, name, webhook_token, whatsapp_lead_capture_enabled")
       .eq("webhook_token", token)
       .maybeSingle();
 
@@ -243,6 +243,19 @@ export async function POST(request: NextRequest) {
     }
 
     const organizationId = org.id;
+
+    // -------------------------------------------------------------------------
+    // 1.1 Guarda de Captura de Leads (Preferências da Organização)
+    // -------------------------------------------------------------------------
+    if (org.whatsapp_lead_capture_enabled === false) {
+      return NextResponse.json(
+        {
+          status: "ignored",
+          reason: "Captura de leads desativada nas preferências da organização",
+        },
+        { status: 200 }
+      );
+    }
 
     // -------------------------------------------------------------------------
     // 2. Leitura e Parsing do Payload JSON
@@ -427,6 +440,46 @@ export async function POST(request: NextRequest) {
           : "Lead criado via webhook WhatsApp Central",
         created_at: nowIso,
       });
+    }
+
+    // Disparo da resposta automática de boas-vindas via Evolution API
+    const evolutionUrl = process.env.EVOLUTION_API_URL?.replace(/\/$/, "");
+    const evolutionKey = process.env.EVOLUTION_API_KEY;
+    const instanceName = `org_${organizationId.replace(/-/g, "_")}`;
+
+    if (evolutionUrl && evolutionKey) {
+      try {
+        let sellerFirstName = "Consultor";
+        if (assignedTo) {
+          const { data: sellerProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", assignedTo)
+            .maybeSingle();
+
+          if (sellerProfile?.full_name) {
+            sellerFirstName = sellerProfile.full_name.trim().split(" ")[0] || "Consultor";
+          }
+        }
+
+        const customerName = parsed.senderName ? parsed.senderName.trim() : "Cliente";
+        const storeName = org.name || "Nossa Loja";
+        const welcomeMessage = `Olá, ${customerName}! Seja bem-vindo(a) à ${storeName}! 👋\n\nNosso consultor ${sellerFirstName} já recebeu sua ficha e vai continuar seu atendimento por aqui em instantes. 🚗💨`;
+
+        await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+          method: "POST",
+          headers: {
+            apikey: evolutionKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            number: parsed.phone,
+            text: welcomeMessage,
+          }),
+        });
+      } catch (sendErr) {
+        console.error("[WhatsApp Webhook] Erro ao enviar mensagem de boas-vindas:", sendErr);
+      }
     }
 
     // Retorna 201 Created com os dados especificados

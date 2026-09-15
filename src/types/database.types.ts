@@ -74,6 +74,7 @@ export interface Database {
           acquisition_campaign?: string | null;
           acquisition_metadata?: Record<string, unknown> | null;
           webhook_token?: string | null;
+          whatsapp_lead_capture_enabled?: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -99,6 +100,7 @@ export interface Database {
           acquisition_campaign?: string | null;
           acquisition_metadata?: Record<string, unknown> | null;
           webhook_token?: string | null;
+          whatsapp_lead_capture_enabled?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -124,6 +126,7 @@ export interface Database {
           acquisition_campaign?: string | null;
           acquisition_metadata?: Record<string, unknown> | null;
           webhook_token?: string | null;
+          whatsapp_lead_capture_enabled?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };

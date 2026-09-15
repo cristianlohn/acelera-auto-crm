@@ -33,10 +33,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "sonner";
+import { soundManager } from "@/lib/utils/audio-alerts";
 import {
   getWhatsAppStatusAction,
   connectWhatsAppAction,
   disconnectWhatsAppAction,
+  toggleWhatsAppLeadCaptureAction,
   type WhatsAppInstanceStatus,
 } from "@/app/actions/whatsapp-actions";
 import { canManageIntegrations } from "@/lib/permissions";
@@ -45,11 +49,13 @@ import { cn } from "@/lib/utils";
 export interface WhatsAppIntegrationCardProps {
   webhookToken?: string | null;
   userRole?: string | null;
+  initialLeadCaptureEnabled?: boolean;
 }
 
 export function WhatsAppIntegrationCard({
   webhookToken,
   userRole,
+  initialLeadCaptureEnabled = true,
 }: WhatsAppIntegrationCardProps = {}) {
   const [status, setStatus] = useState<WhatsAppInstanceStatus>("disconnected");
   const [qrCode, setQrCode] = useState<string | null>(null);
@@ -60,6 +66,36 @@ export function WhatsAppIntegrationCard({
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
+  const [leadCaptureEnabled, setLeadCaptureEnabled] = useState<boolean>(initialLeadCaptureEnabled);
+  const [isTogglingCapture, setIsTogglingCapture] = useState(false);
+
+  const handleToggleCapture = async (checked: boolean) => {
+    const previous = leadCaptureEnabled;
+    setLeadCaptureEnabled(checked);
+
+    try {
+      setIsTogglingCapture(true);
+      const res = await toggleWhatsAppLeadCaptureAction(checked);
+      if (res.success) {
+        if (checked) {
+          soundManager.playNewLeadSound();
+        }
+        toast.success(
+          checked
+            ? "Captura automática de leads via WhatsApp ativada!"
+            : "Captura de leads pausada. O WhatsApp atuará apenas no envio de alertas da equipe."
+        );
+      } else {
+        setLeadCaptureEnabled(previous);
+        toast.error(res.error || "Erro ao alterar preferência de captura.");
+      }
+    } catch {
+      setLeadCaptureEnabled(previous);
+      toast.error("Erro ao comunicar com o servidor.");
+    } finally {
+      setIsTogglingCapture(false);
+    }
+  };
 
   // Verificação de permissões (Owner/Manager para visualização de credenciais)
   const canViewWebhook = !userRole || canManageIntegrations(userRole);
@@ -187,9 +223,16 @@ export function WhatsAppIntegrationCard({
               <span className="rounded bg-sky-500/15 text-sky-400 border border-sky-500/30 px-2 py-0.5 text-[10px] font-bold">
                 Bot Transacional
               </span>
-              <span className="rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold">
-                2 em 1: Entrada + Alertas
-              </span>
+              {leadCaptureEnabled ? (
+                <span className="rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold">
+                  Modo 2 em 1: Entrada de Leads + Alertas da Equipe
+                  <span className="sr-only">2 em 1: Entrada + Alertas</span>
+                </span>
+              ) : (
+                <span className="rounded bg-sky-500/15 text-sky-400 border border-sky-500/30 px-2 py-0.5 text-[10px] font-bold">
+                  Modo Exclusivo: Disparo de Alertas da Equipe
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               Com esta conexão ativa, mensagens de novos clientes que chamarem no WhatsApp da revenda entram automaticamente na Roleta de Vendedores com SLA de 15 minutos, enquanto os alertas continuam sendo enviados para a equipe pelo mesmo número.
@@ -435,6 +478,43 @@ export function WhatsAppIntegrationCard({
           </Button>
         </div>
       )}
+
+      {/* Controle de Captura de Leads (Switch) */}
+      <div className="rounded-xl border bg-muted/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <label
+              htmlFor="switch-whatsapp-lead-capture"
+              className="text-xs font-bold text-foreground cursor-pointer"
+            >
+              Capturar novos leads automaticamente
+            </label>
+            <span
+              className={cn(
+                "rounded px-2 py-0.5 text-[10px] font-bold border",
+                leadCaptureEnabled
+                  ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                  : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
+              )}
+            >
+              {leadCaptureEnabled ? "Ativo" : "Pausado"}
+            </span>
+          </div>
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Quando ativado, clientes que enviarem mensagens neste número entram no funil comercial e na roleta de corretores.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
+          <Switch
+            id="switch-whatsapp-lead-capture"
+            checked={leadCaptureEnabled}
+            disabled={isTogglingCapture}
+            onCheckedChange={handleToggleCapture}
+            aria-label="Capturar novos leads automaticamente"
+          />
+        </div>
+      </div>
 
       {/* URL do Webhook de Entrada (Recepção de Leads) */}
       {canViewWebhook ? (

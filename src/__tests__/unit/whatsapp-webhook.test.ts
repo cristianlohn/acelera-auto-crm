@@ -69,12 +69,14 @@ interface ProfileRecord {
   organization_id: string;
   phone: string | null;
   role: string;
+  full_name?: string;
 }
 
 interface OrgRecord {
   id: string;
   name: string;
   webhook_token: string;
+  whatsapp_lead_capture_enabled?: boolean | null;
 }
 
 describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Vendedores", () => {
@@ -89,12 +91,18 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
 
   beforeEach(() => {
     vi.clearAllMocks();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({}),
+      text: async () => "",
+    });
 
     dbOrgs = [
       {
         id: TEST_ORG_ID,
         name: "Auto Prime Motors",
         webhook_token: VALID_TOKEN,
+        whatsapp_lead_capture_enabled: true,
       },
     ];
 
@@ -156,6 +164,11 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
             if (table === "organizations") {
               const tokenFilter = filters.find((f) => f.col === "webhook_token");
               const found = dbOrgs.find((o) => o.webhook_token === tokenFilter?.val);
+              return { data: found || null, error: null };
+            }
+            if (table === "profiles") {
+              const idFilter = filters.find((f) => f.col === "id");
+              const found = dbProfiles.find((p) => p.id === idFilter?.val);
               return { data: found || null, error: null };
             }
             return { data: null, error: null };
@@ -709,6 +722,105 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.error).toContain("Telefone do remetente inválido");
+    });
+  });
+
+  // =========================================================================
+  // 8. Ativação de Captura & Mensagem de Boas-Vindas Humanizada
+  // =========================================================================
+  describe("Controle de Captura de Leads e Resposta Automática", () => {
+    it("deve ignorar mensagem com status 200 quando whatsapp_lead_capture_enabled for false", async () => {
+      // Desativa captura para a organização
+      dbOrgs[0].whatsapp_lead_capture_enabled = false;
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11988883333",
+        senderName: "Cliente Desativado",
+        message: "Quero saber o preço do carro",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+
+      expect(json.status).toBe("ignored");
+      expect(json.reason).toContain("Captura de leads desativada");
+      expect(dbLeads.length).toBe(0);
+      expect(dbHistory.length).toBe(0);
+    });
+
+    it("deve disparar mensagem automática de boas-vindas com o nome do vendedor para novo lead criado", async () => {
+      process.env.EVOLUTION_API_URL = "https://evolution.aceleraauto.com.br";
+      process.env.EVOLUTION_API_KEY = "test_evolution_secret_key";
+
+      dbProfiles[0].full_name = "Juliana Silva Santos";
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11966554433",
+        senderName: "Marcos Paulo",
+        message: "Olá, tenho interesse no Civic",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.status).toBe("created");
+
+      // Verifica envio de mensagem de boas-vindas via Evolution API
+      const expectedInstance = `org_${TEST_ORG_ID.replace(/-/g, "_")}`;
+      expect(global.fetch).toHaveBeenCalledWith(
+        `https://evolution.aceleraauto.com.br/message/sendText/${expectedInstance}`,
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            apikey: "test_evolution_secret_key",
+            "Content-Type": "application/json",
+          }),
+          body: expect.stringContaining("Marcos Paulo"),
+        })
+      );
+
+      // O texto deve conter o primeiro nome da vendedora escalada ("Juliana")
+      const fetchCalls = vi.mocked(global.fetch).mock.calls;
+      const evoCall = fetchCalls.find((call) =>
+        String(call[0]).includes("/message/sendText")
+      );
+      expect(evoCall).toBeDefined();
+      const bodyJson = JSON.parse(evoCall![1]?.body as string);
+      expect(bodyJson.text).toContain("Juliana");
+      expect(bodyJson.text).toContain("Auto Prime Motors");
+      expect(bodyJson.number).toBe("5511966554433");
+    });
+
+    it("não deve enviar mensagem de boas-vindas na deduplicação de lead existente", async () => {
+      process.env.EVOLUTION_API_URL = "https://evolution.aceleraauto.com.br";
+      process.env.EVOLUTION_API_KEY = "test_evolution_secret_key";
+
+      // Lead já existe
+      dbLeads.push({
+        id: "lead-existing-001",
+        organization_id: TEST_ORG_ID,
+        phone: "5511988885555",
+        name: "Lead Antigo",
+      });
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11988885555",
+        senderName: "Lead Antigo",
+        message: "Segunda mensagem do cliente",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.status).toBe("updated");
+
+      // Não deve chamar /message/sendText
+      const fetchCalls = vi.mocked(global.fetch).mock.calls;
+      const evoCall = fetchCalls.find((call) =>
+        String(call[0]).includes("/message/sendText")
+      );
+      expect(evoCall).toBeUndefined();
     });
   });
 });

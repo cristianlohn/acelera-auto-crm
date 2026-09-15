@@ -11,6 +11,7 @@
 
 import fs from "fs";
 import path from "path";
+import { revalidatePath } from "next/cache";
 import { resolveUserTenantContext, DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
@@ -626,3 +627,53 @@ export async function configureEvolutionWebhook(
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
+
+/**
+ * Alterna a ativação da captura automática de leads via WhatsApp para a organização ativa.
+ */
+export async function toggleWhatsAppLeadCaptureAction(
+  enabled: boolean
+): Promise<{ success: boolean; enabled: boolean; error?: string }> {
+  try {
+    const tenantContext = await resolveUserTenantContext();
+    if (tenantContext.isDemo) {
+      return { success: true, enabled };
+    }
+
+    if (!tenantContext.organizationId) {
+      return {
+        success: false,
+        enabled: !enabled,
+        error: "Organização não identificada no contexto.",
+      };
+    }
+
+    if (isSupabaseServerConfigured()) {
+      const adminClient = createAdminClient();
+      const { error } = await adminClient
+        .from("organizations")
+        .update({
+          whatsapp_lead_capture_enabled: enabled,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", tenantContext.organizationId);
+
+      if (error) {
+        console.error("[toggleWhatsAppLeadCaptureAction] Erro ao atualizar:", error);
+        return { success: false, enabled: !enabled, error: error.message };
+      }
+    }
+
+    try {
+      revalidatePath("/settings");
+      revalidatePath("/dashboard");
+    } catch {}
+
+    return { success: true, enabled };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Erro desconhecido ao alterar preferência.";
+    console.error("[toggleWhatsAppLeadCaptureAction Exception]:", msg);
+    return { success: false, enabled: !enabled, error: msg };
+  }
+}
+
