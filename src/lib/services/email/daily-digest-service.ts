@@ -6,6 +6,8 @@
 import { isSupabaseServerConfigured } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const DEFAULT_EMAIL_FROM = "Acelera Auto CRM <contato@aceleraautocrm.com.br>";
+
 export interface DailyDigestMetrics {
   newLeadsCount: number;
   stalledLeadsCount: number;
@@ -289,8 +291,7 @@ export async function sendDailyDigestEmail({
   crmUrl,
 }: SendDailyDigestParams): Promise<SendDailyDigestResult> {
   const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail =
-    process.env.RESEND_FROM_EMAIL || "Acelera Auto CRM <digest@aceleraautocrm.com.br>";
+  const fromEmail = process.env.EMAIL_FROM || DEFAULT_EMAIL_FROM;
 
   const subject = `📊 Resumo Diário — ${storeName} (${dateStr})`;
   const html = generateDailyDigestHtml({
@@ -304,6 +305,7 @@ export async function sendDailyDigestEmail({
   // Modo simulação gracioso quando chave não estiver configurada
   if (!apiKey) {
     console.info(`[Resend Email - Simulação] Daily Digest enviado para ${to}:`);
+    console.info(`- Remetente: ${fromEmail}`);
     console.info(`- Loja: ${storeName} | Destinatário: ${recipientName}`);
     console.info(
       `- Métricas: Leads: ${metrics.newLeadsCount}, Parados: ${metrics.stalledLeadsCount}, Vendas: ${metrics.wonDealsCount}, SLA: ${metrics.slaComplianceRate}%`

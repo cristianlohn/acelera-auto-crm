@@ -10,6 +10,7 @@ import {
   compileDailyDigestMetrics,
   generateDailyDigestHtml,
   sendDailyDigestEmail,
+  DEFAULT_EMAIL_FROM,
   type DailyDigestMetrics,
 } from "@/lib/services/email/daily-digest-service";
 import { GET as cronHandler } from "@/app/api/cron/daily-digest/route";
@@ -181,8 +182,88 @@ describe("[UNIT-DAILY-DIGEST] Motor do Resumo Diário e Notificações", () => {
         })
       );
 
+      const requestBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(requestBody.from).toBe(process.env.EMAIL_FROM || DEFAULT_EMAIL_FROM);
       expect(result.success).toBe(true);
       expect(result.messageId).toBe("msg_resend_98765");
+    });
+
+    it("deve utilizar process.env.EMAIL_FROM quando a variável estiver definida", async () => {
+      process.env.RESEND_API_KEY = "re_test_key_123456";
+      process.env.EMAIL_FROM = "Custom Sender <digest@custombrand.com.br>";
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: "msg_custom_from_123" }),
+      });
+      global.fetch = mockFetch;
+
+      const result = await sendDailyDigestEmail({
+        to: "roberto@autoprime.com.br",
+        recipientName: "Roberto",
+        storeName: "Auto Prime",
+        metrics: {
+          newLeadsCount: 5,
+          stalledLeadsCount: 1,
+          wonDealsCount: 2,
+          slaComplianceRate: 90,
+        },
+      });
+
+      expect(result.success).toBe(true);
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.from).toBe("Custom Sender <digest@custombrand.com.br>");
+    });
+
+    it("deve utilizar o fallback DEFAULT_EMAIL_FROM quando process.env.EMAIL_FROM não estiver definida", async () => {
+      process.env.RESEND_API_KEY = "re_test_key_123456";
+      delete process.env.EMAIL_FROM;
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ id: "msg_fallback_from_123" }),
+      });
+      global.fetch = mockFetch;
+
+      const result = await sendDailyDigestEmail({
+        to: "roberto@autoprime.com.br",
+        recipientName: "Roberto",
+        storeName: "Auto Prime",
+        metrics: {
+          newLeadsCount: 5,
+          stalledLeadsCount: 1,
+          wonDealsCount: 2,
+          slaComplianceRate: 90,
+        },
+      });
+
+      expect(result.success).toBe(true);
+      const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(callBody.from).toBe("Acelera Auto CRM <contato@aceleraautocrm.com.br>");
+      expect(callBody.from).toBe(DEFAULT_EMAIL_FROM);
+    });
+
+    it("deve mencionar o remetente no log de simulação quando RESEND_API_KEY não estiver configurada", async () => {
+      delete process.env.RESEND_API_KEY;
+      process.env.EMAIL_FROM = "Custom Sender <digest@custombrand.com.br>";
+      const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+      await sendDailyDigestEmail({
+        to: "gestor@autoprime.com.br",
+        recipientName: "Gestor Carlos",
+        storeName: "Auto Prime",
+        metrics: {
+          newLeadsCount: 4,
+          stalledLeadsCount: 1,
+          wonDealsCount: 2,
+          slaComplianceRate: 85,
+        },
+      });
+
+      expect(infoSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Custom Sender <digest@custombrand.com.br>")
+      );
+      infoSpy.mockRestore();
     });
 
     it("deve tratar erro retornado pela API do Resend de forma graciosa", async () => {
