@@ -352,6 +352,13 @@ export async function connectWhatsAppAction(): Promise<WhatsAppConnectResult> {
       }
       console.log(`[WhatsApp API] Resposta /instance/connect: status ${connectResponse.status}`, connectBody);
 
+      // 3.5. Auto-configuração graciosa do Webhook da Evolution API (MESSAGES_UPSERT)
+      try {
+        await configureEvolutionWebhook(instanceName, orgId);
+      } catch (webhookErr) {
+        console.warn("[WhatsApp API] Falha graciosa ao auto-configurar webhook:", webhookErr);
+      }
+
       // Tratar os múltiplos formatos da Evolution API v2:
       // - dataConnect?.base64
       // - dataConnect?.qrcode?.base64
@@ -542,5 +549,80 @@ export async function disconnectWhatsAppAction(): Promise<WhatsAppDisconnectResu
       status: "disconnected",
       error: err instanceof Error ? err.message : String(err),
     };
+  }
+}
+
+/**
+ * Configura automaticamente a URL de webhook da revenda na Evolution API v2.
+ * Sempre que a instância for criada ou conectada, registra o webhook com o evento MESSAGES_UPSERT.
+ */
+export async function configureEvolutionWebhook(
+  instanceName: string,
+  orgId?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { evolutionUrl, evolutionKey } = getEvolutionCredentials();
+    if (!evolutionUrl || !evolutionKey) {
+      return { success: false, error: "Credenciais da Evolution API ausentes." };
+    }
+
+    let webhookToken = "token_sandbox_demo";
+    if (orgId && isSupabaseServerConfigured()) {
+      try {
+        const admin = createAdminClient();
+        const orgQuery = admin.from("organizations") as unknown as {
+          select?: (fields: string) => {
+            eq: (col: string, val: string) => {
+              maybeSingle: () => Promise<{ data: { webhook_token?: string | null } | null }>;
+            };
+          };
+        };
+
+        if (typeof orgQuery?.select === "function") {
+          const { data: orgData } = await orgQuery
+            .select("id, webhook_token")
+            .eq("id", orgId)
+            .maybeSingle();
+
+          if (orgData?.webhook_token) {
+            webhookToken = orgData.webhook_token;
+          }
+        }
+      } catch (err) {
+        console.warn("[configureEvolutionWebhook] Erro ao recuperar webhook_token da organização:", err);
+      }
+    }
+
+    const webhookUrl = `https://aceleraautocrm.com.br/api/webhooks/whatsapp?token=${webhookToken}`;
+
+    console.log(`[WhatsApp API] Configurando webhook em ${evolutionUrl}/webhook/set/${instanceName}...`);
+    const res = await fetch(`${evolutionUrl}/webhook/set/${instanceName}`, {
+      method: "POST",
+      headers: {
+        apikey: evolutionKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          byEvents: false,
+          base64: false,
+          events: ["MESSAGES_UPSERT"],
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      console.warn(`[WhatsApp API] Falha ao configurar webhook na Evolution (${res.status}):`, errBody);
+      return { success: false, error: errBody };
+    }
+
+    console.log(`[WhatsApp API] Webhook configurado com sucesso para ${instanceName}!`);
+    return { success: true };
+  } catch (error) {
+    console.warn("[configureEvolutionWebhook] Erro gracioso ao configurar webhook:", error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }

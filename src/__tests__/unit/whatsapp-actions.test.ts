@@ -15,6 +15,7 @@ import {
   getWhatsAppStatusAction,
   connectWhatsAppAction,
   disconnectWhatsAppAction,
+  configureEvolutionWebhook,
   resetWhatsAppDemoState,
 } from "@/app/actions/whatsapp-actions";
 import * as tenantModule from "@/lib/auth/tenant";
@@ -156,6 +157,16 @@ describe("[UNIT-WHATSAPP-ACTIONS] Integração WhatsApp (Evolution API v2)", () 
               }),
           });
         }
+        if (url.includes(`/webhook/set/${EXPECTED_INSTANCE}`)) {
+          expect(opts.headers).toHaveProperty("apikey", "test-secret-evolution-key");
+          const body = JSON.parse(opts.body as string);
+          expect(body.webhook.enabled).toBe(true);
+          expect(body.webhook.events).toContain("MESSAGES_UPSERT");
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ success: true }),
+          });
+        }
         return Promise.reject(new Error(`URL não esperada: ${url}`));
       });
       global.fetch = mockFetch;
@@ -168,7 +179,7 @@ describe("[UNIT-WHATSAPP-ACTIONS] Integração WhatsApp (Evolution API v2)", () 
       expect(res.qrCode).toContain("data:image/png;base64,");
       expect(res.pairingCode).toBe("PAIR-1234");
       expect(res.simulated).toBe(false);
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
     it("getWhatsAppStatusAction deve consultar estado 'open' e retornar status connected", async () => {
@@ -220,6 +231,27 @@ describe("[UNIT-WHATSAPP-ACTIONS] Integração WhatsApp (Evolution API v2)", () 
       expect(res.success).toBe(false);
       expect(res.status).toBe("disconnected");
       expect(res.error).toBeDefined();
+    });
+
+    it("configureEvolutionWebhook deve registrar webhook na Evolution API com evento MESSAGES_UPSERT", async () => {
+      const mockFetch = vi.fn().mockImplementation((url: string, opts: RequestInit) => {
+        expect(url).toContain(`/webhook/set/${EXPECTED_INSTANCE}`);
+        expect(opts.method).toBe("POST");
+        expect(opts.headers).toHaveProperty("apikey", "test-secret-evolution-key");
+        const body = JSON.parse(opts.body as string);
+        expect(body.webhook.enabled).toBe(true);
+        expect(body.webhook.events).toEqual(["MESSAGES_UPSERT"]);
+        expect(body.webhook.url).toContain("https://aceleraautocrm.com.br/api/webhooks/whatsapp?token=");
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ success: true }),
+        });
+      });
+      global.fetch = mockFetch;
+
+      const res = await configureEvolutionWebhook(EXPECTED_INSTANCE, TEST_ORG_ID);
+      expect(res.success).toBe(true);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
 });

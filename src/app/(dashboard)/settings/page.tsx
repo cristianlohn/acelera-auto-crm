@@ -133,6 +133,9 @@ export default async function SettingsPage(props: SettingsPageProps) {
   } catch {}
 
   const initialBusinessHours = parseStoreBusinessHours(rawOrg?.business_hours);
+  const initialWebhookToken =
+    (rawOrg?.webhook_token as string) ||
+    (isDemo ? "tok_demo_acelera_whatsapp_123" : "");
 
   return (
     <div className="space-y-6">
@@ -144,6 +147,7 @@ export default async function SettingsPage(props: SettingsPageProps) {
         initialTeamMembers={members}
         initialApiKeys={apiKeys}
         initialTab={initialTab}
+        initialWebhookToken={initialWebhookToken}
       />
     </div>
   );

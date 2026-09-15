@@ -123,6 +123,7 @@ export interface SettingsFormProps {
   initialCapacity?: TeamCapacity;
   initialApiKeys?: ApiKey[];
   initialTab?: SettingsTab;
+  initialWebhookToken?: string | null;
 }
 
 const TAB_ITEMS: {
@@ -173,6 +174,7 @@ export function SettingsForm({
   initialCapacity = INITIAL_CAPACITY,
   initialApiKeys,
   initialTab,
+  initialWebhookToken,
 }: SettingsFormProps) {
   const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
     if (initialTab) return initialTab;
@@ -1442,7 +1444,10 @@ export function SettingsForm({
               </div>
 
               {/* Integração WhatsApp Evolution API v2 */}
-              <WhatsAppIntegrationCard />
+              <WhatsAppIntegrationCard
+                webhookToken={initialWebhookToken}
+                userRole={profile.role || role}
+              />
 
               {/* 3. Card: Guia Passo a Passo "Como conectar seus leads" */}
               <div className="rounded-xl border bg-card p-4 sm:p-5 shadow-sm space-y-4">

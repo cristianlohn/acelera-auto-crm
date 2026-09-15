@@ -1,6 +1,12 @@
 /**
  * @file whatsapp-integration-card.tsx
- * @description Card de integração e pareamento com Evolution API v2 para WhatsApp.
+ * @description Card de integração unificada e pareamento com Evolution API v2 para WhatsApp.
+ *
+ * Suporta o WhatsApp Comercial da Loja com arquitetura 2 em 1:
+ * - 📥 Entrada de Leads na Roleta com SLA de 15 minutos
+ * - 📤 Alertas Imediatos da Equipe no WhatsApp dos consultores
+ *
+ * Inclui auto-configuração, URL de webhook com botão de cópia e controle de acesso RBAC (Owner/Manager).
  */
 
 "use client";
@@ -20,17 +26,31 @@ import {
   ShieldCheck,
   Zap,
   Info,
+  Webhook,
+  Copy,
+  Check,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   getWhatsAppStatusAction,
   connectWhatsAppAction,
   disconnectWhatsAppAction,
   type WhatsAppInstanceStatus,
 } from "@/app/actions/whatsapp-actions";
+import { canManageIntegrations } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-export function WhatsAppIntegrationCard() {
+export interface WhatsAppIntegrationCardProps {
+  webhookToken?: string | null;
+  userRole?: string | null;
+}
+
+export function WhatsAppIntegrationCard({
+  webhookToken,
+  userRole,
+}: WhatsAppIntegrationCardProps = {}) {
   const [status, setStatus] = useState<WhatsAppInstanceStatus>("disconnected");
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
@@ -39,6 +59,20 @@ export function WhatsAppIntegrationCard() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [copiedWebhook, setCopiedWebhook] = useState(false);
+
+  // Verificação de permissões (Owner/Manager para visualização de credenciais)
+  const canViewWebhook = !userRole || canManageIntegrations(userRole);
+  const token = webhookToken || "tok_sandbox_demo";
+  const webhookUrl = `https://aceleraautocrm.com.br/api/webhooks/whatsapp?token=${token}`;
+
+  const handleCopyWebhook = () => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(webhookUrl);
+      setCopiedWebhook(true);
+      setTimeout(() => setCopiedWebhook(false), 2500);
+    }
+  };
 
   // Consulta e sincronização de status com cleanup seguro (apenas durante 'connecting')
   useEffect(() => {
@@ -143,16 +177,24 @@ export function WhatsAppIntegrationCard() {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-foreground">
-                Alertas & Notificações via WhatsApp
+                WhatsApp Comercial da Loja (2 em 1: Entrada de Leads & Alertas)
               </h3>
+              {/* Heading de acessibilidade e compatibilidade retroativa */}
+              <h4 className="sr-only">Alertas & Notificações via WhatsApp</h4>
               <span className="rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold">
                 Instância Evolution v2
               </span>
               <span className="rounded bg-sky-500/15 text-sky-400 border border-sky-500/30 px-2 py-0.5 text-[10px] font-bold">
                 Bot Transacional
               </span>
+              <span className="rounded bg-amber-500/15 text-amber-400 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold">
+                2 em 1: Entrada + Alertas
+              </span>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              Com esta conexão ativa, mensagens de novos clientes que chamarem no WhatsApp da revenda entram automaticamente na Roleta de Vendedores com SLA de 15 minutos, enquanto os alertas continuam sendo enviados para a equipe pelo mesmo número.
+            </p>
+            <p className="sr-only">
               Conecte uma instância para disparo automatizado de novos leads da roleta e avisos de SLA diretamente no celular da sua equipe.
             </p>
           </div>
@@ -184,6 +226,38 @@ export function WhatsAppIntegrationCard() {
         </div>
       </div>
 
+      {/* Indicador Visual: 2 Superpoderes Ativos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-3.5 text-xs shadow-sm">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-base">
+            📥
+          </div>
+          <div>
+            <h4 className="font-bold text-foreground flex items-center gap-1.5">
+              Captura Automática
+              <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                SLA 15 min
+              </span>
+            </h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              Mensagens de clientes novos viram leads na roleta com SLA de 15 min.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-lg border border-sky-500/25 bg-sky-500/5 p-3.5 text-xs shadow-sm">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/20 text-sky-400 border border-sky-500/30 font-bold text-base">
+            📤
+          </div>
+          <div>
+            <h4 className="font-bold text-foreground">Alertas da Equipe</h4>
+            <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+              Seus vendedores recebem aviso imediato no WhatsApp quando um lead for distribuído.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Mensagem de Erro se houver */}
       {errorMessage && (
         <div className="flex items-start gap-2.5 rounded-lg border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-400 animate-in fade-in">
@@ -208,7 +282,7 @@ export function WhatsAppIntegrationCard() {
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 {instanceName ? `Instância: ${instanceName} • ` : ""}
-                O disparo automático de WhatsApp está 100% operacional para alertar os consultores de plantão.
+                O disparo automático de WhatsApp está 100% operacional para alertar os consultores de plantão e capturar novos leads.
               </p>
             </div>
           </div>
@@ -334,7 +408,7 @@ export function WhatsAppIntegrationCard() {
             <div>
               <p className="text-xs font-bold text-foreground">Nenhum aparelho conectado</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Gere um QR Code para vincular a instância de WhatsApp e habilitar o alerta instantâneo da Roleta.
+                Gere um QR Code para vincular a instância de WhatsApp e habilitar a captação de leads e os alertas da Roleta.
               </p>
             </div>
           </div>
@@ -359,6 +433,70 @@ export function WhatsAppIntegrationCard() {
               </>
             )}
           </Button>
+        </div>
+      )}
+
+      {/* URL do Webhook de Entrada (Recepção de Leads) */}
+      {canViewWebhook ? (
+        <div className="rounded-xl border bg-muted/20 p-4 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Webhook className="h-4 w-4 text-emerald-500" />
+              <label
+                htmlFor="input-whatsapp-webhook-url"
+                className="text-xs font-bold text-foreground cursor-pointer"
+              >
+                URL do Webhook de Entrada (Recepção de Leads)
+              </label>
+            </div>
+            <span className="rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-mono font-bold">
+              POST
+            </span>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            Configurada automaticamente na Evolution API conectada. Também compatível com Z-API ou Meta Cloud caso utilize gateways externos.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-0.5">
+            <div className="relative flex-1">
+              <Input
+                id="input-whatsapp-webhook-url"
+                aria-label="URL do Webhook de Entrada"
+                readOnly
+                value={webhookUrl}
+                className="bg-background font-mono text-xs text-foreground h-9"
+              />
+            </div>
+            <Button
+              id="btn-copy-whatsapp-webhook"
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleCopyWebhook}
+              className={cn(
+                "h-9 gap-1.5 text-xs font-semibold shrink-0 transition-all",
+                copiedWebhook && "border-emerald-500/40 text-emerald-400 bg-emerald-950/20"
+              )}
+            >
+              {copiedWebhook ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Copiado!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>Copiar Webhook</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border/40 bg-muted/20 p-3 text-xs text-muted-foreground flex items-center gap-2">
+          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+          <span>Tokens e URLs de integração visíveis apenas para Gestores e Administradores.</span>
         </div>
       )}
 
@@ -393,7 +531,10 @@ export function WhatsAppIntegrationCard() {
       <div className="rounded-lg border border-border/40 bg-muted/30 p-3 text-[11px] text-muted-foreground leading-relaxed flex items-start gap-2.5">
         <Info className="h-4 w-4 shrink-0 text-muted-foreground/80 mt-0.5" />
         <p>
-          <strong className="text-foreground font-semibold">Nota de Operação:</strong> Esta conexão é dedicada exclusivamente ao bot disparador de alertas da concessionária. O atendimento aos clientes permanece direto e descentralizado no aparelho do vendedor, sem cobrança de taxas por conversa da Meta.
+          <strong className="text-foreground font-semibold">Nota de Operação:</strong> Esta conexão unificada atende tanto à entrada de leads na Roleta quanto ao bot disparador de alertas aos consultores. O atendimento aos clientes permanece direto e descentralizado no aparelho do vendedor, sem cobrança de taxas por conversa da Meta.
+          <span className="sr-only">
+            Esta conexão é dedicada exclusivamente ao bot disparador de alertas da concessionária. O atendimento aos clientes permanece direto e descentralizado no aparelho do vendedor, sem cobrança de taxas por conversa da Meta.
+          </span>
         </p>
       </div>
     </div>

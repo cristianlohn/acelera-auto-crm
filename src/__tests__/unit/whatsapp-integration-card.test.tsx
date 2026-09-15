@@ -171,4 +171,97 @@ describe("[UNIT-WA-CARD] Componente WhatsAppIntegrationCard", () => {
       )
     ).toBeInTheDocument();
   });
+
+  it("[TEST-WA-CARD-7] deve renderizar o título unificado e os 2 superpoderes ativos (Captura Automática & Alertas)", async () => {
+    vi.mocked(whatsappActions.getWhatsAppStatusAction).mockResolvedValue({
+      success: true,
+      connected: false,
+      status: "disconnected",
+      instanceName: "acelera_demo_inst",
+    });
+
+    render(<WhatsAppIntegrationCard />);
+
+    // Título unificado
+    expect(
+      screen.getByRole("heading", {
+        name: "WhatsApp Comercial da Loja (2 em 1: Entrada de Leads & Alertas)",
+      })
+    ).toBeInTheDocument();
+
+    // Badge 2 em 1
+    expect(screen.getByText("2 em 1: Entrada + Alertas")).toBeInTheDocument();
+
+    // Superpoder 1: Captura Automática
+    expect(screen.getByText("Captura Automática")).toBeInTheDocument();
+    expect(
+      screen.getByText("Mensagens de clientes novos viram leads na roleta com SLA de 15 min.")
+    ).toBeInTheDocument();
+
+    // Superpoder 2: Alertas da Equipe
+    expect(screen.getByText("Alertas da Equipe")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Seus vendedores recebem aviso imediato no WhatsApp quando um lead for distribuído."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("[TEST-WA-CARD-8] deve exibir a URL do webhook e permitir copiar quando perfil for admin/gerente", async () => {
+    const user = userEvent.setup();
+    const writeTextSpy = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue(undefined);
+
+    vi.mocked(whatsappActions.getWhatsAppStatusAction).mockResolvedValue({
+      success: true,
+      connected: true,
+      status: "connected",
+      instanceName: "acelera_loja_matriz",
+    });
+
+    render(
+      <WhatsAppIntegrationCard
+        webhookToken="token-xyz-987"
+        userRole="admin"
+      />
+    );
+
+    const webhookInput = screen.getByLabelText(/URL do Webhook de Entrada/i);
+    expect(webhookInput).toBeInTheDocument();
+    expect(webhookInput).toHaveValue(
+      "https://aceleraautocrm.com.br/api/webhooks/whatsapp?token=token-xyz-987"
+    );
+
+    const copyBtn = screen.getByRole("button", { name: /copiar webhook/i });
+    await user.click(copyBtn);
+
+    expect(writeTextSpy).toHaveBeenCalledWith(
+      "https://aceleraautocrm.com.br/api/webhooks/whatsapp?token=token-xyz-987"
+    );
+    expect(screen.getByText("Copiado!")).toBeInTheDocument();
+  });
+
+  it("[TEST-WA-CARD-9] deve restringir a exibição da URL do webhook para perfis de vendedor (RBAC)", async () => {
+    vi.mocked(whatsappActions.getWhatsAppStatusAction).mockResolvedValue({
+      success: true,
+      connected: true,
+      status: "connected",
+      instanceName: "acelera_loja_matriz",
+    });
+
+    render(
+      <WhatsAppIntegrationCard
+        webhookToken="token-secret-123"
+        userRole="vendedor"
+      />
+    );
+
+    expect(
+      screen.queryByLabelText(/URL do Webhook de Entrada/i)
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.getByText("Tokens e URLs de integração visíveis apenas para Gestores e Administradores.")
+    ).toBeInTheDocument();
+  });
 });
+
