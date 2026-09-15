@@ -4,20 +4,20 @@
  */
 
 export const CONTACT_CONFIG = {
-  phone: "5547996348698",
-  displayPhone: "(47) 99634-8698",
+  phone: "5547988030970",
+  displayPhone: "(47) 98803-0970",
   email: "contato@aceleraautocrm.com.br",
   sales: {
-    phone: "5547996348698",
-    displayPhone: "(47) 99634-8698",
+    phone: "5547988030970",
+    displayPhone: "(47) 98803-0970",
     enterpriseMessage:
       "Olá! Gostaria de falar com um especialista sobre o Plano Enterprise do Acelera Auto CRM.",
     defaultMessage:
       "Olá! Gostaria de conhecer melhor o Acelera Auto CRM para minha revenda.",
   },
   support: {
-    phone: "5547996348698",
-    displayPhone: "(47) 99634-8698",
+    phone: "5547988030970",
+    displayPhone: "(47) 98803-0970",
     defaultMessage: "Olá, preciso de ajuda com o Acelera Auto CRM.",
   },
 } as const;

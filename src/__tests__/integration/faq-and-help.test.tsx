@@ -93,9 +93,9 @@ describe("[IT-FAQ] FAQ Interativo e Central de Ajuda (/ajuda)", () => {
     expect(screen.getByText(/Conectar Webhook de Leads/i)).toBeInTheDocument();
     expect(screen.getByText(/Cadastrar Equipe & Roleta/i)).toBeInTheDocument();
     expect(screen.getByText(/contato@aceleraautocrm.com.br/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/\(47\) 99634-8698/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/\(47\) 98803-0970/).length).toBeGreaterThanOrEqual(1);
 
     const whatsappBtn = screen.getByRole("link", { name: /chamar no whatsapp/i });
-    expect(whatsappBtn).toHaveAttribute("href", expect.stringContaining("5547996348698"));
+    expect(whatsappBtn).toHaveAttribute("href", expect.stringContaining("5547988030970"));
   });
 });

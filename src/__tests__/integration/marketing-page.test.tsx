@@ -190,7 +190,7 @@ describe("[IT-11] Portal Institucional e Landing Page (Marketing)", () => {
 
     // Link WhatsApp Comercial no Enterprise
     const consultorBtn = screen.getByRole("link", { name: /falar com o acelera/i });
-    expect(consultorBtn).toHaveAttribute("href", expect.stringContaining("5547996348698"));
+    expect(consultorBtn).toHaveAttribute("href", expect.stringContaining("5547988030970"));
 
     // Bloco de Taxa de Setup
     expect(

@@ -335,7 +335,7 @@ $$\text{Conversão por Origem} = \left(\frac{\text{Vendas Concluídas da Origem 
 ### 5.3. Central Oficial de Contatos (`src/config/contact.ts`)
 
 Todos os canais de contato, links de suporte e chamadas comerciais de landing pages e rodapés estão centralizados no arquivo canônico `src/config/contact.ts`:
-- **Telefone Oficial Único:** `5547996348698` (Exibição: `(47) 99634-8698`).
+- **Telefone Oficial Único:** `5547988030970` (Exibição: `(47) 98803-0970`).
 - **E-mail de Suporte:** `contato@aceleraautocrm.com.br`.
 - **Helpers de Roteamento:**
   - `getSalesWhatsAppUrl(customMessage?)`: Aponta para vendas com mensagem padrão institucional.
