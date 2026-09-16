@@ -59,6 +59,7 @@ export interface Database {
           document: string | null;
           plan?: string | null;
           subscription_status?: string | null;
+          billing_status?: "trialing" | "active" | "past_due" | "canceled" | string | null;
           trial_ends_at?: string | null;
           current_period_end?: string | null;
           max_sellers?: number | null;
@@ -85,6 +86,7 @@ export interface Database {
           document?: string | null;
           plan?: string | null;
           subscription_status?: string | null;
+          billing_status?: string | null;
           trial_ends_at?: string | null;
           current_period_end?: string | null;
           max_sellers?: number | null;
@@ -111,6 +113,7 @@ export interface Database {
           document?: string | null;
           plan?: string | null;
           subscription_status?: string | null;
+          billing_status?: string | null;
           trial_ends_at?: string | null;
           current_period_end?: string | null;
           max_sellers?: number | null;
@@ -673,6 +676,134 @@ export interface Database {
           },
         ];
       };
+      billing_invoices: {
+        Row: {
+          id: string;
+          organization_id: string;
+          asaas_payment_id: string | null;
+          asaas_invoice_id: string | null;
+          amount: number;
+          status: string;
+          invoice_url: string | null;
+          pdf_url: string | null;
+          xml_url: string | null;
+          number: string | null;
+          verification_code: string | null;
+          failure_reason: string | null;
+          service_description: string | null;
+          effective_date: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          asaas_payment_id?: string | null;
+          asaas_invoice_id?: string | null;
+          amount?: number;
+          status?: string;
+          invoice_url?: string | null;
+          pdf_url?: string | null;
+          xml_url?: string | null;
+          number?: string | null;
+          verification_code?: string | null;
+          failure_reason?: string | null;
+          service_description?: string | null;
+          effective_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          asaas_payment_id?: string | null;
+          asaas_invoice_id?: string | null;
+          amount?: number;
+          status?: string;
+          invoice_url?: string | null;
+          pdf_url?: string | null;
+          xml_url?: string | null;
+          number?: string | null;
+          verification_code?: string | null;
+          failure_reason?: string | null;
+          service_description?: string | null;
+          effective_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "billing_invoices_organization_id_fkey";
+            columns: ["organization_id"];
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      invoices: {
+        Row: {
+          id: string;
+          organization_id: string;
+          asaas_payment_id: string | null;
+          asaas_invoice_id: string | null;
+          amount: number;
+          status: string;
+          invoice_url: string | null;
+          pdf_url: string | null;
+          xml_url: string | null;
+          number: string | null;
+          verification_code: string | null;
+          failure_reason: string | null;
+          service_description: string | null;
+          effective_date: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          asaas_payment_id?: string | null;
+          asaas_invoice_id?: string | null;
+          amount?: number;
+          status?: string;
+          invoice_url?: string | null;
+          pdf_url?: string | null;
+          xml_url?: string | null;
+          number?: string | null;
+          verification_code?: string | null;
+          failure_reason?: string | null;
+          service_description?: string | null;
+          effective_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          asaas_payment_id?: string | null;
+          asaas_invoice_id?: string | null;
+          amount?: number;
+          status?: string;
+          invoice_url?: string | null;
+          pdf_url?: string | null;
+          xml_url?: string | null;
+          number?: string | null;
+          verification_code?: string | null;
+          failure_reason?: string | null;
+          service_description?: string | null;
+          effective_date?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "invoices_organization_id_fkey";
+            columns: ["organization_id"];
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -697,4 +828,6 @@ export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type LeadRow = Database["public"]["Tables"]["leads"]["Row"];
 export type VehicleRow = Database["public"]["Tables"]["vehicles"]["Row"];
 export type MetaIntegrationRow = Database["public"]["Tables"]["meta_integrations"]["Row"];
+export type InvoiceRow = Database["public"]["Tables"]["invoices"]["Row"];
+export type BillingInvoiceRow = Database["public"]["Tables"]["billing_invoices"]["Row"];
 

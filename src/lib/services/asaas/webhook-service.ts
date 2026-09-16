@@ -49,7 +49,14 @@ export type AsaasWebhookEvent =
   | "SUBSCRIPTION_CREATED"
   | "SUBSCRIPTION_UPDATED"
   | "SUBSCRIPTION_DELETED"
-  | "SUBSCRIPTION_INACTIVATED";
+  | "SUBSCRIPTION_INACTIVATED"
+  | "INVOICE_SYNCHRONIZED"
+  | "INVOICE_AUTHORIZED"
+  | "INVOICE_PROCESSING_CANCELLATION"
+  | "INVOICE_CANCELED"
+  | "INVOICE_CANCELLATION_DENIED"
+  | "INVOICE_FAILED"
+  | "INVOICE_ERROR";
 
 export interface AsaasPayment {
   id: string;
@@ -97,12 +104,31 @@ export interface AsaasSubscription {
   externalReference?: string;
 }
 
+export interface AsaasInvoiceData {
+  id: string;
+  status?: string;
+  customer?: string;
+  payment?: string;
+  installment?: string;
+  value?: number;
+  serviceDescription?: string;
+  observations?: string;
+  effectiveDate?: string;
+  pdfUrl?: string | null;
+  xmlUrl?: string | null;
+  number?: string | null;
+  verificationCode?: string | null;
+  externalReference?: string | null;
+  failedReason?: string | null;
+}
+
 export interface AsaasWebhookPayload {
   id?: string;
   event: AsaasWebhookEvent;
   dateCreated?: string;
   payment?: AsaasPayment;
   subscription?: AsaasSubscription;
+  invoice?: AsaasInvoiceData;
 }
 
 export interface WebhookProcessResult {
@@ -145,9 +171,9 @@ export function verifyAsaasWebhookToken(token: string | null | undefined): boole
   const cleanToken = token.trim();
 
   const configuredSecret = (
+    process.env.ASAAS_WEBHOOK_TOKEN ||
     process.env.ASAAS_WEBHOOK_SECRET ||
     process.env.ASAAS_ACCESS_TOKEN ||
-    process.env.ASAAS_WEBHOOK_TOKEN ||
     process.env.ASAAS_WEBHOOK_ACCESS_TOKEN ||
     process.env.ASAAS_API_KEY
   )?.trim();
@@ -300,10 +326,11 @@ export async function getOrganizationById(orgId?: string | null): Promise<Organi
  * Localiza a organização no banco de dados a partir dos dados recebidos do Asaas.
  */
 export async function findOrganizationByAsaasData(
-  externalRef?: string,
-  customerId?: string,
-  subscriptionId?: string,
-  paymentId?: string
+  externalRef?: string | null,
+  customerId?: string | null,
+  subscriptionId?: string | null,
+  paymentId?: string | null,
+  invoiceId?: string | null
 ): Promise<OrganizationFoundData | null> {
   const parsedRef = parseExternalReference(externalRef);
   const orgIdCandidate = parsedRef?.orgId || externalRef;
@@ -367,7 +394,7 @@ export async function findOrganizationByAsaasData(
       if (data) return data as unknown as OrganizationFoundData;
     }
 
-    // 3. Busca por pending_invoice_id com paymentId
+    // 3. Busca por pending_invoice_id com paymentId ou na tabela billing_invoices
     if (paymentId) {
       const { data } = await supabaseAdmin
         .from("organizations")
@@ -376,6 +403,29 @@ export async function findOrganizationByAsaasData(
         .maybeSingle();
 
       if (data) return data as unknown as OrganizationFoundData;
+
+      const { data: invoiceRecord } = await supabaseAdmin
+        .from("billing_invoices")
+        .select("organization_id")
+        .eq("asaas_payment_id", paymentId)
+        .maybeSingle();
+
+      if (invoiceRecord?.organization_id) {
+        return getOrganizationById(invoiceRecord.organization_id);
+      }
+    }
+
+    // 3.1 Busca por invoiceId na tabela billing_invoices
+    if (invoiceId) {
+      const { data: invoiceRecord } = await supabaseAdmin
+        .from("billing_invoices")
+        .select("organization_id")
+        .eq("asaas_invoice_id", invoiceId)
+        .maybeSingle();
+
+      if (invoiceRecord?.organization_id) {
+        return getOrganizationById(invoiceRecord.organization_id);
+      }
     }
 
     // 4. Busca por asaas_customer_id
@@ -402,10 +452,10 @@ export async function findOrganizationByAsaasData(
 export async function processAsaasWebhookEvent(
   payload: AsaasWebhookPayload
 ): Promise<WebhookProcessResult> {
-  const { event, payment, subscription } = payload;
+  const { event, payment, subscription, invoice } = payload;
   const eventKey =
     payload.id ||
-    `${event}_${payment?.id || subscription?.id || "evt"}_${payment?.paymentDate || payload.dateCreated || ""}`;
+    `${event}_${payment?.id || subscription?.id || invoice?.id || "evt"}_${payment?.paymentDate || payload.dateCreated || ""}`;
 
   // 1. Verificação de Idempotência
   if (isEventAlreadyProcessed(eventKey)) {
@@ -428,6 +478,11 @@ export async function processAsaasWebhookEvent(
     "SUBSCRIPTION_UPDATED",
     "SUBSCRIPTION_DELETED",
     "SUBSCRIPTION_INACTIVATED",
+    "INVOICE_SYNCHRONIZED",
+    "INVOICE_AUTHORIZED",
+    "INVOICE_FAILED",
+    "INVOICE_ERROR",
+    "INVOICE_CANCELED",
   ]);
 
   if (!HANDLED_EVENTS.has(event)) {
@@ -442,9 +497,11 @@ export async function processAsaasWebhookEvent(
     };
   }
 
-  const externalRef = payment?.externalReference || subscription?.externalReference;
-  const customerId = payment?.customer || subscription?.customer;
+  const externalRef = payment?.externalReference || subscription?.externalReference || invoice?.externalReference;
+  const customerId = payment?.customer || subscription?.customer || invoice?.customer;
   const subscriptionId = payment?.subscription || subscription?.id;
+  const paymentId = payment?.id || invoice?.payment;
+  const invoiceId = invoice?.id;
 
   const parsedRef = parseExternalReference(externalRef);
   const targetIdFromRef = parsedRef?.orgId || externalRef;
@@ -466,7 +523,7 @@ export async function processAsaasWebhookEvent(
     };
   }
 
-  const org = await findOrganizationByAsaasData(externalRef, customerId, subscriptionId, payment?.id);
+  const org = await findOrganizationByAsaasData(externalRef, customerId, subscriptionId, paymentId, invoiceId);
   const targetOrgId = isSupabaseServerConfigured() ? org?.id : (org?.id || targetIdFromRef);
 
   if (!targetOrgId) {
@@ -543,6 +600,7 @@ export async function processAsaasWebhookEvent(
           const updatePayload: OrganizationUpdate = {
             plan: targetPlan,
             subscription_status: "active",
+            billing_status: "active",
             trial_ends_at: null,
             current_period_end: currentPeriodEnd,
             max_sellers: maxSellers,
@@ -571,8 +629,46 @@ export async function processAsaasWebhookEvent(
             console.error(`[Asaas Webhook] Erro ao atualizar organização para 'active' e '${targetPlan}':`, updateError);
           } else {
             console.log(
-              `[Asaas Webhook] Organização ${targetOrgId} ativada com sucesso: plan='${targetPlan}', max_sellers=${maxSellers}, extra_sellers_count=${updatePayload.extra_sellers_count ?? currentOrg?.extra_sellers_count ?? 0}, subscription_status='active', current_period_end='${currentPeriodEnd}' (ciclo: ${planCycle})`
+              `[Asaas Webhook] Organização ${targetOrgId} ativada com sucesso: plan='${targetPlan}', max_sellers=${maxSellers}, extra_sellers_count=${updatePayload.extra_sellers_count ?? currentOrg?.extra_sellers_count ?? 0}, subscription_status='active', billing_status='active', current_period_end='${currentPeriodEnd}' (ciclo: ${planCycle})`
             );
+          }
+
+          // Registra ou atualiza o pagamento na tabela billing_invoices
+          if (payment?.id) {
+            try {
+              const amountVal = Number(payment.value ?? payment.netValue ?? 0);
+              const invoiceRecord = {
+                organization_id: targetOrgId,
+                asaas_payment_id: payment.id,
+                amount: isNaN(amountVal) ? 0 : amountVal,
+                status: payment.status || "RECEIVED",
+                invoice_url: payment.invoiceUrl || payment.bankSlipUrl || null,
+                pdf_url: payment.transactionReceiptUrl || null,
+                number: payment.invoiceNumber || null,
+                effective_date: (payment.paymentDate || payment.clientPaymentDate || new Date().toISOString()).split("T")[0],
+                service_description: payment.description || `Assinatura Acelera Auto CRM - Plano ${targetPlan}`,
+                updated_at: new Date().toISOString(),
+              };
+
+              const { data: existingInv } = await supabaseAdmin
+                .from("billing_invoices")
+                .select("id")
+                .eq("asaas_payment_id", payment.id)
+                .maybeSingle();
+
+              if (existingInv?.id) {
+                await supabaseAdmin
+                  .from("billing_invoices")
+                  .update(invoiceRecord)
+                  .eq("id", existingInv.id);
+              } else {
+                await supabaseAdmin
+                  .from("billing_invoices")
+                  .insert(invoiceRecord);
+              }
+            } catch (invErr) {
+              console.warn("[Asaas Webhook] Falha ao registrar pagamento na tabela billing_invoices:", invErr);
+            }
           }
         } catch (err) {
           console.warn("[Asaas Webhook] Falha ao atualizar organization no Supabase:", err);
@@ -726,9 +822,24 @@ export async function processAsaasWebhookEvent(
             .from("organizations")
             .update({
               subscription_status: newStatus,
+              billing_status: "past_due",
               updated_at: new Date().toISOString(),
             })
             .eq("id", targetOrgId);
+
+          if (payment?.id) {
+            try {
+              await supabaseAdmin
+                .from("billing_invoices")
+                .update({
+                  status: "OVERDUE",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("asaas_payment_id", payment.id);
+            } catch (invErr) {
+              console.warn("[Asaas Webhook] Falha ao marcar fatura como OVERDUE em billing_invoices:", invErr);
+            }
+          }
         } catch (err) {
           console.warn("[Asaas Webhook] Falha ao atualizar inadimplência:", err);
         }
@@ -805,6 +916,116 @@ export async function processAsaasWebhookEvent(
             .eq("id", targetOrgId);
         } catch (err) {
           console.warn("[Asaas Webhook] Falha ao cancelar assinatura:", err);
+        }
+      }
+      break;
+    }
+
+    case "INVOICE_SYNCHRONIZED":
+    case "INVOICE_AUTHORIZED": {
+      actionTaken = "invoice_synchronized";
+      const invoiceData = payload.invoice;
+      const invId = invoiceData?.id;
+      const payId = invoiceData?.payment || payment?.id;
+      const invoiceOrgCandidate = invoiceData?.externalReference || parsedRef?.orgId;
+      const finalOrgId = targetOrgId || invoiceOrgCandidate;
+
+      console.log(
+        `[Asaas Webhook] NFS-e autorizada/sincronizada (${invId || "sem id"}): número ${invoiceData?.number || "N/A"}`
+      );
+
+      if (isSupabaseServerConfigured() && finalOrgId) {
+        try {
+          const supabaseAdmin = createAdminClient();
+          const invoicePayload = {
+            organization_id: finalOrgId,
+            asaas_invoice_id: invId || null,
+            asaas_payment_id: payId || null,
+            number: invoiceData?.number || null,
+            verification_code: invoiceData?.verificationCode || null,
+            pdf_url: invoiceData?.pdfUrl || null,
+            xml_url: invoiceData?.xmlUrl || null,
+            status: "SYNCHRONIZED",
+            failure_reason: null,
+            effective_date: invoiceData?.effectiveDate ? invoiceData.effectiveDate.split("T")[0] : null,
+            service_description: invoiceData?.serviceDescription || null,
+            amount: Number(invoiceData?.value ?? payment?.value ?? 0),
+            updated_at: new Date().toISOString(),
+          };
+
+          let existingId: string | null = null;
+          if (invId) {
+            const { data } = await supabaseAdmin
+              .from("billing_invoices")
+              .select("id")
+              .eq("asaas_invoice_id", invId)
+              .maybeSingle();
+            if (data?.id) existingId = data.id;
+          }
+
+          if (!existingId && payId) {
+            const { data } = await supabaseAdmin
+              .from("billing_invoices")
+              .select("id")
+              .eq("asaas_payment_id", payId)
+              .maybeSingle();
+            if (data?.id) existingId = data.id;
+          }
+
+          if (existingId) {
+            await supabaseAdmin
+              .from("billing_invoices")
+              .update(invoicePayload)
+              .eq("id", existingId);
+          } else {
+            await supabaseAdmin
+              .from("billing_invoices")
+              .insert(invoicePayload);
+          }
+        } catch (err) {
+          console.warn("[Asaas Webhook] Falha ao sincronizar NFS-e em billing_invoices:", err);
+        }
+      }
+      break;
+    }
+
+    case "INVOICE_FAILED":
+    case "INVOICE_ERROR": {
+      actionTaken = "invoice_failed_logged";
+      const invoiceData = payload.invoice;
+      const invId = invoiceData?.id;
+      const payId = invoiceData?.payment || payment?.id;
+      const failureReason =
+        invoiceData?.failedReason ||
+        invoiceData?.observations ||
+        "Rejeição pela prefeitura";
+
+      console.warn(
+        `[Asaas Webhook] NFS-e (${invId || "sem id"}) rejeitada pela prefeitura: ${failureReason}`
+      );
+
+      if (isSupabaseServerConfigured() && (invId || payId)) {
+        try {
+          const supabaseAdmin = createAdminClient();
+          const updateData = {
+            status: "FAILED",
+            failure_reason: failureReason,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (invId) {
+            await supabaseAdmin
+              .from("billing_invoices")
+              .update(updateData)
+              .eq("asaas_invoice_id", invId);
+          } else if (payId) {
+            await supabaseAdmin
+              .from("billing_invoices")
+              .update(updateData)
+              .eq("asaas_payment_id", payId);
+          }
+        } catch (err) {
+          console.warn("[Asaas Webhook] Falha ao registrar motivo de falha da NFS-e:", err);
         }
       }
       break;
