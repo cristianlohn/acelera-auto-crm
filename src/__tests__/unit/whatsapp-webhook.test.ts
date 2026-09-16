@@ -32,6 +32,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { POST, normalizeWhatsAppPhone, parseWhatsAppPayload } from "@/app/api/webhooks/whatsapp/route";
+import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
 import * as adminModule from "@/lib/supabase/admin";
 
 interface MemberRecord {
@@ -929,7 +930,37 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
       const bodyJson = JSON.parse(evoCall![1]?.body as string);
       expect(bodyJson.text).toContain("Juliana");
       expect(bodyJson.text).toContain("Auto Prime Motors");
+      expect(bodyJson.text).toContain("da Auto Prime Motors");
       expect(bodyJson.number).toBe("5511966554433");
+    });
+
+    it("deve usar fallback gracioso 'da nossa loja' quando organization.name for vazio ou nulo", async () => {
+      process.env.EVOLUTION_API_URL = "https://evolution.aceleraauto.com.br";
+      process.env.EVOLUTION_API_KEY = "test_evolution_secret_key";
+
+      dbOrgs[0].name = ""; // Organização sem nome cadastrado
+      dbProfiles[0].full_name = "Juliana Silva";
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11966554433",
+        senderName: "Marcos Paulo",
+        message: "Olá, tenho interesse",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+
+      const fetchCalls = vi.mocked(global.fetch).mock.calls;
+      const clientCall = fetchCalls.find((call) => {
+        const body = JSON.parse(call[1]?.body as string);
+        return body.number === "5511966554433";
+      });
+
+      expect(clientCall).toBeDefined();
+      const bodyJson = JSON.parse(clientCall![1]?.body as string);
+      expect(bodyJson.text).toContain("da nossa loja");
+      expect(bodyJson.text).not.toContain("da Auto Prime Motors");
+      expect(bodyJson.text).toContain("Juliana");
     });
 
     it("não deve enviar mensagem de boas-vindas na deduplicação de lead existente", async () => {
@@ -1066,6 +1097,172 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
       );
 
       consoleErrorSpy.mockRestore();
+    });
+
+    it("deve saudar cliente pelo primeiro nome e usar copy contextual sem veículo sem a string 'Interesse Geral via WhatsApp'", async () => {
+      process.env.EVOLUTION_API_URL = "https://evolution.aceleraauto.com.br";
+      process.env.EVOLUTION_API_KEY = "test_evolution_secret_key";
+
+      dbProfiles[0].full_name = "Juliana Silva";
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11966551122",
+        senderName: "Leonardo Da Silva Sauro",
+        message: "Olá, gostaria de um atendimento",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+
+      const fetchCalls = vi.mocked(global.fetch).mock.calls;
+      const clientCall = fetchCalls.find((call) => {
+        const body = JSON.parse(call[1]?.body as string);
+        return body.number === "5511966551122";
+      });
+
+      expect(clientCall).toBeDefined();
+      const bodyJson = JSON.parse(clientCall![1]?.body as string);
+
+      // Deve usar apenas o primeiro nome "Leonardo" na saudação
+      expect(bodyJson.text).toContain("Olá, Leonardo! Seja bem-vindo(a)");
+      expect(bodyJson.text).not.toContain("Leonardo Da Silva Sauro");
+
+      // Deve conter o copy sem veículo
+      expect(bodyJson.text).toContain(
+        "Recebi seu contato por aqui! Já tem algum modelo em mente ou gostaria de conhecer os destaques do nosso estoque?"
+      );
+
+      // Deve conter a referência da organização
+      expect(bodyJson.text).toContain("da Auto Prime Motors");
+
+      // NÃO deve conter a string genérica literal
+      expect(bodyJson.text).not.toContain("Interesse Geral via WhatsApp");
+    });
+
+    it("deve usar copy específica quando veículo for informado no payload do webhook", async () => {
+      process.env.EVOLUTION_API_URL = "https://evolution.aceleraauto.com.br";
+      process.env.EVOLUTION_API_KEY = "test_evolution_secret_key";
+
+      dbProfiles[0].full_name = "Juliana Silva";
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11966553344",
+        senderName: "Beatriz Oliveira",
+        vehicle_name: "Jeep Renegade Longitude 2023",
+        message: "Tenho interesse no Renegade",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+
+      const fetchCalls = vi.mocked(global.fetch).mock.calls;
+      const clientCall = fetchCalls.find((call) => {
+        const body = JSON.parse(call[1]?.body as string);
+        return body.number === "5511966553344";
+      });
+
+      expect(clientCall).toBeDefined();
+      const bodyJson = JSON.parse(clientCall![1]?.body as string);
+
+      // Saudação pessoal com primeiro nome
+      expect(bodyJson.text).toContain("Olá, Beatriz! Seja bem-vindo(a)");
+
+      // Copy contextual com veículo
+      expect(bodyJson.text).toContain(
+        "Vi que você se interessou pelo *Jeep Renegade Longitude 2023*. Ele está disponível aqui no pátio! Quer ver fotos ou simular entrada?"
+      );
+      expect(bodyJson.text).not.toContain("Interesse Geral via WhatsApp");
+      expect(bodyJson.text).toContain("da Auto Prime Motors");
+    });
+  });
+
+  describe("buildWelcomeCustomerMessage (Função de montagem de templates de boas-vindas)", () => {
+    it("deve incluir o nome da organização com prefixo 'da' quando organizationName estiver presente", () => {
+      const msg = buildWelcomeCustomerMessage({
+        customerName: "Carlos Eduardo",
+        sellerName: "Juliana Santos",
+        organizationName: "Auto Prime Motors",
+        vehicle: "Toyota Corolla",
+      });
+
+      expect(msg).toContain("da Auto Prime Motors");
+      expect(msg).toContain("Olá, Carlos! Seja bem-vindo(a)");
+      expect(msg).toContain("Sou Juliana da Auto Prime Motors");
+    });
+
+    it("deve aplicar fallback gracioso 'da nossa loja' quando organizationName for nulo ou vazio", () => {
+      const msgNull = buildWelcomeCustomerMessage({
+        customerName: "Carlos",
+        sellerName: "Juliana",
+        organizationName: null,
+      });
+      expect(msgNull).toContain("da nossa loja");
+      expect(msgNull).not.toContain("da null");
+      expect(msgNull).not.toContain("da undefined");
+
+      const msgEmpty = buildWelcomeCustomerMessage({
+        customerName: "Carlos",
+        sellerName: "Juliana",
+        organizationName: "   ",
+      });
+      expect(msgEmpty).toContain("da nossa loja");
+    });
+
+    it("deve montar mensagem para cenário COM CARRO quando veículo específico for informado", () => {
+      const msg = buildWelcomeCustomerMessage({
+        customerName: "Fernanda",
+        sellerName: "Rafael",
+        organizationName: "Vip Motors",
+        vehicle: "Honda HR-V Touring",
+      });
+
+      expect(msg).toContain(
+        "Vi que você se interessou pelo *Honda HR-V Touring*. Ele está disponível aqui no pátio! Quer ver fotos ou simular entrada?"
+      );
+      expect(msg).not.toContain("destaques do nosso estoque");
+    });
+
+    it("deve montar mensagem para cenário SEM CARRO quando nenhum veículo for informado", () => {
+      const msg = buildWelcomeCustomerMessage({
+        customerName: "Fernanda",
+        sellerName: "Rafael",
+        organizationName: "Vip Motors",
+      });
+
+      expect(msg).toContain(
+        "Recebi seu contato por aqui! Já tem algum modelo em mente ou gostaria de conhecer os destaques do nosso estoque?"
+      );
+      expect(msg).not.toContain("aqui no pátio");
+    });
+
+    it("NUNCA deve exibir 'Interesse Geral via WhatsApp' ou strings genéricas ao cliente", () => {
+      const msg = buildWelcomeCustomerMessage({
+        customerName: "Fernanda",
+        sellerName: "Rafael",
+        organizationName: "Vip Motors",
+        vehicle: "Interesse Geral via WhatsApp",
+      });
+
+      expect(msg).not.toContain("Interesse Geral via WhatsApp");
+      expect(msg).not.toContain("Interesse Geral");
+      expect(msg).toContain(
+        "Recebi seu contato por aqui! Já tem algum modelo em mente ou gostaria de conhecer os destaques do nosso estoque?"
+      );
+    });
+
+    it("deve aceitar parâmetros posicionais de forma retrocompatível", () => {
+      const msg = buildWelcomeCustomerMessage(
+        "Lucas Gabriel",
+        "Mariana",
+        "Concessionária Estrela",
+        "Chevrolet Onix"
+      );
+
+      expect(msg).toContain("Olá, Lucas! Seja bem-vindo(a)");
+      expect(msg).toContain("Sou Mariana da Concessionária Estrela");
+      expect(msg).toContain(
+        "Vi que você se interessou pelo *Chevrolet Onix*. Ele está disponível aqui no pátio! Quer ver fotos ou simular entrada?"
+      );
     });
   });
 });

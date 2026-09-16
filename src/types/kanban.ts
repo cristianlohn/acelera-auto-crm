@@ -45,6 +45,8 @@ export interface KanbanLead {
   segment?: "new_cars" | "used_cars" | "f_and_i" | "all";
   notes?: string;
   short_code?: string;
+  last_message?: string;
+  lastMessage?: string;
 }
 
 export interface KanbanColumnConfig {

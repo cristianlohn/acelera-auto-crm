@@ -134,8 +134,44 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
   const prevStage = PREV_STAGE_MAP[lead.stage];
   const nextStage = NEXT_STAGE_MAP[lead.stage];
 
+  // Detecção de veículo específico vs interesse genérico
+  const rawVehicle = (lead.vehicle_of_interest || lead.vehicle_name || "").trim();
+  const isGenericOrEmptyVehicle =
+    !rawVehicle ||
+    rawVehicle.toLowerCase().includes("interesse geral") ||
+    rawVehicle.toLowerCase().includes("veículo de interesse") ||
+    rawVehicle.toLowerCase().includes("veiculo de interesse") ||
+    rawVehicle.toLowerCase() === "geral" ||
+    rawVehicle.toLowerCase().includes("não informado") ||
+    rawVehicle.toLowerCase().includes("nao informado") ||
+    rawVehicle.toLowerCase().includes("sem veículo") ||
+    rawVehicle.toLowerCase().includes("sem veiculo");
+
+  const hasSpecificVehicle = !isGenericOrEmptyVehicle;
+
+  // Quando não houver veículo, substitui pelo resumo da primeira mensagem (last_message ou notes)
+  const clientMessageRaw = (lead.last_message || lead.notes || "").trim();
+  const clientMessageClean = clientMessageRaw
+    .replace(/^Lead criado via WhatsApp:\s*/i, "")
+    .replace(/^Lead criado via webhook WhatsApp Central\s*/i, "")
+    .trim();
+
+  const displayInterestText = hasSpecificVehicle
+    ? rawVehicle
+    : clientMessageClean || "Mensagem recebida via WhatsApp";
+
+  // Preço monetário válido (estritamente maior que 0 e apenas quando houver veículo específico)
+  const numericValue = lead.value ?? lead.estimated_value;
+  const hasValidPrice =
+    hasSpecificVehicle &&
+    typeof numericValue === "number" &&
+    !isNaN(numericValue) &&
+    numericValue > 0;
+
   const whatsappDirectMessage = encodeURIComponent(
-    `Olá ${lead.name}, tudo bem? Sou ${lead.assigned_to_name} da concessionária. Vi seu interesse no ${lead.vehicle_of_interest}. Como posso te ajudar hoje?`
+    hasSpecificVehicle
+      ? `Olá ${lead.name}, tudo bem? Sou ${lead.assigned_to_name} da concessionária. Vi seu interesse no ${rawVehicle}. Como posso te ajudar hoje?`
+      : `Olá ${lead.name}, tudo bem? Sou ${lead.assigned_to_name} da concessionária. Recebi sua mensagem por aqui e estou à disposição! Como posso te ajudar hoje?`
   );
   const whatsappUrl = cleanPhone
     ? `https://wa.me/${cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`}?text=${whatsappDirectMessage}`
@@ -200,20 +236,28 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
         </div>
       </div>
 
-      {/* Veículo de Interesse em Destaque */}
+      {/* Veículo de Interesse / Resumo da Mensagem em Destaque */}
       <div className="mt-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 p-2.5 space-y-1">
         <div className="flex items-center gap-2 text-slate-700 dark:text-zinc-300">
-          <Car className="h-4 w-4 text-orange-500 shrink-0" />
+          {hasSpecificVehicle ? (
+            <Car className="h-4 w-4 text-orange-500 shrink-0" />
+          ) : (
+            <MessageCircle className="h-4 w-4 text-orange-500 shrink-0" />
+          )}
           <span
             data-testid="lead-vehicle"
-            className="text-xs font-semibold text-slate-900 dark:text-white truncate"
+            className={cn(
+              "text-xs font-semibold text-slate-900 dark:text-white truncate",
+              !hasSpecificVehicle && "font-medium text-slate-700 dark:text-zinc-200"
+            )}
+            title={displayInterestText}
           >
-            {lead.vehicle_of_interest}
+            {displayInterestText}
           </span>
         </div>
-        {(lead.value || lead.estimated_value) && (
+        {hasValidPrice && (
           <div className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 pl-6">
-            {formatCurrencyBRL(lead.value ?? lead.estimated_value)}
+            {formatCurrencyBRL(numericValue)}
           </div>
         )}
       </div>

@@ -18,6 +18,7 @@ import {
   Plus,
   ChevronRight,
   Car,
+  MessageCircle,
   User,
   Phone,
   Mail,
@@ -113,9 +114,10 @@ function convertDomainLeadToKanban(lead: Lead): KanbanLead {
     sla_minutes_elapsed: elapsedMinutes,
     created_at: lead.lastContactAt || new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    value: undefined,
+    value: lead.estimatedValue,
     segment: "used_cars",
-    notes: "",
+    notes: lead.notes || "",
+    last_message: lead.last_message || lead.notes || "",
   };
 }
 
@@ -213,6 +215,31 @@ interface LeadCardProps {
 }
 
 function LeadCard({ lead, onSelectLead }: LeadCardProps) {
+  const rawVehicle = (lead.vehicleInterest || lead.vehicleName || "").trim();
+  const isGenericOrEmptyVehicle =
+    !rawVehicle ||
+    rawVehicle.toLowerCase().includes("interesse geral") ||
+    rawVehicle.toLowerCase().includes("veículo de interesse") ||
+    rawVehicle.toLowerCase().includes("veiculo de interesse") ||
+    rawVehicle.toLowerCase() === "geral" ||
+    rawVehicle.toLowerCase().includes("não informado") ||
+    rawVehicle.toLowerCase().includes("nao informado") ||
+    rawVehicle.toLowerCase().includes("sem veículo") ||
+    rawVehicle.toLowerCase().includes("sem veiculo");
+
+  const hasSpecificVehicle = !isGenericOrEmptyVehicle;
+
+  // Quando não houver veículo, substitui pelo resumo da primeira mensagem (last_message ou notes)
+  const clientMessageRaw = (lead.last_message || lead.notes || "").trim();
+  const clientMessageClean = clientMessageRaw
+    .replace(/^Lead criado via WhatsApp:\s*/i, "")
+    .replace(/^Lead criado via webhook WhatsApp Central\s*/i, "")
+    .trim();
+
+  const displayInterestText = hasSpecificVehicle
+    ? rawVehicle
+    : clientMessageClean || "Interesse geral no estoque";
+
   const handleDragStart = (e: React.DragEvent<HTMLElement>) => {
     e.dataTransfer.setData("leadId", lead.id);
     e.dataTransfer.setData("text/plain", lead.id);
@@ -260,9 +287,19 @@ function LeadCard({ lead, onSelectLead }: LeadCardProps) {
       </div>
 
       <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-muted/60 px-2.5 py-1.5">
-        <Car className="h-3 w-3 shrink-0 text-orange-500" />
-        <span className="truncate text-xs font-medium text-foreground">
-          {lead.vehicleInterest}
+        {hasSpecificVehicle ? (
+          <Car className="h-3.5 w-3.5 shrink-0 text-orange-500" />
+        ) : (
+          <MessageCircle className="h-3.5 w-3.5 shrink-0 text-orange-500" />
+        )}
+        <span
+          className={cn(
+            "truncate text-xs font-medium text-foreground",
+            !hasSpecificVehicle && "text-muted-foreground"
+          )}
+          title={displayInterestText}
+        >
+          {displayInterestText}
         </span>
       </div>
 

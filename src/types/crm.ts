@@ -77,6 +77,9 @@ export interface Lead {
   estimatedValue?: number;
   /** Anotações ou histórico de negociação */
   notes?: string;
+  /** Resumo da última/primeira mensagem recebida */
+  last_message?: string;
+  lastMessage?: string;
   /** Data/hora de criação do lead (ISO 8601) */
   createdAt?: string;
   /** Indicador de proposta em análise de financiamento / F&I */

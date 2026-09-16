@@ -20,7 +20,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateShortCode } from "@/lib/utils/nanoid";
-import { buildNewLeadAlertMessage } from "@/lib/services/whatsapp/templates";
+import {
+  buildNewLeadAlertMessage,
+  buildWelcomeCustomerMessage,
+} from "@/lib/services/whatsapp/templates";
 
 /**
  * Extrai o token de autenticação da requisição (query params ou headers).
@@ -522,6 +525,27 @@ export async function POST(request: NextRequest) {
         "Roleta Automática"
       : "Roleta Automática";
 
+    // Identifica se há veículo específico informado no payload
+    const rawVehicle =
+      (typeof body.vehicle_interest === "string" && body.vehicle_interest.trim() ? body.vehicle_interest.trim() : null) ||
+      (typeof body.vehicleInterest === "string" && body.vehicleInterest.trim() ? body.vehicleInterest.trim() : null) ||
+      (typeof body.vehicle_name === "string" && body.vehicle_name.trim() ? body.vehicle_name.trim() : null) ||
+      (typeof body.vehicle === "string" && body.vehicle.trim() ? body.vehicle.trim() : null) ||
+      null;
+
+    const specificVehicle =
+      rawVehicle &&
+      !rawVehicle.toLowerCase().includes("interesse geral") &&
+      !rawVehicle.toLowerCase().includes("veículo de interesse") &&
+      !rawVehicle.toLowerCase().includes("veiculo de interesse") &&
+      rawVehicle.toLowerCase() !== "geral" &&
+      !rawVehicle.toLowerCase().includes("não informado") &&
+      !rawVehicle.toLowerCase().includes("nao informado") &&
+      !rawVehicle.toLowerCase().includes("sem veículo") &&
+      !rawVehicle.toLowerCase().includes("sem veiculo")
+        ? rawVehicle
+        : null;
+
     // Insere o novo lead no banco com assigned_to e seller_name
     const { data: createdLead, error: insertError } = await supabase
       .from("leads")
@@ -536,7 +560,7 @@ export async function POST(request: NextRequest) {
         sla_deadline: slaLimit,
         assigned_to: assignedTo,
         seller_name: sellerFullName,
-        vehicle_interest: "Interesse Geral via WhatsApp",
+        vehicle_interest: specificVehicle || "Interesse Geral",
         notes: parsed.messageText || null,
         short_code: shortCode,
         created_at: nowIso,
@@ -597,9 +621,16 @@ export async function POST(request: NextRequest) {
           sellerFirstName = sellerFullName.trim().split(" ")[0] || "Consultor";
         }
 
-        const customerName = parsed.senderName ? parsed.senderName.trim() : "Cliente";
-        const storeName = org.name || "Nossa Loja";
-        const welcomeMessage = `Olá, ${customerName}! Seja bem-vindo(a) à ${storeName}! 👋\n\nNosso consultor ${sellerFirstName} já recebeu sua ficha e vai continuar seu atendimento por aqui em instantes. 🚗💨`;
+        // Saudação pessoal com o primeiro nome do cliente (extraído de pushName / senderName)
+        const rawCustomerName = parsed.senderName ? parsed.senderName.trim() : "";
+        const customerFirstName = rawCustomerName ? rawCustomerName.split(/\s+/)[0] : "Cliente";
+
+        const welcomeMessage = buildWelcomeCustomerMessage({
+          customerName: customerFirstName,
+          sellerName: sellerFirstName,
+          organizationName: org?.name,
+          vehicle: specificVehicle,
+        });
 
         await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
           method: "POST",
@@ -649,11 +680,12 @@ export async function POST(request: NextRequest) {
                 id: leadId,
                 name: clientName,
                 phone: parsed.phone,
-                vehicleInterest: "Interesse Geral via WhatsApp",
-                vehicle_name: "Interesse Geral via WhatsApp",
+                vehicleInterest: specificVehicle || "Interesse Geral",
+                vehicle_name: specificVehicle || "Interesse Geral",
                 source: "whatsapp_central",
                 origin: "WhatsApp Central",
                 short_code: shortCode,
+                organization_name: org?.name,
               },
               {
                 full_name: sellerDisplayName,
