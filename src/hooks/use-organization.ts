@@ -29,13 +29,53 @@ export interface UseOrganizationResult {
 }
 
 export function useOrganization(): UseOrganizationResult {
-  const isCacheValid = memoryCache && Date.now() - memoryCache.timestamp < CACHE_TTL_MS;
+  const [orgName, setOrgName] = useState<string | null>(() => memoryCache?.name ?? null);
+  const [orgId, setOrgId] = useState<string | null>(() => memoryCache?.id ?? null);
+  const [isLoading, setIsLoading] = useState<boolean>(() => !memoryCache);
 
-  const [orgName, setOrgName] = useState<string | null>(isCacheValid ? memoryCache!.name : null);
-  const [orgId, setOrgId] = useState<string | null>(isCacheValid ? memoryCache!.id : null);
-  const [isLoading, setIsLoading] = useState<boolean>(!isCacheValid);
+  useEffect(() => {
+    let isMounted = true;
 
-  const fetchOrg = useCallback(async () => {
+    async function fetchOrganization() {
+      try {
+        if (memoryCache && Date.now() - memoryCache.timestamp < CACHE_TTL_MS) {
+          return;
+        }
+
+        const profile = await getCurrentUserProfileAction();
+        if (!isMounted) return;
+
+        if (profile) {
+          const resolvedName = profile.organizationName || null;
+          const resolvedId = profile.organizationId || null;
+
+          memoryCache = {
+            id: resolvedId,
+            name: resolvedName,
+            timestamp: Date.now(),
+          };
+
+          setOrgName(resolvedName);
+          setOrgId(resolvedId);
+        }
+      } catch {
+        // Silencioso em caso de erro de rede ou modo offline
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void fetchOrganization();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const refetch = useCallback(async () => {
+    setIsLoading(true);
     try {
       const profile = await getCurrentUserProfileAction();
       if (profile) {
@@ -52,24 +92,18 @@ export function useOrganization(): UseOrganizationResult {
         setOrgId(resolvedId);
       }
     } catch {
-      // Ignora erro silenciosamente (modo offline ou demo)
+      // Silencioso
     } finally {
       setIsLoading(false);
     }
   }, []);
-
-  useEffect(() => {
-    if (!isCacheValid) {
-      fetchOrg();
-    }
-  }, [fetchOrg, isCacheValid]);
 
   return {
     organization: orgId || orgName ? { id: orgId, name: orgName } : null,
     organizationName: orgName,
     organizationId: orgId,
     isLoading,
-    refetch: fetchOrg,
+    refetch,
   };
 }
 

@@ -4,10 +4,7 @@
  */
 
 import { sanitizeWhatsAppPhone } from "./client";
-import {
-  buildWelcomeCustomerMessage,
-  type WelcomeCustomerMessageParams,
-} from "@/lib/whatsapp/welcome-message";
+import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
 
 export * from "@/lib/whatsapp/welcome-message";
 

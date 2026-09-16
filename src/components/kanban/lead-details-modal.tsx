@@ -35,7 +35,7 @@ import { TransferLeadModal } from "@/components/leads/transfer-lead-modal";
 import { getVehicles } from "@/app/actions/vehicles";
 import { updateLeadVehicleAction } from "@/app/actions/lead-actions";
 import type { Vehicle } from "@/types/crm";
-import { buildWelcomeCustomerMessage, buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
+import { buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
 import { useOrganization } from "@/hooks/use-organization";
 
 export interface LeadDetailsModalProps {

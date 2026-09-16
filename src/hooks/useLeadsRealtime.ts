@@ -44,8 +44,6 @@ export function useLeadsRealtime({
   onLeadInserted,
   onLeadUpdated,
   onLeadDeleted,
-  onPollSync,
-  pollIntervalMs = 5000,
 }: UseLeadsRealtimeProps = {}) {
   const queryClient = useContext(QueryClientContext);
 

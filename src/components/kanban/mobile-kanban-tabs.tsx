@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import type { KanbanLead, LeadStage, KanbanColumnConfig } from "@/types/kanban";
 import type { Lead, LeadStatus } from "@/types/crm";
 import { toast } from "sonner";
-import { buildWelcomeCustomerMessage, buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
+import { buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
 import { useOrganization } from "@/hooks/use-organization";
 
 // ---------------------------------------------------------------------------

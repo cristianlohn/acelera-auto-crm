@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildWelcomeCustomerMessage, buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
+import { buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
 
 export async function GET(
   request: NextRequest,
