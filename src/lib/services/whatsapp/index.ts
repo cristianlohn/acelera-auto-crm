@@ -5,4 +5,5 @@
 
 export * from "./client";
 export * from "./templates";
+export * from "./welcome-message";
 export * from "./notification-service";

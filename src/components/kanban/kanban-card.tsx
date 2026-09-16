@@ -19,6 +19,7 @@ import {
 import type { KanbanLead, LeadStage } from "@/types/kanban";
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import { cn } from "@/lib/utils";
+import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
 
 interface KanbanCardProps {
   lead: KanbanLead;
@@ -169,9 +170,11 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
     numericValue > 0;
 
   const whatsappDirectMessage = encodeURIComponent(
-    hasSpecificVehicle
-      ? `Olá ${lead.name}, tudo bem? Sou ${lead.assigned_to_name} da concessionária. Vi seu interesse no ${rawVehicle}. Como posso te ajudar hoje?`
-      : `Olá ${lead.name}, tudo bem? Sou ${lead.assigned_to_name} da concessionária. Recebi sua mensagem por aqui e estou à disposição! Como posso te ajudar hoje?`
+    buildWelcomeCustomerMessage({
+      customerName: lead.name,
+      sellerName: lead.assigned_to_name,
+      vehicle: hasSpecificVehicle ? rawVehicle : null,
+    })
   );
   const whatsappUrl = cleanPhone
     ? `https://wa.me/${cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`}?text=${whatsappDirectMessage}`

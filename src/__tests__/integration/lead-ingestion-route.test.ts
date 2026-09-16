@@ -161,7 +161,7 @@ describe("[IT-LEAD-INGEST] Endpoint de Ingestão Externa de Leads (POST /api/v1/
 
     // Validação da URL direta de WhatsApp
     expect(body.whatsapp_direct_url).toContain("https://wa.me/");
-    expect(body.whatsapp_direct_url).toContain(encodeURIComponent("Rodrigo Mendonça"));
+    expect(body.whatsapp_direct_url).toContain(encodeURIComponent("Rodrigo"));
     expect(body.whatsapp_direct_url).toContain(encodeURIComponent("Jeep Compass Longitude 2024"));
   });
 

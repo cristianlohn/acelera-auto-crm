@@ -26,6 +26,7 @@ import { parseMetaAdsPayload } from "@/lib/services/ingestion/parsers/meta-parse
 import { matchVehicleInInventory } from "@/lib/services/ingestion/vehicle-matcher";
 import { assignLeadThroughRoleta } from "@/lib/services/roleta/roleta-service";
 import { sendSellerLeadNotification } from "@/lib/services/whatsapp/notification-service";
+import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
 import { leadIngestSchema, normalizeLeadOrigin } from "@/lib/validations/lead";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import type { NormalizedLeadInput } from "@/lib/services/ingestion/types";
@@ -486,9 +487,11 @@ export async function POST(request: NextRequest) {
       ? assignedSeller.phone.replace(/\D/g, "")
       : digitsOnly;
     const sellerDisplayName = assignedSeller?.name || "Rafael Martins";
-    const vehiclePart =
-      vehicleName && vehicleName !== "Interesse Geral" ? ` no ${vehicleName}` : "";
-    const greeting = `Olá ${normalizedLead.clientName}, tudo bem? Sou ${sellerDisplayName} da concessionária. Vi seu interesse${vehiclePart}. Como posso te ajudar hoje?`;
+    const greeting = buildWelcomeCustomerMessage({
+      customerName: normalizedLead.clientName,
+      sellerName: sellerDisplayName,
+      vehicle: vehicleName,
+    });
     const cleanWaTarget = targetWaPhone.startsWith("55") ? targetWaPhone : `55${targetWaPhone}`;
     const whatsappDirectUrl = `https://wa.me/${cleanWaTarget}?text=${encodeURIComponent(greeting)}`;
 

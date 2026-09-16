@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import type { KanbanLead, LeadStage, KanbanColumnConfig } from "@/types/kanban";
 import type { Lead, LeadStatus } from "@/types/crm";
 import { toast } from "sonner";
+import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
 
 // ---------------------------------------------------------------------------
 // Definições de Estágios e Mapeamentos Unificados
@@ -331,7 +332,11 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
     }
     const fullPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
     const defaultMsg = encodeURIComponent(
-      `Olá ${lead.name}, tudo bem? Sou ${lead.sellerName} da Acelera Auto. Vi seu interesse no ${lead.vehicle}. Como posso ajudar hoje?`
+      buildWelcomeCustomerMessage({
+        customerName: lead.name,
+        sellerName: lead.sellerName,
+        vehicle: lead.vehicle,
+      })
     );
     window.open(`https://wa.me/${fullPhone}?text=${defaultMsg}`, "_blank", "noopener,noreferrer");
   };

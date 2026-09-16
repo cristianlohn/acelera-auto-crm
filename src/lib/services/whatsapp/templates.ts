@@ -4,6 +4,12 @@
  */
 
 import { sanitizeWhatsAppPhone } from "./client";
+import {
+  buildWelcomeCustomerMessage,
+  type WelcomeCustomerMessageParams,
+} from "./welcome-message";
+
+export * from "./welcome-message";
 
 export interface LeadAlertData {
   id?: string;
@@ -55,13 +61,17 @@ export function buildNewLeadAlertMessage(
     : `https://${appDomain}/leads`;
 
   const orgName = lead.organization_name || lead.organizationName;
-  const storeRef = orgName && orgName.trim() ? `da ${orgName.trim()}` : "da concessionária";
+
+  const greeting = buildWelcomeCustomerMessage({
+    customerName: clientName,
+    sellerName,
+    organizationName: orgName,
+    vehicle,
+  });
 
   const waDirectLink = shortCode
     ? `https://${appDomain}/w/${shortCode}`
-    : `https://wa.me/${sanitizedClientPhone}?text=${encodeURIComponent(
-        `Olá ${clientName}, tudo bem? Sou ${sellerName} ${storeRef}. Vi seu interesse no ${vehicle}. Como posso te ajudar hoje?`
-      )}`;
+    : `https://wa.me/${sanitizedClientPhone}?text=${encodeURIComponent(greeting)}`;
 
   return [
     `🎯 *NOVO LEAD NA SUA VEZ - ACELERA AUTO*`,
@@ -117,102 +127,6 @@ export function buildLeadNotificationMessage(
   ].join("\n");
 }
 
-export interface WelcomeCustomerMessageParams {
-  customerName?: string | null;
-  sellerName?: string | null;
-  organizationName?: string | null;
-  vehicle?: string | null;
-}
-
-/**
- * Constrói a mensagem de boas-vindas personalizada enviada ao cliente via WhatsApp.
- * - Utiliza o primeiro nome do cliente (extraído de pushName / nome).
- * - Identifica o consultor responsável (seller_name).
- * - Se organizationName for informado, exibe "da {organizationName}"; se nulo/vazio, usa fallback gracioso "da nossa loja".
- * - Cenário com veículo: "Vi que você se interessou pelo *{veiculo}*. Ele está disponível aqui no pátio! Quer ver fotos ou simular entrada?"
- * - Cenário sem veículo: "Recebi seu contato por aqui! Já tem algum modelo em mente ou gostaria de conhecer os destaques do nosso estoque?"
- * - Nunca exibe strings genéricas como "Interesse Geral via WhatsApp" ao cliente.
- */
-export function buildWelcomeCustomerMessage(
-  params: WelcomeCustomerMessageParams
-): string;
-export function buildWelcomeCustomerMessage(
-  customerName?: string | null,
-  sellerName?: string | null,
-  organizationName?: string | null,
-  vehicle?: string | null
-): string;
-export function buildWelcomeCustomerMessage(
-  paramsOrCustomerName?: WelcomeCustomerMessageParams | string | null,
-  sellerNameParam?: string | null,
-  organizationNameParam?: string | null,
-  vehicleParam?: string | null
-): string {
-  let customerName: string | null | undefined;
-  let sellerName: string | null | undefined;
-  let organizationName: string | null | undefined;
-  let vehicle: string | null | undefined;
-
-  if (typeof paramsOrCustomerName === "object" && paramsOrCustomerName !== null) {
-    customerName = paramsOrCustomerName.customerName;
-    sellerName = paramsOrCustomerName.sellerName;
-    organizationName = paramsOrCustomerName.organizationName;
-    vehicle = paramsOrCustomerName.vehicle;
-  } else {
-    customerName = paramsOrCustomerName;
-    sellerName = sellerNameParam;
-    organizationName = organizationNameParam;
-    vehicle = vehicleParam;
-  }
-
-  // 1. Extração do primeiro nome do cliente (fallback seguro: "Cliente")
-  const rawCustomer = customerName ? customerName.trim() : "";
-  const customerFirstName = rawCustomer ? rawCustomer.split(/\s+/)[0] : "Cliente";
-
-  // 2. Extração do primeiro nome do vendedor responsável
-  const rawSeller = sellerName ? sellerName.trim() : "";
-  const firstSellerName = rawSeller ? rawSeller.split(/\s+/)[0] : "";
-  const isValidSeller =
-    Boolean(firstSellerName) &&
-    firstSellerName.toLowerCase() !== "consultor" &&
-    firstSellerName.toLowerCase() !== "roleta" &&
-    firstSellerName.toLowerCase() !== "null" &&
-    firstSellerName.toLowerCase() !== "undefined";
-
-  // 3. Referência à organização ("da {organizationName}" ou fallback gracioso "da nossa loja")
-  const storeRef =
-    organizationName && organizationName.trim()
-      ? `da ${organizationName.trim()}`
-      : "da nossa loja";
-
-  const sellerGreeting = isValidSeller
-    ? `Sou ${firstSellerName} ${storeRef}`
-    : `Sou o consultor ${storeRef}`;
-
-  // 4. Detecção e higienização do veículo (rejeita strings genéricas)
-  const rawV = vehicle ? vehicle.trim() : "";
-  const lowerV = rawV.toLowerCase();
-  const isSpecificVehicle =
-    Boolean(rawV) &&
-    !lowerV.includes("interesse geral") &&
-    !lowerV.includes("veículo de interesse") &&
-    !lowerV.includes("veiculo de interesse") &&
-    lowerV !== "geral" &&
-    lowerV !== "em aberto" &&
-    !lowerV.includes("não informado") &&
-    !lowerV.includes("nao informado") &&
-    !lowerV.includes("sem veículo") &&
-    !lowerV.includes("sem veiculo");
-
-  // 5. Cenários de copy:
-  // a) Com carro: "Vi que você se interessou pelo *{veiculo}*. Ele está disponível aqui no pátio! Quer ver fotos ou simular entrada?"
-  // b) Sem carro: "Recebi seu contato por aqui! Já tem algum modelo em mente ou gostaria de conhecer os destaques do nosso estoque?"
-  const vehicleCopy = isSpecificVehicle
-    ? `Vi que você se interessou pelo *${rawV}*. Ele está disponível aqui no pátio! Quer ver fotos ou simular entrada?`
-    : `Recebi seu contato por aqui! Já tem algum modelo em mente ou gostaria de conhecer os destaques do nosso estoque?`;
-
-  return `Olá, ${customerFirstName}! Seja bem-vindo(a)! ${sellerGreeting}. 👋\n\n${vehicleCopy}\n\nEstou à disposição para tirar dúvidas e te atender por aqui em instantes. 🚗💨`;
-}
 
 
 

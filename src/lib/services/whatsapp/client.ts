@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
+import { buildWelcomeCustomerMessage } from "./welcome-message";
 
 export type WhatsAppProvider = "z-api" | "evolution" | "generic";
 
@@ -333,6 +334,8 @@ export interface SendLeadNotificationParams {
   isDemo?: boolean;
   tenantId?: string;
   organizationId?: string;
+  organizationName?: string;
+  organization_name?: string;
   appUrl?: string;
   provider?: WhatsAppProvider;
 }
@@ -352,6 +355,8 @@ export async function sendLeadNotificationToSeller({
   isDemo = false,
   tenantId,
   organizationId,
+  organizationName,
+  organization_name,
   appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://aceleraautocrm.com.br",
   provider,
 }: SendLeadNotificationParams): Promise<SendWhatsAppMessageResult> {
@@ -364,7 +369,12 @@ export async function sendLeadNotificationToSeller({
     : `https://${baseUrl}/leads`;
 
   const sanitizedClientPhone = sanitizeWhatsAppPhone(leadPhone);
-  const greeting = `Olá ${leadName}, tudo bem? Sou ${sellerName} da concessionária. Vi seu interesse no ${vehicleInterest}. Como posso te ajudar hoje?`;
+  const greeting = buildWelcomeCustomerMessage({
+    customerName: leadName,
+    sellerName,
+    organizationName: organizationName || organization_name,
+    vehicle: vehicleInterest,
+  });
   const waDirectLink = code
     ? `https://${baseUrl}/w/${code}`
     : `https://wa.me/${sanitizedClientPhone}?text=${encodeURIComponent(greeting)}`;

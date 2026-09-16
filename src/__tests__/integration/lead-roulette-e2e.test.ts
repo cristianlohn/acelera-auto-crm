@@ -339,7 +339,7 @@ describe("[IT-ROULETTE-E2E] Suíte de Testes Ponta a Ponta da Roleta Comercial (
 
     // Valida Deep Link de WhatsApp contendo o telefone do vendedor e a mensagem com o veículo
     expect(body.whatsapp_direct_url).toContain("https://wa.me/5547988887777");
-    expect(body.whatsapp_direct_url).toContain(encodeURIComponent("Roberto Campos"));
+    expect(body.whatsapp_direct_url).toContain(encodeURIComponent("Roberto"));
     expect(body.whatsapp_direct_url).toContain(encodeURIComponent("BMW 320i M Sport 2023"));
   });
 

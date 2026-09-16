@@ -134,6 +134,25 @@ describe("[UNIT-SHORT-ROUTES] Gerador de Short Code e Redirecionamento Encurtado
       expect(lastLeadUpdate).toBeNull();
       expect(lastLeadHistoryInsert).toBeNull();
     });
+
+    it("[TEST-ROUTE-W-4] se vehicle_interest for 'Interesse Geral', não deve conter 'Interesse Geral' nem 'concessionária'", async () => {
+      mockLeadRow = {
+        ...mockLeadRow,
+        name: "Lucas Mendes",
+        vehicle_interest: "Interesse Geral",
+        custom_fields: {},
+      };
+
+      const req = new NextRequest("http://localhost:3000/w/k9Xp2A");
+      const res = await handleWhatsAppShortRoute(req, { params: Promise.resolve({ code: "k9Xp2A" }) });
+
+      expect(res.status).toBe(302);
+      const location = decodeURIComponent(res.headers.get("location") || "");
+      expect(location).toContain("Olá, Lucas!");
+      expect(location).not.toContain("Interesse Geral");
+      expect(location).not.toContain("concessionária");
+      expect(location).toContain("destaques do nosso estoque");
+    });
   });
 
   describe("3. Rota CRM Encurtada (/c/[code])", () => {

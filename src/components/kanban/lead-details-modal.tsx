@@ -35,6 +35,7 @@ import { TransferLeadModal } from "@/components/leads/transfer-lead-modal";
 import { getVehicles } from "@/app/actions/vehicles";
 import { updateLeadVehicleAction } from "@/app/actions/lead-actions";
 import type { Vehicle } from "@/types/crm";
+import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
 
 export interface LeadDetailsModalProps {
   isOpen: boolean;
@@ -138,7 +139,11 @@ export function LeadDetailsModal({
 
   const cleanPhone = lead.phone ? lead.phone.replace(/\D/g, "") : "";
   const whatsappDirectMessage = encodeURIComponent(
-    `Olá ${lead.name}, tudo bem? Sou ${lead.assigned_to_name || "da concessionária"}. Vi seu interesse no ${lead.vehicle_of_interest}. Como posso te ajudar hoje?`
+    buildWelcomeCustomerMessage({
+      customerName: lead.name,
+      sellerName: lead.assigned_to_name,
+      vehicle: lead.vehicle_of_interest,
+    })
   );
   const whatsappUrl = cleanPhone
     ? `https://wa.me/${cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`}?text=${whatsappDirectMessage}`

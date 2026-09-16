@@ -90,7 +90,7 @@ export function SellerActionCockpit({
           urgency: "critico" as const,
           phone: "5511988887777",
           defaultMessage:
-            "Olá João Ferreira! Sou o consultor Rafael Martins da concessionária. Vi seu interesse no Jeep Compass Longitude 2023. Como posso te auxiliar?",
+            "Olá João Ferreira! Sou o consultor Rafael Martins da nossa loja. Vi que você se interessou pelo *Jeep Compass Longitude 2023*. Ele está disponível aqui no pátio! Quer ver fotos ou simular entrada?",
         },
         {
           id: "seller-act-2",
@@ -112,7 +112,7 @@ export function SellerActionCockpit({
           urgency: "info" as const,
           phone: "5511987654321",
           defaultMessage:
-            "Olá Carlos! Rafael da concessionária. Consegui uma condição especial na avaliação do seu usado na troca pelo Civic EXL 2023. Podemos alinhar?",
+            "Olá Carlos! Rafael da nossa loja. Consegui uma condição especial na avaliação do seu usado na troca pelo Civic EXL 2023. Podemos alinhar?",
         },
       ]
     : [];

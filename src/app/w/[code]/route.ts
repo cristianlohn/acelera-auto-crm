@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
 
 export async function GET(
   request: NextRequest,
@@ -25,7 +26,7 @@ export async function GET(
   const supabaseAdmin = createAdminClient();
   const { data: lead, error } = await supabaseAdmin
     .from("leads")
-    .select("id, name, phone, vehicle_interest, status, first_contact_at, organization_id, custom_fields")
+    .select("id, name, phone, vehicle_interest, status, first_contact_at, organization_id, custom_fields, seller_name")
     .eq("short_code", code)
     .single();
 
@@ -35,13 +36,37 @@ export async function GET(
 
   const cleanPhone = (lead.phone || "").replace(/\D/g, "");
   const targetPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-  const firstName = (lead.name || "Cliente").trim().split(" ")[0];
   const vehicleName =
-    (lead.custom_fields as Record<string, unknown>)?.vehicle_name ||
+    ((lead.custom_fields as Record<string, unknown>)?.vehicle_name as string | undefined) ||
     lead.vehicle_interest ||
-    "";
-  const vehiclePart = vehicleName ? ` no ${vehicleName}` : "";
-  const message = `Olá ${firstName}, tudo bem? Sou da concessionária. Vi seu interesse${vehiclePart}. Como posso te ajudar hoje?`;
+    undefined;
+
+  let orgName: string | undefined;
+  if (lead.organization_id) {
+    try {
+      const orgQuery = supabaseAdmin
+        .from("organizations")
+        .select("name")
+        .eq("id", lead.organization_id);
+      const res = typeof orgQuery.maybeSingle === "function"
+        ? await orgQuery.maybeSingle()
+        : typeof orgQuery.single === "function"
+        ? await orgQuery.single()
+        : null;
+      if (res?.data?.name) {
+        orgName = res.data.name;
+      }
+    } catch {
+      // Ignora erro ao obter organização
+    }
+  }
+
+  const message = buildWelcomeCustomerMessage({
+    customerName: lead.name,
+    sellerName: (lead as Record<string, unknown>).seller_name as string | undefined,
+    organizationName: orgName,
+    vehicle: vehicleName,
+  });
   const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
 
   // Se for crawler, apenas redireciona sem tocar no banco
