@@ -70,6 +70,9 @@ interface ProfileRecord {
   phone: string | null;
   role: string;
   full_name?: string;
+  in_roulette?: boolean;
+  status?: string;
+  last_lead_assigned_at?: string | null;
 }
 
 interface OrgRecord {
@@ -132,20 +135,32 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
       {
         id: "user-seller-1",
         organization_id: TEST_ORG_ID,
+        full_name: "Consultor Um",
         phone: "+55 (11) 98888-1111",
         role: "vendedor",
+        in_roulette: true,
+        status: "active",
+        last_lead_assigned_at: "2026-09-14T10:00:00.000Z", // mais antigo
       },
       {
         id: "user-seller-2",
         organization_id: TEST_ORG_ID,
+        full_name: "Consultor Dois",
         phone: "11988882222",
         role: "vendedor",
+        in_roulette: true,
+        status: "active",
+        last_lead_assigned_at: "2026-09-14T12:00:00.000Z", // mais recente
       },
       {
         id: "user-manager-1",
         organization_id: TEST_ORG_ID,
+        full_name: "Gerente Geral",
         phone: "5511977770000",
         role: "gerente",
+        in_roulette: false,
+        status: "active",
+        last_lead_assigned_at: null,
       },
     ];
 
@@ -229,6 +244,12 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
             const updateData = payload as Record<string, unknown>;
             return {
               eq: vi.fn(async (col: string, val: unknown) => {
+                if (table === "profiles" && col === "id") {
+                  const target = dbProfiles.find((p) => p.id === val);
+                  if (target && updateData.last_lead_assigned_at !== undefined) {
+                    target.last_lead_assigned_at = updateData.last_lead_assigned_at as string | null;
+                  }
+                }
                 if (table === "organization_members" && col === "id") {
                   const target = dbMembers.find((m) => m.id === val);
                   if (target && updateData.last_lead_assigned_at !== undefined) {
@@ -641,13 +662,23 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
       expect(dbHistory[0].organization_id).toBe(TEST_ORG_ID);
 
       // Validação de atualização do timestamp do vendedor
-      const seller1 = dbMembers.find((m) => m.id === "member-seller-1");
+      const seller1 = dbProfiles.find((p) => p.id === "user-seller-1") || dbMembers.find((m) => m.id === "member-seller-1");
       expect(seller1?.last_lead_assigned_at).toBeDefined();
       expect(new Date(seller1!.last_lead_assigned_at!).getTime()).toBeGreaterThanOrEqual(beforeCall);
     });
 
     it("deve priorizar vendedor com last_lead_assigned_at nulo sobre quem já recebeu leads", async () => {
       // Adiciona vendedor 3 novo que nunca recebeu leads (null)
+      dbProfiles.push({
+        id: "user-seller-3",
+        organization_id: TEST_ORG_ID,
+        full_name: "Consultor Três",
+        phone: "11988883333",
+        role: "vendedor",
+        in_roulette: true,
+        status: "active",
+        last_lead_assigned_at: null,
+      });
       dbMembers.push({
         id: "member-seller-3",
         user_id: "user-seller-3",
@@ -670,13 +701,14 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
       expect(json.status).toBe("created");
       expect(json.assignedTo).toBe("user-seller-3"); // Priorizado por ser nulo
 
-      const seller3 = dbMembers.find((m) => m.id === "member-seller-3");
+      const seller3 = dbProfiles.find((p) => p.id === "user-seller-3") || dbMembers.find((m) => m.id === "member-seller-3");
       expect(seller3?.last_lead_assigned_at).not.toBeNull();
     });
 
     it("deve lidar com caso onde a organização não possui membros ativos na roleta", async () => {
       // Zera membros ativos
       dbMembers = [];
+      dbProfiles = [];
 
       const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
         phone: "11933332222",
@@ -692,6 +724,114 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
       expect(json.assignedTo).toBeNull();
       expect(dbLeads.length).toBe(1);
       expect(dbLeads[0].assigned_to).toBeNull();
+    });
+
+    it("deve respeitar a flag in_roulette e ignorar vendedores pausados do plantão", async () => {
+      // Configura: seller 1 pausado (in_roulette: false), seller 2 ativo (in_roulette: true)
+      dbProfiles = [
+        {
+          id: "user-seller-paused",
+          organization_id: TEST_ORG_ID,
+          full_name: "Vendedor Pausado",
+          phone: "11988880001",
+          role: "vendedor",
+          in_roulette: false, // Plantão desligado!
+          status: "active",
+          last_lead_assigned_at: "2026-09-14T08:00:00.000Z", // Antigo, mas desligado
+        },
+        {
+          id: "user-seller-on-duty",
+          organization_id: TEST_ORG_ID,
+          full_name: "Vendedor Disponível",
+          phone: "11988880002",
+          role: "vendedor",
+          in_roulette: true, // Disponível!
+          status: "active",
+          last_lead_assigned_at: "2026-09-14T12:00:00.000Z",
+        },
+      ];
+      dbMembers = [];
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11987659999",
+        senderName: "Cliente Teste Plantão",
+        message: "Quero agendar test drive",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+      const json = await res.json();
+
+      expect(json.status).toBe("created");
+      expect(json.assignedTo).toBe("user-seller-on-duty");
+      expect(dbLeads[dbLeads.length - 1].assigned_to).toBe("user-seller-on-duty");
+    });
+
+    it("deve aceitar papéis 'seller' e 'vendedor' indistintamente na roleta comercial", async () => {
+      dbProfiles = [
+        {
+          id: "user-seller-en",
+          organization_id: TEST_ORG_ID,
+          full_name: "Vendedor Inglês",
+          phone: "11988880003",
+          role: "seller", // Papel em inglês
+          in_roulette: true,
+          status: "active",
+          last_lead_assigned_at: null,
+        },
+      ];
+      dbMembers = [];
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11987658888",
+        senderName: "Cliente Teste Role",
+        message: "Tenho proposta",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+      const json = await res.json();
+
+      expect(json.status).toBe("created");
+      expect(json.assignedTo).toBe("user-seller-en");
+    });
+
+    it("deve cadastrar com assigned_to: null caso todos os vendedores estejam com in_roulette: false", async () => {
+      dbProfiles = [
+        {
+          id: "user-seller-off-1",
+          organization_id: TEST_ORG_ID,
+          full_name: "Vendedor Off 1",
+          phone: "11988880004",
+          role: "vendedor",
+          in_roulette: false,
+          status: "active",
+        },
+        {
+          id: "user-seller-off-2",
+          organization_id: TEST_ORG_ID,
+          full_name: "Vendedor Off 2",
+          phone: "11988880005",
+          role: "seller",
+          in_roulette: false,
+          status: "active",
+        },
+      ];
+      dbMembers = [];
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11987657777",
+        senderName: "Cliente No Duty",
+        message: "Alguém de plantão?",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+      const json = await res.json();
+
+      expect(json.status).toBe("created");
+      expect(json.assignedTo).toBeNull();
+      expect(dbLeads[dbLeads.length - 1].assigned_to).toBeNull();
     });
   });
 

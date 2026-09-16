@@ -42,6 +42,59 @@ export function extractWebhookToken(request: NextRequest): string | null {
 }
 
 /**
+ * Verifica se o papel do membro é comercial (vendedor / consultor / sdr).
+ * Suporta aliases canônicos em inglês e português: 'seller', 'vendedor', 'vendedora', etc.
+ */
+export function isSellerRole(role?: unknown): boolean {
+  if (!role || typeof role !== "string") return false;
+  const r = role.toLowerCase().trim();
+  return [
+    "seller",
+    "vendedor",
+    "vendedora",
+    "consultor",
+    "consultora",
+    "sdr",
+    "sellers",
+    "vendedores",
+  ].includes(r);
+}
+
+/**
+ * Verifica se o membro da equipe está com plantão ativo / disponível.
+ * Avalia colunas da tabela profiles: in_roulette (canônica), is_on_duty, is_available, plantao_active.
+ */
+export function isMemberOnDuty(profile: Record<string, unknown>): boolean {
+  // 1. Verificações explícitas de plantão desligado
+  if (profile.in_roulette === false) return false;
+  if (profile.is_on_duty === false) return false;
+  if (profile.is_available === false) return false;
+  if (profile.plantao_active === false) return false;
+
+  // 2. Verificações explícitas de plantão ativo
+  if (
+    profile.in_roulette === true ||
+    profile.is_on_duty === true ||
+    profile.is_available === true ||
+    profile.plantao_active === true
+  ) {
+    return true;
+  }
+
+  // 3. Por padrão no banco, in_roulette é NOT NULL DEFAULT TRUE
+  return true;
+}
+
+/**
+ * Verifica se o membro está ativo na organização.
+ */
+export function isMemberActive(profile: Record<string, unknown>): boolean {
+  if (!profile.status) return true;
+  const s = String(profile.status).toLowerCase().trim();
+  return s === "active" || s === "ativo";
+}
+
+/**
  * Sanitiza e normaliza o telefone para formato canônico DDI 55 + DDD + número.
  * Remove sufixos como `@s.whatsapp.net`, `@c.us` e pontuações.
  */
@@ -364,39 +417,111 @@ export async function POST(request: NextRequest) {
     // -------------------------------------------------------------------------
     // 5. Novo Lead: Roleta de Vendedores & Cálculo de SLA de 15 minutos
     // -------------------------------------------------------------------------
-    // Seleciona vendedor ativo em organization_members com last_lead_assigned_at mais antigo (ou nulo)
-    const { data: members } = await supabase
-      .from("organization_members")
-      .select("id, user_id, organization_id, role, status, last_lead_assigned_at")
-      .eq("organization_id", organizationId)
-      .eq("status", "active");
+    // Consulta membros da equipe na tabela profiles da organização
+    const { data: teamProfilesRows } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("organization_id", organizationId);
 
-    const activeMembers = (members || []).filter((m) => m.status === "active");
+    // Interface para candidatos elegíveis na roleta
+    interface RouletteCandidate {
+      id: string;
+      user_id?: string;
+      _org_member_id?: string;
+      organization_id?: string;
+      full_name?: string | null;
+      name?: string | null;
+      role?: string | null;
+      phone?: string | null;
+      in_roulette?: boolean | null;
+      status?: string | null;
+      last_lead_assigned_at?: string | null;
+      [key: string]: unknown;
+    }
 
-    activeMembers.sort((a, b) => {
-      if (!a.last_lead_assigned_at && !b.last_lead_assigned_at) return 0;
-      if (!a.last_lead_assigned_at) return -1;
-      if (!b.last_lead_assigned_at) return 1;
-      return new Date(a.last_lead_assigned_at).getTime() - new Date(b.last_lead_assigned_at).getTime();
+    // Filtra membros da organização que estejam ativos e com plantão ligado
+    const onDutyProfiles: RouletteCandidate[] = (teamProfilesRows || [])
+      .map((p) => p as unknown as RouletteCandidate)
+      .filter((p) => isMemberActive(p) && isMemberOnDuty(p));
+
+    // Prioriza membros com papel comercial ('seller', 'vendedor', etc.)
+    let eligibleCandidates: RouletteCandidate[] = onDutyProfiles.filter((p) =>
+      isSellerRole(p.role)
+    );
+
+    // Se nenhum vendedor estiver em plantão, aceita qualquer membro de plantão da organização (ex: gerente/admin)
+    if (eligibleCandidates.length === 0 && onDutyProfiles.length > 0) {
+      eligibleCandidates = onDutyProfiles;
+    }
+
+    // Fallback de retrocompatibilidade: se profiles não tiver membros em plantão, verifica organization_members
+    if (eligibleCandidates.length === 0) {
+      const { data: fallbackMembers } = await supabase
+        .from("organization_members")
+        .select("id, user_id, organization_id, role, status, last_lead_assigned_at")
+        .eq("organization_id", organizationId)
+        .eq("status", "active");
+
+      const activeFallback = (fallbackMembers || []).filter((m) => m.status === "active");
+      const sellerFallback = activeFallback.filter((m) => isSellerRole(m.role));
+      eligibleCandidates = (sellerFallback.length > 0 ? sellerFallback : activeFallback).map((m) => ({
+        ...m,
+        id: m.user_id || m.id,
+        _org_member_id: m.id,
+      }));
+    }
+
+    // Ordenação da roleta: prioriza vendedor com last_lead_assigned_at mais antigo (ou nulo)
+    eligibleCandidates.sort((a, b) => {
+      const aTime = a.last_lead_assigned_at;
+      const bTime = b.last_lead_assigned_at;
+      if (!aTime && !bTime) return 0;
+      if (!aTime) return -1;
+      if (!bTime) return 1;
+      return new Date(String(aTime)).getTime() - new Date(String(bTime)).getTime();
     });
 
-    const selectedSeller = activeMembers.length > 0 ? activeMembers[0] : null;
-    const assignedTo = selectedSeller ? selectedSeller.user_id || selectedSeller.id : null;
+    const selectedSeller = eligibleCandidates.length > 0 ? eligibleCandidates[0] : null;
+    const assignedTo = selectedSeller
+      ? (selectedSeller.user_id || selectedSeller.id)
+      : null;
 
     // Atualiza last_lead_assigned_at do vendedor selecionado
     if (selectedSeller) {
-      await supabase
-        .from("organization_members")
-        .update({ last_lead_assigned_at: nowIso })
-        .eq("id", selectedSeller.id);
+      try {
+        await (supabase.from("profiles") as unknown as {
+          update: (data: Record<string, unknown>) => {
+            eq: (col: string, val: string) => Promise<unknown>;
+          };
+        })
+          .update({ last_lead_assigned_at: nowIso })
+          .eq("id", selectedSeller.id);
+      } catch {
+        // Silencioso se coluna não existir na tabela profiles
+      }
+
+      try {
+        const orgMemberId = selectedSeller._org_member_id || selectedSeller.id;
+        await supabase
+          .from("organization_members")
+          .update({ last_lead_assigned_at: nowIso })
+          .eq("id", orgMemberId);
+      } catch {
+        // Silencioso se organization_members não existir
+      }
     }
 
     // Cálculo do prazo de SLA: NOW + 15 minutos
     const slaLimit = new Date(now.getTime() + 15 * 60 * 1000).toISOString();
     const shortCode = generateShortCode(6);
     const clientName = parsed.senderName || "Lead WhatsApp";
+    const sellerFullName = selectedSeller
+      ? ((selectedSeller as Record<string, unknown>).full_name as string) ||
+        ((selectedSeller as Record<string, unknown>).name as string) ||
+        "Roleta Automática"
+      : "Roleta Automática";
 
-    // Insere o novo lead no banco
+    // Insere o novo lead no banco com assigned_to e seller_name
     const { data: createdLead, error: insertError } = await supabase
       .from("leads")
       .insert({
@@ -409,7 +534,7 @@ export async function POST(request: NextRequest) {
         origin: "whatsapp",
         sla_deadline: slaLimit,
         assigned_to: assignedTo,
-        seller_name: "Roleta Automática",
+        seller_name: sellerFullName,
         vehicle_interest: "Interesse Geral via WhatsApp",
         notes: parsed.messageText || null,
         short_code: shortCode,
