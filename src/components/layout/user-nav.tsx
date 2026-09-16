@@ -27,6 +27,8 @@ import { isSuperAdmin, normalizeRole } from "@/lib/permissions";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SoundToggle } from "@/components/audio/sound-toggle";
 import { cn } from "@/lib/utils";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
+import { clearOrganizationCache } from "@/hooks/use-organization";
 
 const emptySubscribe = () => () => {};
 
@@ -94,37 +96,90 @@ export function UserNav({
     };
   }, [isDemoMode]);
 
+  /**
+   * Encerra a sessão do usuário de forma determinística utilizando arquitetura Dual-Engine.
+   *
+   * Comportamento:
+   * 1. Modo Demo (`isDemoMode === true`):
+   *    - Limpa atomicamente dados de sessão e preferências em Web Storage (`localStorage`, `sessionStorage`).
+   *    - Remove cookies locais associados ao modo sandbox.
+   *    - Purgar cache de organização em memória via `clearOrganizationCache()`.
+   *    - Redireciona deterministicamente para `/login` via Hard Navigation (`window.location.replace('/login')`)
+   *      sem chamadas de rede remotas.
+   * 2. Modo Real (Sessão Supabase):
+   *    - Executa `supabase.auth.signOut()` no cliente para revogar tokens locais imediatamente.
+   *    - Invoca a Server Action `logoutAction()` para invalidar formalmente cookies de sessão `@supabase/ssr`
+   *      e expurgar o App Router Cache com `revalidatePath('/', 'layout')`.
+   *    - Limpa Web Storage e cache em memória.
+   *    - Executa Hard Navigation via `window.location.replace('/login')` para desmontar instâncias fantasmas.
+   *
+   * Prevenção de Concorrência:
+   * - Bloqueia múltiplos cliques concorrentes com a verificação `if (isLoggingOut) return;`.
+   */
   const handleLogout = async () => {
+    if (isLoggingOut) return;
     setIsLoggingOut(true);
-    if (typeof document !== "undefined") {
-      document.cookie = "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-      document.cookie = "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "sb-test-user=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "acelera_user_role=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      document.cookie = "acelera_demo_role=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-      try {
-        localStorage.removeItem("acelera_demo_mode");
-        localStorage.removeItem("acelera_user_role");
-        localStorage.removeItem("acelera_demo_role");
-      } catch {}
-    }
+
     try {
-      await Promise.race([
-        logoutAction(),
-        new Promise((resolve) => setTimeout(resolve, 600)),
-      ]);
-    } catch {
-      // Ignora falhas de rede no logout do servidor
-    } finally {
+      clearOrganizationCache();
+
+      // Limpeza atômica de cookies de demonstração e preferências locais
       if (typeof document !== "undefined") {
-        document.cookie = "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
-        document.cookie = "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+        const cookiesToPurge = [
+          "acelera_demo_mode",
+          "sb-demo-auth",
+          "demo_mode",
+          "acelera_demo_session",
+          "sb-test-user",
+          "acelera_user_role",
+          "acelera_demo_role",
+          "acelera_demo_expired",
+          "acelera_subscription_status",
+        ];
+        cookiesToPurge.forEach((c) => {
+          document.cookie = `${c}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+          document.cookie = `${c}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+        });
       }
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = "/login";
+
+      // Limpeza de Web Storage (localStorage e sessionStorage)
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.removeItem("acelera_demo_mode");
+          localStorage.removeItem("acelera_user_role");
+          localStorage.removeItem("acelera_demo_role");
+          sessionStorage.clear();
+        } catch {
+          // Ignora falhas de acesso a storage em ambientes restritos
+        }
+      }
+
+      // 1. Modo Demo: Saída instantânea sem dependências de rede remotas
+      if (isDemoMode) {
+        if (typeof window !== "undefined") {
+          window.location.replace("/login");
+        }
+        return;
+      }
+
+      // 2. Modo Real: Invalidação de sessão Supabase (cliente + servidor)
+      if (isSupabaseConfigured()) {
+        try {
+          await supabase.auth.signOut();
+        } catch (err) {
+          console.error("Erro ao encerrar sessão local do Supabase:", err);
+        }
+      }
+
+      try {
+        await logoutAction();
+      } catch (err) {
+        console.error("Erro ao executar logoutAction no servidor:", err);
+      }
+    } finally {
+      if (typeof window !== "undefined") {
+        window.location.replace("/login");
+      }
     }
   };
 
@@ -241,10 +296,11 @@ export function UserNav({
           onClick={handleLogout}
           className="flex h-9 items-center justify-center gap-1.5 rounded-lg border border-red-200 dark:border-red-800/40 bg-red-50 dark:bg-red-950/40 px-3 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-800 dark:hover:text-red-200 hover:border-red-300 dark:hover:border-red-700/40 transition-all active:scale-[0.98] disabled:opacity-50"
           aria-label="Sair da Conta"
+          aria-busy={isLoggingOut}
           title="Sair da Conta"
         >
           <LogOut className="h-3.5 w-3.5 shrink-0" />
-          <span className="font-semibold">{isLoggingOut ? "..." : "Sair"}</span>
+          <span className="font-semibold">{isLoggingOut ? "Saindo..." : "Sair"}</span>
         </button>
       </div>
     </div>

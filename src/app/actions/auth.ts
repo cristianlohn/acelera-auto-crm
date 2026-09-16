@@ -413,7 +413,14 @@ export async function loginAction(input: {
 }
 
 /**
- * Encerra a sessão atual do Supabase e limpa cookies de demonstração e acesso.
+ * Encerra a sessão do Supabase no servidor e purga todos os cookies de autenticação e demonstração.
+ *
+ * Mecanismo de Ação:
+ * 1. Remove cookies de autenticação, perfil e tokens do `@supabase/ssr` e do Modo Demonstração.
+ * 2. Invoca `supabase.auth.signOut()` no cliente Supabase de servidor (@supabase/ssr) para revogar a sessão.
+ * 3. Executa `revalidatePath('/', 'layout')` para purgar caches de servidor do Next.js App Router.
+ *
+ * @returns {Promise<{ success: boolean }>} Objeto confirmando encerramento da sessão
  */
 export async function logoutAction(): Promise<{ success: boolean }> {
   try {
@@ -436,9 +443,10 @@ export async function logoutAction(): Promise<{ success: boolean }> {
       const supabase = await createServerSupabaseClient();
       await Promise.race([
         supabase.auth.signOut(),
-        new Promise((resolve) => setTimeout(resolve, 1500)),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
       ]);
     }
+    revalidatePath("/", "layout");
   } catch {
     // Ignora erro de signOut fora do request context
   }

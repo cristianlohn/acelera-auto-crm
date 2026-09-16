@@ -12,6 +12,7 @@ import React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sparkles, User, ShieldCheck, Crown, X, CheckCircle2, LogOut } from "lucide-react";
 import { useDemoRole, type DemoRole } from "@/context/demo-role-context";
+import { clearOrganizationCache } from "@/hooks/use-organization";
 import { cn } from "@/lib/utils";
 
 const emptySubscribe = () => () => {};
@@ -47,25 +48,38 @@ export function RoleSimulatorBar() {
     }
   };
 
+  /**
+   * Encerra a sessão da demonstração purgando dados locais em memória e Web Storage,
+   * executando Hard Navigation determinística para /login.
+   */
   const handleExitDemo = () => {
+    clearOrganizationCache();
     if (typeof document !== "undefined") {
-      document.cookie =
-        "acelera_demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-      document.cookie =
-        "sb-demo-auth=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-      document.cookie =
-        "demo_mode=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-      document.cookie =
-        "acelera_demo_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
-      document.cookie =
-        "acelera_demo_role=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
+      const demoCookies = [
+        "acelera_demo_mode",
+        "sb-demo-auth",
+        "demo_mode",
+        "acelera_demo_session",
+        "acelera_demo_role",
+        "acelera_demo_expired",
+        "acelera_subscription_status",
+      ];
+      demoCookies.forEach((c) => {
+        document.cookie = `${c}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+        document.cookie = `${c}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+      });
     }
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.removeItem("acelera_demo_mode");
-      window.localStorage.removeItem("acelera_demo_role");
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem("acelera_demo_mode");
+        window.localStorage.removeItem("acelera_user_role");
+        window.localStorage.removeItem("acelera_demo_role");
+        window.sessionStorage.clear();
+      } catch {
+        // Ignora restrições de sandbox
+      }
+      window.location.replace("/login");
     }
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = "/login";
   };
 
   const rolesList: {

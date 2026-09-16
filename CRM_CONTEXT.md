@@ -91,6 +91,21 @@ Este arquivo é a fonte da verdade para o desenvolvimento do CRM. Qualquer modif
 
 ---
 
+## 11. Padrão Canônico de Logout e Encerramento de Sessão
+- **Dual-Engine de Logout:**
+  - **Modo Demonstração (`isDemoMode === true`):** Limpeza atômica e instantânea em memória e Web Storage (`localStorage`, `sessionStorage`, cookies locais demo) sem tocar em tabelas remotas nem disparar requisições Supabase desnecessárias. Redirecionamento determinístico imediato via Hard Navigation (`window.location.replace('/login')`).
+  - **Modo Real (Sessão Supabase):**
+    1. Execução de `supabase.auth.signOut()` no cliente para revogação imediata de tokens e storage local.
+    2. Invocação da Server Action `logoutAction()` para invalidar formalmente a sessão e os cookies `@supabase/ssr` (`sb-*-auth-token`, cookies de sessão e roles) e expurgar o cache de layout do App Router via `revalidatePath('/', 'layout')`.
+    3. Purgar caches de contexto em memória (`clearOrganizationCache()`).
+- **Obrigatoriedade de Hard Navigation:**
+  - É expressamente proibido utilizar `router.push('/login')` no encerramento de sessão.
+  - Deve-se utilizar obrigatoriamente **Hard Navigation** com `window.location.replace('/login')`. Esta abordagem purga o App Router Cache em memória do Next.js, destrói instâncias e listeners de componentes obsoletos, e previne loops visuais causados pelo middleware checando cookies residuais.
+- **Prevenção de Cliques Concorrentes (Anti-Double Click):**
+  - O botão de logout deve implementar bloqueio com estado de carregamento (`disabled={isLoggingOut}` e texto indicativo `"Saindo..."`), impedindo chamadas paralelas e disputas de concorrência.
+
+---
+
 ## 🛡️ Cláusula de Proteção Absoluta: Modo de Demonstração (Demo Mode)
 
 O **Ambiente de Demonstração (Demo Mode)** é um ativo crítico de conversão e apresentação do produto e é considerado **ESTRITAMENTE INTOCÁVEL**. Toda e qualquer alteração de código, migration, refatoração de backend ou conexão com o Supabase deve respeitar as seguintes regras inegociáveis:

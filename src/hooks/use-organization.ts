@@ -20,6 +20,14 @@ interface CachedOrgData {
 let memoryCache: CachedOrgData | null = null;
 const CACHE_TTL_MS = 1000 * 60 * 5; // 5 minutos
 
+/**
+ * Limpa o cache em memória da organização ativa.
+ * Invocado no encerramento de sessão (logout) para prevenir retenção de contexto anterior.
+ */
+export function clearOrganizationCache(): void {
+  memoryCache = null;
+}
+
 export interface UseOrganizationResult {
   organization: { id: string | null; name: string | null } | null;
   organizationName: string | null;

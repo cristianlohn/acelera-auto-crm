@@ -182,5 +182,138 @@ describe("[IT-LOGOUT] Botão de Logout e Perfil do Usuário na Sidebar", () => {
     expect(mobileAvatar).toBeInTheDocument();
     expect(mobileAvatar).toHaveTextContent("CT");
   });
+
+  it("[IT-LOGOUT.7] Logout em Sessão Real deve chamar logoutAction e redirecionar via window.location.replace('/login')", async () => {
+    const replaceSpy = vi.fn();
+    const originalReplace = window.location.replace;
+    window.location.replace = replaceSpy;
+
+    const spyLogout = vi.spyOn(authActions, "logoutAction").mockResolvedValue({
+      success: true,
+    });
+
+    await act(async () => {
+      render(
+        <DashboardLayout>
+          <div>Conteúdo</div>
+        </DashboardLayout>
+      );
+    });
+
+    const logoutBtn = screen.getByRole("button", { name: /sair da conta/i });
+
+    await act(async () => {
+      fireEvent.click(logoutBtn);
+    });
+
+    expect(spyLogout).toHaveBeenCalledTimes(1);
+    expect(replaceSpy).toHaveBeenCalledWith("/login");
+
+    window.location.replace = originalReplace;
+  });
+
+  it("[IT-LOGOUT.8] Logout no Modo Demonstração deve limpar cookies/storage e redirecionar sem invocar logoutAction", async () => {
+    document.cookie = "acelera_demo_mode=true; path=/";
+    localStorage.setItem("acelera_demo_mode", "true");
+
+    const replaceSpy = vi.fn();
+    const originalReplace = window.location.replace;
+    window.location.replace = replaceSpy;
+
+    const spyLogout = vi.spyOn(authActions, "logoutAction").mockResolvedValue({
+      success: true,
+    });
+
+    await act(async () => {
+      render(
+        <DashboardLayout>
+          <div>Conteúdo</div>
+        </DashboardLayout>
+      );
+    });
+
+    const logoutBtn = screen.getByRole("button", { name: /sair da conta/i });
+
+    await act(async () => {
+      fireEvent.click(logoutBtn);
+    });
+
+    // No modo demo, não chama a Server Action remota
+    expect(spyLogout).not.toHaveBeenCalled();
+    expect(replaceSpy).toHaveBeenCalledWith("/login");
+    expect(localStorage.getItem("acelera_demo_mode")).toBeNull();
+
+    window.location.replace = originalReplace;
+  });
+
+  it("[IT-LOGOUT.9] Deve desabilitar o botão e exibir feedback de carregamento 'Saindo...' prevenindo múltiplos cliques", async () => {
+    let resolveLogout: (val: { success: boolean }) => void = () => {};
+    const logoutPromise = new Promise<{ success: boolean }>((resolve) => {
+      resolveLogout = resolve;
+    });
+    const spyLogout = vi.spyOn(authActions, "logoutAction").mockReturnValue(logoutPromise);
+
+    await act(async () => {
+      render(
+        <DashboardLayout>
+          <div>Conteúdo</div>
+        </DashboardLayout>
+      );
+    });
+
+    const logoutBtn = screen.getByRole("button", { name: /sair da conta/i });
+    expect(logoutBtn).not.toBeDisabled();
+    expect(logoutBtn).toHaveTextContent(/sair/i);
+
+    // Primeiro clique - inicia logout
+    await act(async () => {
+      fireEvent.click(logoutBtn);
+    });
+
+    // Durante o logout, botão deve estar desabilitado e exibir "Saindo..."
+    expect(logoutBtn).toBeDisabled();
+    expect(logoutBtn).toHaveTextContent(/saindo/i);
+
+    // Segundo clique concorrente deve ser ignorado
+    await act(async () => {
+      fireEvent.click(logoutBtn);
+    });
+
+    expect(spyLogout).toHaveBeenCalledTimes(1);
+
+    // Conclui a ação
+    await act(async () => {
+      resolveLogout({ success: true });
+    });
+  });
+
+  it("[IT-LOGOUT.10] Botão 'Sair da Demonstração' na RoleSimulatorBar deve expurgar dados demo e redirecionar para /login", async () => {
+    document.cookie = "acelera_demo_mode=true; path=/";
+    localStorage.setItem("acelera_demo_mode", "true");
+
+    const replaceSpy = vi.fn();
+    const originalReplace = window.location.replace;
+    window.location.replace = replaceSpy;
+
+    await act(async () => {
+      render(
+        <DashboardLayout>
+          <div>Conteúdo</div>
+        </DashboardLayout>
+      );
+    });
+
+    const exitDemoBtn = screen.getByTestId("btn-exit-demo");
+    expect(exitDemoBtn).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(exitDemoBtn);
+    });
+
+    expect(replaceSpy).toHaveBeenCalledWith("/login");
+    expect(localStorage.getItem("acelera_demo_mode")).toBeNull();
+
+    window.location.replace = originalReplace;
+  });
 });
 
