@@ -35,7 +35,7 @@ import { TransferLeadModal } from "@/components/leads/transfer-lead-modal";
 import { getVehicles } from "@/app/actions/vehicles";
 import { updateLeadVehicleAction } from "@/app/actions/lead-actions";
 import type { Vehicle } from "@/types/crm";
-import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
+import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
 
 export interface LeadDetailsModalProps {
   isOpen: boolean;

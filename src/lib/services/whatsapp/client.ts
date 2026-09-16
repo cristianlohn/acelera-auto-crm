@@ -1,7 +1,5 @@
-import fs from "fs";
-import path from "path";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
-import { buildWelcomeCustomerMessage } from "./welcome-message";
+import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
 
 export type WhatsAppProvider = "z-api" | "evolution" | "generic";
 
@@ -73,51 +71,12 @@ export const sanitizeWhatsAppPhone = formatWhatsAppNumber;
  * Unifica e resolve as credenciais da Evolution API com prioridade e fallback seguro para WhatsApp Gateway.
  */
 export function getWhatsAppCredentials() {
-  let apiUrl = process.env.EVOLUTION_API_URL || process.env.WHATSAPP_API_URL;
-  let apiKey =
+  const apiUrl = process.env.EVOLUTION_API_URL || process.env.WHATSAPP_API_URL;
+  const apiKey =
     process.env.EVOLUTION_API_KEY ||
     process.env.WHATSAPP_API_KEY ||
     process.env.WHATSAPP_API_TOKEN ||
     process.env.WHATSAPP_INSTANCE_TOKEN;
-
-  // Em ambiente de teste automatizado, respeita os mocks de process.env
-  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
-    return {
-      apiUrl: apiUrl ? apiUrl.replace(/\/$/, "") : null,
-      apiKey: apiKey || null,
-    };
-  }
-
-  // Fallback para ler .env.local ou env.local caso o dev server de longa duração não tenha recarregado o ambiente
-  if ((!apiUrl || !apiKey) && process.env.NODE_ENV === "development") {
-    try {
-      const candidates = [
-        path.resolve(process.cwd(), ".env.local"),
-        path.resolve(process.cwd(), "env.local"),
-      ];
-      for (const candidate of candidates) {
-        if (fs.existsSync(/*turbopackIgnore: true*/ candidate)) {
-          const content = fs.readFileSync(/*turbopackIgnore: true*/ candidate, "utf8");
-          const evoUrlMatch = content.match(/EVOLUTION_API_URL=(.+)/);
-          const waUrlMatch = content.match(/WHATSAPP_API_URL=(.+)/);
-          const evoKeyMatch = content.match(/EVOLUTION_API_KEY=(.+)/);
-          const waKeyMatch = content.match(/WHATSAPP_API_KEY=(.+)/);
-
-          if (!apiUrl) {
-            const rawUrl = evoUrlMatch ? evoUrlMatch[1] : waUrlMatch ? waUrlMatch[1] : null;
-            if (rawUrl) apiUrl = rawUrl.trim().replace(/['"]/g, "");
-          }
-          if (!apiKey) {
-            const rawKey = evoKeyMatch ? evoKeyMatch[1] : waKeyMatch ? waKeyMatch[1] : null;
-            if (rawKey) apiKey = rawKey.trim().replace(/['"]/g, "");
-          }
-          if (apiUrl && apiKey) break;
-        }
-      }
-    } catch {
-      // Ignora falhas de filesystem (Edge runtimes)
-    }
-  }
 
   return {
     apiUrl: apiUrl ? apiUrl.replace(/\/$/, "") : null,

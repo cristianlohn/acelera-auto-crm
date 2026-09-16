@@ -32,7 +32,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { POST, normalizeWhatsAppPhone, parseWhatsAppPayload } from "@/app/api/webhooks/whatsapp/route";
-import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
+import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
 import * as adminModule from "@/lib/supabase/admin";
 
 interface MemberRecord {

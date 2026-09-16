@@ -7,9 +7,9 @@ import { sanitizeWhatsAppPhone } from "./client";
 import {
   buildWelcomeCustomerMessage,
   type WelcomeCustomerMessageParams,
-} from "./welcome-message";
+} from "@/lib/whatsapp/welcome-message";
 
-export * from "./welcome-message";
+export * from "@/lib/whatsapp/welcome-message";
 
 export interface LeadAlertData {
   id?: string;

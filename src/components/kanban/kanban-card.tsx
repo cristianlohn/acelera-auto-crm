@@ -19,7 +19,7 @@ import {
 import type { KanbanLead, LeadStage } from "@/types/kanban";
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import { cn } from "@/lib/utils";
-import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
+import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
 
 interface KanbanCardProps {
   lead: KanbanLead;

@@ -20,10 +20,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateShortCode } from "@/lib/utils/nanoid";
-import {
-  buildNewLeadAlertMessage,
-  buildWelcomeCustomerMessage,
-} from "@/lib/services/whatsapp/templates";
+import { buildNewLeadAlertMessage } from "@/lib/services/whatsapp/templates";
+import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
 
 /**
  * Extrai o token de autenticação da requisição (query params ou headers).

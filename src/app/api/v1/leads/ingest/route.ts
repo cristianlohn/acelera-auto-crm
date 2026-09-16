@@ -26,7 +26,7 @@ import { parseMetaAdsPayload } from "@/lib/services/ingestion/parsers/meta-parse
 import { matchVehicleInInventory } from "@/lib/services/ingestion/vehicle-matcher";
 import { assignLeadThroughRoleta } from "@/lib/services/roleta/roleta-service";
 import { sendSellerLeadNotification } from "@/lib/services/whatsapp/notification-service";
-import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
+import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
 import { leadIngestSchema, normalizeLeadOrigin } from "@/lib/validations/lead";
 import { DEFAULT_DEMO_ORG_ID } from "@/lib/auth/tenant";
 import type { NormalizedLeadInput } from "@/lib/services/ingestion/types";

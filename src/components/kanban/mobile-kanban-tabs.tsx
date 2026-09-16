@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
 import type { KanbanLead, LeadStage, KanbanColumnConfig } from "@/types/kanban";
 import type { Lead, LeadStatus } from "@/types/crm";
 import { toast } from "sonner";
-import { buildWelcomeCustomerMessage } from "@/lib/services/whatsapp/templates";
+import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
 
 // ---------------------------------------------------------------------------
 // Definições de Estágios e Mapeamentos Unificados
