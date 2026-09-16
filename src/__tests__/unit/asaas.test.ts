@@ -521,6 +521,83 @@ describe("[UNIT-ASAAS] Integração de Produção com a API v3 do Asaas", () => 
       expect(mockInvoiceUpdateEq).toHaveBeenCalledWith("asaas_payment_id", "pay_rec_123456");
     });
 
+    it("não deve ignorar evento INVOICE_SYNCHRONIZED mesmo se reenviado com mesmo ID de evento (não descarta por idempotência)", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const mockInvoiceUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      });
+
+      const mockAdminSupabase = {
+        from: vi.fn((table: string) => {
+          if (table === "organizations") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { id: "org-nfse-001", name: "Auto Car" },
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === "billing_invoices") {
+            return {
+              update: mockInvoiceUpdate,
+            };
+          }
+          return {};
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const payload = {
+        id: "evt_duplicate_invoice_sync",
+        event: "INVOICE_SYNCHRONIZED",
+        invoice: {
+          id: "inv_retry_001",
+          status: "SYNCHRONIZED",
+          payment: "pay_retry_123",
+          number: "2026000100",
+          pdfUrl: "https://asaas.com/invoices/2026000100.pdf",
+          verificationCode: "RETRY-123",
+          externalReference: "org-nfse-001",
+        },
+      };
+
+      // 1º envio
+      const req1 = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": "webhook_token_secreto_super_seguro_123",
+        },
+        body: JSON.stringify(payload),
+      });
+      const res1 = await POST(req1);
+      const json1 = await res1.json();
+      expect(json1.actionTaken).toBe("invoice_synchronized");
+      expect(json1.alreadyProcessed).toBe(false);
+
+      // 2º envio (reenvio com mesmo payload e mesmo id de evento)
+      const req2 = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": "webhook_token_secreto_super_seguro_123",
+        },
+        body: JSON.stringify(payload),
+      });
+      const res2 = await POST(req2);
+      const json2 = await res2.json();
+      expect(json2.actionTaken).toBe("invoice_synchronized");
+      expect(json2.alreadyProcessed).toBe(false);
+      expect(mockInvoiceUpdate).toHaveBeenCalledTimes(2);
+    });
+
     it("deve processar INVOICE_FAILED e registrar o motivo de falha sem derrubar o webhook", async () => {
       vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 

@@ -458,8 +458,11 @@ export async function processAsaasWebhookEvent(
     payload.id ||
     `${event}_${payment?.id || subscription?.id || invoice?.id || "evt"}_${payment?.paymentDate || payload.dateCreated || ""}`;
 
+  const isInvoiceSyncEvent = event === "INVOICE_SYNCHRONIZED" || event === "INVOICE_AUTHORIZED";
+
   // 1. Verificação de Idempotência
-  if (isEventAlreadyProcessed(eventKey)) {
+  // Não ignora eventos do tipo INVOICE_SYNCHRONIZED e INVOICE_AUTHORIZED para que possam atualizar a fatura mesmo se reenviados
+  if (!isInvoiceSyncEvent && isEventAlreadyProcessed(eventKey)) {
     return {
       success: true,
       event,
@@ -527,7 +530,7 @@ export async function processAsaasWebhookEvent(
   const org = await findOrganizationByAsaasData(externalRef, customerId, subscriptionId, paymentId, invoiceId);
   const targetOrgId = isSupabaseServerConfigured() ? org?.id : (org?.id || targetIdFromRef);
 
-  if (!targetOrgId) {
+  if (!targetOrgId && !isInvoiceSyncEvent) {
     markEventAsProcessed(eventKey);
     console.log(
       "[Webhook Asaas] Evento ignorado: payload não pertence a nenhuma organização do CRM",
@@ -927,93 +930,40 @@ export async function processAsaasWebhookEvent(
     case "INVOICE_AUTHORIZED": {
       actionTaken = "invoice_synchronized";
       const invoiceData = payload.invoice;
-      const invId = invoiceData?.id;
-      const payId = invoiceData?.payment || payment?.id;
-      const invoiceOrgCandidate = invoiceData?.externalReference || parsedRef?.orgId;
-      const finalOrgId = targetOrgId || invoiceOrgCandidate;
+      const paymentId = invoiceData?.payment || payment?.id;
 
       console.log(
-        `[Asaas Webhook] NFS-e autorizada/sincronizada (${invId || "sem id"}): número ${invoiceData?.number || "N/A"}`
+        `[Asaas Webhook] NFS-e autorizada/sincronizada (${invoiceData?.id || "sem id"}): número ${invoiceData?.number || "N/A"}, payment=${paymentId || "N/A"}`
       );
 
-      if (isSupabaseServerConfigured()) {
+      if (isSupabaseServerConfigured() && invoiceData && paymentId) {
         try {
           const supabaseAdmin = createAdminClient();
-          const updateFields: BillingInvoiceUpdate = {
-            status: "SYNCHRONIZED",
-            failure_reason: null,
-            updated_at: new Date().toISOString(),
-          };
+          const { error: updateErr } = await supabaseAdmin
+            .from("billing_invoices")
+            .update({
+              asaas_invoice_id: invoiceData.id,
+              number: invoiceData.number || null,
+              invoice_number: invoiceData.number || null,
+              pdf_url: invoiceData.pdfUrl || null,
+              verification_code: invoiceData.verificationCode || null,
+              status: "SYNCHRONIZED",
+              updated_at: new Date().toISOString(),
+              ...(invoiceData.xmlUrl ? { xml_url: invoiceData.xmlUrl } : {}),
+            })
+            .eq("asaas_payment_id", paymentId);
 
-          if (invId) updateFields.asaas_invoice_id = invId;
-          if (invoiceData?.number) {
-            updateFields.number = invoiceData.number;
-            updateFields.invoice_number = invoiceData.number;
-          }
-          if (invoiceData?.verificationCode) updateFields.verification_code = invoiceData.verificationCode;
-          if (invoiceData?.pdfUrl) updateFields.pdf_url = invoiceData.pdfUrl;
-          if (invoiceData?.xmlUrl) updateFields.xml_url = invoiceData.xmlUrl;
-          if (invoiceData?.effectiveDate) {
-            updateFields.effective_date = invoiceData.effectiveDate.split("T")[0];
-          }
-          if (invoiceData?.serviceDescription) {
-            updateFields.service_description = invoiceData.serviceDescription;
+          if (updateErr) {
+            console.error("[Asaas Webhook] Erro ao atualizar fatura com dados da NFS-e:", updateErr);
+            throw updateErr;
           }
 
-          let updated = false;
-
-          // 1. Atualiza diretamente a fatura correspondente pelo asaas_payment_id
-          if (payId) {
-            const { data: updatedRows, error: updateErr } = await supabaseAdmin
-              .from("billing_invoices")
-              .update(updateFields)
-              .eq("asaas_payment_id", payId)
-              .select("id, organization_id");
-
-            if (!updateErr && updatedRows && updatedRows.length > 0) {
-              updated = true;
-              console.log(`[Asaas Webhook] NFS-e vinculada à fatura pay_id=${payId}:`, updatedRows[0].id);
-            }
-          }
-
-          // 2. Se não encontrou pelo payment_id, tenta atualizar por asaas_invoice_id
-          if (!updated && invId) {
-            const { data: updatedRows, error: updateErr } = await supabaseAdmin
-              .from("billing_invoices")
-              .update(updateFields)
-              .eq("asaas_invoice_id", invId)
-              .select("id, organization_id");
-
-            if (!updateErr && updatedRows && updatedRows.length > 0) {
-              updated = true;
-              console.log(`[Asaas Webhook] NFS-e atualizada por invoice_id=${invId}:`, updatedRows[0].id);
-            }
-          }
-
-          // 3. Se não existia registro e temos a organização, insere nova linha via upsert
-          if (!updated && finalOrgId) {
-            await supabaseAdmin.from("billing_invoices").upsert(
-              {
-                organization_id: finalOrgId,
-                asaas_payment_id: payId || null,
-                asaas_invoice_id: invId || null,
-                amount: Number(invoiceData?.value ?? payment?.value ?? 0),
-                status: "SYNCHRONIZED",
-                number: invoiceData?.number || null,
-                invoice_number: invoiceData?.number || null,
-                verification_code: invoiceData?.verificationCode || null,
-                pdf_url: invoiceData?.pdfUrl || null,
-                xml_url: invoiceData?.xmlUrl || null,
-                effective_date: invoiceData?.effectiveDate ? invoiceData.effectiveDate.split("T")[0] : null,
-                service_description: invoiceData?.serviceDescription || null,
-                updated_at: new Date().toISOString(),
-              },
-              payId ? { onConflict: "asaas_payment_id" } : undefined
-            );
-            console.log(`[Asaas Webhook] Nova linha inserida em billing_invoices para NFS-e ${invId}`);
-          }
+          console.log(
+            `[Asaas Webhook] NFS-e ${invoiceData.id} vinculada com sucesso à fatura pay_id=${paymentId}`
+          );
         } catch (err) {
           console.error("[Asaas Webhook] Falha ao sincronizar NFS-e em billing_invoices:", err);
+          throw err;
         }
       }
       break;
@@ -1074,13 +1024,15 @@ export async function processAsaasWebhookEvent(
     }
   }
 
-  // Registra para idempotência
-  markEventAsProcessed(eventKey);
+  // Registra para idempotência (exceto eventos fiscais que devem sempre atualizar mesmo se reenviados)
+  if (!isInvoiceSyncEvent) {
+    markEventAsProcessed(eventKey);
+  }
 
   return {
     success: true,
     event,
-    organizationId: targetOrgId,
+    organizationId: targetOrgId || undefined,
     actionTaken,
   };
 }
