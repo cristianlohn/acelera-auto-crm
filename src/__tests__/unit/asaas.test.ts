@@ -358,6 +358,79 @@ describe("[UNIT-ASAAS] Integração de Produção com a API v3 do Asaas", () => 
       expect(upsertPayload.invoice_number).toBe("NF-00123");
       expect(upsertPayload.paid_at).toBeDefined();
     });
+
+    it("deve capturar invoiceError no upsert de billing_invoices, logar console.error e disparar exceção", async () => {
+      vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
+
+      const dbError = new Error("Database rejected invoice insert: duplicate or check constraint");
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const mockAdminSupabase = {
+        from: vi.fn((table: string) => {
+          if (table === "organizations") {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: {
+                      id: "org-acelera-999",
+                      name: "Acelera Motors",
+                      plan: "pro",
+                      billing_status: "trialing",
+                    },
+                  }),
+                }),
+              }),
+              update: vi.fn().mockReturnValue({
+                eq: vi.fn().mockResolvedValue({ error: null }),
+              }),
+            };
+          }
+
+          if (table === "billing_invoices") {
+            return {
+              upsert: vi.fn().mockResolvedValue({ data: null, error: dbError }),
+            };
+          }
+
+          return {};
+        }),
+      };
+
+      vi.spyOn(supabaseAdminModule, "createAdminClient").mockReturnValue(
+        mockAdminSupabase as unknown as ReturnType<typeof supabaseAdminModule.createAdminClient>
+      );
+
+      const request = new NextRequest("http://localhost:3000/api/webhooks/asaas", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "asaas-access-token": "webhook_token_secreto_super_seguro_123",
+        },
+        body: JSON.stringify({
+          id: "evt_pay_error_test",
+          event: "PAYMENT_RECEIVED",
+          payment: {
+            id: "pay_err_999",
+            value: 297.0,
+            billingType: "CREDIT_CARD",
+            status: "CONFIRMED",
+            externalReference: "org-acelera-999",
+          },
+        }),
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      const json = await response.json();
+      expect(json.error).toBe("Internal error processing webhook event");
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        "[WEBHOOK] Erro ao gravar billing_invoices:",
+        dbError
+      );
+    });
   });
 
   describe("4. Captura de Eventos Fiscais de NFS-e (INVOICE_SYNCHRONIZED & INVOICE_FAILED)", () => {

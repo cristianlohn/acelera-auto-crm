@@ -636,66 +636,44 @@ export async function processAsaasWebhookEvent(
 
           // Registra ou atualiza o pagamento na tabela billing_invoices via upsert
           if (payment?.id) {
-            try {
-              const paidAt = payment.paymentDate
-                ? (payment.paymentDate.includes("T")
-                    ? new Date(payment.paymentDate).toISOString()
-                    : new Date(`${payment.paymentDate}T12:00:00Z`).toISOString())
-                : new Date().toISOString();
+            const paidAt = payment.paymentDate
+              ? (payment.paymentDate.includes("T")
+                  ? new Date(payment.paymentDate).toISOString()
+                  : new Date(`${payment.paymentDate}T12:00:00Z`).toISOString())
+              : new Date().toISOString();
 
-              const upsertPayload = {
-                organization_id: targetOrgId,
-                asaas_payment_id: payment.id,
-                amount: payment.value ?? payment.netValue ?? 0,
-                billing_type: payment.billingType || null,
-                status: payment.status || "RECEIVED",
-                pdf_url: payment.bankSlipUrl || payment.invoiceUrl || payment.transactionReceiptUrl || null,
-                invoice_url: payment.invoiceUrl || payment.bankSlipUrl || null,
-                invoice_number: payment.invoiceNumber || null,
-                number: payment.invoiceNumber || null,
-                paid_at: paidAt,
-                service_description: payment.description || `Assinatura Acelera Auto CRM - Plano ${targetPlan}`,
-                effective_date: (payment.paymentDate || payment.clientPaymentDate || new Date().toISOString()).split("T")[0],
-                updated_at: new Date().toISOString(),
-              };
+            const upsertPayload = {
+              organization_id: targetOrgId,
+              asaas_payment_id: payment.id,
+              amount: payment.value ?? payment.netValue ?? 0,
+              billing_type: payment.billingType || null,
+              status: payment.status || "RECEIVED",
+              pdf_url: payment.bankSlipUrl || payment.invoiceUrl || payment.transactionReceiptUrl || null,
+              invoice_url: payment.invoiceUrl || payment.bankSlipUrl || null,
+              invoice_number: payment.invoiceNumber || null,
+              number: payment.invoiceNumber || null,
+              paid_at: paidAt,
+              service_description: payment.description || `Assinatura Acelera Auto CRM - Plano ${targetPlan}`,
+              effective_date: (payment.paymentDate || payment.clientPaymentDate || new Date().toISOString()).split("T")[0],
+              updated_at: new Date().toISOString(),
+            };
 
-              const { data: upsertData, error: upsertError } = await supabaseAdmin
-                .from("billing_invoices")
-                .upsert(upsertPayload, { onConflict: "asaas_payment_id" })
-                .select("id")
-                .maybeSingle();
+            const { error: invoiceError } = await supabaseAdmin
+              .from("billing_invoices")
+              .upsert(upsertPayload, { onConflict: "asaas_payment_id" });
 
-              if (upsertError) {
-                console.error("[Asaas Webhook] Erro no upsert de billing_invoices:", upsertError);
-                // Fallback de contingência caso onConflict sem constraint dê erro em bancos legados
-                const { data: existingInv } = await supabaseAdmin
-                  .from("billing_invoices")
-                  .select("id")
-                  .eq("asaas_payment_id", payment.id)
-                  .maybeSingle();
-
-                if (existingInv?.id) {
-                  await supabaseAdmin
-                    .from("billing_invoices")
-                    .update(upsertPayload)
-                    .eq("id", existingInv.id);
-                } else {
-                  await supabaseAdmin
-                    .from("billing_invoices")
-                    .insert(upsertPayload);
-                }
-              } else {
-                console.log(
-                  `[Asaas Webhook] Fatura ${payment.id} persistida em billing_invoices com sucesso:`,
-                  upsertData?.id
-                );
-              }
-            } catch (invErr) {
-              console.error("[Asaas Webhook] Falha ao registrar pagamento na tabela billing_invoices:", invErr);
+            if (invoiceError) {
+              console.error("[WEBHOOK] Erro ao gravar billing_invoices:", invoiceError);
+              throw invoiceError;
             }
+
+            console.log(
+              `[Asaas Webhook] Fatura ${payment.id} persistida em billing_invoices com sucesso`
+            );
           }
         } catch (err) {
-          console.warn("[Asaas Webhook] Falha ao atualizar organization no Supabase:", err);
+          console.error("[Asaas Webhook] Falha ao processar dados no Supabase:", err);
+          throw err;
         }
       }
       break;
