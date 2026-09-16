@@ -49,3 +49,6 @@ test-results/
 playwright-report/
 blob-report/
 .nyc_output/
+
+# Scripts de teste locais com credenciais
+scripts/test-*.ts

@@ -254,6 +254,11 @@ describe("[UNIT-ASAAS] Integração de Produção com a API v3 do Asaas", () => 
       });
 
       const mockInvoiceInsert = vi.fn().mockResolvedValue({ error: null });
+      const mockInvoiceUpsert = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          maybeSingle: vi.fn().mockResolvedValue({ data: { id: "inv_row_001" }, error: null }),
+        }),
+      });
 
       const mockAdminSupabase = {
         from: vi.fn((table: string) => {
@@ -282,6 +287,7 @@ describe("[UNIT-ASAAS] Integração de Produção com a API v3 do Asaas", () => 
 
           if (table === "billing_invoices") {
             return {
+              upsert: mockInvoiceUpsert,
               select: vi.fn().mockReturnValue({
                 eq: vi.fn().mockReturnValue({
                   maybeSingle: vi.fn().mockResolvedValue({ data: null }),
@@ -340,22 +346,33 @@ describe("[UNIT-ASAAS] Integração de Produção com a API v3 do Asaas", () => 
       expect(orgUpdatePayload.subscription_status).toBe("active");
       expect(orgUpdatePayload.billing_status).toBe("active");
 
-      // Verifica inserção do pagamento na tabela billing_invoices
-      expect(mockInvoiceInsert).toHaveBeenCalled();
-      const invoicePayload = mockInvoiceInsert.mock.calls[0][0];
-      expect(invoicePayload.organization_id).toBe("org-acelera-999");
-      expect(invoicePayload.asaas_payment_id).toBe("pay_rec_123456");
-      expect(invoicePayload.amount).toBe(497.0);
-      expect(invoicePayload.status).toBe("RECEIVED");
-      expect(invoicePayload.invoice_url).toBe("https://asaas.com/i/123456");
+      // Verifica upsert do pagamento na tabela billing_invoices com onConflict
+      expect(mockInvoiceUpsert).toHaveBeenCalled();
+      const [upsertPayload, upsertOptions] = mockInvoiceUpsert.mock.calls[0];
+      expect(upsertOptions).toEqual({ onConflict: "asaas_payment_id" });
+      expect(upsertPayload.organization_id).toBe("org-acelera-999");
+      expect(upsertPayload.asaas_payment_id).toBe("pay_rec_123456");
+      expect(upsertPayload.amount).toBe(497.0);
+      expect(upsertPayload.billing_type).toBe("PIX");
+      expect(upsertPayload.status).toBe("RECEIVED");
+      expect(upsertPayload.invoice_number).toBe("NF-00123");
+      expect(upsertPayload.paid_at).toBeDefined();
     });
   });
 
   describe("4. Captura de Eventos Fiscais de NFS-e (INVOICE_SYNCHRONIZED & INVOICE_FAILED)", () => {
-    it("deve processar INVOICE_SYNCHRONIZED e persistir número, código de verificação, PDF e XML", async () => {
+    it("deve processar INVOICE_SYNCHRONIZED e atualizar linha com asaas_invoice_id, number, verification_code e pdf_url", async () => {
       vi.spyOn(supabaseServerModule, "isSupabaseServerConfigured").mockReturnValue(true);
 
-      const mockInvoiceInsert = vi.fn().mockResolvedValue({ error: null });
+      const mockInvoiceUpdateEq = vi.fn().mockReturnValue({
+        select: vi.fn().mockResolvedValue({
+          data: [{ id: "inv_existente_001", organization_id: "org-nfse-001" }],
+          error: null,
+        }),
+      });
+      const mockInvoiceUpdate = vi.fn().mockReturnValue({
+        eq: mockInvoiceUpdateEq,
+      });
 
       const mockAdminSupabase = {
         from: vi.fn((table: string) => {
@@ -372,14 +389,11 @@ describe("[UNIT-ASAAS] Integração de Produção com a API v3 do Asaas", () => 
           }
           if (table === "billing_invoices") {
             return {
-              select: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
+              update: mockInvoiceUpdate,
+              upsert: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
                   maybeSingle: vi.fn().mockResolvedValue({ data: null }),
                 }),
-              }),
-              insert: mockInvoiceInsert,
-              update: vi.fn().mockReturnValue({
-                eq: vi.fn().mockResolvedValue({ error: null }),
               }),
             };
           }
@@ -423,15 +437,15 @@ describe("[UNIT-ASAAS] Integração de Produção com a API v3 do Asaas", () => 
       expect(json.received).toBe(true);
       expect(json.actionTaken).toBe("invoice_synchronized");
 
-      expect(mockInvoiceInsert).toHaveBeenCalled();
-      const savedInvoice = mockInvoiceInsert.mock.calls[0][0];
-      expect(savedInvoice.organization_id).toBe("org-nfse-001");
-      expect(savedInvoice.asaas_invoice_id).toBe("inv_asaas_888");
-      expect(savedInvoice.number).toBe("2026000099");
-      expect(savedInvoice.verification_code).toBe("ABC-7766-XYZ");
-      expect(savedInvoice.pdf_url).toBe("https://asaas.com/invoices/2026000099.pdf");
-      expect(savedInvoice.xml_url).toBe("https://asaas.com/invoices/2026000099.xml");
-      expect(savedInvoice.status).toBe("SYNCHRONIZED");
+      expect(mockInvoiceUpdate).toHaveBeenCalled();
+      const updatedData = mockInvoiceUpdate.mock.calls[0][0];
+      expect(updatedData.asaas_invoice_id).toBe("inv_asaas_888");
+      expect(updatedData.number).toBe("2026000099");
+      expect(updatedData.verification_code).toBe("ABC-7766-XYZ");
+      expect(updatedData.pdf_url).toBe("https://asaas.com/invoices/2026000099.pdf");
+      expect(updatedData.xml_url).toBe("https://asaas.com/invoices/2026000099.xml");
+      expect(updatedData.status).toBe("SYNCHRONIZED");
+      expect(mockInvoiceUpdateEq).toHaveBeenCalledWith("asaas_payment_id", "pay_rec_123456");
     });
 
     it("deve processar INVOICE_FAILED e registrar o motivo de falha sem derrubar o webhook", async () => {

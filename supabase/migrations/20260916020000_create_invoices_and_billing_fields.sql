@@ -12,30 +12,46 @@ ADD COLUMN IF NOT EXISTS current_period_end TIMESTAMPTZ DEFAULT NULL;
 CREATE TABLE IF NOT EXISTS public.billing_invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
-  asaas_payment_id TEXT,
+  asaas_payment_id TEXT UNIQUE,
   asaas_invoice_id TEXT,
   amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+  billing_type TEXT,
   status TEXT NOT NULL DEFAULT 'SCHEDULED',
   invoice_url TEXT,
   pdf_url TEXT,
   xml_url TEXT,
   number TEXT,
+  invoice_number TEXT,
   verification_code TEXT,
   failure_reason TEXT,
   service_description TEXT,
+  paid_at TIMESTAMPTZ,
   effective_date DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Garantir colunas complementares se a tabela já existia anteriormente
+-- Garantir colunas complementares caso a tabela já existisse
 ALTER TABLE public.billing_invoices
+ADD COLUMN IF NOT EXISTS billing_type TEXT,
+ADD COLUMN IF NOT EXISTS invoice_number TEXT,
+ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ,
 ADD COLUMN IF NOT EXISTS xml_url TEXT,
 ADD COLUMN IF NOT EXISTS number TEXT,
 ADD COLUMN IF NOT EXISTS verification_code TEXT,
 ADD COLUMN IF NOT EXISTS failure_reason TEXT,
 ADD COLUMN IF NOT EXISTS service_description TEXT,
 ADD COLUMN IF NOT EXISTS effective_date DATE;
+
+-- Garantir restrição de unicidade para permitir upsert com onConflict: 'asaas_payment_id'
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'billing_invoices_asaas_payment_id_key'
+  ) THEN
+    ALTER TABLE public.billing_invoices ADD CONSTRAINT billing_invoices_asaas_payment_id_key UNIQUE (asaas_payment_id);
+  END IF;
+END $$;
 
 -- Índices de busca e performance
 CREATE INDEX IF NOT EXISTS idx_billing_invoices_org_id ON public.billing_invoices(organization_id);

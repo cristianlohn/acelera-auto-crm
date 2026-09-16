@@ -24,6 +24,7 @@ export {
 };
 
 type OrganizationUpdate = Database["public"]["Tables"]["organizations"]["Update"];
+type BillingInvoiceUpdate = Database["public"]["Tables"]["billing_invoices"]["Update"];
 
 export type AsaasWebhookEvent =
   | "PAYMENT_CREATED"
@@ -633,41 +634,64 @@ export async function processAsaasWebhookEvent(
             );
           }
 
-          // Registra ou atualiza o pagamento na tabela billing_invoices
+          // Registra ou atualiza o pagamento na tabela billing_invoices via upsert
           if (payment?.id) {
             try {
-              const amountVal = Number(payment.value ?? payment.netValue ?? 0);
-              const invoiceRecord = {
+              const paidAt = payment.paymentDate
+                ? (payment.paymentDate.includes("T")
+                    ? new Date(payment.paymentDate).toISOString()
+                    : new Date(`${payment.paymentDate}T12:00:00Z`).toISOString())
+                : new Date().toISOString();
+
+              const upsertPayload = {
                 organization_id: targetOrgId,
                 asaas_payment_id: payment.id,
-                amount: isNaN(amountVal) ? 0 : amountVal,
+                amount: payment.value ?? payment.netValue ?? 0,
+                billing_type: payment.billingType || null,
                 status: payment.status || "RECEIVED",
+                pdf_url: payment.bankSlipUrl || payment.invoiceUrl || payment.transactionReceiptUrl || null,
                 invoice_url: payment.invoiceUrl || payment.bankSlipUrl || null,
-                pdf_url: payment.transactionReceiptUrl || null,
+                invoice_number: payment.invoiceNumber || null,
                 number: payment.invoiceNumber || null,
-                effective_date: (payment.paymentDate || payment.clientPaymentDate || new Date().toISOString()).split("T")[0],
+                paid_at: paidAt,
                 service_description: payment.description || `Assinatura Acelera Auto CRM - Plano ${targetPlan}`,
+                effective_date: (payment.paymentDate || payment.clientPaymentDate || new Date().toISOString()).split("T")[0],
                 updated_at: new Date().toISOString(),
               };
 
-              const { data: existingInv } = await supabaseAdmin
+              const { data: upsertData, error: upsertError } = await supabaseAdmin
                 .from("billing_invoices")
+                .upsert(upsertPayload, { onConflict: "asaas_payment_id" })
                 .select("id")
-                .eq("asaas_payment_id", payment.id)
                 .maybeSingle();
 
-              if (existingInv?.id) {
-                await supabaseAdmin
+              if (upsertError) {
+                console.error("[Asaas Webhook] Erro no upsert de billing_invoices:", upsertError);
+                // Fallback de contingência caso onConflict sem constraint dê erro em bancos legados
+                const { data: existingInv } = await supabaseAdmin
                   .from("billing_invoices")
-                  .update(invoiceRecord)
-                  .eq("id", existingInv.id);
+                  .select("id")
+                  .eq("asaas_payment_id", payment.id)
+                  .maybeSingle();
+
+                if (existingInv?.id) {
+                  await supabaseAdmin
+                    .from("billing_invoices")
+                    .update(upsertPayload)
+                    .eq("id", existingInv.id);
+                } else {
+                  await supabaseAdmin
+                    .from("billing_invoices")
+                    .insert(upsertPayload);
+                }
               } else {
-                await supabaseAdmin
-                  .from("billing_invoices")
-                  .insert(invoiceRecord);
+                console.log(
+                  `[Asaas Webhook] Fatura ${payment.id} persistida em billing_invoices com sucesso:`,
+                  upsertData?.id
+                );
               }
             } catch (invErr) {
-              console.warn("[Asaas Webhook] Falha ao registrar pagamento na tabela billing_invoices:", invErr);
+              console.error("[Asaas Webhook] Falha ao registrar pagamento na tabela billing_invoices:", invErr);
             }
           }
         } catch (err) {
@@ -934,56 +958,84 @@ export async function processAsaasWebhookEvent(
         `[Asaas Webhook] NFS-e autorizada/sincronizada (${invId || "sem id"}): número ${invoiceData?.number || "N/A"}`
       );
 
-      if (isSupabaseServerConfigured() && finalOrgId) {
+      if (isSupabaseServerConfigured()) {
         try {
           const supabaseAdmin = createAdminClient();
-          const invoicePayload = {
-            organization_id: finalOrgId,
-            asaas_invoice_id: invId || null,
-            asaas_payment_id: payId || null,
-            number: invoiceData?.number || null,
-            verification_code: invoiceData?.verificationCode || null,
-            pdf_url: invoiceData?.pdfUrl || null,
-            xml_url: invoiceData?.xmlUrl || null,
+          const updateFields: BillingInvoiceUpdate = {
             status: "SYNCHRONIZED",
             failure_reason: null,
-            effective_date: invoiceData?.effectiveDate ? invoiceData.effectiveDate.split("T")[0] : null,
-            service_description: invoiceData?.serviceDescription || null,
-            amount: Number(invoiceData?.value ?? payment?.value ?? 0),
             updated_at: new Date().toISOString(),
           };
 
-          let existingId: string | null = null;
-          if (invId) {
-            const { data } = await supabaseAdmin
-              .from("billing_invoices")
-              .select("id")
-              .eq("asaas_invoice_id", invId)
-              .maybeSingle();
-            if (data?.id) existingId = data.id;
+          if (invId) updateFields.asaas_invoice_id = invId;
+          if (invoiceData?.number) {
+            updateFields.number = invoiceData.number;
+            updateFields.invoice_number = invoiceData.number;
+          }
+          if (invoiceData?.verificationCode) updateFields.verification_code = invoiceData.verificationCode;
+          if (invoiceData?.pdfUrl) updateFields.pdf_url = invoiceData.pdfUrl;
+          if (invoiceData?.xmlUrl) updateFields.xml_url = invoiceData.xmlUrl;
+          if (invoiceData?.effectiveDate) {
+            updateFields.effective_date = invoiceData.effectiveDate.split("T")[0];
+          }
+          if (invoiceData?.serviceDescription) {
+            updateFields.service_description = invoiceData.serviceDescription;
           }
 
-          if (!existingId && payId) {
-            const { data } = await supabaseAdmin
+          let updated = false;
+
+          // 1. Atualiza diretamente a fatura correspondente pelo asaas_payment_id
+          if (payId) {
+            const { data: updatedRows, error: updateErr } = await supabaseAdmin
               .from("billing_invoices")
-              .select("id")
+              .update(updateFields)
               .eq("asaas_payment_id", payId)
-              .maybeSingle();
-            if (data?.id) existingId = data.id;
+              .select("id, organization_id");
+
+            if (!updateErr && updatedRows && updatedRows.length > 0) {
+              updated = true;
+              console.log(`[Asaas Webhook] NFS-e vinculada à fatura pay_id=${payId}:`, updatedRows[0].id);
+            }
           }
 
-          if (existingId) {
-            await supabaseAdmin
+          // 2. Se não encontrou pelo payment_id, tenta atualizar por asaas_invoice_id
+          if (!updated && invId) {
+            const { data: updatedRows, error: updateErr } = await supabaseAdmin
               .from("billing_invoices")
-              .update(invoicePayload)
-              .eq("id", existingId);
-          } else {
-            await supabaseAdmin
-              .from("billing_invoices")
-              .insert(invoicePayload);
+              .update(updateFields)
+              .eq("asaas_invoice_id", invId)
+              .select("id, organization_id");
+
+            if (!updateErr && updatedRows && updatedRows.length > 0) {
+              updated = true;
+              console.log(`[Asaas Webhook] NFS-e atualizada por invoice_id=${invId}:`, updatedRows[0].id);
+            }
+          }
+
+          // 3. Se não existia registro e temos a organização, insere nova linha via upsert
+          if (!updated && finalOrgId) {
+            await supabaseAdmin.from("billing_invoices").upsert(
+              {
+                organization_id: finalOrgId,
+                asaas_payment_id: payId || null,
+                asaas_invoice_id: invId || null,
+                amount: Number(invoiceData?.value ?? payment?.value ?? 0),
+                status: "SYNCHRONIZED",
+                number: invoiceData?.number || null,
+                invoice_number: invoiceData?.number || null,
+                verification_code: invoiceData?.verificationCode || null,
+                pdf_url: invoiceData?.pdfUrl || null,
+                xml_url: invoiceData?.xmlUrl || null,
+                effective_date: invoiceData?.effectiveDate ? invoiceData.effectiveDate.split("T")[0] : null,
+                service_description: invoiceData?.serviceDescription || null,
+                updated_at: new Date().toISOString(),
+              },
+              payId ? { onConflict: "asaas_payment_id" } : undefined
+            );
+            console.log(`[Asaas Webhook] Nova linha inserida em billing_invoices para NFS-e ${invId}`);
           }
         } catch (err) {
-          console.warn("[Asaas Webhook] Falha ao sincronizar NFS-e em billing_invoices:", err);
+          console.error("[Asaas Webhook] Falha ao sincronizar NFS-e em billing_invoices:", err);
         }
       }
       break;
@@ -1007,7 +1059,7 @@ export async function processAsaasWebhookEvent(
       if (isSupabaseServerConfigured() && (invId || payId)) {
         try {
           const supabaseAdmin = createAdminClient();
-          const updateData = {
+          const updateData: BillingInvoiceUpdate = {
             status: "FAILED",
             failure_reason: failureReason,
             updated_at: new Date().toISOString(),
