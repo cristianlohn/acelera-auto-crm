@@ -18,6 +18,24 @@ import { processAsaasWebhookEvent } from "@/lib/services/asaas/webhook-service";
 import * as supabaseServerModule from "@/lib/supabase/server";
 import * as supabaseAdminModule from "@/lib/supabase/admin";
 
+function createMockUpsert() {
+  return vi.fn().mockImplementation(() => {
+    const selectPromise = Promise.resolve({ data: [], error: null });
+    const selectMock = vi.fn().mockReturnValue(
+      Object.assign(selectPromise, {
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      })
+    );
+    const upsertPromise = Promise.resolve({ data: null, error: null });
+    return Object.assign(upsertPromise, {
+      select: selectMock,
+      error: null,
+      data: null,
+    });
+  });
+}
+
 describe("[UNIT-ASAAS-DATES] Cálculo de Vigência e Ciclo de Faturamento (current_period_end)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -81,6 +99,7 @@ describe("[UNIT-ASAAS-DATES] Cálculo de Vigência e Ciclo de Faturamento (curre
           }),
         }),
         update: mockUpdate,
+        upsert: createMockUpsert(),
       }),
     };
 
@@ -145,6 +164,7 @@ describe("[UNIT-ASAAS-DATES] Cálculo de Vigência e Ciclo de Faturamento (curre
           }),
         }),
         update: mockUpdate,
+        upsert: createMockUpsert(),
       }),
     };
 
@@ -210,6 +230,7 @@ describe("[UNIT-ASAAS-DATES] Cálculo de Vigência e Ciclo de Faturamento (curre
           }),
         }),
         update: mockUpdate,
+        upsert: createMockUpsert(),
       }),
     };
 
@@ -274,6 +295,7 @@ describe("[UNIT-ASAAS-DATES] Cálculo de Vigência e Ciclo de Faturamento (curre
           }),
         }),
         update: mockUpdate,
+        upsert: createMockUpsert(),
       }),
     };
 
@@ -332,6 +354,7 @@ describe("[UNIT-ASAAS-DATES] Cálculo de Vigência e Ciclo de Faturamento (curre
           }),
         }),
         update: mockUpdate,
+        upsert: createMockUpsert(),
       }),
     };
 

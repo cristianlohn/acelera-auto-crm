@@ -16,6 +16,24 @@ import { resetProcessedEventsCache } from "@/lib/services/asaas/webhook-service"
 import * as supabaseServerModule from "@/lib/supabase/server";
 import * as supabaseAdminModule from "@/lib/supabase/admin";
 
+function createMockUpsert() {
+  return vi.fn().mockImplementation(() => {
+    const selectPromise = Promise.resolve({ data: [], error: null });
+    const selectMock = vi.fn().mockReturnValue(
+      Object.assign(selectPromise, {
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      })
+    );
+    const upsertPromise = Promise.resolve({ data: null, error: null });
+    return Object.assign(upsertPromise, {
+      select: selectMock,
+      error: null,
+      data: null,
+    });
+  });
+}
+
 describe("[UNIT-ASAAS-WEBHOOK-SECURITY] Blindagem e Descarte Silencioso Seguro", () => {
   const VALID_TOKEN = "asaas_webhook_secret_live";
 
@@ -267,6 +285,7 @@ describe("[UNIT-ASAAS-WEBHOOK-SECURITY] Blindagem e Descarte Silencioso Seguro",
             }),
           }),
           update: mockUpdate,
+          upsert: createMockUpsert(),
         }),
       };
 
