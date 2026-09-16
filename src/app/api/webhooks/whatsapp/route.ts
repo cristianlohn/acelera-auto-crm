@@ -20,6 +20,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateShortCode } from "@/lib/utils/nanoid";
+import { buildNewLeadAlertMessage } from "@/lib/services/whatsapp/templates";
 
 /**
  * Extrai o token de autenticação da requisição (query params ou headers).
@@ -567,24 +568,33 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Busca dados do perfil do vendedor sorteado para composição das mensagens
+    let sellerProfileData: { full_name?: string | null; phone?: string | null } | null = null;
+    if (assignedTo) {
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, phone")
+          .eq("id", assignedTo)
+          .maybeSingle();
+        sellerProfileData = profile;
+      } catch (err) {
+        console.warn("[WhatsApp Webhook] Falha ao consultar perfil do vendedor:", err);
+      }
+    }
+
     // Disparo da resposta automática de boas-vindas via Evolution API
-    const evolutionUrl = process.env.EVOLUTION_API_URL?.replace(/\/$/, "");
-    const evolutionKey = process.env.EVOLUTION_API_KEY;
+    const evolutionUrl = (process.env.EVOLUTION_API_URL || process.env.WHATSAPP_API_URL)?.replace(/\/$/, "");
+    const evolutionKey = process.env.EVOLUTION_API_KEY || process.env.WHATSAPP_API_KEY;
     const instanceName = `org_${organizationId.replace(/-/g, "_")}`;
 
     if (evolutionUrl && evolutionKey) {
       try {
         let sellerFirstName = "Consultor";
-        if (assignedTo) {
-          const { data: sellerProfile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", assignedTo)
-            .maybeSingle();
-
-          if (sellerProfile?.full_name) {
-            sellerFirstName = sellerProfile.full_name.trim().split(" ")[0] || "Consultor";
-          }
+        if (sellerProfileData?.full_name) {
+          sellerFirstName = sellerProfileData.full_name.trim().split(" ")[0] || "Consultor";
+        } else if (sellerFullName && sellerFullName !== "Roleta Automática") {
+          sellerFirstName = sellerFullName.trim().split(" ")[0] || "Consultor";
         }
 
         const customerName = parsed.senderName ? parsed.senderName.trim() : "Cliente";
@@ -604,6 +614,79 @@ export async function POST(request: NextRequest) {
         });
       } catch (sendErr) {
         console.error("[WhatsApp Webhook] Erro ao enviar mensagem de boas-vindas:", sendErr);
+      }
+    }
+
+    // Notificação do novo lead para o vendedor sorteado via Evolution API
+    if (assignedTo && evolutionUrl && evolutionKey) {
+      try {
+        const rawSellerPhone =
+          (selectedSeller?.phone as string | undefined) ||
+          sellerProfileData?.phone ||
+          null;
+
+        if (rawSellerPhone) {
+          // Sanitização do telefone: remove qualquer caractere não numérico
+          let sanitizedSellerPhone = String(rawSellerPhone).replace(/\D/g, "");
+
+          // Se tiver 10 ou 11 dígitos, adiciona o DDI '55' no início antes de disparar para a Evolution API
+          if (
+            sanitizedSellerPhone.length === 10 ||
+            sanitizedSellerPhone.length === 11
+          ) {
+            sanitizedSellerPhone = `55${sanitizedSellerPhone}`;
+          }
+
+          if (sanitizedSellerPhone) {
+            const sellerDisplayName =
+              sellerProfileData?.full_name ||
+              (selectedSeller?.full_name as string) ||
+              sellerFullName ||
+              "Vendedor";
+
+            const sellerAlertMessage = buildNewLeadAlertMessage(
+              {
+                id: leadId,
+                name: clientName,
+                phone: parsed.phone,
+                vehicleInterest: "Interesse Geral via WhatsApp",
+                vehicle_name: "Interesse Geral via WhatsApp",
+                source: "whatsapp_central",
+                origin: "WhatsApp Central",
+                short_code: shortCode,
+              },
+              {
+                full_name: sellerDisplayName,
+                phone: sanitizedSellerPhone,
+              }
+            );
+
+            await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+              method: "POST",
+              headers: {
+                apikey: evolutionKey,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                number: sanitizedSellerPhone,
+                text: sellerAlertMessage,
+              }),
+            });
+
+            console.log(
+              `[WhatsApp Webhook] Notificação de novo lead enviada com sucesso para vendedor ${sellerDisplayName} (${sanitizedSellerPhone})`
+            );
+          }
+        } else {
+          console.log(
+            `[WhatsApp Webhook] Vendedor sorteado (${assignedTo}) não possui telefone cadastrado para receber alerta.`
+          );
+        }
+      } catch (sellerNotificationErr) {
+        console.error(
+          "[WhatsApp Webhook] Erro ao enviar notificação de lead para o vendedor:",
+          sellerNotificationErr
+        );
       }
     }
 

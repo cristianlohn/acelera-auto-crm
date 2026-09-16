@@ -962,5 +962,110 @@ describe("[UNIT-WHATSAPP-WEBHOOK] Webhook WhatsApp Multi-Gateway & Roleta de Ven
       );
       expect(evoCall).toBeUndefined();
     });
+
+    it("deve disparar notificação de novo lead para o vendedor sorteado com telefone sanitizado com DDI 55", async () => {
+      process.env.EVOLUTION_API_URL = "https://evolution.aceleraauto.com.br";
+      process.env.EVOLUTION_API_KEY = "test_evolution_secret_key";
+
+      // Vendedor 1 configurado com telefone de 11 dígitos sem DDI '55'
+      dbProfiles[0].full_name = "Rafael Martins";
+      dbProfiles[0].phone = "11988887777";
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11977776666",
+        senderName: "Carla Silveira",
+        message: "Gostaria de saber mais sobre o T-Cross",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.status).toBe("created");
+
+      const fetchCalls = vi.mocked(global.fetch).mock.calls;
+      const sendTextCalls = fetchCalls.filter((call) =>
+        String(call[0]).includes("/message/sendText")
+      );
+
+      // Deve ter disparado 2 chamadas: 1 para o cliente (boas-vindas) e 1 para o vendedor (notificação)
+      expect(sendTextCalls.length).toBe(2);
+
+      // Encontra a chamada direcionada ao vendedor
+      const sellerCall = sendTextCalls.find((call) => {
+        const body = JSON.parse(call[1]?.body as string);
+        return body.number === "5511988887777";
+      });
+
+      expect(sellerCall).toBeDefined();
+      const sellerBody = JSON.parse(sellerCall![1]?.body as string);
+      expect(sellerBody.number).toBe("5511988887777");
+      expect(sellerBody.text).toContain("NOVO LEAD NA SUA VEZ");
+      expect(sellerBody.text).toContain("Carla Silveira");
+      expect(sellerBody.text).toContain("11977776666");
+      expect(sellerBody.text).toContain("whatsapp_central");
+    });
+
+    it("deve sanitizar telefone de vendedor de 10 dígitos adicionando DDI 55", async () => {
+      process.env.EVOLUTION_API_URL = "https://evolution.aceleraauto.com.br";
+      process.env.EVOLUTION_API_KEY = "test_evolution_secret_key";
+
+      // Telefone com 10 dígitos (DDD + 8 dígitos)
+      dbProfiles[0].full_name = "Bruno Consultor";
+      dbProfiles[0].phone = "1188887777";
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11977778888",
+        senderName: "Fernanda Lima",
+        message: "Olá, interesse em financiamento",
+      });
+
+      const res = await POST(req);
+      expect(res.status).toBe(201);
+
+      const fetchCalls = vi.mocked(global.fetch).mock.calls;
+      const sellerCall = fetchCalls.find((call) => {
+        const body = JSON.parse(call[1]?.body as string);
+        return body.number === "551188887777";
+      });
+
+      expect(sellerCall).toBeDefined();
+      const sellerBody = JSON.parse(sellerCall![1]?.body as string);
+      expect(sellerBody.number).toBe("551188887777");
+    });
+
+    it("deve garantir que falhas no disparo para a Evolution API não derrubem a resposta 201 do webhook (isolamento de erro)", async () => {
+      process.env.EVOLUTION_API_URL = "https://evolution.aceleraauto.com.br";
+      process.env.EVOLUTION_API_KEY = "test_evolution_secret_key";
+
+      dbProfiles[0].phone = "11999990000";
+
+      // Simula falha catastrófica de rede no fetch
+      global.fetch = vi.fn().mockRejectedValue(new Error("Network timeout: Evolution API offline"));
+
+      const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const req = createRequest(`/api/webhooks/whatsapp?token=${VALID_TOKEN}`, {
+        phone: "11988883333",
+        senderName: "Cliente Resiliente",
+        message: "Testando tolerância a falhas",
+      });
+
+      const res = await POST(req);
+
+      // O webhook DEVE retornar 201 com sucesso mesmo com a API de mensageria fora do ar
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.status).toBe("created");
+      expect(json.leadId).toBeDefined();
+      expect(dbLeads.length).toBe(1);
+
+      // Garante que o erro foi capturado no console.error isolado
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("[WhatsApp Webhook] Erro ao enviar"),
+        expect.any(Error)
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 });
