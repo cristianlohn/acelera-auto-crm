@@ -13,6 +13,7 @@ import {
   Flame,
 } from "lucide-react";
 import { getKanbanLeadsAction } from "@/app/actions/kanban-actions";
+import { getCurrentUserProfileAction } from "@/app/actions/auth";
 import { KanbanBoard } from "@/components/kanban/kanban-board";
 
 export const metadata: Metadata = {
@@ -33,7 +34,12 @@ const NEGOTIATION_STATUSES = [
 ];
 
 export default async function DashboardLeadsPage() {
-  const leads = await getKanbanLeadsAction();
+  const [leads, profile] = await Promise.all([
+    getKanbanLeadsAction(),
+    getCurrentUserProfileAction().catch(() => null),
+  ]);
+
+  const organizationName = profile?.organizationName || null;
 
   // Métricas rápidas de conversão
   const totalLeads = leads.length;
@@ -111,7 +117,7 @@ export default async function DashboardLeadsPage() {
           </div>
         }
       >
-        <KanbanBoard initialLeads={leads} />
+        <KanbanBoard initialLeads={leads} organizationName={organizationName} />
       </Suspense>
     </div>
   );

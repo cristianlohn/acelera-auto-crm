@@ -35,11 +35,13 @@ import { TransferLeadModal } from "@/components/leads/transfer-lead-modal";
 import { getVehicles } from "@/app/actions/vehicles";
 import { updateLeadVehicleAction } from "@/app/actions/lead-actions";
 import type { Vehicle } from "@/types/crm";
-import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
+import { buildWelcomeCustomerMessage, buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
+import { useOrganization } from "@/hooks/use-organization";
 
 export interface LeadDetailsModalProps {
   isOpen: boolean;
   lead: KanbanLead | null;
+  organizationName?: string | null;
   onClose: () => void;
   onUpdateStage: (leadId: string, newStage: LeadStage) => void;
   onUpdateNotes?: (leadId: string, notes: string) => Promise<void> | void;
@@ -76,6 +78,7 @@ function formatDateBR(dateString?: string): string {
 export function LeadDetailsModal({
   isOpen,
   lead,
+  organizationName: propOrgName,
   onClose,
   onUpdateStage,
   onUpdateNotes,
@@ -84,6 +87,9 @@ export function LeadDetailsModal({
   availableSellers,
   availableVehicles: propVehicles,
 }: LeadDetailsModalProps) {
+  const { organizationName: currentOrgName } = useOrganization();
+  const organizationName = propOrgName || currentOrgName;
+
   const [prevLeadId, setPrevLeadId] = useState<string | null>(null);
   const [notes, setNotes] = useState(lead?.notes || "");
   const [isSavingNotes, setIsSavingNotes] = useState(false);
@@ -138,15 +144,13 @@ export function LeadDetailsModal({
   if (!isOpen || !lead) return null;
 
   const cleanPhone = lead.phone ? lead.phone.replace(/\D/g, "") : "";
-  const whatsappDirectMessage = encodeURIComponent(
-    buildWelcomeCustomerMessage({
-      customerName: lead.name,
-      sellerName: lead.assigned_to_name,
-      vehicle: lead.vehicle_of_interest,
-    })
-  );
   const whatsappUrl = cleanPhone
-    ? `https://wa.me/${cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`}?text=${whatsappDirectMessage}`
+    ? buildWhatsAppDirectUrl(cleanPhone, {
+        customerName: lead.name,
+        sellerName: lead.assigned_to_name,
+        organizationName,
+        vehicle: lead.vehicle_of_interest,
+      })
     : "#";
 
   const handleSaveNotes = async () => {

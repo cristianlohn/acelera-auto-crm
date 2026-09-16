@@ -25,14 +25,21 @@ vi.mock("@/lib/supabase/admin", () => ({
           if (col === "short_code" && (!mockLeadRow || mockLeadRow.short_code !== val)) {
             return {
               single: vi.fn().mockResolvedValue({ data: null, error: new Error("Not found") }),
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
             };
           }
           return builder;
         }),
         single: vi.fn().mockImplementation(() =>
           Promise.resolve({
-            data: mockLeadRow,
+            data: table === "organizations" ? { name: "Auto Prime Motors" } : mockLeadRow,
             error: mockLeadRow ? null : new Error("Not found"),
+          })
+        ),
+        maybeSingle: vi.fn().mockImplementation(() =>
+          Promise.resolve({
+            data: table === "organizations" ? { name: "Auto Prime Motors" } : mockLeadRow,
+            error: null,
           })
         ),
         update: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
@@ -152,6 +159,15 @@ describe("[UNIT-SHORT-ROUTES] Gerador de Short Code e Redirecionamento Encurtado
       expect(location).not.toContain("Interesse Geral");
       expect(location).not.toContain("concessionária");
       expect(location).toContain("destaques do nosso estoque");
+    });
+
+    it("[TEST-ROUTE-W-5] deve incluir o nome da organização na mensagem do WhatsApp via /w/[code]", async () => {
+      const req = new NextRequest("http://localhost:3000/w/k9Xp2A");
+      const res = await handleWhatsAppShortRoute(req, { params: Promise.resolve({ code: "k9Xp2A" }) });
+
+      expect(res.status).toBe(302);
+      const location = decodeURIComponent(res.headers.get("location") || "");
+      expect(location).toContain("Auto Prime Motors");
     });
   });
 

@@ -35,7 +35,8 @@ import { cn } from "@/lib/utils";
 import type { KanbanLead, LeadStage, KanbanColumnConfig } from "@/types/kanban";
 import type { Lead, LeadStatus } from "@/types/crm";
 import { toast } from "sonner";
-import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
+import { buildWelcomeCustomerMessage, buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
+import { useOrganization } from "@/hooks/use-organization";
 
 // ---------------------------------------------------------------------------
 // Definições de Estágios e Mapeamentos Unificados
@@ -221,6 +222,7 @@ function getMobileSourceBadge(origin: string) {
 export interface MobileKanbanTabsProps<T extends KanbanLead | Lead = KanbanLead | Lead> {
   columns?: KanbanColumnConfig[];
   leads?: (KanbanLead | Lead)[];
+  organizationName?: string | null;
   onMoveStage?: (leadId: string, targetStage: LeadStage) => void;
   onMoveLead?: (leadId: string, newStatus: LeadStatus) => void;
   onSelectLead?: (lead: T) => void;
@@ -230,11 +232,15 @@ export interface MobileKanbanTabsProps<T extends KanbanLead | Lead = KanbanLead 
 export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead>({
   columns,
   leads,
+  organizationName: propOrgName,
   onMoveStage,
   onMoveLead,
   onSelectLead,
   className,
 }: MobileKanbanTabsProps<T>) {
+  const { organizationName: currentOrgName } = useOrganization();
+  const organizationName = propOrgName || currentOrgName;
+
   // 1. Extração e normalização dos leads
   const allLeads: NormalizedLead[] = useMemo(() => {
     if (columns && columns.length > 0) {
@@ -330,15 +336,13 @@ export function MobileKanbanTabs<T extends KanbanLead | Lead = KanbanLead | Lead
       toast.error("Lead sem telefone cadastrado");
       return;
     }
-    const fullPhone = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
-    const defaultMsg = encodeURIComponent(
-      buildWelcomeCustomerMessage({
-        customerName: lead.name,
-        sellerName: lead.sellerName,
-        vehicle: lead.vehicle,
-      })
-    );
-    window.open(`https://wa.me/${fullPhone}?text=${defaultMsg}`, "_blank", "noopener,noreferrer");
+    const directUrl = buildWhatsAppDirectUrl(cleanPhone, {
+      customerName: lead.name,
+      sellerName: lead.sellerName,
+      organizationName,
+      vehicle: lead.vehicle,
+    });
+    window.open(directUrl, "_blank", "noopener,noreferrer");
   };
 
   return (

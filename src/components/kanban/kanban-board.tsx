@@ -49,14 +49,16 @@ const NEGOTIATION_STATUSES = [
 
 export interface KanbanBoardProps {
   initialLeads: KanbanLead[];
+  organizationName?: string | null;
 }
 
-export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
+export function KanbanBoard({ initialLeads, organizationName: initialOrgName }: KanbanBoardProps) {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [leads, setLeads] = useState<KanbanLead[]>(initialLeads);
   const [prevInitialLeads, setPrevInitialLeads] = useState<KanbanLead[]>(initialLeads);
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [organizationName, setOrganizationName] = useState<string | null>(initialOrgName || null);
   const [currentUserProfile, setCurrentUserProfile] = useState<{
     id?: string;
     name?: string;
@@ -88,6 +90,9 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
           });
           if (p.organizationId) {
             setOrganizationId(p.organizationId);
+          }
+          if (p.organizationName) {
+            setOrganizationName(p.organizationName);
           }
         }
       })
@@ -530,6 +535,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
               <KanbanColumn
                 key={col.id}
                 column={col}
+                organizationName={organizationName}
                 onDropLead={handleDropLead}
                 onMoveStage={handleDropLead}
                 onSelectLead={(lead) => setSelectedLead(lead)}
@@ -541,6 +547,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
           <div className="block md:hidden">
             <MobileKanbanTabs<KanbanLead>
               columns={columns}
+              organizationName={organizationName}
               onMoveStage={handleDropLead}
               onSelectLead={(lead) => setSelectedLead(lead)}
             />
@@ -553,6 +560,7 @@ export function KanbanBoard({ initialLeads }: KanbanBoardProps) {
         <LeadDetailsModal
           isOpen={!!selectedLead}
           lead={selectedLead}
+          organizationName={organizationName}
           onClose={() => setSelectedLead(null)}
           onUpdateStage={(leadId, newStage) => {
             handleDropLead(leadId, newStage);

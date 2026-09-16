@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
+import { buildWelcomeCustomerMessage, buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
 
 export async function GET(
   request: NextRequest,
@@ -44,30 +44,26 @@ export async function GET(
   let orgName: string | undefined;
   if (lead.organization_id) {
     try {
-      const orgQuery = supabaseAdmin
+      const { data: orgData, error: orgError } = await supabaseAdmin
         .from("organizations")
         .select("name")
-        .eq("id", lead.organization_id);
-      const res = typeof orgQuery.maybeSingle === "function"
-        ? await orgQuery.maybeSingle()
-        : typeof orgQuery.single === "function"
-        ? await orgQuery.single()
-        : null;
-      if (res?.data?.name) {
-        orgName = res.data.name;
+        .eq("id", lead.organization_id)
+        .maybeSingle();
+
+      if (!orgError && orgData?.name) {
+        orgName = orgData.name;
       }
     } catch {
       // Ignora erro ao obter organização
     }
   }
 
-  const message = buildWelcomeCustomerMessage({
+  const whatsappUrl = buildWhatsAppDirectUrl(targetPhone, {
     customerName: lead.name,
     sellerName: (lead as Record<string, unknown>).seller_name as string | undefined,
     organizationName: orgName,
     vehicle: vehicleName,
   });
-  const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
 
   // Se for crawler, apenas redireciona sem tocar no banco
   if (isCrawler) {

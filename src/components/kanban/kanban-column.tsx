@@ -14,6 +14,7 @@ import { Plus } from "lucide-react";
 
 interface KanbanColumnProps {
   column: KanbanColumnConfig;
+  organizationName?: string | null;
   onDropLead: (leadId: string, targetStage: LeadStage) => void;
   onMoveStage?: (leadId: string, targetStage: LeadStage) => void;
   onSelectLead?: (lead: KanbanLead) => void;
@@ -33,6 +34,7 @@ function formatPipelineSum(value: number): string {
 
 export function KanbanColumn({
   column,
+  organizationName,
   onDropLead,
   onMoveStage,
   onSelectLead,
@@ -117,6 +119,7 @@ export function KanbanColumn({
           <KanbanCard
             key={lead.id}
             lead={lead}
+            organizationName={organizationName}
             onMoveStage={onMoveStage}
             onSelectLead={onSelectLead}
           />

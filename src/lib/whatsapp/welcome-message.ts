@@ -105,11 +105,13 @@ export function buildWelcomeCustomerMessage(
     ? `Vi que você se interessou pelo *${rawV}*. Ele está disponível aqui no pátio! Quer ver fotos ou simular entrada?`
     : `Recebi seu contato por aqui! Já tem algum modelo em mente ou gostaria de conhecer os destaques do nosso estoque?`;
 
-  return `Olá, ${customerFirstName}! Seja bem-vindo(a)! ${sellerGreeting}. 👋\n\n${vehicleCopy}\n\nEstou à disposição para tirar dúvidas e te atender por aqui em instantes. 🚗💨`;
+  // Utiliza escapes Unicode (\u{1F44B} para 👋 e \u{1F697} para 🚗) para imunidade contra corrupção de encoding
+  return `Olá, ${customerFirstName}! Seja bem-vindo(a)! ${sellerGreeting}. \u{1F44B}\n\n${vehicleCopy}\n\nEstou à disposição para tirar dúvidas e te atender por aqui em instantes. \u{1F697}`;
 }
 
 /**
  * Gera a URL direta do WhatsApp (wa.me) higienizando o telefone e codificando a mensagem.
+ * Evita duplicação de encoding se a mensagem já contiver sequências percent-encoded.
  */
 export function buildWhatsAppDirectUrl(
   phone: string,
@@ -120,10 +122,19 @@ export function buildWhatsAppDirectUrl(
   if (!digits) return "#";
 
   const fullPhone = digits.startsWith("55") ? digits : `55${digits}`;
-  const messageText =
+  let rawText =
     typeof paramsOrMessage === "string"
       ? paramsOrMessage
       : buildWelcomeCustomerMessage(paramsOrMessage);
 
-  return `https://wa.me/${fullPhone}?text=${encodeURIComponent(messageText)}`;
+  // Previne dupla codificação caso a mensagem já venha URL-encoded
+  try {
+    if (/%[0-9A-Fa-f]{2}/.test(rawText)) {
+      rawText = decodeURIComponent(rawText);
+    }
+  } catch {
+    // Mantém rawText inalterado caso falhe
+  }
+
+  return `https://wa.me/${fullPhone}?text=${encodeURIComponent(rawText)}`;
 }

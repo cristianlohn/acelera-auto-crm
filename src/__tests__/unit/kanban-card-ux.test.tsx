@@ -92,4 +92,21 @@ describe("[UNIT-KANBAN-CARD-UX] Melhorias de UX no Card do Kanban", () => {
     expect(priceText).not.toBeNull();
     expect(priceText?.textContent).toContain("168.000");
   });
+
+  it("deve gerar o link de WhatsApp contendo o nome da organização e emojis Unicode corretos", () => {
+    const lead: KanbanLead = {
+      ...baseLead,
+      vehicle_of_interest: "Jeep Compass 2023",
+    };
+
+    render(<KanbanCard lead={lead} organizationName="Auto Prime Motors" />);
+
+    const waButton = screen.getByTestId("btn-whatsapp-lead");
+    const href = waButton.getAttribute("href") || "";
+    const decodedHref = decodeURIComponent(href);
+    expect(decodedHref).toContain("Auto Prime Motors");
+    expect(decodedHref).toContain("Clara");
+    expect(decodedHref).toContain("Jeep Compass 2023");
+    expect(decodedHref).not.toContain("da nossa loja");
+  });
 });

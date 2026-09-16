@@ -19,10 +19,12 @@ import {
 import type { KanbanLead, LeadStage } from "@/types/kanban";
 import { KANBAN_STAGES_CONFIG } from "@/types/kanban";
 import { cn } from "@/lib/utils";
-import { buildWelcomeCustomerMessage } from "@/lib/whatsapp/welcome-message";
+import { buildWelcomeCustomerMessage, buildWhatsAppDirectUrl } from "@/lib/whatsapp/welcome-message";
+import { useOrganization } from "@/hooks/use-organization";
 
 interface KanbanCardProps {
   lead: KanbanLead;
+  organizationName?: string | null;
   onMoveStage?: (leadId: string, targetStage: LeadStage) => void;
   onSelectLead?: (lead: KanbanLead) => void;
 }
@@ -128,7 +130,15 @@ function getSourceBadge(source: string) {
   return { label: source || "Direto", className: "bg-zinc-800 text-zinc-300 border-zinc-700" };
 }
 
-export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps) {
+export function KanbanCard({
+  lead,
+  organizationName: propOrgName,
+  onMoveStage,
+  onSelectLead,
+}: KanbanCardProps) {
+  const { organizationName: currentOrgName } = useOrganization();
+  const organizationName = propOrgName || currentOrgName;
+
   const slaConfig = getSlaBadgeConfig(lead.sla_minutes_elapsed, lead.stage);
   const sourceConfig = getSourceBadge(lead.source);
   const cleanPhone = lead.phone ? lead.phone.replace(/\D/g, "") : "";
@@ -169,15 +179,13 @@ export function KanbanCard({ lead, onMoveStage, onSelectLead }: KanbanCardProps)
     !isNaN(numericValue) &&
     numericValue > 0;
 
-  const whatsappDirectMessage = encodeURIComponent(
-    buildWelcomeCustomerMessage({
-      customerName: lead.name,
-      sellerName: lead.assigned_to_name,
-      vehicle: hasSpecificVehicle ? rawVehicle : null,
-    })
-  );
   const whatsappUrl = cleanPhone
-    ? `https://wa.me/${cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`}?text=${whatsappDirectMessage}`
+    ? buildWhatsAppDirectUrl(cleanPhone, {
+        customerName: lead.name,
+        sellerName: lead.assigned_to_name,
+        organizationName,
+        vehicle: hasSpecificVehicle ? rawVehicle : null,
+      })
     : "#";
 
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
